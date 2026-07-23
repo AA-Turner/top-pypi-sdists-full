@@ -1533,6 +1533,8 @@ cluster.add_nodegroup_capacity("NodeGroup",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1546,86 +1548,43 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    Duration as _Duration_4839e8c3,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    Size as _Size_7b441c34,
-    TagManager as _TagManager_0a598cb3,
-)
-from ..aws_autoscaling import (
-    AutoScalingGroup as _AutoScalingGroup_c547a7b9,
-    BlockDevice as _BlockDevice_0cfc0568,
-    CapacityDistributionStrategy as _CapacityDistributionStrategy_2393ccfe,
-    CommonAutoScalingGroupProps as _CommonAutoScalingGroupProps_808bbf2d,
-    DeletionProtection as _DeletionProtection_3beb1830,
-    GroupMetrics as _GroupMetrics_7cdf729b,
-    HealthCheck as _HealthCheck_03a4bd5a,
-    HealthChecks as _HealthChecks_b8757873,
-    InstanceLifecyclePolicy as _InstanceLifecyclePolicy_af241466,
-    Monitoring as _Monitoring_50020f91,
-    NotificationConfiguration as _NotificationConfiguration_d5911670,
-    Signals as _Signals_69fbeb6e,
-    TerminationPolicy as _TerminationPolicy_89633c56,
-    UpdatePolicy as _UpdatePolicy_6dffc7ca,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    IKeyPair as _IKeyPair_bc344eda,
-    IMachineImage as _IMachineImage_0e8bd50b,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    ISubnet as _ISubnet_d57d1229,
-    IVpc as _IVpc_f30d5663,
-    InstanceType as _InstanceType_f64915b9,
-    MachineImageConfig as _MachineImageConfig_187edaee,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_iam import (
-    AddToPrincipalPolicyResult as _AddToPrincipalPolicyResult_946c9561,
-    IOpenIdConnectProvider as _IOpenIdConnectProvider_203f0793,
-    IPrincipal as _IPrincipal_539bb2fd,
-    IRole as _IRole_235f5d8e,
-    OidcProviderNative as _OidcProviderNative_18002ae4,
-    OpenIdConnectProvider as _OpenIdConnectProvider_5cb7bc9f,
-    PolicyStatement as _PolicyStatement_0fe33853,
-    PrincipalPolicyFragment as _PrincipalPolicyFragment_6a855d11,
-)
-from ..aws_lambda import ILayerVersion as _ILayerVersion_5ac127c8
-from ..aws_s3_assets import Asset as _Asset_ac2a7e61
-from ..interfaces.aws_eks import (
-    AccessEntryReference as _AccessEntryReference_447195cd,
-    AddonReference as _AddonReference_afb1bd13,
-    ClusterReference as _ClusterReference_d6e6b9ff,
-    IAccessEntryRef as _IAccessEntryRef_14bb9c0a,
-    IAddonRef as _IAddonRef_fb5de88c,
-    IClusterRef as _IClusterRef_5527f448,
-    INodegroupRef as _INodegroupRef_cac0d8aa,
-    NodegroupReference as _NodegroupReference_eab944f6,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_autoscaling as _aws_autoscaling_6cbf8045
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_s3_assets as _aws_s3_assets_2dba96fa
+    import aws_cdk.interfaces.aws_eks as _aws_eks_c5926efb
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_autoscaling_6cbf8045 = _LazyImport("aws_cdk.aws_autoscaling")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_eks_c5926efb = _LazyImport("aws_cdk.interfaces.aws_eks")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_s3_assets_2dba96fa = _LazyImport("aws_cdk.aws_s3_assets")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -1662,7 +1621,7 @@ class AccessEntryAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74ff0d4e31fc232f50ec6deba77cb81f4fb5845640f58041046e6014a98f5349)
+            type_hints = cached_type_hints(_typecheckingstub__74ff0d4e31fc232f50ec6deba77cb81f4fb5845640f58041046e6014a98f5349)
             check_type(argname="argument access_entry_arn", value=access_entry_arn, expected_type=type_hints["access_entry_arn"])
             check_type(argname="argument access_entry_name", value=access_entry_name, expected_type=type_hints["access_entry_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1717,7 +1676,7 @@ class AccessEntryProps:
         principal: builtins.str,
         access_entry_name: typing.Optional[builtins.str] = None,
         access_entry_type: typing.Optional["AccessEntryType"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Represents the properties required to create an Amazon EKS access entry.
 
@@ -1752,7 +1711,7 @@ class AccessEntryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d41ffcd9c9b81f2eb3b57e856565badd460fd76ba6e94407016e97fbe71e2e93)
+            type_hints = cached_type_hints(_typecheckingstub__d41ffcd9c9b81f2eb3b57e856565badd460fd76ba6e94407016e97fbe71e2e93)
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
@@ -1811,7 +1770,7 @@ class AccessEntryProps:
         return typing.cast(typing.Optional["AccessEntryType"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the access entry.
 
         The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
@@ -1824,7 +1783,7 @@ class AccessEntryProps:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1931,7 +1890,7 @@ class AccessPolicyArn(
         :param policy_name: - The name of the Amazon EKS access policy. This is used to construct the policy ARN.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96a237b0f2cfab19d79117494ac74e6238ff1b3f480722f7397495ec42935073)
+            type_hints = cached_type_hints(_typecheckingstub__96a237b0f2cfab19d79117494ac74e6238ff1b3f480722f7397495ec42935073)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
         jsii.create(self.__class__, self, [policy_name])
 
@@ -1945,7 +1904,7 @@ class AccessPolicyArn(
         :return: A new instance of the AccessPolicy class.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d82653df0194bb22dd76fc4eece2e78a6f4587af11e18bfb3e9af007005ec909)
+            type_hints = cached_type_hints(_typecheckingstub__d82653df0194bb22dd76fc4eece2e78a6f4587af11e18bfb3e9af007005ec909)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
         return typing.cast("AccessPolicyArn", jsii.sinvoke(cls, "of", [policy_name]))
 
@@ -2050,7 +2009,7 @@ class AccessPolicyNameOptions:
             ], access_entry_type=eks.AccessEntryType.EC2)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dff1b0b387fb8027e6aac0f02cc65e0f2374f9905525c8e2820653e0a2e86ab0)
+            type_hints = cached_type_hints(_typecheckingstub__dff1b0b387fb8027e6aac0f02cc65e0f2374f9905525c8e2820653e0a2e86ab0)
             check_type(argname="argument access_scope_type", value=access_scope_type, expected_type=type_hints["access_scope_type"])
             check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2130,7 +2089,7 @@ class AccessPolicyProps:
         if isinstance(access_scope, dict):
             access_scope = AccessScope(**access_scope)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8865fa4a16d35049e4c14ad235632b968637b3b2ef3009b51b8dbb010dcbaaf)
+            type_hints = cached_type_hints(_typecheckingstub__f8865fa4a16d35049e4c14ad235632b968637b3b2ef3009b51b8dbb010dcbaaf)
             check_type(argname="argument access_scope", value=access_scope, expected_type=type_hints["access_scope"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2201,7 +2160,7 @@ class AccessScope:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5f22be5c9e99863839d12fee0ecae363a8a609eb9205801f3ace86534f407e3)
+            type_hints = cached_type_hints(_typecheckingstub__b5f22be5c9e99863839d12fee0ecae363a8a609eb9205801f3ace86534f407e3)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2297,7 +2256,7 @@ class AddonAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78ada43f0a3b31dd320bd9eff13550c1f471682e5b0bda0a274f68a371bb6d87)
+            type_hints = cached_type_hints(_typecheckingstub__78ada43f0a3b31dd320bd9eff13550c1f471682e5b0bda0a274f68a371bb6d87)
             check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2352,7 +2311,7 @@ class AddonProps:
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         preserve_on_delete: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Properties for creating an Amazon EKS Add-On.
 
@@ -2382,7 +2341,7 @@ class AddonProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d11ec069708c7b4208a323d8379cab46576729e75eb29e4c9e64df4e798fd88)
+            type_hints = cached_type_hints(_typecheckingstub__1d11ec069708c7b4208a323d8379cab46576729e75eb29e4c9e64df4e798fd88)
             check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument addon_version", value=addon_version, expected_type=type_hints["addon_version"])
@@ -2453,7 +2412,7 @@ class AddonProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the EKS add-on.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -2466,7 +2425,7 @@ class AddonProps:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2529,7 +2488,7 @@ class AlbController(
         additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -2544,7 +2503,7 @@ class AlbController(
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8de1a5fab31e27ea56ec8314431ac439667aa7b3a5634280a9817f052982292c)
+            type_hints = cached_type_hints(_typecheckingstub__8de1a5fab31e27ea56ec8314431ac439667aa7b3a5634280a9817f052982292c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AlbControllerProps(
@@ -2570,7 +2529,7 @@ class AlbController(
         additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> "AlbController":
         '''Create the controller construct associated with this cluster and scope.
@@ -2587,7 +2546,7 @@ class AlbController(
         :param repository: The repository to pull the controller image from. Note that the default repository works for most regions, but not all. If the repository is not applicable to your region, use a custom repository according to the information here: https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases. Default: '602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41d1cff94c29713e5c5b7bb7ba2b00b4278e38ed60ba8a6db024eea79b759762)
+            type_hints = cached_type_hints(_typecheckingstub__41d1cff94c29713e5c5b7bb7ba2b00b4278e38ed60ba8a6db024eea79b759762)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         props = AlbControllerProps(
             cluster=cluster,
@@ -2622,7 +2581,7 @@ class AlbControllerOptions:
         additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for ``AlbController``.
@@ -2647,7 +2606,7 @@ class AlbControllerOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc3b82a59d8b4ad560f5757657e3397afe031e63d197ae8f3fc25327bece995d)
+            type_hints = cached_type_hints(_typecheckingstub__fc3b82a59d8b4ad560f5757657e3397afe031e63d197ae8f3fc25327bece995d)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
@@ -2717,7 +2676,7 @@ class AlbControllerOptions:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the ALB controller resources.
 
         The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
@@ -2730,7 +2689,7 @@ class AlbControllerOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -2778,7 +2737,7 @@ class AlbControllerProps(AlbControllerOptions):
         additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
         policy: typing.Any = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         cluster: "Cluster",
     ) -> None:
@@ -2821,7 +2780,7 @@ class AlbControllerProps(AlbControllerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cde38e59a61de7f0bc23764fca6ef8ffc2d9c2007d5c7c13a0350fb7761eeb0)
+            type_hints = cached_type_hints(_typecheckingstub__5cde38e59a61de7f0bc23764fca6ef8ffc2d9c2007d5c7c13a0350fb7761eeb0)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument additional_helm_chart_values", value=additional_helm_chart_values, expected_type=type_hints["additional_helm_chart_values"])
             check_type(argname="argument overwrite_service_account", value=overwrite_service_account, expected_type=type_hints["overwrite_service_account"])
@@ -2893,7 +2852,7 @@ class AlbControllerProps(AlbControllerOptions):
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the ALB controller resources.
 
         The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
@@ -2906,7 +2865,7 @@ class AlbControllerProps(AlbControllerOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -2980,7 +2939,7 @@ class AlbControllerVersion(
         :param helm_chart_version: The version of the helm chart. Version 1.4.1 is the default version to support legacy users.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e5bc4c0842880bd155fb4ca89e2ad6bd5ba51c35fef2f63867918ecb8a1264c)
+            type_hints = cached_type_hints(_typecheckingstub__1e5bc4c0842880bd155fb4ca89e2ad6bd5ba51c35fef2f63867918ecb8a1264c)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument helm_chart_version", value=helm_chart_version, expected_type=type_hints["helm_chart_version"])
         return typing.cast("AlbControllerVersion", jsii.sinvoke(cls, "of", [version, helm_chart_version]))
@@ -3371,7 +3330,7 @@ class AlbScheme(enum.Enum):
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks_v2.AutoScalingGroupCapacityOptions",
-    jsii_struct_bases=[_CommonAutoScalingGroupProps_808bbf2d],
+    jsii_struct_bases=[_aws_autoscaling_6cbf8045.CommonAutoScalingGroupProps],
     name_mapping={
         "allow_all_outbound": "allowAllOutbound",
         "associate_public_ip_address": "associatePublicIpAddress",
@@ -3409,41 +3368,43 @@ class AlbScheme(enum.Enum):
         "machine_image_type": "machineImageType",
     },
 )
-class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
+class AutoScalingGroupCapacityOptions(
+    _aws_autoscaling_6cbf8045.CommonAutoScalingGroupProps,
+):
     def __init__(
         self,
         *,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
         associate_public_ip_address: typing.Optional[builtins.bool] = None,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
-        az_capacity_distribution_strategy: typing.Optional["_CapacityDistributionStrategy_2393ccfe"] = None,
-        block_devices: typing.Optional[typing.Sequence[typing.Union["_BlockDevice_0cfc0568", typing.Dict[builtins.str, typing.Any]]]] = None,
+        az_capacity_distribution_strategy: typing.Optional["_aws_autoscaling_6cbf8045.CapacityDistributionStrategy"] = None,
+        block_devices: typing.Optional[typing.Sequence[typing.Union["_aws_autoscaling_6cbf8045.BlockDevice", typing.Dict[builtins.str, typing.Any]]]] = None,
         capacity_rebalance: typing.Optional[builtins.bool] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
-        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        default_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        deletion_protection: typing.Optional["_aws_autoscaling_6cbf8045.DeletionProtection"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
-        health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
-        health_checks: typing.Optional["_HealthChecks_b8757873"] = None,
+        group_metrics: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.GroupMetrics"]] = None,
+        health_check: typing.Optional["_aws_autoscaling_6cbf8045.HealthCheck"] = None,
+        health_checks: typing.Optional["_aws_autoscaling_6cbf8045.HealthChecks"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
-        instance_lifecycle_policy: typing.Optional[typing.Union["_InstanceLifecyclePolicy_af241466", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_monitoring: typing.Optional["_Monitoring_50020f91"] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_monitoring: typing.Optional["_aws_autoscaling_6cbf8045.Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
+        key_pair: typing.Optional["_aws_ec2_09840e12.IKeyPair"] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
-        max_instance_lifetime: typing.Optional["_Duration_4839e8c3"] = None,
+        max_instance_lifetime: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
-        notifications: typing.Optional[typing.Sequence[typing.Union["_NotificationConfiguration_d5911670", typing.Dict[builtins.str, typing.Any]]]] = None,
-        signals: typing.Optional["_Signals_69fbeb6e"] = None,
+        notifications: typing.Optional[typing.Sequence[typing.Union["_aws_autoscaling_6cbf8045.NotificationConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
+        signals: typing.Optional["_aws_autoscaling_6cbf8045.Signals"] = None,
         spot_price: typing.Optional[builtins.str] = None,
         ssm_session_permissions: typing.Optional[builtins.bool] = None,
-        termination_policies: typing.Optional[typing.Sequence["_TerminationPolicy_89633c56"]] = None,
+        termination_policies: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.TerminationPolicy"]] = None,
         termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
-        update_policy: typing.Optional["_UpdatePolicy_6dffc7ca"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_type: "_InstanceType_f64915b9",
+        update_policy: typing.Optional["_aws_autoscaling_6cbf8045.UpdatePolicy"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_type: "_aws_ec2_09840e12.InstanceType",
         bootstrap_enabled: typing.Optional[builtins.bool] = None,
         bootstrap_options: typing.Optional[typing.Union["BootstrapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         machine_image_type: typing.Optional["MachineImageType"] = None,
@@ -3501,13 +3462,13 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
             )
         '''
         if isinstance(instance_lifecycle_policy, dict):
-            instance_lifecycle_policy = _InstanceLifecyclePolicy_af241466(**instance_lifecycle_policy)
+            instance_lifecycle_policy = _aws_autoscaling_6cbf8045.InstanceLifecyclePolicy(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if isinstance(bootstrap_options, dict):
             bootstrap_options = BootstrapOptions(**bootstrap_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__391f701643a31c9041c2732176c0e9385d97aecf409a768988a75f2f7fbb1f00)
+            type_hints = cached_type_hints(_typecheckingstub__391f701643a31c9041c2732176c0e9385d97aecf409a768988a75f2f7fbb1f00)
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument associate_public_ip_address", value=associate_public_ip_address, expected_type=type_hints["associate_public_ip_address"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
@@ -3646,16 +3607,18 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
     @builtins.property
     def az_capacity_distribution_strategy(
         self,
-    ) -> typing.Optional["_CapacityDistributionStrategy_2393ccfe"]:
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.CapacityDistributionStrategy"]:
         '''The strategy for distributing instances across Availability Zones.
 
         :default: None
         '''
         result = self._values.get("az_capacity_distribution_strategy")
-        return typing.cast(typing.Optional["_CapacityDistributionStrategy_2393ccfe"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.CapacityDistributionStrategy"], result)
 
     @builtins.property
-    def block_devices(self) -> typing.Optional[typing.List["_BlockDevice_0cfc0568"]]:
+    def block_devices(
+        self,
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.BlockDevice"]]:
         '''Specifies how block devices are exposed to the instance. You can specify virtual devices and EBS volumes.
 
         Each instance that is launched has an associated root device volume,
@@ -3670,7 +3633,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html
         '''
         result = self._values.get("block_devices")
-        return typing.cast(typing.Optional[typing.List["_BlockDevice_0cfc0568"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.BlockDevice"]], result)
 
     @builtins.property
     def capacity_rebalance(self) -> typing.Optional[builtins.bool]:
@@ -3688,16 +3651,16 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cooldown(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def cooldown(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Default scaling cooldown for this AutoScalingGroup.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("cooldown")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def default_instance_warmup(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def default_instance_warmup(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics.
 
         This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics,
@@ -3714,10 +3677,12 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html
         '''
         result = self._values.get("default_instance_warmup")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def deletion_protection(self) -> typing.Optional["_DeletionProtection_3beb1830"]:
+    def deletion_protection(
+        self,
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.DeletionProtection"]:
         '''Deletion protection for the Auto Scaling group.
 
         :default: DeletionProtection.NONE
@@ -3725,7 +3690,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/resource-deletion-protection.html#asg-deletion-protection
         '''
         result = self._values.get("deletion_protection")
-        return typing.cast(typing.Optional["_DeletionProtection_3beb1830"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.DeletionProtection"], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
@@ -3742,7 +3707,9 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def group_metrics(self) -> typing.Optional[typing.List["_GroupMetrics_7cdf729b"]]:
+    def group_metrics(
+        self,
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.GroupMetrics"]]:
         '''Enable monitoring for group metrics, these metrics describe the group rather than any of its instances.
 
         To report all group metrics use ``GroupMetrics.all()``
@@ -3751,10 +3718,10 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :default: - no group metrics will be reported
         '''
         result = self._values.get("group_metrics")
-        return typing.cast(typing.Optional[typing.List["_GroupMetrics_7cdf729b"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.GroupMetrics"]], result)
 
     @builtins.property
-    def health_check(self) -> typing.Optional["_HealthCheck_03a4bd5a"]:
+    def health_check(self) -> typing.Optional["_aws_autoscaling_6cbf8045.HealthCheck"]:
         '''(deprecated) Configuration for health checks.
 
         :default: - HealthCheck.ec2 with no grace period
@@ -3764,10 +3731,12 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :stability: deprecated
         '''
         result = self._values.get("health_check")
-        return typing.cast(typing.Optional["_HealthCheck_03a4bd5a"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.HealthCheck"], result)
 
     @builtins.property
-    def health_checks(self) -> typing.Optional["_HealthChecks_b8757873"]:
+    def health_checks(
+        self,
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.HealthChecks"]:
         '''Configuration for EC2 or additional health checks.
 
         Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included.
@@ -3777,7 +3746,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-health-checks.html
         '''
         result = self._values.get("health_checks")
-        return typing.cast(typing.Optional["_HealthChecks_b8757873"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.HealthChecks"], result)
 
     @builtins.property
     def ignore_unmodified_size_properties(self) -> typing.Optional[builtins.bool]:
@@ -3797,7 +3766,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
     @builtins.property
     def instance_lifecycle_policy(
         self,
-    ) -> typing.Optional["_InstanceLifecyclePolicy_af241466"]:
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy"]:
         '''An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail.
 
         :default: None
@@ -3805,10 +3774,12 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/instance-lifecycle-policy.html
         '''
         result = self._values.get("instance_lifecycle_policy")
-        return typing.cast(typing.Optional["_InstanceLifecyclePolicy_af241466"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy"], result)
 
     @builtins.property
-    def instance_monitoring(self) -> typing.Optional["_Monitoring_50020f91"]:
+    def instance_monitoring(
+        self,
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.Monitoring"]:
         '''Controls whether instances in this group are launched with detailed or basic monitoring.
 
         When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account
@@ -3821,7 +3792,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/latest/userguide/as-instance-monitoring.html#enable-as-instance-metrics
         '''
         result = self._values.get("instance_monitoring")
-        return typing.cast(typing.Optional["_Monitoring_50020f91"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.Monitoring"], result)
 
     @builtins.property
     def key_name(self) -> typing.Optional[builtins.str]:
@@ -3841,7 +3812,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def key_pair(self) -> typing.Optional["_IKeyPair_bc344eda"]:
+    def key_pair(self) -> typing.Optional["_aws_ec2_09840e12.IKeyPair"]:
         '''The SSH keypair to grant access to the instance.
 
         Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property.
@@ -3853,7 +3824,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :default: - No SSH access will be possible.
         '''
         result = self._values.get("key_pair")
-        return typing.cast(typing.Optional["_IKeyPair_bc344eda"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IKeyPair"], result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional[jsii.Number]:
@@ -3865,7 +3836,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def max_instance_lifetime(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_instance_lifetime(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum amount of time that an instance can be in service.
 
         The maximum duration applies
@@ -3880,7 +3851,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/asg-max-instance-lifetime.html
         '''
         result = self._values.get("max_instance_lifetime")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def min_capacity(self) -> typing.Optional[jsii.Number]:
@@ -3912,7 +3883,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
     @builtins.property
     def notifications(
         self,
-    ) -> typing.Optional[typing.List["_NotificationConfiguration_d5911670"]]:
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.NotificationConfiguration"]]:
         '''Configure autoscaling group to send notifications about fleet changes to an SNS topic(s).
 
         :default: - No fleet change notifications will be sent.
@@ -3920,10 +3891,10 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html#cfn-as-group-notificationconfigurations
         '''
         result = self._values.get("notifications")
-        return typing.cast(typing.Optional[typing.List["_NotificationConfiguration_d5911670"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.NotificationConfiguration"]], result)
 
     @builtins.property
-    def signals(self) -> typing.Optional["_Signals_69fbeb6e"]:
+    def signals(self) -> typing.Optional["_aws_autoscaling_6cbf8045.Signals"]:
         '''Configure waiting for signals during deployment.
 
         Use this to pause the CloudFormation deployment to wait for the instances
@@ -3945,7 +3916,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :default: - Do not wait for signals
         '''
         result = self._values.get("signals")
-        return typing.cast(typing.Optional["_Signals_69fbeb6e"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.Signals"], result)
 
     @builtins.property
     def spot_price(self) -> typing.Optional[builtins.str]:
@@ -3983,7 +3954,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
     @builtins.property
     def termination_policies(
         self,
-    ) -> typing.Optional[typing.List["_TerminationPolicy_89633c56"]]:
+    ) -> typing.Optional[typing.List["_aws_autoscaling_6cbf8045.TerminationPolicy"]]:
         '''A policy or a list of policies that are used to select the instances to terminate.
 
         The policies are executed in the order that you list them.
@@ -3993,7 +3964,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-instance-termination.html
         '''
         result = self._values.get("termination_policies")
-        return typing.cast(typing.Optional[typing.List["_TerminationPolicy_89633c56"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_autoscaling_6cbf8045.TerminationPolicy"]], result)
 
     @builtins.property
     def termination_policy_custom_lambda_function_arn(
@@ -4012,7 +3983,9 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def update_policy(self) -> typing.Optional["_UpdatePolicy_6dffc7ca"]:
+    def update_policy(
+        self,
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.UpdatePolicy"]:
         '''What to do when an AutoScalingGroup's instance configuration is changed.
 
         This is applied when any of the settings on the ASG are changed that
@@ -4024,23 +3997,23 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :default: - ``UpdatePolicy.rollingUpdate()`` if using ``init``, ``UpdatePolicy.none()`` otherwise
         '''
         result = self._values.get("update_policy")
-        return typing.cast(typing.Optional["_UpdatePolicy_6dffc7ca"], result)
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.UpdatePolicy"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Where to place instances within the VPC.
 
         :default: - All Private subnets.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def instance_type(self) -> "_InstanceType_f64915b9":
+    def instance_type(self) -> "_aws_ec2_09840e12.InstanceType":
         '''Instance type of the instances to start.'''
         result = self._values.get("instance_type")
         assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast("_InstanceType_f64915b9", result)
+        return typing.cast("_aws_ec2_09840e12.InstanceType", result)
 
     @builtins.property
     def bootstrap_enabled(self) -> typing.Optional[builtins.bool]:
@@ -4132,7 +4105,7 @@ class AutoScalingGroupOptions:
         if isinstance(bootstrap_options, dict):
             bootstrap_options = BootstrapOptions(**bootstrap_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f16f190b231b77037d63293668740b1890c84350977259ca756c2b3af690340d)
+            type_hints = cached_type_hints(_typecheckingstub__f16f190b231b77037d63293668740b1890c84350977259ca756c2b3af690340d)
             check_type(argname="argument bootstrap_enabled", value=bootstrap_enabled, expected_type=type_hints["bootstrap_enabled"])
             check_type(argname="argument bootstrap_options", value=bootstrap_options, expected_type=type_hints["bootstrap_options"])
             check_type(argname="argument machine_image_type", value=machine_image_type, expected_type=type_hints["machine_image_type"])
@@ -4240,7 +4213,7 @@ class BootstrapOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f904654a5122c1c4508d0b1f4fa276f73d101ec61bed458657477c6cfcad2d89)
+            type_hints = cached_type_hints(_typecheckingstub__f904654a5122c1c4508d0b1f4fa276f73d101ec61bed458657477c6cfcad2d89)
             check_type(argname="argument additional_args", value=additional_args, expected_type=type_hints["additional_args"])
             check_type(argname="argument aws_api_retry_attempts", value=aws_api_retry_attempts, expected_type=type_hints["aws_api_retry_attempts"])
             check_type(argname="argument dns_cluster_ip", value=dns_cluster_ip, expected_type=type_hints["dns_cluster_ip"])
@@ -4388,10 +4361,10 @@ class ClusterAttributes:
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider: typing.Optional["IKubectlProvider"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        open_id_connect_provider: typing.Optional["_IOpenIdConnectProvider_203f0793"] = None,
+        open_id_connect_provider: typing.Optional["_aws_iam_1f54b5e8.IOpenIdConnectProvider"] = None,
         prune: typing.Optional[builtins.bool] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Attributes for EKS clusters.
 
@@ -4428,7 +4401,7 @@ class ClusterAttributes:
         if isinstance(kubectl_provider_options, dict):
             kubectl_provider_options = KubectlProviderOptions(**kubectl_provider_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66e301df415ba7f56900494427b4c395a0ce6d0961cc773754d28d465ecf3b45)
+            type_hints = cached_type_hints(_typecheckingstub__66e301df415ba7f56900494427b4c395a0ce6d0961cc773754d28d465ecf3b45)
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument cluster_certificate_authority_data", value=cluster_certificate_authority_data, expected_type=type_hints["cluster_certificate_authority_data"])
             check_type(argname="argument cluster_encryption_config_key_arn", value=cluster_encryption_config_key_arn, expected_type=type_hints["cluster_encryption_config_key_arn"])
@@ -4553,7 +4526,7 @@ class ClusterAttributes:
     @builtins.property
     def open_id_connect_provider(
         self,
-    ) -> typing.Optional["_IOpenIdConnectProvider_203f0793"]:
+    ) -> typing.Optional["_aws_iam_1f54b5e8.IOpenIdConnectProvider"]:
         '''An Open ID Connect provider for this cluster that can be used to configure service accounts.
 
         You can either import an existing provider using ``iam.OpenIdConnectProvider.fromProviderArn``,
@@ -4562,7 +4535,7 @@ class ClusterAttributes:
         :default: - if not specified ``cluster.openIdConnectProvider`` and ``cluster.addServiceAccount`` will throw an error.
         '''
         result = self._values.get("open_id_connect_provider")
-        return typing.cast(typing.Optional["_IOpenIdConnectProvider_203f0793"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IOpenIdConnectProvider"], result)
 
     @builtins.property
     def prune(self) -> typing.Optional[builtins.bool]:
@@ -4590,13 +4563,13 @@ class ClusterAttributes:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC in which this Cluster was created.
 
         :default: - if not specified ``cluster.vpc`` will throw an error
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4648,18 +4621,18 @@ class ClusterCommonOptions:
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        masters_role: typing.Optional["_IRole_235f5d8e"] = None,
+        masters_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         prune: typing.Optional[builtins.bool] = None,
         remote_node_networks: typing.Optional[typing.Sequence[typing.Union["RemoteNodeNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_pod_networks: typing.Optional[typing.Sequence[typing.Union["RemotePodNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        secrets_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        secrets_encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Options for configuring an EKS cluster.
 
@@ -4779,7 +4752,7 @@ class ClusterCommonOptions:
         if isinstance(kubectl_provider_options, dict):
             kubectl_provider_options = KubectlProviderOptions(**kubectl_provider_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1a5ef28766020ab8c83202e5d6dffbece016846b78ba995db3af04cf02e999e)
+            type_hints = cached_type_hints(_typecheckingstub__a1a5ef28766020ab8c83202e5d6dffbece016846b78ba995db3af04cf02e999e)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
@@ -4921,7 +4894,7 @@ class ClusterCommonOptions:
         return typing.cast(typing.Optional["KubectlProviderOptions"], result)
 
     @builtins.property
-    def masters_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def masters_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role that will be added to the ``system:masters`` Kubernetes RBAC group.
 
         :default: - no masters role.
@@ -4929,7 +4902,7 @@ class ClusterCommonOptions:
         :see: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings
         '''
         result = self._values.get("masters_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def prune(self) -> typing.Optional[builtins.bool]:
@@ -4963,7 +4936,7 @@ class ClusterCommonOptions:
         return typing.cast(typing.Optional[typing.List["RemotePodNetwork"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to all CloudFormation resources created by this construct when they are no longer managed by CloudFormation.
 
         This can happen in one of three situations:
@@ -4978,19 +4951,19 @@ class ClusterCommonOptions:
         :default: - Resources will be deleted.
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf.
 
         :default: - A role is automatically created for you
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def secrets_encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def secrets_encryption_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''KMS secret for envelope encryption for Kubernetes secrets.
 
         :default:
@@ -5000,16 +4973,16 @@ class ClusterCommonOptions:
         using AWS-Managed encryption keys.
         '''
         result = self._values.get("secrets_encryption_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security Group to use for Control Plane ENIs.
 
         :default: - A security group is automatically created
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def service_ipv4_cidr(self) -> typing.Optional[builtins.str]:
@@ -5035,16 +5008,18 @@ class ClusterCommonOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC in which to create the Cluster.
 
         :default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List["_SubnetSelection_e57d76df"]]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]]:
         '''Where to place EKS Control Plane ENIs.
 
         For example, to only select private subnets, supply the following:
@@ -5054,7 +5029,7 @@ class ClusterCommonOptions:
         :default: - All public and private subnets
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List["_SubnetSelection_e57d76df"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5141,23 +5116,23 @@ class ClusterProps(ClusterCommonOptions):
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        masters_role: typing.Optional["_IRole_235f5d8e"] = None,
+        masters_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         prune: typing.Optional[builtins.bool] = None,
         remote_node_networks: typing.Optional[typing.Sequence[typing.Union["RemoteNodeNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_pod_networks: typing.Optional[typing.Sequence[typing.Union["RemotePodNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        secrets_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        secrets_encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
         bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
         bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
         compute: typing.Optional[typing.Union["ComputeConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         default_capacity: typing.Optional[jsii.Number] = None,
-        default_capacity_instance: typing.Optional["_InstanceType_f64915b9"] = None,
+        default_capacity_instance: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
         default_capacity_type: typing.Optional["DefaultCapacityType"] = None,
         output_config_command: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -5213,7 +5188,7 @@ class ClusterProps(ClusterCommonOptions):
         if isinstance(compute, dict):
             compute = ComputeConfig(**compute)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf0bb0ee5c6865eff515f2fc338ed96f254860f01b55add3f4ea50523d692c0)
+            type_hints = cached_type_hints(_typecheckingstub__abf0bb0ee5c6865eff515f2fc338ed96f254860f01b55add3f4ea50523d692c0)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
@@ -5376,7 +5351,7 @@ class ClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional["KubectlProviderOptions"], result)
 
     @builtins.property
-    def masters_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def masters_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role that will be added to the ``system:masters`` Kubernetes RBAC group.
 
         :default: - no masters role.
@@ -5384,7 +5359,7 @@ class ClusterProps(ClusterCommonOptions):
         :see: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings
         '''
         result = self._values.get("masters_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def prune(self) -> typing.Optional[builtins.bool]:
@@ -5418,7 +5393,7 @@ class ClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional[typing.List["RemotePodNetwork"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to all CloudFormation resources created by this construct when they are no longer managed by CloudFormation.
 
         This can happen in one of three situations:
@@ -5433,19 +5408,19 @@ class ClusterProps(ClusterCommonOptions):
         :default: - Resources will be deleted.
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf.
 
         :default: - A role is automatically created for you
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def secrets_encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def secrets_encryption_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''KMS secret for envelope encryption for Kubernetes secrets.
 
         :default:
@@ -5455,16 +5430,16 @@ class ClusterProps(ClusterCommonOptions):
         using AWS-Managed encryption keys.
         '''
         result = self._values.get("secrets_encryption_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security Group to use for Control Plane ENIs.
 
         :default: - A security group is automatically created
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def service_ipv4_cidr(self) -> typing.Optional[builtins.str]:
@@ -5490,16 +5465,18 @@ class ClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC in which to create the Cluster.
 
         :default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List["_SubnetSelection_e57d76df"]]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]]:
         '''Where to place EKS Control Plane ENIs.
 
         For example, to only select private subnets, supply the following:
@@ -5509,7 +5486,7 @@ class ClusterProps(ClusterCommonOptions):
         :default: - All public and private subnets
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List["_SubnetSelection_e57d76df"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]], result)
 
     @builtins.property
     def bootstrap_cluster_creator_admin_permissions(
@@ -5565,7 +5542,9 @@ class ClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def default_capacity_instance(self) -> typing.Optional["_InstanceType_f64915b9"]:
+    def default_capacity_instance(
+        self,
+    ) -> typing.Optional["_aws_ec2_09840e12.InstanceType"]:
         '''The instance type to use for the default capacity.
 
         This will only be taken
@@ -5574,7 +5553,7 @@ class ClusterProps(ClusterCommonOptions):
         :default: m5.large
         '''
         result = self._values.get("default_capacity_instance")
-        return typing.cast(typing.Optional["_InstanceType_f64915b9"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.InstanceType"], result)
 
     @builtins.property
     def default_capacity_type(self) -> typing.Optional["DefaultCapacityType"]:
@@ -5619,7 +5598,7 @@ class ComputeConfig:
         self,
         *,
         node_pools: typing.Optional[typing.Sequence[builtins.str]] = None,
-        node_role: typing.Optional["_IRole_235f5d8e"] = None,
+        node_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Options for configuring EKS Auto Mode compute settings.
 
@@ -5641,7 +5620,7 @@ class ComputeConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f2276433261f643c13b2562a74d200173c371ac395d946bc5b30974e539c3d8)
+            type_hints = cached_type_hints(_typecheckingstub__3f2276433261f643c13b2562a74d200173c371ac395d946bc5b30974e539c3d8)
             check_type(argname="argument node_pools", value=node_pools, expected_type=type_hints["node_pools"])
             check_type(argname="argument node_role", value=node_role, expected_type=type_hints["node_role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5665,7 +5644,7 @@ class ComputeConfig:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def node_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def node_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''IAM role for the nodePools.
 
         :default: - generated by the CDK
@@ -5673,7 +5652,7 @@ class ComputeConfig:
         :see: - https://docs.aws.amazon.com/eks/latest/userguide/create-node-role.html
         '''
         result = self._values.get("node_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5736,7 +5715,7 @@ class DefaultCapacityType(enum.Enum):
     '''Auto Mode.'''
 
 
-@jsii.implements(_IMachineImage_0e8bd50b)
+@jsii.implements(_aws_ec2_09840e12.IMachineImage)
 class EksOptimizedImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.EksOptimizedImage",
@@ -5783,15 +5762,15 @@ class EksOptimizedImage(
     def get_image(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-    ) -> "_MachineImageConfig_187edaee":
+    ) -> "_aws_ec2_09840e12.MachineImageConfig":
         '''Return the correct image.
 
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2738ba90423201fc12883e08866d0a856feb778d505f172858bfbbce5d08710c)
+            type_hints = cached_type_hints(_typecheckingstub__2738ba90423201fc12883e08866d0a856feb778d505f172858bfbbce5d08710c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        return typing.cast("_MachineImageConfig_187edaee", jsii.invoke(self, "getImage", [scope]))
+        return typing.cast("_aws_ec2_09840e12.MachineImageConfig", jsii.invoke(self, "getImage", [scope]))
 
 
 @jsii.data_type(
@@ -5832,7 +5811,7 @@ class EksOptimizedImageProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4d6369fc46cff5c9662be35163e7c703248821b956be42141437e81db12dcda)
+            type_hints = cached_type_hints(_typecheckingstub__c4d6369fc46cff5c9662be35163e7c703248821b956be42141437e81db12dcda)
             check_type(argname="argument cpu_arch", value=cpu_arch, expected_type=type_hints["cpu_arch"])
             check_type(argname="argument kubernetes_version", value=kubernetes_version, expected_type=type_hints["kubernetes_version"])
             check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
@@ -5908,7 +5887,7 @@ class EndpointAccess(
         :param cidr: CIDR blocks.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa1c8b1b01f47532094dca60e427081322eba78c5885128cf95f25557e7132e2)
+            type_hints = cached_type_hints(_typecheckingstub__fa1c8b1b01f47532094dca60e427081322eba78c5885128cf95f25557e7132e2)
             check_type(argname="argument cidr", value=cidr, expected_type=typing.Tuple[type_hints["cidr"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("EndpointAccess", jsii.invoke(self, "onlyFrom", [*cidr]))
 
@@ -5989,18 +5968,18 @@ class FargateClusterProps(ClusterCommonOptions):
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        masters_role: typing.Optional["_IRole_235f5d8e"] = None,
+        masters_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         prune: typing.Optional[builtins.bool] = None,
         remote_node_networks: typing.Optional[typing.Sequence[typing.Union["RemoteNodeNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_pod_networks: typing.Optional[typing.Sequence[typing.Union["RemotePodNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        secrets_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        secrets_encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
         default_profile: typing.Optional[typing.Union["FargateProfileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Configuration props for EKS Fargate.
@@ -6042,7 +6021,7 @@ class FargateClusterProps(ClusterCommonOptions):
         if isinstance(default_profile, dict):
             default_profile = FargateProfileOptions(**default_profile)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3435de412248a83f43d99c9de5759414e7750a3260fc08dd8d1d5a7b64555d3)
+            type_hints = cached_type_hints(_typecheckingstub__a3435de412248a83f43d99c9de5759414e7750a3260fc08dd8d1d5a7b64555d3)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
@@ -6187,7 +6166,7 @@ class FargateClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional["KubectlProviderOptions"], result)
 
     @builtins.property
-    def masters_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def masters_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role that will be added to the ``system:masters`` Kubernetes RBAC group.
 
         :default: - no masters role.
@@ -6195,7 +6174,7 @@ class FargateClusterProps(ClusterCommonOptions):
         :see: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings
         '''
         result = self._values.get("masters_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def prune(self) -> typing.Optional[builtins.bool]:
@@ -6229,7 +6208,7 @@ class FargateClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional[typing.List["RemotePodNetwork"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to all CloudFormation resources created by this construct when they are no longer managed by CloudFormation.
 
         This can happen in one of three situations:
@@ -6244,19 +6223,19 @@ class FargateClusterProps(ClusterCommonOptions):
         :default: - Resources will be deleted.
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf.
 
         :default: - A role is automatically created for you
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def secrets_encryption_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def secrets_encryption_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''KMS secret for envelope encryption for Kubernetes secrets.
 
         :default:
@@ -6266,16 +6245,16 @@ class FargateClusterProps(ClusterCommonOptions):
         using AWS-Managed encryption keys.
         '''
         result = self._values.get("secrets_encryption_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''Security Group to use for Control Plane ENIs.
 
         :default: - A security group is automatically created
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def service_ipv4_cidr(self) -> typing.Optional[builtins.str]:
@@ -6301,16 +6280,18 @@ class FargateClusterProps(ClusterCommonOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC in which to create the Cluster.
 
         :default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[typing.List["_SubnetSelection_e57d76df"]]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]]:
         '''Where to place EKS Control Plane ENIs.
 
         For example, to only select private subnets, supply the following:
@@ -6320,7 +6301,7 @@ class FargateClusterProps(ClusterCommonOptions):
         :default: - All public and private subnets
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[typing.List["_SubnetSelection_e57d76df"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.SubnetSelection"]], result)
 
     @builtins.property
     def default_profile(self) -> typing.Optional["FargateProfileOptions"]:
@@ -6346,7 +6327,7 @@ class FargateClusterProps(ClusterCommonOptions):
         )
 
 
-@jsii.implements(_ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.ITaggable)
 class FargateProfile(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -6391,10 +6372,10 @@ class FargateProfile(
         cluster: "Cluster",
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
-        pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        pod_execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -6408,7 +6389,7 @@ class FargateProfile(
         :param vpc: The VPC from which to select subnets to launch your pods into. By default, all private subnets are selected. You can customize this using ``subnetSelection``. Default: - all private subnets used by the EKS cluster
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ff1441149066c392d795ca95a53178129d4e20453a143b0f47b7798a83079d2)
+            type_hints = cached_type_hints(_typecheckingstub__6ff1441149066c392d795ca95a53178129d4e20453a143b0f47b7798a83079d2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FargateProfileProps(
@@ -6443,20 +6424,20 @@ class FargateProfile(
 
     @builtins.property
     @jsii.member(jsii_name="podExecutionRole")
-    def pod_execution_role(self) -> "_IRole_235f5d8e":
+    def pod_execution_role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The pod execution role to use for pods that match the selectors in the Fargate profile.
 
         The pod execution role allows Fargate infrastructure to
         register with your cluster as a node, and it provides read access to Amazon
         ECR image repositories.
         '''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "podExecutionRole"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "podExecutionRole"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Resource tags.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
 
 @jsii.data_type(
@@ -6477,10 +6458,10 @@ class FargateProfileOptions:
         *,
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
-        pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        pod_execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
         '''Options for defining EKS Fargate Profiles.
 
@@ -6507,9 +6488,9 @@ class FargateProfileOptions:
             )
         '''
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6c42506f4872e7f1d6b355f123ba490e44a15df088f6604e95487339a45279c)
+            type_hints = cached_type_hints(_typecheckingstub__d6c42506f4872e7f1d6b355f123ba490e44a15df088f6604e95487339a45279c)
             check_type(argname="argument selectors", value=selectors, expected_type=type_hints["selectors"])
             check_type(argname="argument fargate_profile_name", value=fargate_profile_name, expected_type=type_hints["fargate_profile_name"])
             check_type(argname="argument pod_execution_role", value=pod_execution_role, expected_type=type_hints["pod_execution_role"])
@@ -6554,7 +6535,7 @@ class FargateProfileOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def pod_execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def pod_execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The pod execution role to use for pods that match the selectors in the Fargate profile.
 
         The pod execution role allows Fargate infrastructure to
@@ -6566,10 +6547,10 @@ class FargateProfileOptions:
         :see: https://docs.aws.amazon.com/eks/latest/userguide/pod-execution-role.html
         '''
         result = self._values.get("pod_execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Fargate profile.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -6582,10 +6563,10 @@ class FargateProfileOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Select which subnets to launch your pods into.
 
         At this time, pods running
@@ -6597,10 +6578,10 @@ class FargateProfileOptions:
         :default: - all private subnets of the VPC are selected.
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC from which to select subnets to launch your pods into.
 
         By default, all private subnets are selected. You can customize this using
@@ -6609,7 +6590,7 @@ class FargateProfileOptions:
         :default: - all private subnets used by the EKS cluster
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6642,10 +6623,10 @@ class FargateProfileProps(FargateProfileOptions):
         *,
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
-        pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        pod_execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
         cluster: "Cluster",
     ) -> None:
         '''Configuration props for EKS Fargate Profiles.
@@ -6670,9 +6651,9 @@ class FargateProfileProps(FargateProfileOptions):
             )
         '''
         if isinstance(subnet_selection, dict):
-            subnet_selection = _SubnetSelection_e57d76df(**subnet_selection)
+            subnet_selection = _aws_ec2_09840e12.SubnetSelection(**subnet_selection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be66b2c09f65387bbc144563f27bb4e976109284f231b60f6fd8c49f0937403f)
+            type_hints = cached_type_hints(_typecheckingstub__be66b2c09f65387bbc144563f27bb4e976109284f231b60f6fd8c49f0937403f)
             check_type(argname="argument selectors", value=selectors, expected_type=type_hints["selectors"])
             check_type(argname="argument fargate_profile_name", value=fargate_profile_name, expected_type=type_hints["fargate_profile_name"])
             check_type(argname="argument pod_execution_role", value=pod_execution_role, expected_type=type_hints["pod_execution_role"])
@@ -6719,7 +6700,7 @@ class FargateProfileProps(FargateProfileOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def pod_execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def pod_execution_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The pod execution role to use for pods that match the selectors in the Fargate profile.
 
         The pod execution role allows Fargate infrastructure to
@@ -6731,10 +6712,10 @@ class FargateProfileProps(FargateProfileOptions):
         :see: https://docs.aws.amazon.com/eks/latest/userguide/pod-execution-role.html
         '''
         result = self._values.get("pod_execution_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Fargate profile.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -6747,10 +6728,10 @@ class FargateProfileProps(FargateProfileOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnet_selection(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''Select which subnets to launch your pods into.
 
         At this time, pods running
@@ -6762,10 +6743,10 @@ class FargateProfileProps(FargateProfileOptions):
         :default: - all private subnets of the VPC are selected.
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC from which to select subnets to launch your pods into.
 
         By default, all private subnets are selected. You can customize this using
@@ -6774,7 +6755,7 @@ class FargateProfileProps(FargateProfileOptions):
         :default: - all private subnets used by the EKS cluster
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
     def cluster(self) -> "Cluster":
@@ -6829,7 +6810,7 @@ class GrantAccessOptions:
             ], access_entry_type=eks.AccessEntryType.EC2)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e997e86fd860a978b07e581006efa6aba790e360a65c5ddbc81f5d2e030ecc6)
+            type_hints = cached_type_hints(_typecheckingstub__5e997e86fd860a978b07e581006efa6aba790e360a65c5ddbc81f5d2e030ecc6)
             check_type(argname="argument access_entry_type", value=access_entry_type, expected_type=type_hints["access_entry_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if access_entry_type is not None:
@@ -6896,14 +6877,14 @@ class HelmChart(
         cluster: "ICluster",
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -6927,7 +6908,7 @@ class HelmChart(
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__267bbdf92ec5bdd2c63df8ddabf0ea08b5fb246323ebab2b8602a9feb2b79dc2)
+            type_hints = cached_type_hints(_typecheckingstub__267bbdf92ec5bdd2c63df8ddabf0ea08b5fb246323ebab2b8602a9feb2b79dc2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HelmChartProps(
@@ -6969,9 +6950,9 @@ class HelmChart(
 
     @builtins.property
     @jsii.member(jsii_name="chartAsset")
-    def chart_asset(self) -> typing.Optional["_Asset_ac2a7e61"]:
+    def chart_asset(self) -> typing.Optional["_aws_s3_assets_2dba96fa.Asset"]:
         '''The chart in the form of an asset.'''
-        return typing.cast(typing.Optional["_Asset_ac2a7e61"], jsii.get(self, "chartAsset"))
+        return typing.cast(typing.Optional["_aws_s3_assets_2dba96fa.Asset"], jsii.get(self, "chartAsset"))
 
     @builtins.property
     @jsii.member(jsii_name="repository")
@@ -7011,14 +6992,14 @@ class HelmChartOptions:
         *,
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -7056,7 +7037,7 @@ class HelmChartOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdf3e52a6495d221a1058009786322c331c50f98baa602fdf09109f0f6fcffae)
+            type_hints = cached_type_hints(_typecheckingstub__cdf3e52a6495d221a1058009786322c331c50f98baa602fdf09109f0f6fcffae)
             check_type(argname="argument atomic", value=atomic, expected_type=type_hints["atomic"])
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
             check_type(argname="argument chart_asset", value=chart_asset, expected_type=type_hints["chart_asset"])
@@ -7122,7 +7103,7 @@ class HelmChartOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def chart_asset(self) -> typing.Optional["_Asset_ac2a7e61"]:
+    def chart_asset(self) -> typing.Optional["_aws_s3_assets_2dba96fa.Asset"]:
         '''The chart in the form of an asset.
 
         Either this or ``chart`` must be specified.
@@ -7130,7 +7111,7 @@ class HelmChartOptions:
         :default: - No chart asset. Implies ``chart`` is used.
         '''
         result = self._values.get("chart_asset")
-        return typing.cast(typing.Optional["_Asset_ac2a7e61"], result)
+        return typing.cast(typing.Optional["_aws_s3_assets_2dba96fa.Asset"], result)
 
     @builtins.property
     def create_namespace(self) -> typing.Optional[builtins.bool]:
@@ -7160,7 +7141,7 @@ class HelmChartOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Helm chart.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -7173,7 +7154,7 @@ class HelmChartOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -7196,7 +7177,7 @@ class HelmChartOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Amount of time to wait for any individual Kubernetes operation.
 
         Maximum 15 minutes.
@@ -7204,7 +7185,7 @@ class HelmChartOptions:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -7277,14 +7258,14 @@ class HelmChartProps(HelmChartOptions):
         *,
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -7323,7 +7304,7 @@ class HelmChartProps(HelmChartOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09c30fd78e20ace511773a60bd2e380e390d4d44dfd7df73a2899c789cac8234)
+            type_hints = cached_type_hints(_typecheckingstub__09c30fd78e20ace511773a60bd2e380e390d4d44dfd7df73a2899c789cac8234)
             check_type(argname="argument atomic", value=atomic, expected_type=type_hints["atomic"])
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
             check_type(argname="argument chart_asset", value=chart_asset, expected_type=type_hints["chart_asset"])
@@ -7392,7 +7373,7 @@ class HelmChartProps(HelmChartOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def chart_asset(self) -> typing.Optional["_Asset_ac2a7e61"]:
+    def chart_asset(self) -> typing.Optional["_aws_s3_assets_2dba96fa.Asset"]:
         '''The chart in the form of an asset.
 
         Either this or ``chart`` must be specified.
@@ -7400,7 +7381,7 @@ class HelmChartProps(HelmChartOptions):
         :default: - No chart asset. Implies ``chart`` is used.
         '''
         result = self._values.get("chart_asset")
-        return typing.cast(typing.Optional["_Asset_ac2a7e61"], result)
+        return typing.cast(typing.Optional["_aws_s3_assets_2dba96fa.Asset"], result)
 
     @builtins.property
     def create_namespace(self) -> typing.Optional[builtins.bool]:
@@ -7430,7 +7411,7 @@ class HelmChartProps(HelmChartOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Helm chart.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -7443,7 +7424,7 @@ class HelmChartProps(HelmChartOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def repository(self) -> typing.Optional[builtins.str]:
@@ -7466,7 +7447,7 @@ class HelmChartProps(HelmChartOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Amount of time to wait for any individual Kubernetes operation.
 
         Maximum 15 minutes.
@@ -7474,7 +7455,7 @@ class HelmChartProps(HelmChartOptions):
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -7533,8 +7514,8 @@ class HelmChartProps(HelmChartOptions):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_eks_v2.IAccessEntry")
 class IAccessEntry(
-    _IResource_c80c4260,
-    _IAccessEntryRef_14bb9c0a,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_eks_c5926efb.IAccessEntryRef,
     typing_extensions.Protocol,
 ):
     '''Represents an access entry in an Amazon EKS cluster.
@@ -7566,8 +7547,8 @@ class IAccessEntry(
 
 
 class _IAccessEntryProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IAccessEntryRef_14bb9c0a), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_eks_c5926efb.IAccessEntryRef), # type: ignore[misc]
 ):
     '''Represents an access entry in an Amazon EKS cluster.
 
@@ -7647,7 +7628,11 @@ typing.cast(typing.Any, IAccessPolicy).__jsii_proxy_class__ = lambda : _IAccessP
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_eks_v2.IAddon")
-class IAddon(_IResource_c80c4260, _IAddonRef_fb5de88c, typing_extensions.Protocol):
+class IAddon(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_eks_c5926efb.IAddonRef,
+    typing_extensions.Protocol,
+):
     '''Represents an Amazon EKS Add-On.'''
 
     @builtins.property
@@ -7670,8 +7655,8 @@ class IAddon(_IResource_c80c4260, _IAddonRef_fb5de88c, typing_extensions.Protoco
 
 
 class _IAddonProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IAddonRef_fb5de88c), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_eks_c5926efb.IAddonRef), # type: ignore[misc]
 ):
     '''Represents an Amazon EKS Add-On.'''
 
@@ -7701,9 +7686,9 @@ typing.cast(typing.Any, IAddon).__jsii_proxy_class__ = lambda : _IAddonProxy
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_eks_v2.ICluster")
 class ICluster(
-    _IResource_c80c4260,
-    _IConnectable_10015a05,
-    _IClusterRef_5527f448,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_ec2_09840e12.IConnectable,
+    _aws_eks_c5926efb.IClusterRef,
     typing_extensions.Protocol,
 ):
     '''An EKS cluster.'''
@@ -7755,7 +7740,7 @@ class ICluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterSecurityGroup")
-    def cluster_security_group(self) -> "_ISecurityGroup_acf8a799":
+    def cluster_security_group(self) -> "_aws_ec2_09840e12.ISecurityGroup":
         '''The cluster security group that was created by Amazon EKS for the cluster.
 
         :attribute: true
@@ -7773,7 +7758,7 @@ class ICluster(
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProvider")
-    def open_id_connect_provider(self) -> "_IOpenIdConnectProvider_203f0793":
+    def open_id_connect_provider(self) -> "_aws_iam_1f54b5e8.IOpenIdConnectProvider":
         '''The Open ID Connect Provider of the cluster used to configure Service Accounts.'''
         ...
 
@@ -7790,7 +7775,7 @@ class ICluster(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC in which this Cluster was created.'''
         ...
 
@@ -7850,7 +7835,7 @@ class ICluster(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -7874,14 +7859,14 @@ class ICluster(
         *,
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -7935,7 +7920,7 @@ class ICluster(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -7953,7 +7938,7 @@ class ICluster(
     @jsii.member(jsii_name="connectAutoScalingGroupCapacity")
     def connect_auto_scaling_group_capacity(
         self,
-        auto_scaling_group: "_AutoScalingGroup_c547a7b9",
+        auto_scaling_group: "_aws_autoscaling_6cbf8045.AutoScalingGroup",
         *,
         bootstrap_enabled: typing.Optional[builtins.bool] = None,
         bootstrap_options: typing.Optional[typing.Union["BootstrapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7979,9 +7964,9 @@ class ICluster(
 
 
 class _IClusterProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IConnectable_10015a05), # type: ignore[misc]
-    jsii.proxy_for(_IClusterRef_5527f448), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_ec2_09840e12.IConnectable), # type: ignore[misc]
+    jsii.proxy_for(_aws_eks_c5926efb.IClusterRef), # type: ignore[misc]
 ):
     '''An EKS cluster.'''
 
@@ -8034,12 +8019,12 @@ class _IClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="clusterSecurityGroup")
-    def cluster_security_group(self) -> "_ISecurityGroup_acf8a799":
+    def cluster_security_group(self) -> "_aws_ec2_09840e12.ISecurityGroup":
         '''The cluster security group that was created by Amazon EKS for the cluster.
 
         :attribute: true
         '''
-        return typing.cast("_ISecurityGroup_acf8a799", jsii.get(self, "clusterSecurityGroup"))
+        return typing.cast("_aws_ec2_09840e12.ISecurityGroup", jsii.get(self, "clusterSecurityGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterSecurityGroupId")
@@ -8052,9 +8037,9 @@ class _IClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProvider")
-    def open_id_connect_provider(self) -> "_IOpenIdConnectProvider_203f0793":
+    def open_id_connect_provider(self) -> "_aws_iam_1f54b5e8.IOpenIdConnectProvider":
         '''The Open ID Connect Provider of the cluster used to configure Service Accounts.'''
-        return typing.cast("_IOpenIdConnectProvider_203f0793", jsii.get(self, "openIdConnectProvider"))
+        return typing.cast("_aws_iam_1f54b5e8.IOpenIdConnectProvider", jsii.get(self, "openIdConnectProvider"))
 
     @builtins.property
     @jsii.member(jsii_name="prune")
@@ -8069,9 +8054,9 @@ class _IClusterProxy(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC in which this Cluster was created.'''
-        return typing.cast("_IVpc_f30d5663", jsii.get(self, "vpc"))
+        return typing.cast("_aws_ec2_09840e12.IVpc", jsii.get(self, "vpc"))
 
     @builtins.property
     @jsii.member(jsii_name="eksPodIdentityAgent")
@@ -8129,7 +8114,7 @@ class _IClusterProxy(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -8145,7 +8130,7 @@ class _IClusterProxy(
         :return: a ``KubernetesManifest`` construct representing the chart.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff83de86e871d5dc9fcf4c6adc16aedcbec2d949a716c25c5d1a2e0af94d7f97)
+            type_hints = cached_type_hints(_typecheckingstub__ff83de86e871d5dc9fcf4c6adc16aedcbec2d949a716c25c5d1a2e0af94d7f97)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
         options = KubernetesManifestOptions(
@@ -8165,14 +8150,14 @@ class _IClusterProxy(
         *,
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -8197,7 +8182,7 @@ class _IClusterProxy(
         :return: a ``HelmChart`` construct
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11e91d47c6f3469869f69fbc87b6d30081218e0b6ed8b1b7e87973df9e2d30b3)
+            type_hints = cached_type_hints(_typecheckingstub__11e91d47c6f3469869f69fbc87b6d30081218e0b6ed8b1b7e87973df9e2d30b3)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = HelmChartOptions(
             atomic=atomic,
@@ -8233,7 +8218,7 @@ class _IClusterProxy(
         :return: a ``KubernetesManifest`` object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c0500823c7aaca8f20a0f9333fed3477a09d69b911373e1dd9617cb7278018)
+            type_hints = cached_type_hints(_typecheckingstub__87c0500823c7aaca8f20a0f9333fed3477a09d69b911373e1dd9617cb7278018)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument manifest", value=manifest, expected_type=typing.Tuple[type_hints["manifest"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("KubernetesManifest", jsii.invoke(self, "addManifest", [id, *manifest]))
@@ -8249,7 +8234,7 @@ class _IClusterProxy(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -8263,7 +8248,7 @@ class _IClusterProxy(
         :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__390d49561f44f1197bf5781d054e03a9acb2c7981e79c9c146a535451ecf40fb)
+            type_hints = cached_type_hints(_typecheckingstub__390d49561f44f1197bf5781d054e03a9acb2c7981e79c9c146a535451ecf40fb)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ServiceAccountOptions(
             annotations=annotations,
@@ -8280,7 +8265,7 @@ class _IClusterProxy(
     @jsii.member(jsii_name="connectAutoScalingGroupCapacity")
     def connect_auto_scaling_group_capacity(
         self,
-        auto_scaling_group: "_AutoScalingGroup_c547a7b9",
+        auto_scaling_group: "_aws_autoscaling_6cbf8045.AutoScalingGroup",
         *,
         bootstrap_enabled: typing.Optional[builtins.bool] = None,
         bootstrap_options: typing.Optional[typing.Union["BootstrapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -8303,7 +8288,7 @@ class _IClusterProxy(
         :see: https://docs.aws.amazon.com/eks/latest/userguide/launch-workers.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c9b9d342838868cfdeecd867068960aa4fe89ce221b96f17f94b06c4b55a94)
+            type_hints = cached_type_hints(_typecheckingstub__a0c9b9d342838868cfdeecd867068960aa4fe89ce221b96f17f94b06c4b55a94)
             check_type(argname="argument auto_scaling_group", value=auto_scaling_group, expected_type=type_hints["auto_scaling_group"])
         options = AutoScalingGroupOptions(
             bootstrap_enabled=bootstrap_enabled,
@@ -8329,7 +8314,7 @@ class IKubectlProvider(_constructs_77d1e7e8.IConstruct, typing_extensions.Protoc
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role of the provider lambda function.
 
         If undefined,
@@ -8353,13 +8338,13 @@ class _IKubectlProviderProxy(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role of the provider lambda function.
 
         If undefined,
         you cannot use this provider to deploy helm charts.
         '''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IKubectlProvider).__jsii_proxy_class__ = lambda : _IKubectlProviderProxy
@@ -8367,8 +8352,8 @@ typing.cast(typing.Any, IKubectlProvider).__jsii_proxy_class__ = lambda : _IKube
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_eks_v2.INodegroup")
 class INodegroup(
-    _IResource_c80c4260,
-    _INodegroupRef_cac0d8aa,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_eks_c5926efb.INodegroupRef,
     typing_extensions.Protocol,
 ):
     '''NodeGroup interface.'''
@@ -8384,8 +8369,8 @@ class INodegroup(
 
 
 class _INodegroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_INodegroupRef_cac0d8aa), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_eks_c5926efb.INodegroupRef), # type: ignore[misc]
 ):
     '''NodeGroup interface.'''
 
@@ -8474,15 +8459,15 @@ class KubectlProvider(
         id: builtins.str,
         *,
         cluster: "ICluster",
-        kubectl_layer: "_ILayerVersion_5ac127c8",
-        awscli_layer: typing.Optional["_ILayerVersion_5ac127c8"] = None,
+        kubectl_layer: "_aws_lambda_b8f2f472.ILayerVersion",
+        awscli_layer: typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
-        private_subnets: typing.Optional[typing.Sequence["_ISubnet_d57d1229"]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        memory: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+        private_subnets: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISubnet"]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -8499,7 +8484,7 @@ class KubectlProvider(
         :param security_groups: Security groups to use for ``kubectl`` execution. Default: - If not specified, the k8s endpoint is expected to be accessible publicly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aad34a8b7c85b8fafa3a60b89cf1904902b5f18ab4c50ae367481347e5c0b1c)
+            type_hints = cached_type_hints(_typecheckingstub__1aad34a8b7c85b8fafa3a60b89cf1904902b5f18ab4c50ae367481347e5c0b1c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KubectlProviderProps(
@@ -8525,7 +8510,7 @@ class KubectlProvider(
         id: builtins.str,
         *,
         service_token: builtins.str,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> "IKubectlProvider":
         '''Import an existing provider.
 
@@ -8535,7 +8520,7 @@ class KubectlProvider(
         :param role: The role of the provider lambda function. Only required if you deploy helm charts using this imported provider. Default: - no role.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__482e5705a693af11339a7f57c6d0ce81623cec9953281097e3c09cc25d2c6e62)
+            type_hints = cached_type_hints(_typecheckingstub__482e5705a693af11339a7f57c6d0ce81623cec9953281097e3c09cc25d2c6e62)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = KubectlProviderAttributes(service_token=service_token, role=role)
@@ -8555,7 +8540,7 @@ class KubectlProvider(
         :param cluster: k8s cluster.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24a426caec312e2477ccd638d41ff0271e15c86a0c62f06f464e88e5f35fd827)
+            type_hints = cached_type_hints(_typecheckingstub__24a426caec312e2477ccd638d41ff0271e15c86a0c62f06f464e88e5f35fd827)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
         return typing.cast(typing.Optional["IKubectlProvider"], jsii.sinvoke(cls, "getKubectlProvider", [scope, cluster]))
@@ -8568,9 +8553,9 @@ class KubectlProvider(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM execution role of the handler.'''
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -8583,7 +8568,7 @@ class KubectlProviderAttributes:
         self,
         *,
         service_token: builtins.str,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Kubectl Provider Attributes.
 
@@ -8608,7 +8593,7 @@ class KubectlProviderAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21826c50973a5c6583d4ccfb55d5b9e60e5b35409ed715ada3e709246e16b224)
+            type_hints = cached_type_hints(_typecheckingstub__21826c50973a5c6583d4ccfb55d5b9e60e5b35409ed715ada3e709246e16b224)
             check_type(argname="argument service_token", value=service_token, expected_type=type_hints["service_token"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8625,7 +8610,7 @@ class KubectlProviderAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The role of the provider lambda function.
 
         Only required if you deploy helm charts using this imported provider.
@@ -8633,7 +8618,7 @@ class KubectlProviderAttributes:
         :default: - no role.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8666,15 +8651,15 @@ class KubectlProviderOptions:
     def __init__(
         self,
         *,
-        kubectl_layer: "_ILayerVersion_5ac127c8",
-        awscli_layer: typing.Optional["_ILayerVersion_5ac127c8"] = None,
+        kubectl_layer: "_aws_lambda_b8f2f472.ILayerVersion",
+        awscli_layer: typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
-        private_subnets: typing.Optional[typing.Sequence["_ISubnet_d57d1229"]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        memory: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+        private_subnets: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISubnet"]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
     ) -> None:
         '''Options for creating the kubectl provider - a lambda function that executes ``kubectl`` and ``helm`` against the cluster.
 
@@ -8706,7 +8691,7 @@ class KubectlProviderOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0d43994acd7b6b330a5f26b52341ec27f5672d45b11639c9e406ad65a2134b)
+            type_hints = cached_type_hints(_typecheckingstub__db0d43994acd7b6b330a5f26b52341ec27f5672d45b11639c9e406ad65a2134b)
             check_type(argname="argument kubectl_layer", value=kubectl_layer, expected_type=type_hints["kubectl_layer"])
             check_type(argname="argument awscli_layer", value=awscli_layer, expected_type=type_hints["awscli_layer"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -8737,20 +8722,20 @@ class KubectlProviderOptions:
             self._values["security_groups"] = security_groups
 
     @builtins.property
-    def kubectl_layer(self) -> "_ILayerVersion_5ac127c8":
+    def kubectl_layer(self) -> "_aws_lambda_b8f2f472.ILayerVersion":
         '''An AWS Lambda layer that includes ``kubectl`` and ``helm``.'''
         result = self._values.get("kubectl_layer")
         assert result is not None, "Required property 'kubectl_layer' is missing"
-        return typing.cast("_ILayerVersion_5ac127c8", result)
+        return typing.cast("_aws_lambda_b8f2f472.ILayerVersion", result)
 
     @builtins.property
-    def awscli_layer(self) -> typing.Optional["_ILayerVersion_5ac127c8"]:
+    def awscli_layer(self) -> typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"]:
         '''An AWS Lambda layer that contains the ``aws`` CLI.
 
         :default: - If not defined, a default layer will be used containing the AWS CLI 2.x.
         '''
         result = self._values.get("awscli_layer")
-        return typing.cast(typing.Optional["_ILayerVersion_5ac127c8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"], result)
 
     @builtins.property
     def environment(
@@ -8764,16 +8749,18 @@ class KubectlProviderOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def memory(self) -> typing.Optional["_Size_7b441c34"]:
+    def memory(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The amount of memory allocated to the kubectl provider's lambda function.
 
         :default: - 1024
         '''
         result = self._values.get("memory")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
-    def private_subnets(self) -> typing.Optional[typing.List["_ISubnet_d57d1229"]]:
+    def private_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISubnet"]]:
         '''Subnets to host the ``kubectl`` compute resources.
 
         If not specified, the k8s
@@ -8782,10 +8769,10 @@ class KubectlProviderOptions:
         :default: - the k8s is accessible publicly
         '''
         result = self._values.get("private_subnets")
-        return typing.cast(typing.Optional[typing.List["_ISubnet_d57d1229"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISubnet"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that provides kubectl.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -8798,10 +8785,10 @@ class KubectlProviderOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role that can perform kubectl operations against this cluster.
 
         The role should be mapped to the ``system:masters`` Kubernetes RBAC role.
@@ -8814,10 +8801,10 @@ class KubectlProviderOptions:
         be used.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''(deprecated) A security group to use for ``kubectl`` execution.
 
         :default:
@@ -8830,12 +8817,12 @@ class KubectlProviderOptions:
         :stability: deprecated
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Security groups to use for ``kubectl`` execution.
 
         :default:
@@ -8844,7 +8831,7 @@ class KubectlProviderOptions:
         publicly.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8878,15 +8865,15 @@ class KubectlProviderProps(KubectlProviderOptions):
     def __init__(
         self,
         *,
-        kubectl_layer: "_ILayerVersion_5ac127c8",
-        awscli_layer: typing.Optional["_ILayerVersion_5ac127c8"] = None,
+        kubectl_layer: "_aws_lambda_b8f2f472.ILayerVersion",
+        awscli_layer: typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        memory: typing.Optional["_Size_7b441c34"] = None,
-        private_subnets: typing.Optional[typing.Sequence["_ISubnet_d57d1229"]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        memory: typing.Optional["_aws_cdk_0cae9daa.Size"] = None,
+        private_subnets: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISubnet"]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
         cluster: "ICluster",
     ) -> None:
         '''Properties for a KubectlProvider.
@@ -8939,7 +8926,7 @@ class KubectlProviderProps(KubectlProviderOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61a433dab330d6710bafea4cc09c474eaf4b60af830112e448baa510723d19b0)
+            type_hints = cached_type_hints(_typecheckingstub__61a433dab330d6710bafea4cc09c474eaf4b60af830112e448baa510723d19b0)
             check_type(argname="argument kubectl_layer", value=kubectl_layer, expected_type=type_hints["kubectl_layer"])
             check_type(argname="argument awscli_layer", value=awscli_layer, expected_type=type_hints["awscli_layer"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -8972,20 +8959,20 @@ class KubectlProviderProps(KubectlProviderOptions):
             self._values["security_groups"] = security_groups
 
     @builtins.property
-    def kubectl_layer(self) -> "_ILayerVersion_5ac127c8":
+    def kubectl_layer(self) -> "_aws_lambda_b8f2f472.ILayerVersion":
         '''An AWS Lambda layer that includes ``kubectl`` and ``helm``.'''
         result = self._values.get("kubectl_layer")
         assert result is not None, "Required property 'kubectl_layer' is missing"
-        return typing.cast("_ILayerVersion_5ac127c8", result)
+        return typing.cast("_aws_lambda_b8f2f472.ILayerVersion", result)
 
     @builtins.property
-    def awscli_layer(self) -> typing.Optional["_ILayerVersion_5ac127c8"]:
+    def awscli_layer(self) -> typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"]:
         '''An AWS Lambda layer that contains the ``aws`` CLI.
 
         :default: - If not defined, a default layer will be used containing the AWS CLI 2.x.
         '''
         result = self._values.get("awscli_layer")
-        return typing.cast(typing.Optional["_ILayerVersion_5ac127c8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.ILayerVersion"], result)
 
     @builtins.property
     def environment(
@@ -8999,16 +8986,18 @@ class KubectlProviderProps(KubectlProviderOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def memory(self) -> typing.Optional["_Size_7b441c34"]:
+    def memory(self) -> typing.Optional["_aws_cdk_0cae9daa.Size"]:
         '''The amount of memory allocated to the kubectl provider's lambda function.
 
         :default: - 1024
         '''
         result = self._values.get("memory")
-        return typing.cast(typing.Optional["_Size_7b441c34"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Size"], result)
 
     @builtins.property
-    def private_subnets(self) -> typing.Optional[typing.List["_ISubnet_d57d1229"]]:
+    def private_subnets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISubnet"]]:
         '''Subnets to host the ``kubectl`` compute resources.
 
         If not specified, the k8s
@@ -9017,10 +9006,10 @@ class KubectlProviderProps(KubectlProviderOptions):
         :default: - the k8s is accessible publicly
         '''
         result = self._values.get("private_subnets")
-        return typing.cast(typing.Optional[typing.List["_ISubnet_d57d1229"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISubnet"]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that provides kubectl.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -9033,10 +9022,10 @@ class KubectlProviderProps(KubectlProviderOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''An IAM role that can perform kubectl operations against this cluster.
 
         The role should be mapped to the ``system:masters`` Kubernetes RBAC role.
@@ -9049,10 +9038,10 @@ class KubectlProviderProps(KubectlProviderOptions):
         be used.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''(deprecated) A security group to use for ``kubectl`` execution.
 
         :default:
@@ -9065,12 +9054,12 @@ class KubectlProviderProps(KubectlProviderOptions):
         :stability: deprecated
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''Security groups to use for ``kubectl`` execution.
 
         :default:
@@ -9079,7 +9068,7 @@ class KubectlProviderProps(KubectlProviderOptions):
         publicly.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -9146,7 +9135,7 @@ class KubernetesManifest(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -9162,7 +9151,7 @@ class KubernetesManifest(
         :param skip_validation: A flag to signify if the manifest validation should be skipped. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5040cd237de4e6fc90ec31d3e3edb50c772a93243db6531802592e7373b932b)
+            type_hints = cached_type_hints(_typecheckingstub__f5040cd237de4e6fc90ec31d3e3edb50c772a93243db6531802592e7373b932b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KubernetesManifestProps(
@@ -9203,7 +9192,7 @@ class KubernetesManifestOptions:
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for ``KubernetesManifest``.
@@ -9232,7 +9221,7 @@ class KubernetesManifestOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3eb02dba7044365540f72d0cdd546ff96bc7d51d55d23bc2f13b1602b77b3734)
+            type_hints = cached_type_hints(_typecheckingstub__3eb02dba7044365540f72d0cdd546ff96bc7d51d55d23bc2f13b1602b77b3734)
             check_type(argname="argument ingress_alb", value=ingress_alb, expected_type=type_hints["ingress_alb"])
             check_type(argname="argument ingress_alb_scheme", value=ingress_alb_scheme, expected_type=type_hints["ingress_alb_scheme"])
             check_type(argname="argument prune", value=prune, expected_type=type_hints["prune"])
@@ -9299,7 +9288,7 @@ class KubernetesManifestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Kubernetes manifest.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -9312,7 +9301,7 @@ class KubernetesManifestOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def skip_validation(self) -> typing.Optional[builtins.bool]:
@@ -9356,7 +9345,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
         cluster: "ICluster",
         manifest: typing.Sequence[typing.Mapping[builtins.str, typing.Any]],
@@ -9423,7 +9412,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
             cluster.add_manifest("hello-kub", service, deployment)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4b1104d99f875c1e3595711967bbe93c6dca0a6e48899bd3786b16d96bc081e)
+            type_hints = cached_type_hints(_typecheckingstub__a4b1104d99f875c1e3595711967bbe93c6dca0a6e48899bd3786b16d96bc081e)
             check_type(argname="argument ingress_alb", value=ingress_alb, expected_type=type_hints["ingress_alb"])
             check_type(argname="argument ingress_alb_scheme", value=ingress_alb_scheme, expected_type=type_hints["ingress_alb_scheme"])
             check_type(argname="argument prune", value=prune, expected_type=type_hints["prune"])
@@ -9498,7 +9487,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Kubernetes manifest.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -9511,7 +9500,7 @@ class KubernetesManifestProps(KubernetesManifestOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def skip_validation(self) -> typing.Optional[builtins.bool]:
@@ -9626,8 +9615,8 @@ class KubernetesObjectValue(
         object_name: builtins.str,
         object_type: builtins.str,
         object_namespace: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -9641,7 +9630,7 @@ class KubernetesObjectValue(
         :param timeout: Timeout for waiting on a value. Default: Duration.minutes(5)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45f73303333592eb76ce2a3a47eb5689f5004712eb9ba9a363083fb711cf2050)
+            type_hints = cached_type_hints(_typecheckingstub__45f73303333592eb76ce2a3a47eb5689f5004712eb9ba9a363083fb711cf2050)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KubernetesObjectValueProps(
@@ -9691,8 +9680,8 @@ class KubernetesObjectValueProps:
         object_name: builtins.str,
         object_type: builtins.str,
         object_namespace: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for KubernetesObjectValue.
 
@@ -9729,7 +9718,7 @@ class KubernetesObjectValueProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34f882ca78f612b80a326720db025bad0ee81c47fc3567e1271454c15f2ee3fa)
+            type_hints = cached_type_hints(_typecheckingstub__34f882ca78f612b80a326720db025bad0ee81c47fc3567e1271454c15f2ee3fa)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument json_path", value=json_path, expected_type=type_hints["json_path"])
             check_type(argname="argument object_name", value=object_name, expected_type=type_hints["object_name"])
@@ -9797,7 +9786,7 @@ class KubernetesObjectValueProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Kubernetes object value.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -9810,16 +9799,16 @@ class KubernetesObjectValueProps:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout for waiting on a value.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9865,7 +9854,7 @@ class KubernetesPatch(
         resource_name: builtins.str,
         restore_patch: typing.Mapping[builtins.str, typing.Any],
         patch_type: typing.Optional["PatchType"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         resource_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -9880,7 +9869,7 @@ class KubernetesPatch(
         :param resource_namespace: The kubernetes API namespace. Default: "default"
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6806e924d7a4b33fb6deb2187dcdc1e376243c3bb4967bd6a7ff20b64bdb4db)
+            type_hints = cached_type_hints(_typecheckingstub__d6806e924d7a4b33fb6deb2187dcdc1e376243c3bb4967bd6a7ff20b64bdb4db)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KubernetesPatchProps(
@@ -9918,7 +9907,7 @@ class KubernetesPatchProps:
         resource_name: builtins.str,
         restore_patch: typing.Mapping[builtins.str, typing.Any],
         patch_type: typing.Optional["PatchType"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         resource_namespace: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for KubernetesPatch.
@@ -9945,7 +9934,7 @@ class KubernetesPatchProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1fa21e33c8b472af1142c651e669720614ef910d6bc6a0336c7e991204fa178)
+            type_hints = cached_type_hints(_typecheckingstub__d1fa21e33c8b472af1142c651e669720614ef910d6bc6a0336c7e991204fa178)
             check_type(argname="argument apply_patch", value=apply_patch, expected_type=type_hints["apply_patch"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument resource_name", value=resource_name, expected_type=type_hints["resource_name"])
@@ -10009,7 +9998,7 @@ class KubernetesPatchProps:
         return typing.cast(typing.Optional["PatchType"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the custom resource that manages the Kubernetes patch.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -10022,7 +10011,7 @@ class KubernetesPatchProps:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def resource_namespace(self) -> typing.Optional[builtins.str]:
@@ -10076,7 +10065,7 @@ class KubernetesVersion(
         :param version: custom version number.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__211c05e2b989920cd028cf1837789e382429a04d153f1b5b0732ecaf3371f95f)
+            type_hints = cached_type_hints(_typecheckingstub__211c05e2b989920cd028cf1837789e382429a04d153f1b5b0732ecaf3371f95f)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast("KubernetesVersion", jsii.sinvoke(cls, "of", [version]))
 
@@ -10241,7 +10230,7 @@ class LaunchTemplateSpec:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__919b48dd57d86167f698cb29b3fa37433baaee3793d480304f510cdb323fce9e)
+            type_hints = cached_type_hints(_typecheckingstub__919b48dd57d86167f698cb29b3fa37433baaee3793d480304f510cdb323fce9e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10304,7 +10293,7 @@ class NodeType(enum.Enum):
 
 @jsii.implements(INodegroup)
 class Nodegroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.Nodegroup",
 ):
@@ -10394,7 +10383,7 @@ class Nodegroup(
         disk_size: typing.Optional[jsii.Number] = None,
         enable_node_auto_repair: typing.Optional[builtins.bool] = None,
         force_update: typing.Optional[builtins.bool] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_aws_ec2_09840e12.InstanceType"]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         launch_template_spec: typing.Optional[typing.Union["LaunchTemplateSpec", typing.Dict[builtins.str, typing.Any]]] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -10402,11 +10391,11 @@ class Nodegroup(
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
-        node_role: typing.Optional["_IRole_235f5d8e"] = None,
+        node_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -10437,7 +10426,7 @@ class Nodegroup(
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Default: - None
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62af457a65949e7033d40a53d059be3f6f3a3197f4447681ec062c631bc964ed)
+            type_hints = cached_type_hints(_typecheckingstub__62af457a65949e7033d40a53d059be3f6f3a3197f4447681ec062c631bc964ed)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NodegroupProps(
@@ -10482,7 +10471,7 @@ class Nodegroup(
         :param nodegroup_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca1cb07c5679916253432bb99ab031e94ff8995b6ab160a4d865c1df5203357c)
+            type_hints = cached_type_hints(_typecheckingstub__ca1cb07c5679916253432bb99ab031e94ff8995b6ab160a4d865c1df5203357c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument nodegroup_name", value=nodegroup_name, expected_type=type_hints["nodegroup_name"])
@@ -10523,15 +10512,15 @@ class Nodegroup(
 
     @builtins.property
     @jsii.member(jsii_name="nodegroupRef")
-    def nodegroup_ref(self) -> "_NodegroupReference_eab944f6":
+    def nodegroup_ref(self) -> "_aws_eks_c5926efb.NodegroupReference":
         '''A reference to a Nodegroup resource.'''
-        return typing.cast("_NodegroupReference_eab944f6", jsii.get(self, "nodegroupRef"))
+        return typing.cast("_aws_eks_c5926efb.NodegroupReference", jsii.get(self, "nodegroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''IAM role of the instance profile for the nodegroup.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_eks_v2.NodegroupAmiType")
@@ -10633,7 +10622,7 @@ class NodegroupOptions:
         disk_size: typing.Optional[jsii.Number] = None,
         enable_node_auto_repair: typing.Optional[builtins.bool] = None,
         force_update: typing.Optional[builtins.bool] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_aws_ec2_09840e12.InstanceType"]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         launch_template_spec: typing.Optional[typing.Union["LaunchTemplateSpec", typing.Dict[builtins.str, typing.Any]]] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -10641,11 +10630,11 @@ class NodegroupOptions:
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
-        node_role: typing.Optional["_IRole_235f5d8e"] = None,
+        node_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -10694,9 +10683,9 @@ class NodegroupOptions:
         if isinstance(remote_access, dict):
             remote_access = NodegroupRemoteAccess(**remote_access)
         if isinstance(subnets, dict):
-            subnets = _SubnetSelection_e57d76df(**subnets)
+            subnets = _aws_ec2_09840e12.SubnetSelection(**subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4520b68206945b2bfc48c1a6979416f811423e6b7e7b4d017c5b38dfb0d8373e)
+            type_hints = cached_type_hints(_typecheckingstub__4520b68206945b2bfc48c1a6979416f811423e6b7e7b4d017c5b38dfb0d8373e)
             check_type(argname="argument ami_type", value=ami_type, expected_type=type_hints["ami_type"])
             check_type(argname="argument capacity_type", value=capacity_type, expected_type=type_hints["capacity_type"])
             check_type(argname="argument desired_size", value=desired_size, expected_type=type_hints["desired_size"])
@@ -10831,7 +10820,9 @@ class NodegroupOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
+    def instance_types(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.InstanceType"]]:
         '''The instance types to use for your node group.
 
         :default: t3.medium will be used according to the cloudformation document.
@@ -10839,7 +10830,7 @@ class NodegroupOptions:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html#cfn-eks-nodegroup-instancetypes
         '''
         result = self._values.get("instance_types")
-        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.InstanceType"]], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -10923,7 +10914,7 @@ class NodegroupOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def node_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def node_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role to associate with your node group.
 
         The Amazon EKS worker node kubelet daemon
@@ -10934,7 +10925,7 @@ class NodegroupOptions:
         :default: - None. Auto-generated if not specified.
         '''
         result = self._values.get("node_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def release_version(self) -> typing.Optional[builtins.str]:
@@ -10959,7 +10950,7 @@ class NodegroupOptions:
         return typing.cast(typing.Optional["NodegroupRemoteAccess"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the managed node group resources.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -10972,10 +10963,10 @@ class NodegroupOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The subnets to use for the Auto Scaling group that is created for your node group.
 
         By specifying the
@@ -10986,7 +10977,7 @@ class NodegroupOptions:
         :default: - private subnets
         '''
         result = self._values.get("subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -11060,7 +11051,7 @@ class NodegroupProps(NodegroupOptions):
         disk_size: typing.Optional[jsii.Number] = None,
         enable_node_auto_repair: typing.Optional[builtins.bool] = None,
         force_update: typing.Optional[builtins.bool] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_aws_ec2_09840e12.InstanceType"]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         launch_template_spec: typing.Optional[typing.Union["LaunchTemplateSpec", typing.Dict[builtins.str, typing.Any]]] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -11068,11 +11059,11 @@ class NodegroupProps(NodegroupOptions):
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
-        node_role: typing.Optional["_IRole_235f5d8e"] = None,
+        node_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
         cluster: "ICluster",
@@ -11177,9 +11168,9 @@ class NodegroupProps(NodegroupOptions):
         if isinstance(remote_access, dict):
             remote_access = NodegroupRemoteAccess(**remote_access)
         if isinstance(subnets, dict):
-            subnets = _SubnetSelection_e57d76df(**subnets)
+            subnets = _aws_ec2_09840e12.SubnetSelection(**subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1960828ed0ec52107f2f9d815f5a9edf404b27e19b18ae5dd39b8d5f38f2f8e5)
+            type_hints = cached_type_hints(_typecheckingstub__1960828ed0ec52107f2f9d815f5a9edf404b27e19b18ae5dd39b8d5f38f2f8e5)
             check_type(argname="argument ami_type", value=ami_type, expected_type=type_hints["ami_type"])
             check_type(argname="argument capacity_type", value=capacity_type, expected_type=type_hints["capacity_type"])
             check_type(argname="argument desired_size", value=desired_size, expected_type=type_hints["desired_size"])
@@ -11317,7 +11308,9 @@ class NodegroupProps(NodegroupOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
+    def instance_types(
+        self,
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.InstanceType"]]:
         '''The instance types to use for your node group.
 
         :default: t3.medium will be used according to the cloudformation document.
@@ -11325,7 +11318,7 @@ class NodegroupProps(NodegroupOptions):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html#cfn-eks-nodegroup-instancetypes
         '''
         result = self._values.get("instance_types")
-        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.InstanceType"]], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -11409,7 +11402,7 @@ class NodegroupProps(NodegroupOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def node_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def node_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The IAM role to associate with your node group.
 
         The Amazon EKS worker node kubelet daemon
@@ -11420,7 +11413,7 @@ class NodegroupProps(NodegroupOptions):
         :default: - None. Auto-generated if not specified.
         '''
         result = self._values.get("node_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def release_version(self) -> typing.Optional[builtins.str]:
@@ -11445,7 +11438,7 @@ class NodegroupProps(NodegroupOptions):
         return typing.cast(typing.Optional["NodegroupRemoteAccess"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the managed node group resources.
 
         The removal policy controls what happens to the resource if it stops being managed by CloudFormation.
@@ -11458,10 +11451,10 @@ class NodegroupProps(NodegroupOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The subnets to use for the Auto Scaling group that is created for your node group.
 
         By specifying the
@@ -11472,7 +11465,7 @@ class NodegroupProps(NodegroupOptions):
         :default: - private subnets
         '''
         result = self._values.get("subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -11528,7 +11521,7 @@ class NodegroupRemoteAccess:
         self,
         *,
         ssh_key_name: builtins.str,
-        source_security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        source_security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
     ) -> None:
         '''The remote access (SSH) configuration to use with your node group.
 
@@ -11555,7 +11548,7 @@ class NodegroupRemoteAccess:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54f1a56f6e96e735d5421faf302c657e51d067f57405e3a52e02c2f52f620d47)
+            type_hints = cached_type_hints(_typecheckingstub__54f1a56f6e96e735d5421faf302c657e51d067f57405e3a52e02c2f52f620d47)
             check_type(argname="argument ssh_key_name", value=ssh_key_name, expected_type=type_hints["ssh_key_name"])
             check_type(argname="argument source_security_groups", value=source_security_groups, expected_type=type_hints["source_security_groups"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11574,7 +11567,7 @@ class NodegroupRemoteAccess:
     @builtins.property
     def source_security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''The security groups that are allowed SSH access (port 22) to the worker nodes.
 
         If you specify an Amazon EC2 SSH
@@ -11584,7 +11577,7 @@ class NodegroupRemoteAccess:
         :default: - port 22 on the worker nodes is opened to the internet (0.0.0.0/0)
         '''
         result = self._values.get("source_security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11599,7 +11592,7 @@ class NodegroupRemoteAccess:
 
 
 class OidcProviderNative(
-    _OidcProviderNative_18002ae4,
+    _aws_iam_1f54b5e8.OidcProviderNative,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.OidcProviderNative",
 ):
@@ -11651,7 +11644,7 @@ class OidcProviderNative(
         id: builtins.str,
         *,
         url: builtins.str,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Defines a native OpenID Connect provider.
 
@@ -11661,7 +11654,7 @@ class OidcProviderNative(
         :param removal_policy: The removal policy to apply to the OpenID Connect Provider. Default: - RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__333791b35901664482ab20cd991b904afd4d2ad97fd70d1c8a62237d7f23a02a)
+            type_hints = cached_type_hints(_typecheckingstub__333791b35901664482ab20cd991b904afd4d2ad97fd70d1c8a62237d7f23a02a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OidcProviderNativeProps(url=url, removal_policy=removal_policy)
@@ -11676,7 +11669,7 @@ class OidcProviderNative(
 
 
 class OpenIdConnectProvider(
-    _OpenIdConnectProvider_5cb7bc9f,
+    _aws_iam_1f54b5e8.OpenIdConnectProvider,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.OpenIdConnectProvider",
 ):
@@ -11713,7 +11706,7 @@ class OpenIdConnectProvider(
         id: builtins.str,
         *,
         url: builtins.str,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''(deprecated) Defines an OpenID Connect provider.
 
@@ -11725,7 +11718,7 @@ class OpenIdConnectProvider(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d280f100f41eedf34f0f60af882d5409886185cb49189b059dc5cc7858c939d)
+            type_hints = cached_type_hints(_typecheckingstub__4d280f100f41eedf34f0f60af882d5409886185cb49189b059dc5cc7858c939d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OpenIdConnectProviderProps(url=url, removal_policy=removal_policy)
@@ -11752,7 +11745,7 @@ class OpenIdConnectProviderProps:
         self,
         *,
         url: builtins.str,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Initialization properties for ``OpenIdConnectProvider``.
 
@@ -11772,7 +11765,7 @@ class OpenIdConnectProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3317e0858986f20bc5c548ba58b06e82f8e811e2391f01fe2a8895a53fb685ba)
+            type_hints = cached_type_hints(_typecheckingstub__3317e0858986f20bc5c548ba58b06e82f8e811e2391f01fe2a8895a53fb685ba)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11799,13 +11792,13 @@ class OpenIdConnectProviderProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the OpenID Connect Provider.
 
         :default: - RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11855,7 +11848,7 @@ class RemoteNodeNetwork:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10c060c74a741aec691d27fd934a073aeffa7738efbbf9113e88ed3349b6a279)
+            type_hints = cached_type_hints(_typecheckingstub__10c060c74a741aec691d27fd934a073aeffa7738efbbf9113e88ed3349b6a279)
             check_type(argname="argument cidrs", value=cidrs, expected_type=type_hints["cidrs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cidrs": cidrs,
@@ -11904,7 +11897,7 @@ class RemotePodNetwork:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c743e611c57394e9752c982811b7678e60ad528d7877cf8ac6ded60a7fae0a77)
+            type_hints = cached_type_hints(_typecheckingstub__c743e611c57394e9752c982811b7678e60ad528d7877cf8ac6ded60a7fae0a77)
             check_type(argname="argument cidrs", value=cidrs, expected_type=type_hints["cidrs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cidrs": cidrs,
@@ -11964,7 +11957,7 @@ class Selector:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c29fc574d38fe5b57bd3a9de52666c5ff0e4d6562893c6ff6e42979ba509600d)
+            type_hints = cached_type_hints(_typecheckingstub__c29fc574d38fe5b57bd3a9de52666c5ff0e4d6562893c6ff6e42979ba509600d)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12010,7 +12003,7 @@ class Selector:
         )
 
 
-@jsii.implements(_IPrincipal_539bb2fd)
+@jsii.implements(_aws_iam_1f54b5e8.IPrincipal)
 class ServiceAccount(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -12061,7 +12054,7 @@ class ServiceAccount(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -12076,7 +12069,7 @@ class ServiceAccount(
         :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbaca7b824d909d3e2050c970ff90499375d66f7b3e45708d6e7a0fbb0c1c234)
+            type_hints = cached_type_hints(_typecheckingstub__cbaca7b824d909d3e2050c970ff90499375d66f7b3e45708d6e7a0fbb0c1c234)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ServiceAccountProps(
@@ -12093,7 +12086,10 @@ class ServiceAccount(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: "_PolicyStatement_0fe33853") -> builtins.bool:
+    def add_to_policy(
+        self,
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> builtins.bool:
         '''(deprecated) Add to the policy of this principal.
 
         :param statement: -
@@ -12103,23 +12099,23 @@ class ServiceAccount(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc56e7f7009940bf1de62a180e0cb83ac26149eff91c8ceac6aa4b5c0ebfd12a)
+            type_hints = cached_type_hints(_typecheckingstub__cc56e7f7009940bf1de62a180e0cb83ac26149eff91c8ceac6aa4b5c0ebfd12a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToPrincipalPolicyResult_946c9561":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__429486a7c95ed32e038b64ea6b7c83b33565be6e03880fde330aa75f4c68270f)
+            type_hints = cached_type_hints(_typecheckingstub__429486a7c95ed32e038b64ea6b7c83b33565be6e03880fde330aa75f4c68270f)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToPrincipalPolicyResult_946c9561", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @builtins.property
     @jsii.member(jsii_name="assumeRoleAction")
@@ -12129,21 +12125,21 @@ class ServiceAccount(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> "_IPrincipal_539bb2fd":
+    def grant_principal(self) -> "_aws_iam_1f54b5e8.IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast("_IPrincipal_539bb2fd", jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_iam_1f54b5e8.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> "_PrincipalPolicyFragment_6a855d11":
+    def policy_fragment(self) -> "_aws_iam_1f54b5e8.PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast("_PrincipalPolicyFragment_6a855d11", jsii.get(self, "policyFragment"))
+        return typing.cast("_aws_iam_1f54b5e8.PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The role which is linked to the service account.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccountName")
@@ -12181,7 +12177,7 @@ class ServiceAccountOptions:
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Options for ``ServiceAccount``.
 
@@ -12210,7 +12206,7 @@ class ServiceAccountOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3e60561f7a296f4bf04de0a0c27864a64f49c57d5f2b96cec52694275414918)
+            type_hints = cached_type_hints(_typecheckingstub__a3e60561f7a296f4bf04de0a0c27864a64f49c57d5f2b96cec52694275414918)
             check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
             check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -12301,7 +12297,7 @@ class ServiceAccountOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the service account resources.
 
         The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
@@ -12314,7 +12310,7 @@ class ServiceAccountOptions:
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12352,7 +12348,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         cluster: "ICluster",
     ) -> None:
         '''Properties for defining service accounts.
@@ -12395,7 +12391,7 @@ class ServiceAccountProps(ServiceAccountOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbdefc85ea927da26d0db8cbc6fa377f201aba1199d5be6929397306c347f4e4)
+            type_hints = cached_type_hints(_typecheckingstub__bbdefc85ea927da26d0db8cbc6fa377f201aba1199d5be6929397306c347f4e4)
             check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
             check_type(argname="argument identity_type", value=identity_type, expected_type=type_hints["identity_type"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -12489,7 +12485,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy applied to the service account resources.
 
         The removal policy controls what happens to the resources if they stop being managed by CloudFormation.
@@ -12502,7 +12498,7 @@ class ServiceAccountProps(ServiceAccountOptions):
         :default: RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def cluster(self) -> "ICluster":
@@ -12533,7 +12529,7 @@ class ServiceLoadBalancerAddressOptions:
         self,
         *,
         namespace: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options for fetching a ServiceLoadBalancerAddress.
 
@@ -12555,7 +12551,7 @@ class ServiceLoadBalancerAddressOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f079932823e7c1d90e7a61b8ff67d830b157fa4dc704dbe055655ed3112ca23e)
+            type_hints = cached_type_hints(_typecheckingstub__f079932823e7c1d90e7a61b8ff67d830b157fa4dc704dbe055655ed3112ca23e)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -12574,13 +12570,13 @@ class ServiceLoadBalancerAddressOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout for waiting on the load balancer address.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12653,7 +12649,7 @@ class TaintSpec:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20f2601666139771d5c99f22c408f43ba115a6e7e103efba0fc905c49b8ca186)
+            type_hints = cached_type_hints(_typecheckingstub__20f2601666139771d5c99f22c408f43ba115a6e7e103efba0fc905c49b8ca186)
             check_type(argname="argument effect", value=effect, expected_type=type_hints["effect"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -12706,7 +12702,7 @@ class TaintSpec:
 
 @jsii.implements(IAccessEntry)
 class AccessEntry(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.AccessEntry",
 ):
@@ -12750,7 +12746,7 @@ class AccessEntry(
         principal: builtins.str,
         access_entry_name: typing.Optional[builtins.str] = None,
         access_entry_type: typing.Optional["AccessEntryType"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -12763,7 +12759,7 @@ class AccessEntry(
         :param removal_policy: The removal policy applied to the access entry. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bdc6127073e756efdb5d14c617b09700f48d54838b27dab13b99f6ee8c7b5c3)
+            type_hints = cached_type_hints(_typecheckingstub__6bdc6127073e756efdb5d14c617b09700f48d54838b27dab13b99f6ee8c7b5c3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AccessEntryProps(
@@ -12797,7 +12793,7 @@ class AccessEntry(
         :return: The imported access entry.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c5843ba949e2e8e70c545c57e323a169a136e1233a3d21e876a127fb80d7723)
+            type_hints = cached_type_hints(_typecheckingstub__5c5843ba949e2e8e70c545c57e323a169a136e1233a3d21e876a127fb80d7723)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AccessEntryAttributes(
@@ -12816,7 +12812,7 @@ class AccessEntry(
         :param new_access_policies: - The new access policies to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c74254cbfe0119312b0ccd27b5e4874f7973e094484a1ec1bce54f003b0cc97)
+            type_hints = cached_type_hints(_typecheckingstub__9c74254cbfe0119312b0ccd27b5e4874f7973e094484a1ec1bce54f003b0cc97)
             check_type(argname="argument new_access_policies", value=new_access_policies, expected_type=type_hints["new_access_policies"])
         return typing.cast(None, jsii.invoke(self, "addAccessPolicies", [new_access_policies]))
 
@@ -12840,9 +12836,9 @@ class AccessEntry(
 
     @builtins.property
     @jsii.member(jsii_name="accessEntryRef")
-    def access_entry_ref(self) -> "_AccessEntryReference_447195cd":
+    def access_entry_ref(self) -> "_aws_eks_c5926efb.AccessEntryReference":
         '''A reference to a AccessEntry resource.'''
-        return typing.cast("_AccessEntryReference_447195cd", jsii.get(self, "accessEntryRef"))
+        return typing.cast("_aws_eks_c5926efb.AccessEntryReference", jsii.get(self, "accessEntryRef"))
 
 
 @jsii.implements(IAccessPolicy)
@@ -12900,7 +12896,7 @@ class AccessPolicy(
         :param namespaces: An optional array of Kubernetes namespaces to which the access policy applies. Default: - no specific namespaces for this scope
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ee335ba80e25dde88caafff066ca29c64b71a4600a48104897072f72f9b127c)
+            type_hints = cached_type_hints(_typecheckingstub__4ee335ba80e25dde88caafff066ca29c64b71a4600a48104897072f72f9b127c)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
         options = AccessPolicyNameOptions(
             access_scope_type=access_scope_type, namespaces=namespaces
@@ -12923,7 +12919,7 @@ class AccessPolicy(
 
 @jsii.implements(IAddon)
 class Addon(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.Addon",
 ):
@@ -12959,7 +12955,7 @@ class Addon(
         addon_version: typing.Optional[builtins.str] = None,
         configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         preserve_on_delete: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Creates a new Amazon EKS Add-On.
 
@@ -12973,7 +12969,7 @@ class Addon(
         :param removal_policy: The removal policy applied to the EKS add-on. The removal policy controls what happens to the resource if it stops being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d1b17956f5367c24e8d921a4cd124387605b548466a8c8fce1394046132a5b7)
+            type_hints = cached_type_hints(_typecheckingstub__8d1b17956f5367c24e8d921a4cd124387605b548466a8c8fce1394046132a5b7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddonProps(
@@ -13004,7 +13000,7 @@ class Addon(
         :return: An ``IAddon`` implementation.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03634d6d2462cd98d140ea663e2e67722309b40b81399e2b79125a7dbe5e5f85)
+            type_hints = cached_type_hints(_typecheckingstub__03634d6d2462cd98d140ea663e2e67722309b40b81399e2b79125a7dbe5e5f85)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument addon_arn", value=addon_arn, expected_type=type_hints["addon_arn"])
@@ -13030,7 +13026,7 @@ class Addon(
         :return: An ``IAddon`` instance.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c96efbeaaaa15433190608a29071311bab6ef9fd1c1ae38ea9936343adaebb7)
+            type_hints = cached_type_hints(_typecheckingstub__7c96efbeaaaa15433190608a29071311bab6ef9fd1c1ae38ea9936343adaebb7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AddonAttributes(addon_name=addon_name, cluster_name=cluster_name)
@@ -13057,14 +13053,14 @@ class Addon(
 
     @builtins.property
     @jsii.member(jsii_name="addonRef")
-    def addon_ref(self) -> "_AddonReference_afb1bd13":
+    def addon_ref(self) -> "_aws_eks_c5926efb.AddonReference":
         '''A reference to a Addon resource.'''
-        return typing.cast("_AddonReference_afb1bd13", jsii.get(self, "addonRef"))
+        return typing.cast("_aws_eks_c5926efb.AddonReference", jsii.get(self, "addonRef"))
 
 
 @jsii.implements(ICluster)
 class Cluster(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eks_v2.Cluster",
 ):
@@ -13099,7 +13095,7 @@ class Cluster(
         bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
         compute: typing.Optional[typing.Union["ComputeConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         default_capacity: typing.Optional[jsii.Number] = None,
-        default_capacity_instance: typing.Optional["_InstanceType_f64915b9"] = None,
+        default_capacity_instance: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
         default_capacity_type: typing.Optional["DefaultCapacityType"] = None,
         output_config_command: typing.Optional[builtins.bool] = None,
         version: "KubernetesVersion",
@@ -13110,18 +13106,18 @@ class Cluster(
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        masters_role: typing.Optional["_IRole_235f5d8e"] = None,
+        masters_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         prune: typing.Optional[builtins.bool] = None,
         remote_node_networks: typing.Optional[typing.Sequence[typing.Union["RemoteNodeNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_pod_networks: typing.Optional[typing.Sequence[typing.Union["RemotePodNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        secrets_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        secrets_encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Initiates an EKS Cluster with the supplied arguments.
 
@@ -13156,7 +13152,7 @@ class Cluster(
         :param vpc_subnets: Where to place EKS Control Plane ENIs. For example, to only select private subnets, supply the following: ``vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }]`` Default: - All public and private subnets
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6792a3b69429b43c9b6b098e7633a33fb4c1fab5fd463a43797578ef02f2a82d)
+            type_hints = cached_type_hints(_typecheckingstub__6792a3b69429b43c9b6b098e7633a33fb4c1fab5fd463a43797578ef02f2a82d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterProps(
@@ -13206,10 +13202,10 @@ class Cluster(
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider: typing.Optional["IKubectlProvider"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        open_id_connect_provider: typing.Optional["_IOpenIdConnectProvider_203f0793"] = None,
+        open_id_connect_provider: typing.Optional["_aws_iam_1f54b5e8.IOpenIdConnectProvider"] = None,
         prune: typing.Optional[builtins.bool] = None,
         security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> "ICluster":
         '''Import an existing cluster.
 
@@ -13229,7 +13225,7 @@ class Cluster(
         :param vpc: The VPC in which this Cluster was created. Default: - if not specified ``cluster.vpc`` will throw an error
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67bdcedf04f32c2e8ab4570349cea73b300650eaf17d233e89978d8ec9050f96)
+            type_hints = cached_type_hints(_typecheckingstub__67bdcedf04f32c2e8ab4570349cea73b300650eaf17d233e89978d8ec9050f96)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ClusterAttributes(
@@ -13254,41 +13250,41 @@ class Cluster(
         self,
         id: builtins.str,
         *,
-        instance_type: "_InstanceType_f64915b9",
+        instance_type: "_aws_ec2_09840e12.InstanceType",
         bootstrap_enabled: typing.Optional[builtins.bool] = None,
         bootstrap_options: typing.Optional[typing.Union["BootstrapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         machine_image_type: typing.Optional["MachineImageType"] = None,
         allow_all_outbound: typing.Optional[builtins.bool] = None,
         associate_public_ip_address: typing.Optional[builtins.bool] = None,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
-        az_capacity_distribution_strategy: typing.Optional["_CapacityDistributionStrategy_2393ccfe"] = None,
-        block_devices: typing.Optional[typing.Sequence[typing.Union["_BlockDevice_0cfc0568", typing.Dict[builtins.str, typing.Any]]]] = None,
+        az_capacity_distribution_strategy: typing.Optional["_aws_autoscaling_6cbf8045.CapacityDistributionStrategy"] = None,
+        block_devices: typing.Optional[typing.Sequence[typing.Union["_aws_autoscaling_6cbf8045.BlockDevice", typing.Dict[builtins.str, typing.Any]]]] = None,
         capacity_rebalance: typing.Optional[builtins.bool] = None,
-        cooldown: typing.Optional["_Duration_4839e8c3"] = None,
-        default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
-        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
+        cooldown: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        default_instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        deletion_protection: typing.Optional["_aws_autoscaling_6cbf8045.DeletionProtection"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
-        health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
-        health_checks: typing.Optional["_HealthChecks_b8757873"] = None,
+        group_metrics: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.GroupMetrics"]] = None,
+        health_check: typing.Optional["_aws_autoscaling_6cbf8045.HealthCheck"] = None,
+        health_checks: typing.Optional["_aws_autoscaling_6cbf8045.HealthChecks"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
-        instance_lifecycle_policy: typing.Optional[typing.Union["_InstanceLifecyclePolicy_af241466", typing.Dict[builtins.str, typing.Any]]] = None,
-        instance_monitoring: typing.Optional["_Monitoring_50020f91"] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_monitoring: typing.Optional["_aws_autoscaling_6cbf8045.Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
+        key_pair: typing.Optional["_aws_ec2_09840e12.IKeyPair"] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
-        max_instance_lifetime: typing.Optional["_Duration_4839e8c3"] = None,
+        max_instance_lifetime: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
-        notifications: typing.Optional[typing.Sequence[typing.Union["_NotificationConfiguration_d5911670", typing.Dict[builtins.str, typing.Any]]]] = None,
-        signals: typing.Optional["_Signals_69fbeb6e"] = None,
+        notifications: typing.Optional[typing.Sequence[typing.Union["_aws_autoscaling_6cbf8045.NotificationConfiguration", typing.Dict[builtins.str, typing.Any]]]] = None,
+        signals: typing.Optional["_aws_autoscaling_6cbf8045.Signals"] = None,
         spot_price: typing.Optional[builtins.str] = None,
         ssm_session_permissions: typing.Optional[builtins.bool] = None,
-        termination_policies: typing.Optional[typing.Sequence["_TerminationPolicy_89633c56"]] = None,
+        termination_policies: typing.Optional[typing.Sequence["_aws_autoscaling_6cbf8045.TerminationPolicy"]] = None,
         termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
-        update_policy: typing.Optional["_UpdatePolicy_6dffc7ca"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> "_AutoScalingGroup_c547a7b9":
+        update_policy: typing.Optional["_aws_autoscaling_6cbf8045.UpdatePolicy"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> "_aws_autoscaling_6cbf8045.AutoScalingGroup":
         '''Add nodes to this EKS cluster.
 
         The nodes will automatically be configured with the right VPC and AMI
@@ -13335,7 +13331,7 @@ class Cluster(
         :param vpc_subnets: Where to place instances within the VPC. Default: - All Private subnets.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fab71b237eae49d14717c1b7a52d3a7624193c66fd44df3bd384e2bde905f091)
+            type_hints = cached_type_hints(_typecheckingstub__fab71b237eae49d14717c1b7a52d3a7624193c66fd44df3bd384e2bde905f091)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = AutoScalingGroupCapacityOptions(
             instance_type=instance_type,
@@ -13374,7 +13370,7 @@ class Cluster(
             vpc_subnets=vpc_subnets,
         )
 
-        return typing.cast("_AutoScalingGroup_c547a7b9", jsii.invoke(self, "addAutoScalingGroupCapacity", [id, options]))
+        return typing.cast("_aws_autoscaling_6cbf8045.AutoScalingGroup", jsii.invoke(self, "addAutoScalingGroupCapacity", [id, options]))
 
     @jsii.member(jsii_name="addCdk8sChart")
     def add_cdk8s_chart(
@@ -13385,7 +13381,7 @@ class Cluster(
         ingress_alb: typing.Optional[builtins.bool] = None,
         ingress_alb_scheme: typing.Optional["AlbScheme"] = None,
         prune: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         skip_validation: typing.Optional[builtins.bool] = None,
     ) -> "KubernetesManifest":
         '''Defines a CDK8s chart in this cluster.
@@ -13401,7 +13397,7 @@ class Cluster(
         :return: a ``KubernetesManifest`` construct representing the chart.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__616de48bb5e1449e3fd62e9a1f4fd41d7274d3c33d16a1e6df3ce6e7c5fc6a6b)
+            type_hints = cached_type_hints(_typecheckingstub__616de48bb5e1449e3fd62e9a1f4fd41d7274d3c33d16a1e6df3ce6e7c5fc6a6b)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument chart", value=chart, expected_type=type_hints["chart"])
         options = KubernetesManifestOptions(
@@ -13421,10 +13417,10 @@ class Cluster(
         *,
         selectors: typing.Sequence[typing.Union["Selector", typing.Dict[builtins.str, typing.Any]]],
         fargate_profile_name: typing.Optional[builtins.str] = None,
-        pod_execution_role: typing.Optional["_IRole_235f5d8e"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        pod_execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnet_selection: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> "FargateProfile":
         '''Adds a Fargate profile to this cluster.
 
@@ -13439,7 +13435,7 @@ class Cluster(
         :see: https://docs.aws.amazon.com/eks/latest/userguide/fargate-profile.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52570681f13e680771496b920a1f3bd641b9a3a53d3b27e0173e3d902fd8e879)
+            type_hints = cached_type_hints(_typecheckingstub__52570681f13e680771496b920a1f3bd641b9a3a53d3b27e0173e3d902fd8e879)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = FargateProfileOptions(
             selectors=selectors,
@@ -13459,14 +13455,14 @@ class Cluster(
         *,
         atomic: typing.Optional[builtins.bool] = None,
         chart: typing.Optional[builtins.str] = None,
-        chart_asset: typing.Optional["_Asset_ac2a7e61"] = None,
+        chart_asset: typing.Optional["_aws_s3_assets_2dba96fa.Asset"] = None,
         create_namespace: typing.Optional[builtins.bool] = None,
         namespace: typing.Optional[builtins.str] = None,
         release: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         repository: typing.Optional[builtins.str] = None,
         skip_crds: typing.Optional[builtins.bool] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         version: typing.Optional[builtins.str] = None,
         wait: typing.Optional[builtins.bool] = None,
@@ -13491,7 +13487,7 @@ class Cluster(
         :return: a ``HelmChart`` construct
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2efee60e4d961bc101f18bc84a5ff3a7907a13fc2a788fbd44addb7a9c86786)
+            type_hints = cached_type_hints(_typecheckingstub__c2efee60e4d961bc101f18bc84a5ff3a7907a13fc2a788fbd44addb7a9c86786)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = HelmChartOptions(
             atomic=atomic,
@@ -13527,7 +13523,7 @@ class Cluster(
         :return: a ``KubernetesResource`` object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec17920c98f2a13f6d28bdbca1d7c278377a464eac0a7bf72e843185f7165f79)
+            type_hints = cached_type_hints(_typecheckingstub__ec17920c98f2a13f6d28bdbca1d7c278377a464eac0a7bf72e843185f7165f79)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument manifest", value=manifest, expected_type=typing.Tuple[type_hints["manifest"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("KubernetesManifest", jsii.invoke(self, "addManifest", [id, *manifest]))
@@ -13543,7 +13539,7 @@ class Cluster(
         disk_size: typing.Optional[jsii.Number] = None,
         enable_node_auto_repair: typing.Optional[builtins.bool] = None,
         force_update: typing.Optional[builtins.bool] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_aws_ec2_09840e12.InstanceType"]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         launch_template_spec: typing.Optional[typing.Union["LaunchTemplateSpec", typing.Dict[builtins.str, typing.Any]]] = None,
         max_size: typing.Optional[jsii.Number] = None,
@@ -13551,11 +13547,11 @@ class Cluster(
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
         min_size: typing.Optional[jsii.Number] = None,
         nodegroup_name: typing.Optional[builtins.str] = None,
-        node_role: typing.Optional["_IRole_235f5d8e"] = None,
+        node_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         release_version: typing.Optional[builtins.str] = None,
         remote_access: typing.Optional[typing.Union["NodegroupRemoteAccess", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         taints: typing.Optional[typing.Sequence[typing.Union["TaintSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> "Nodegroup":
@@ -13589,7 +13585,7 @@ class Cluster(
         :see: https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a4456e32631812058cf82a0e416af17860a6096439d0ab0ecaa57c3dc3e5fa)
+            type_hints = cached_type_hints(_typecheckingstub__49a4456e32631812058cf82a0e416af17860a6096439d0ab0ecaa57c3dc3e5fa)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = NodegroupOptions(
             ami_type=ami_type,
@@ -13628,7 +13624,7 @@ class Cluster(
         name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
         overwrite_service_account: typing.Optional[builtins.bool] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> "ServiceAccount":
         '''Creates a new service account with corresponding IAM Role (IRSA).
 
@@ -13642,7 +13638,7 @@ class Cluster(
         :param removal_policy: The removal policy applied to the service account resources. The removal policy controls what happens to the resources if they stop being managed by CloudFormation. This can happen in one of three situations: - The resource is removed from the template, so CloudFormation stops managing it - A change to the resource is made that requires it to be replaced, so CloudFormation stops managing it - The stack is deleted, so CloudFormation stops managing all resources in it Default: RemovalPolicy.DESTROY
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0552883a4f6cd67a9f3ae1baab5b90fa768da6acf35f6b483553285e9044481)
+            type_hints = cached_type_hints(_typecheckingstub__c0552883a4f6cd67a9f3ae1baab5b90fa768da6acf35f6b483553285e9044481)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = ServiceAccountOptions(
             annotations=annotations,
@@ -13659,7 +13655,7 @@ class Cluster(
     @jsii.member(jsii_name="connectAutoScalingGroupCapacity")
     def connect_auto_scaling_group_capacity(
         self,
-        auto_scaling_group: "_AutoScalingGroup_c547a7b9",
+        auto_scaling_group: "_aws_autoscaling_6cbf8045.AutoScalingGroup",
         *,
         bootstrap_enabled: typing.Optional[builtins.bool] = None,
         bootstrap_options: typing.Optional[typing.Union["BootstrapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -13682,7 +13678,7 @@ class Cluster(
         :see: https://docs.aws.amazon.com/eks/latest/userguide/launch-workers.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__771327d0ee286335b091dcbf106e6a370539275cdd1b1b98eb7a45a62e441a35)
+            type_hints = cached_type_hints(_typecheckingstub__771327d0ee286335b091dcbf106e6a370539275cdd1b1b98eb7a45a62e441a35)
             check_type(argname="argument auto_scaling_group", value=auto_scaling_group, expected_type=type_hints["auto_scaling_group"])
         options = AutoScalingGroupOptions(
             bootstrap_enabled=bootstrap_enabled,
@@ -13698,7 +13694,7 @@ class Cluster(
         ingress_name: builtins.str,
         *,
         namespace: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> builtins.str:
         '''Fetch the load balancer address of an ingress backed by a load balancer.
 
@@ -13707,7 +13703,7 @@ class Cluster(
         :param timeout: Timeout for waiting on the load balancer address. Default: Duration.minutes(5)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e98fd0757ea9554005f809fb1bc299da14609e93be94cd81c68770f0f6037ff7)
+            type_hints = cached_type_hints(_typecheckingstub__e98fd0757ea9554005f809fb1bc299da14609e93be94cd81c68770f0f6037ff7)
             check_type(argname="argument ingress_name", value=ingress_name, expected_type=type_hints["ingress_name"])
         options = IngressLoadBalancerAddressOptions(
             namespace=namespace, timeout=timeout
@@ -13721,7 +13717,7 @@ class Cluster(
         service_name: builtins.str,
         *,
         namespace: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> builtins.str:
         '''Fetch the load balancer address of a service of type 'LoadBalancer'.
 
@@ -13730,7 +13726,7 @@ class Cluster(
         :param timeout: Timeout for waiting on the load balancer address. Default: Duration.minutes(5)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2aa784877540d0a561de8adb59e0f66a109778d755a0a136cd88cb66db0391bd)
+            type_hints = cached_type_hints(_typecheckingstub__2aa784877540d0a561de8adb59e0f66a109778d755a0a136cd88cb66db0391bd)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         options = ServiceLoadBalancerAddressOptions(
             namespace=namespace, timeout=timeout
@@ -13760,7 +13756,7 @@ class Cluster(
         :param access_entry_type: The type of the access entry. Specify ``AccessEntryType.EC2`` for EKS Auto Mode node roles, ``AccessEntryType.HYBRID_LINUX`` for EKS Hybrid Nodes, or ``AccessEntryType.HYPERPOD_LINUX`` for SageMaker HyperPod. Note that EC2, HYBRID_LINUX, and HYPERPOD_LINUX types cannot have access policies attached per AWS EKS API constraints. Default: AccessEntryType.STANDARD - Standard access entry type that supports access policies
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a0a8e7a571e2d83fe0d653283d5619dd0847a4feb02f24e52dfd6078c5e5dc8)
+            type_hints = cached_type_hints(_typecheckingstub__9a0a8e7a571e2d83fe0d653283d5619dd0847a4feb02f24e52dfd6078c5e5dc8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             check_type(argname="argument access_policies", value=access_policies, expected_type=type_hints["access_policies"])
@@ -13787,7 +13783,7 @@ class Cluster(
         :return: the access entry construct
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d480c5ad2387465de28d5136d3a881e299c84073a5087876691da85adb81c52)
+            type_hints = cached_type_hints(_typecheckingstub__7d480c5ad2387465de28d5136d3a881e299c84073a5087876691da85adb81c52)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
         return typing.cast("AccessEntry", jsii.invoke(self, "grantClusterAdmin", [id, principal]))
@@ -13850,15 +13846,15 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="clusterRef")
-    def cluster_ref(self) -> "_ClusterReference_d6e6b9ff":
+    def cluster_ref(self) -> "_aws_eks_c5926efb.ClusterReference":
         '''A reference to a Cluster resource.'''
-        return typing.cast("_ClusterReference_d6e6b9ff", jsii.get(self, "clusterRef"))
+        return typing.cast("_aws_eks_c5926efb.ClusterReference", jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterSecurityGroup")
-    def cluster_security_group(self) -> "_ISecurityGroup_acf8a799":
+    def cluster_security_group(self) -> "_aws_ec2_09840e12.ISecurityGroup":
         '''The cluster security group that was created by Amazon EKS for the cluster.'''
-        return typing.cast("_ISecurityGroup_acf8a799", jsii.get(self, "clusterSecurityGroup"))
+        return typing.cast("_aws_ec2_09840e12.ISecurityGroup", jsii.get(self, "clusterSecurityGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterSecurityGroupId")
@@ -13868,22 +13864,22 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Manages connection rules (Security Group Rules) for the cluster.
 
         :memberof: Cluster
         :type: {ec2.Connections}
         '''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProvider")
-    def open_id_connect_provider(self) -> "_IOpenIdConnectProvider_203f0793":
+    def open_id_connect_provider(self) -> "_aws_iam_1f54b5e8.IOpenIdConnectProvider":
         '''An ``OpenIdConnectProvider`` resource associated with this cluster, and which can be used to link this cluster to AWS IAM.
 
         A provider will only be defined if this property is accessed (lazy initialization).
         '''
-        return typing.cast("_IOpenIdConnectProvider_203f0793", jsii.get(self, "openIdConnectProvider"))
+        return typing.cast("_aws_iam_1f54b5e8.IOpenIdConnectProvider", jsii.get(self, "openIdConnectProvider"))
 
     @builtins.property
     @jsii.member(jsii_name="prune")
@@ -13893,15 +13889,15 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> "_IRole_235f5d8e":
+    def role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''IAM role assumed by the EKS Control Plane.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC in which this Cluster was created.'''
-        return typing.cast("_IVpc_f30d5663", jsii.get(self, "vpc"))
+        return typing.cast("_aws_ec2_09840e12.IVpc", jsii.get(self, "vpc"))
 
     @builtins.property
     @jsii.member(jsii_name="albController")
@@ -13914,13 +13910,15 @@ class Cluster(
 
     @builtins.property
     @jsii.member(jsii_name="defaultCapacity")
-    def default_capacity(self) -> typing.Optional["_AutoScalingGroup_c547a7b9"]:
+    def default_capacity(
+        self,
+    ) -> typing.Optional["_aws_autoscaling_6cbf8045.AutoScalingGroup"]:
         '''The auto scaling group that hosts the default capacity for this cluster.
 
         This will be ``undefined`` if the ``defaultCapacityType`` is not ``EC2`` or
         ``defaultCapacityType`` is ``EC2`` but default capacity is set to 0.
         '''
-        return typing.cast(typing.Optional["_AutoScalingGroup_c547a7b9"], jsii.get(self, "defaultCapacity"))
+        return typing.cast(typing.Optional["_aws_autoscaling_6cbf8045.AutoScalingGroup"], jsii.get(self, "defaultCapacity"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultNodegroup")
@@ -13996,18 +13994,18 @@ class FargateCluster(
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
         kubectl_provider_options: typing.Optional[typing.Union["KubectlProviderOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        masters_role: typing.Optional["_IRole_235f5d8e"] = None,
+        masters_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         prune: typing.Optional[builtins.bool] = None,
         remote_node_networks: typing.Optional[typing.Sequence[typing.Union["RemoteNodeNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
         remote_pod_networks: typing.Optional[typing.Sequence[typing.Union["RemotePodNetwork", typing.Dict[builtins.str, typing.Any]]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        role: typing.Optional["_IRole_235f5d8e"] = None,
-        secrets_encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        secrets_encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Sequence[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -14035,7 +14033,7 @@ class FargateCluster(
         :param vpc_subnets: Where to place EKS Control Plane ENIs. For example, to only select private subnets, supply the following: ``vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }]`` Default: - All public and private subnets
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a57d359552bec9f56bfd2ab32f38ac52a4ec61ae9a0fb389cdf4cb3245d48296)
+            type_hints = cached_type_hints(_typecheckingstub__a57d359552bec9f56bfd2ab32f38ac52a4ec61ae9a0fb389cdf4cb3245d48296)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FargateClusterProps(
@@ -14087,7 +14085,7 @@ class IngressLoadBalancerAddressOptions(ServiceLoadBalancerAddressOptions):
         self,
         *,
         namespace: typing.Optional[builtins.str] = None,
-        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Options for fetching an IngressLoadBalancerAddress.
 
@@ -14109,7 +14107,7 @@ class IngressLoadBalancerAddressOptions(ServiceLoadBalancerAddressOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72a948ced8e6435857118472eef7f15a6176366338511e8d547896d86be919f9)
+            type_hints = cached_type_hints(_typecheckingstub__72a948ced8e6435857118472eef7f15a6176366338511e8d547896d86be919f9)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -14128,13 +14126,13 @@ class IngressLoadBalancerAddressOptions(ServiceLoadBalancerAddressOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Timeout for waiting on the load balancer address.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14158,7 +14156,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
         self,
         *,
         url: builtins.str,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Initialization properties for ``OidcProviderNative``.
 
@@ -14196,7 +14194,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
             bucket.grant_read_write(service_account)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6047d8b2c619283b6ba31c9b2b3e7432baed68657d69d1e9341732d37c0298f8)
+            type_hints = cached_type_hints(_typecheckingstub__6047d8b2c619283b6ba31c9b2b3e7432baed68657d69d1e9341732d37c0298f8)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -14223,13 +14221,13 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the OpenID Connect Provider.
 
         :default: - RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14349,7 +14347,7 @@ def _typecheckingstub__d41ffcd9c9b81f2eb3b57e856565badd460fd76ba6e94407016e97fbe
     principal: builtins.str,
     access_entry_name: typing.Optional[builtins.str] = None,
     access_entry_type: typing.Optional[AccessEntryType] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14405,7 +14403,7 @@ def _typecheckingstub__1d11ec069708c7b4208a323d8379cab46576729e75eb29e4c9e64df4e
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     preserve_on_delete: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14419,7 +14417,7 @@ def _typecheckingstub__8de1a5fab31e27ea56ec8314431ac439667aa7b3a5634280a9817f052
     additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14433,7 +14431,7 @@ def _typecheckingstub__41d1cff94c29713e5c5b7bb7ba2b00b4278e38ed60ba8a6db024eea79
     additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14445,7 +14443,7 @@ def _typecheckingstub__fc3b82a59d8b4ad560f5757657e3397afe031e63d197ae8f3fc25327b
     additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14457,7 +14455,7 @@ def _typecheckingstub__5cde38e59a61de7f0bc23764fca6ef8ffc2d9c2007d5c7c13a0350fb7
     additional_helm_chart_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
     policy: typing.Any = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     cluster: Cluster,
 ) -> None:
@@ -14476,34 +14474,34 @@ def _typecheckingstub__391f701643a31c9041c2732176c0e9385d97aecf409a768988a75f2f7
     allow_all_outbound: typing.Optional[builtins.bool] = None,
     associate_public_ip_address: typing.Optional[builtins.bool] = None,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
-    az_capacity_distribution_strategy: typing.Optional[_CapacityDistributionStrategy_2393ccfe] = None,
-    block_devices: typing.Optional[typing.Sequence[typing.Union[_BlockDevice_0cfc0568, typing.Dict[builtins.str, typing.Any]]]] = None,
+    az_capacity_distribution_strategy: typing.Optional[_aws_autoscaling_6cbf8045.CapacityDistributionStrategy] = None,
+    block_devices: typing.Optional[typing.Sequence[typing.Union[_aws_autoscaling_6cbf8045.BlockDevice, typing.Dict[builtins.str, typing.Any]]]] = None,
     capacity_rebalance: typing.Optional[builtins.bool] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
-    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    default_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    deletion_protection: typing.Optional[_aws_autoscaling_6cbf8045.DeletionProtection] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
-    group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
-    health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
-    health_checks: typing.Optional[_HealthChecks_b8757873] = None,
+    group_metrics: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.GroupMetrics]] = None,
+    health_check: typing.Optional[_aws_autoscaling_6cbf8045.HealthCheck] = None,
+    health_checks: typing.Optional[_aws_autoscaling_6cbf8045.HealthChecks] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
-    instance_lifecycle_policy: typing.Optional[typing.Union[_InstanceLifecyclePolicy_af241466, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_monitoring: typing.Optional[_Monitoring_50020f91] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_monitoring: typing.Optional[_aws_autoscaling_6cbf8045.Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
-    key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
+    key_pair: typing.Optional[_aws_ec2_09840e12.IKeyPair] = None,
     max_capacity: typing.Optional[jsii.Number] = None,
-    max_instance_lifetime: typing.Optional[_Duration_4839e8c3] = None,
+    max_instance_lifetime: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     min_capacity: typing.Optional[jsii.Number] = None,
     new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
-    notifications: typing.Optional[typing.Sequence[typing.Union[_NotificationConfiguration_d5911670, typing.Dict[builtins.str, typing.Any]]]] = None,
-    signals: typing.Optional[_Signals_69fbeb6e] = None,
+    notifications: typing.Optional[typing.Sequence[typing.Union[_aws_autoscaling_6cbf8045.NotificationConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signals: typing.Optional[_aws_autoscaling_6cbf8045.Signals] = None,
     spot_price: typing.Optional[builtins.str] = None,
     ssm_session_permissions: typing.Optional[builtins.bool] = None,
-    termination_policies: typing.Optional[typing.Sequence[_TerminationPolicy_89633c56]] = None,
+    termination_policies: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.TerminationPolicy]] = None,
     termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
-    update_policy: typing.Optional[_UpdatePolicy_6dffc7ca] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_type: _InstanceType_f64915b9,
+    update_policy: typing.Optional[_aws_autoscaling_6cbf8045.UpdatePolicy] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_type: _aws_ec2_09840e12.InstanceType,
     bootstrap_enabled: typing.Optional[builtins.bool] = None,
     bootstrap_options: typing.Optional[typing.Union[BootstrapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     machine_image_type: typing.Optional[MachineImageType] = None,
@@ -14543,10 +14541,10 @@ def _typecheckingstub__66e301df415ba7f56900494427b4c395a0ce6d0961cc773754d28d465
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider: typing.Optional[IKubectlProvider] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    open_id_connect_provider: typing.Optional[_IOpenIdConnectProvider_203f0793] = None,
+    open_id_connect_provider: typing.Optional[_aws_iam_1f54b5e8.IOpenIdConnectProvider] = None,
     prune: typing.Optional[builtins.bool] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14561,18 +14559,18 @@ def _typecheckingstub__a1a5ef28766020ab8c83202e5d6dffbece016846b78ba995db3af04cf
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    masters_role: typing.Optional[_IRole_235f5d8e] = None,
+    masters_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     prune: typing.Optional[builtins.bool] = None,
     remote_node_networks: typing.Optional[typing.Sequence[typing.Union[RemoteNodeNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_pod_networks: typing.Optional[typing.Sequence[typing.Union[RemotePodNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    secrets_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    secrets_encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14587,23 +14585,23 @@ def _typecheckingstub__abf0bb0ee5c6865eff515f2fc338ed96f254860f01b55add3f4ea5052
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    masters_role: typing.Optional[_IRole_235f5d8e] = None,
+    masters_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     prune: typing.Optional[builtins.bool] = None,
     remote_node_networks: typing.Optional[typing.Sequence[typing.Union[RemoteNodeNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_pod_networks: typing.Optional[typing.Sequence[typing.Union[RemotePodNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    secrets_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    secrets_encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
     bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
     bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
     compute: typing.Optional[typing.Union[ComputeConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     default_capacity: typing.Optional[jsii.Number] = None,
-    default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
+    default_capacity_instance: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
     default_capacity_type: typing.Optional[DefaultCapacityType] = None,
     output_config_command: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -14613,7 +14611,7 @@ def _typecheckingstub__abf0bb0ee5c6865eff515f2fc338ed96f254860f01b55add3f4ea5052
 def _typecheckingstub__3f2276433261f643c13b2562a74d200173c371ac395d946bc5b30974e539c3d8(
     *,
     node_pools: typing.Optional[typing.Sequence[builtins.str]] = None,
-    node_role: typing.Optional[_IRole_235f5d8e] = None,
+    node_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14649,18 +14647,18 @@ def _typecheckingstub__a3435de412248a83f43d99c9de5759414e7750a3260fc08dd8d1d5a7b
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    masters_role: typing.Optional[_IRole_235f5d8e] = None,
+    masters_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     prune: typing.Optional[builtins.bool] = None,
     remote_node_networks: typing.Optional[typing.Sequence[typing.Union[RemoteNodeNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_pod_networks: typing.Optional[typing.Sequence[typing.Union[RemotePodNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    secrets_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    secrets_encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
     default_profile: typing.Optional[typing.Union[FargateProfileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14673,10 +14671,10 @@ def _typecheckingstub__6ff1441149066c392d795ca95a53178129d4e20453a143b0f47b7798a
     cluster: Cluster,
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
-    pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    pod_execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14685,10 +14683,10 @@ def _typecheckingstub__d6c42506f4872e7f1d6b355f123ba490e44a15df088f6604e95487339
     *,
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
-    pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    pod_execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14697,10 +14695,10 @@ def _typecheckingstub__be66b2c09f65387bbc144563f27bb4e976109284f231b60f6fd8c49f0
     *,
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
-    pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    pod_execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
     cluster: Cluster,
 ) -> None:
     """Type checking stubs"""
@@ -14720,14 +14718,14 @@ def _typecheckingstub__267bbdf92ec5bdd2c63df8ddabf0ea08b5fb246323ebab2b8602a9feb
     cluster: ICluster,
     atomic: typing.Optional[builtins.bool] = None,
     chart: typing.Optional[builtins.str] = None,
-    chart_asset: typing.Optional[_Asset_ac2a7e61] = None,
+    chart_asset: typing.Optional[_aws_s3_assets_2dba96fa.Asset] = None,
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     version: typing.Optional[builtins.str] = None,
     wait: typing.Optional[builtins.bool] = None,
@@ -14739,14 +14737,14 @@ def _typecheckingstub__cdf3e52a6495d221a1058009786322c331c50f98baa602fdf09109f0f
     *,
     atomic: typing.Optional[builtins.bool] = None,
     chart: typing.Optional[builtins.str] = None,
-    chart_asset: typing.Optional[_Asset_ac2a7e61] = None,
+    chart_asset: typing.Optional[_aws_s3_assets_2dba96fa.Asset] = None,
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     version: typing.Optional[builtins.str] = None,
     wait: typing.Optional[builtins.bool] = None,
@@ -14758,14 +14756,14 @@ def _typecheckingstub__09c30fd78e20ace511773a60bd2e380e390d4d44dfd7df73a2899c789
     *,
     atomic: typing.Optional[builtins.bool] = None,
     chart: typing.Optional[builtins.str] = None,
-    chart_asset: typing.Optional[_Asset_ac2a7e61] = None,
+    chart_asset: typing.Optional[_aws_s3_assets_2dba96fa.Asset] = None,
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     version: typing.Optional[builtins.str] = None,
     wait: typing.Optional[builtins.bool] = None,
@@ -14781,7 +14779,7 @@ def _typecheckingstub__ff83de86e871d5dc9fcf4c6adc16aedcbec2d949a716c25c5d1a2e0af
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14792,14 +14790,14 @@ def _typecheckingstub__11e91d47c6f3469869f69fbc87b6d30081218e0b6ed8b1b7e87973df9
     *,
     atomic: typing.Optional[builtins.bool] = None,
     chart: typing.Optional[builtins.str] = None,
-    chart_asset: typing.Optional[_Asset_ac2a7e61] = None,
+    chart_asset: typing.Optional[_aws_s3_assets_2dba96fa.Asset] = None,
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     version: typing.Optional[builtins.str] = None,
     wait: typing.Optional[builtins.bool] = None,
@@ -14823,13 +14821,13 @@ def _typecheckingstub__390d49561f44f1197bf5781d054e03a9acb2c7981e79c9c146a535451
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a0c9b9d342838868cfdeecd867068960aa4fe89ce221b96f17f94b06c4b55a94(
-    auto_scaling_group: _AutoScalingGroup_c547a7b9,
+    auto_scaling_group: _aws_autoscaling_6cbf8045.AutoScalingGroup,
     *,
     bootstrap_enabled: typing.Optional[builtins.bool] = None,
     bootstrap_options: typing.Optional[typing.Union[BootstrapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14843,15 +14841,15 @@ def _typecheckingstub__1aad34a8b7c85b8fafa3a60b89cf1904902b5f18ab4c50ae367481347
     id: builtins.str,
     *,
     cluster: ICluster,
-    kubectl_layer: _ILayerVersion_5ac127c8,
-    awscli_layer: typing.Optional[_ILayerVersion_5ac127c8] = None,
+    kubectl_layer: _aws_lambda_b8f2f472.ILayerVersion,
+    awscli_layer: typing.Optional[_aws_lambda_b8f2f472.ILayerVersion] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
-    private_subnets: typing.Optional[typing.Sequence[_ISubnet_d57d1229]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    memory: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
+    private_subnets: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISubnet]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14861,7 +14859,7 @@ def _typecheckingstub__482e5705a693af11339a7f57c6d0ce81623cec9953281097e3c09cc25
     id: builtins.str,
     *,
     service_token: builtins.str,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14876,37 +14874,37 @@ def _typecheckingstub__24a426caec312e2477ccd638d41ff0271e15c86a0c62f06f464e88e5f
 def _typecheckingstub__21826c50973a5c6583d4ccfb55d5b9e60e5b35409ed715ada3e709246e16b224(
     *,
     service_token: builtins.str,
-    role: typing.Optional[_IRole_235f5d8e] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__db0d43994acd7b6b330a5f26b52341ec27f5672d45b11639c9e406ad65a2134b(
     *,
-    kubectl_layer: _ILayerVersion_5ac127c8,
-    awscli_layer: typing.Optional[_ILayerVersion_5ac127c8] = None,
+    kubectl_layer: _aws_lambda_b8f2f472.ILayerVersion,
+    awscli_layer: typing.Optional[_aws_lambda_b8f2f472.ILayerVersion] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
-    private_subnets: typing.Optional[typing.Sequence[_ISubnet_d57d1229]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    memory: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
+    private_subnets: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISubnet]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61a433dab330d6710bafea4cc09c474eaf4b60af830112e448baa510723d19b0(
     *,
-    kubectl_layer: _ILayerVersion_5ac127c8,
-    awscli_layer: typing.Optional[_ILayerVersion_5ac127c8] = None,
+    kubectl_layer: _aws_lambda_b8f2f472.ILayerVersion,
+    awscli_layer: typing.Optional[_aws_lambda_b8f2f472.ILayerVersion] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    memory: typing.Optional[_Size_7b441c34] = None,
-    private_subnets: typing.Optional[typing.Sequence[_ISubnet_d57d1229]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    memory: typing.Optional[_aws_cdk_0cae9daa.Size] = None,
+    private_subnets: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISubnet]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
     cluster: ICluster,
 ) -> None:
     """Type checking stubs"""
@@ -14922,7 +14920,7 @@ def _typecheckingstub__f5040cd237de4e6fc90ec31d3e3edb50c772a93243db6531802592e73
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14933,7 +14931,7 @@ def _typecheckingstub__3eb02dba7044365540f72d0cdd546ff96bc7d51d55d23bc2f13b1602b
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14944,7 +14942,7 @@ def _typecheckingstub__a4b1104d99f875c1e3595711967bbe93c6dca0a6e48899bd3786b16d9
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
     cluster: ICluster,
     manifest: typing.Sequence[typing.Mapping[builtins.str, typing.Any]],
@@ -14962,8 +14960,8 @@ def _typecheckingstub__45f73303333592eb76ce2a3a47eb5689f5004712eb9ba9a363083fb71
     object_name: builtins.str,
     object_type: builtins.str,
     object_namespace: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14975,8 +14973,8 @@ def _typecheckingstub__34f882ca78f612b80a326720db025bad0ee81c47fc3567e1271454c15
     object_name: builtins.str,
     object_type: builtins.str,
     object_namespace: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14990,7 +14988,7 @@ def _typecheckingstub__d6806e924d7a4b33fb6deb2187dcdc1e376243c3bb4967bd6a7ff20b6
     resource_name: builtins.str,
     restore_patch: typing.Mapping[builtins.str, typing.Any],
     patch_type: typing.Optional[PatchType] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     resource_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15003,7 +15001,7 @@ def _typecheckingstub__d1fa21e33c8b472af1142c651e669720614ef910d6bc6a0336c7e9912
     resource_name: builtins.str,
     restore_patch: typing.Mapping[builtins.str, typing.Any],
     patch_type: typing.Optional[PatchType] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     resource_namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15034,7 +15032,7 @@ def _typecheckingstub__62af457a65949e7033d40a53d059be3f6f3a3197f4447681ec062c631
     disk_size: typing.Optional[jsii.Number] = None,
     enable_node_auto_repair: typing.Optional[builtins.bool] = None,
     force_update: typing.Optional[builtins.bool] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
+    instance_types: typing.Optional[typing.Sequence[_aws_ec2_09840e12.InstanceType]] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     launch_template_spec: typing.Optional[typing.Union[LaunchTemplateSpec, typing.Dict[builtins.str, typing.Any]]] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -15042,11 +15040,11 @@ def _typecheckingstub__62af457a65949e7033d40a53d059be3f6f3a3197f4447681ec062c631
     max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
-    node_role: typing.Optional[_IRole_235f5d8e] = None,
+    node_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -15069,7 +15067,7 @@ def _typecheckingstub__4520b68206945b2bfc48c1a6979416f811423e6b7e7b4d017c5b38dfb
     disk_size: typing.Optional[jsii.Number] = None,
     enable_node_auto_repair: typing.Optional[builtins.bool] = None,
     force_update: typing.Optional[builtins.bool] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
+    instance_types: typing.Optional[typing.Sequence[_aws_ec2_09840e12.InstanceType]] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     launch_template_spec: typing.Optional[typing.Union[LaunchTemplateSpec, typing.Dict[builtins.str, typing.Any]]] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -15077,11 +15075,11 @@ def _typecheckingstub__4520b68206945b2bfc48c1a6979416f811423e6b7e7b4d017c5b38dfb
     max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
-    node_role: typing.Optional[_IRole_235f5d8e] = None,
+    node_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -15096,7 +15094,7 @@ def _typecheckingstub__1960828ed0ec52107f2f9d815f5a9edf404b27e19b18ae5dd39b8d5f3
     disk_size: typing.Optional[jsii.Number] = None,
     enable_node_auto_repair: typing.Optional[builtins.bool] = None,
     force_update: typing.Optional[builtins.bool] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
+    instance_types: typing.Optional[typing.Sequence[_aws_ec2_09840e12.InstanceType]] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     launch_template_spec: typing.Optional[typing.Union[LaunchTemplateSpec, typing.Dict[builtins.str, typing.Any]]] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -15104,11 +15102,11 @@ def _typecheckingstub__1960828ed0ec52107f2f9d815f5a9edf404b27e19b18ae5dd39b8d5f3
     max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
-    node_role: typing.Optional[_IRole_235f5d8e] = None,
+    node_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster: ICluster,
@@ -15119,7 +15117,7 @@ def _typecheckingstub__1960828ed0ec52107f2f9d815f5a9edf404b27e19b18ae5dd39b8d5f3
 def _typecheckingstub__54f1a56f6e96e735d5421faf302c657e51d067f57405e3a52e02c2f52f620d47(
     *,
     ssh_key_name: builtins.str,
-    source_security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    source_security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15129,7 +15127,7 @@ def _typecheckingstub__333791b35901664482ab20cd991b904afd4d2ad97fd70d1c8a62237d7
     id: builtins.str,
     *,
     url: builtins.str,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15139,7 +15137,7 @@ def _typecheckingstub__4d280f100f41eedf34f0f60af882d5409886185cb49189b059dc5cc78
     id: builtins.str,
     *,
     url: builtins.str,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15147,7 +15145,7 @@ def _typecheckingstub__4d280f100f41eedf34f0f60af882d5409886185cb49189b059dc5cc78
 def _typecheckingstub__3317e0858986f20bc5c548ba58b06e82f8e811e2391f01fe2a8895a53fb685ba(
     *,
     url: builtins.str,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15185,19 +15183,19 @@ def _typecheckingstub__cbaca7b824d909d3e2050c970ff90499375d66f7b3e45708d6e7a0fbb
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cc56e7f7009940bf1de62a180e0cb83ac26149eff91c8ceac6aa4b5c0ebfd12a(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__429486a7c95ed32e038b64ea6b7c83b33565be6e03880fde330aa75f4c68270f(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15210,7 +15208,7 @@ def _typecheckingstub__a3e60561f7a296f4bf04de0a0c27864a64f49c57d5f2b96cec5269427
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15223,7 +15221,7 @@ def _typecheckingstub__bbdefc85ea927da26d0db8cbc6fa377f201aba1199d5be6929397306c
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     cluster: ICluster,
 ) -> None:
     """Type checking stubs"""
@@ -15232,7 +15230,7 @@ def _typecheckingstub__bbdefc85ea927da26d0db8cbc6fa377f201aba1199d5be6929397306c
 def _typecheckingstub__f079932823e7c1d90e7a61b8ff67d830b157fa4dc704dbe055655ed3112ca23e(
     *,
     namespace: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15255,7 +15253,7 @@ def _typecheckingstub__6bdc6127073e756efdb5d14c617b09700f48d54838b27dab13b99f6ee
     principal: builtins.str,
     access_entry_name: typing.Optional[builtins.str] = None,
     access_entry_type: typing.Optional[AccessEntryType] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15294,7 +15292,7 @@ def _typecheckingstub__8d1b17956f5367c24e8d921a4cd124387605b548466a8c8fce1394046
     addon_version: typing.Optional[builtins.str] = None,
     configuration_values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     preserve_on_delete: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15325,7 +15323,7 @@ def _typecheckingstub__6792a3b69429b43c9b6b098e7633a33fb4c1fab5fd463a43797578ef0
     bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
     compute: typing.Optional[typing.Union[ComputeConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     default_capacity: typing.Optional[jsii.Number] = None,
-    default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
+    default_capacity_instance: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
     default_capacity_type: typing.Optional[DefaultCapacityType] = None,
     output_config_command: typing.Optional[builtins.bool] = None,
     version: KubernetesVersion,
@@ -15336,18 +15334,18 @@ def _typecheckingstub__6792a3b69429b43c9b6b098e7633a33fb4c1fab5fd463a43797578ef0
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    masters_role: typing.Optional[_IRole_235f5d8e] = None,
+    masters_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     prune: typing.Optional[builtins.bool] = None,
     remote_node_networks: typing.Optional[typing.Sequence[typing.Union[RemoteNodeNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_pod_networks: typing.Optional[typing.Sequence[typing.Union[RemotePodNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    secrets_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    secrets_encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15364,10 +15362,10 @@ def _typecheckingstub__67bdcedf04f32c2e8ab4570349cea73b300650eaf17d233e89978d8ec
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider: typing.Optional[IKubectlProvider] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    open_id_connect_provider: typing.Optional[_IOpenIdConnectProvider_203f0793] = None,
+    open_id_connect_provider: typing.Optional[_aws_iam_1f54b5e8.IOpenIdConnectProvider] = None,
     prune: typing.Optional[builtins.bool] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15375,40 +15373,40 @@ def _typecheckingstub__67bdcedf04f32c2e8ab4570349cea73b300650eaf17d233e89978d8ec
 def _typecheckingstub__fab71b237eae49d14717c1b7a52d3a7624193c66fd44df3bd384e2bde905f091(
     id: builtins.str,
     *,
-    instance_type: _InstanceType_f64915b9,
+    instance_type: _aws_ec2_09840e12.InstanceType,
     bootstrap_enabled: typing.Optional[builtins.bool] = None,
     bootstrap_options: typing.Optional[typing.Union[BootstrapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     machine_image_type: typing.Optional[MachineImageType] = None,
     allow_all_outbound: typing.Optional[builtins.bool] = None,
     associate_public_ip_address: typing.Optional[builtins.bool] = None,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
-    az_capacity_distribution_strategy: typing.Optional[_CapacityDistributionStrategy_2393ccfe] = None,
-    block_devices: typing.Optional[typing.Sequence[typing.Union[_BlockDevice_0cfc0568, typing.Dict[builtins.str, typing.Any]]]] = None,
+    az_capacity_distribution_strategy: typing.Optional[_aws_autoscaling_6cbf8045.CapacityDistributionStrategy] = None,
+    block_devices: typing.Optional[typing.Sequence[typing.Union[_aws_autoscaling_6cbf8045.BlockDevice, typing.Dict[builtins.str, typing.Any]]]] = None,
     capacity_rebalance: typing.Optional[builtins.bool] = None,
-    cooldown: typing.Optional[_Duration_4839e8c3] = None,
-    default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
-    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
+    cooldown: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    default_instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    deletion_protection: typing.Optional[_aws_autoscaling_6cbf8045.DeletionProtection] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
-    group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
-    health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
-    health_checks: typing.Optional[_HealthChecks_b8757873] = None,
+    group_metrics: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.GroupMetrics]] = None,
+    health_check: typing.Optional[_aws_autoscaling_6cbf8045.HealthCheck] = None,
+    health_checks: typing.Optional[_aws_autoscaling_6cbf8045.HealthChecks] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
-    instance_lifecycle_policy: typing.Optional[typing.Union[_InstanceLifecyclePolicy_af241466, typing.Dict[builtins.str, typing.Any]]] = None,
-    instance_monitoring: typing.Optional[_Monitoring_50020f91] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_aws_autoscaling_6cbf8045.InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_monitoring: typing.Optional[_aws_autoscaling_6cbf8045.Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
-    key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
+    key_pair: typing.Optional[_aws_ec2_09840e12.IKeyPair] = None,
     max_capacity: typing.Optional[jsii.Number] = None,
-    max_instance_lifetime: typing.Optional[_Duration_4839e8c3] = None,
+    max_instance_lifetime: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     min_capacity: typing.Optional[jsii.Number] = None,
     new_instances_protected_from_scale_in: typing.Optional[builtins.bool] = None,
-    notifications: typing.Optional[typing.Sequence[typing.Union[_NotificationConfiguration_d5911670, typing.Dict[builtins.str, typing.Any]]]] = None,
-    signals: typing.Optional[_Signals_69fbeb6e] = None,
+    notifications: typing.Optional[typing.Sequence[typing.Union[_aws_autoscaling_6cbf8045.NotificationConfiguration, typing.Dict[builtins.str, typing.Any]]]] = None,
+    signals: typing.Optional[_aws_autoscaling_6cbf8045.Signals] = None,
     spot_price: typing.Optional[builtins.str] = None,
     ssm_session_permissions: typing.Optional[builtins.bool] = None,
-    termination_policies: typing.Optional[typing.Sequence[_TerminationPolicy_89633c56]] = None,
+    termination_policies: typing.Optional[typing.Sequence[_aws_autoscaling_6cbf8045.TerminationPolicy]] = None,
     termination_policy_custom_lambda_function_arn: typing.Optional[builtins.str] = None,
-    update_policy: typing.Optional[_UpdatePolicy_6dffc7ca] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    update_policy: typing.Optional[_aws_autoscaling_6cbf8045.UpdatePolicy] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15420,7 +15418,7 @@ def _typecheckingstub__616de48bb5e1449e3fd62e9a1f4fd41d7274d3c33d16a1e6df3ce6e7c
     ingress_alb: typing.Optional[builtins.bool] = None,
     ingress_alb_scheme: typing.Optional[AlbScheme] = None,
     prune: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     skip_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -15431,10 +15429,10 @@ def _typecheckingstub__52570681f13e680771496b920a1f3bd641b9a3a53d3b27e0173e3d902
     *,
     selectors: typing.Sequence[typing.Union[Selector, typing.Dict[builtins.str, typing.Any]]],
     fargate_profile_name: typing.Optional[builtins.str] = None,
-    pod_execution_role: typing.Optional[_IRole_235f5d8e] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
+    pod_execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnet_selection: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15444,14 +15442,14 @@ def _typecheckingstub__c2efee60e4d961bc101f18bc84a5ff3a7907a13fc2a788fbd44addb7a
     *,
     atomic: typing.Optional[builtins.bool] = None,
     chart: typing.Optional[builtins.str] = None,
-    chart_asset: typing.Optional[_Asset_ac2a7e61] = None,
+    chart_asset: typing.Optional[_aws_s3_assets_2dba96fa.Asset] = None,
     create_namespace: typing.Optional[builtins.bool] = None,
     namespace: typing.Optional[builtins.str] = None,
     release: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     repository: typing.Optional[builtins.str] = None,
     skip_crds: typing.Optional[builtins.bool] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     values: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     version: typing.Optional[builtins.str] = None,
     wait: typing.Optional[builtins.bool] = None,
@@ -15475,7 +15473,7 @@ def _typecheckingstub__49a4456e32631812058cf82a0e416af17860a6096439d0ab0ecaa57c3
     disk_size: typing.Optional[jsii.Number] = None,
     enable_node_auto_repair: typing.Optional[builtins.bool] = None,
     force_update: typing.Optional[builtins.bool] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
+    instance_types: typing.Optional[typing.Sequence[_aws_ec2_09840e12.InstanceType]] = None,
     labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     launch_template_spec: typing.Optional[typing.Union[LaunchTemplateSpec, typing.Dict[builtins.str, typing.Any]]] = None,
     max_size: typing.Optional[jsii.Number] = None,
@@ -15483,11 +15481,11 @@ def _typecheckingstub__49a4456e32631812058cf82a0e416af17860a6096439d0ab0ecaa57c3
     max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     min_size: typing.Optional[jsii.Number] = None,
     nodegroup_name: typing.Optional[builtins.str] = None,
-    node_role: typing.Optional[_IRole_235f5d8e] = None,
+    node_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     release_version: typing.Optional[builtins.str] = None,
     remote_access: typing.Optional[typing.Union[NodegroupRemoteAccess, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     taints: typing.Optional[typing.Sequence[typing.Union[TaintSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -15503,13 +15501,13 @@ def _typecheckingstub__c0552883a4f6cd67a9f3ae1baab5b90fa768da6acf35f6b483553285e
     name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     overwrite_service_account: typing.Optional[builtins.bool] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__771327d0ee286335b091dcbf106e6a370539275cdd1b1b98eb7a45a62e441a35(
-    auto_scaling_group: _AutoScalingGroup_c547a7b9,
+    auto_scaling_group: _aws_autoscaling_6cbf8045.AutoScalingGroup,
     *,
     bootstrap_enabled: typing.Optional[builtins.bool] = None,
     bootstrap_options: typing.Optional[typing.Union[BootstrapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15522,7 +15520,7 @@ def _typecheckingstub__e98fd0757ea9554005f809fb1bc299da14609e93be94cd81c68770f0f
     ingress_name: builtins.str,
     *,
     namespace: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15531,7 +15529,7 @@ def _typecheckingstub__2aa784877540d0a561de8adb59e0f66a109778d755a0a136cd88cb66d
     service_name: builtins.str,
     *,
     namespace: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15566,18 +15564,18 @@ def _typecheckingstub__a57d359552bec9f56bfd2ab32f38ac52a4ec61ae9a0fb389cdf4cb324
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
     kubectl_provider_options: typing.Optional[typing.Union[KubectlProviderOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-    masters_role: typing.Optional[_IRole_235f5d8e] = None,
+    masters_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     prune: typing.Optional[builtins.bool] = None,
     remote_node_networks: typing.Optional[typing.Sequence[typing.Union[RemoteNodeNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
     remote_pod_networks: typing.Optional[typing.Sequence[typing.Union[RemotePodNetwork, typing.Dict[builtins.str, typing.Any]]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    secrets_encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    secrets_encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Sequence[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15585,7 +15583,7 @@ def _typecheckingstub__a57d359552bec9f56bfd2ab32f38ac52a4ec61ae9a0fb389cdf4cb324
 def _typecheckingstub__72a948ced8e6435857118472eef7f15a6176366338511e8d547896d86be919f9(
     *,
     namespace: typing.Optional[builtins.str] = None,
-    timeout: typing.Optional[_Duration_4839e8c3] = None,
+    timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15593,7 +15591,7 @@ def _typecheckingstub__72a948ced8e6435857118472eef7f15a6176366338511e8d547896d86
 def _typecheckingstub__6047d8b2c619283b6ba31c9b2b3e7432baed68657d69d1e9341732d37c0298f8(
     *,
     url: builtins.str,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass

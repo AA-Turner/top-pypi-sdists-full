@@ -43,7 +43,7 @@ from esphome_device_builder.controllers._reachability_tracker import Reachabilit
 from esphome_device_builder.helpers.async_ import log_task_exit
 from esphome_device_builder.models import RUNTIME_STATE_FIELD_NAMES, Device, DeviceState
 
-from .conftest import RecordingMonitorCallbacks, stub_async_service_info
+from .conftest import RecordingMonitorCallbacks, running_task, stub_async_service_info, wait_until
 from .conftest import make_device as _device
 
 # The service-type strings the production code uses; pinned here so
@@ -80,7 +80,7 @@ def _make_monitor(
 
     monitor.mdns = MdnsSource(monitor)
 
-    monitor._presence = None  # ping loop runs unconditionally in tests
+    monitor.presence = None  # ping loop runs unconditionally in tests
     monitor._api_dial_budget = asyncio.Semaphore(1)
     monitor.ping = PingSource(monitor)
     monitor.api_info = ApiInfoSource(monitor)
@@ -182,13 +182,7 @@ async def _wait_for_ping_sweep(
     if until is None:
         await asyncio.sleep(0.05)
         return
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + 5.0
-    while not until():
-        if loop.time() >= deadline:
-            msg = "ping loop did not reach the expected state within 5s"
-            raise AssertionError(msg)
-        await asyncio.sleep(0.01)
+    await wait_until(until, 5.0, "the ping loop's expected state", interval=0.01)
 
 
 async def _stop_and_drain(monitor: DeviceStateMonitor) -> None:
@@ -297,11 +291,8 @@ async def test_interface_monitor_done_callback_silent_on_cancel(
     async def _forever() -> None:
         await asyncio.sleep(60)
 
-    task = asyncio.create_task(_forever())
-    await asyncio.sleep(0)
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    async with running_task(_forever()) as task:
+        await asyncio.sleep(0)
 
     with caplog.at_level(logging.ERROR):
         log_task_exit("Interface monitor", task)
@@ -1657,18 +1648,14 @@ async def test_dns_failure_flicker_does_not_re_emit_log(
     monitor.state.dns_cache.has_cached_failure = MagicMock(side_effect=_has_cached_failure)
     _shrink_ping_intervals(monkeypatch)
 
-    async def _wait_for_flicker() -> None:
-        # Drive the loop until ``zom.local`` has been re-examined
-        # enough times to cross the dns_failed boundary at least once;
-        # a fixed ``asyncio.sleep`` flakes on slow xdist workers when
-        # only the first sweep lands inside the window.
-        while cache_calls["n"] < 4:
-            await asyncio.sleep(0)
-
     with caplog.at_level(logging.DEBUG, logger=ping_module.__name__):
         await _start_with_captured_dispatch(monitor, monkeypatch, park_ping_loop=False)
         try:
-            await asyncio.wait_for(_wait_for_flicker(), timeout=2.0)
+            await wait_until(
+                lambda: cache_calls["n"] >= 4,
+                2.0,
+                "zom.local to be re-examined across the dns_failed boundary",
+            )
         finally:
             await _stop_and_drain(monitor)
 
@@ -1761,6 +1748,25 @@ def test_get_cached_addresses_returns_none_when_addresses_empty(
     info.parsed_scoped_addresses.return_value = []
     monkeypatch.setattr(mdns_module, "AddressResolver", lambda _name: info)
 
+    assert monitor.mdns.get_cached_addresses("kitchen.local") is None
+
+
+def test_get_cached_addresses_drops_unspecified_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A junk 0.0.0.0 / :: announce in the zeroconf cache never reaches consumers."""
+    monitor, _callbacks = _make_monitor()
+    monitor.mdns._zeroconf = MagicMock()
+    monitor.mdns._zeroconf.zeroconf = MagicMock()
+
+    info = MagicMock()
+    info.load_from_cache.return_value = True
+    info.parsed_scoped_addresses.return_value = ["0.0.0.0", "10.0.0.1"]
+    monkeypatch.setattr(mdns_module, "AddressResolver", lambda _name: info)
+
+    assert monitor.mdns.get_cached_addresses("kitchen.local") == ["10.0.0.1"]
+
+    info.parsed_scoped_addresses.return_value = ["0.0.0.0", "::"]
     assert monitor.mdns.get_cached_addresses("kitchen.local") is None
 
 
@@ -1927,6 +1933,42 @@ def test_empty_ip_observations_are_rejected(call: Callable[[DeviceStateMonitor],
 
     with pytest.raises(ValueError, match="clear_resolved_addresses"):
         call(monitor)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda m: m.apply_ip("kitchen", "0.0.0.0"), id="apply_ip_v4"),
+        pytest.param(lambda m: m.apply_ip("kitchen", "::"), id="apply_ip_v6"),
+        pytest.param(
+            lambda m: m.apply_ip_addresses("kitchen", ["0.0.0.0", "::"]),
+            id="apply_ip_addresses_all_unspecified",
+        ),
+    ],
+)
+def test_unspecified_ip_observations_are_ignored(
+    call: Callable[[DeviceStateMonitor], bool],
+) -> None:
+    """A sinkhole resolver's 0.0.0.0 / :: never reaches device state."""
+    device = _device(ip="10.0.0.1", ip_addresses=["10.0.0.1"])
+    monitor, callbacks = _make_monitor([device])
+
+    assert call(monitor) is False
+
+    assert callbacks.calls_for("on_ip_change") == []
+    assert device.ip == "10.0.0.1"
+
+
+def test_apply_ip_addresses_drops_unspecified_keeps_real() -> None:
+    """Unspecified entries are filtered; the surviving address applies normally."""
+    device = _device(ip="", ip_addresses=[])
+    monitor, callbacks = _make_monitor([device])
+
+    assert monitor.apply_ip_addresses("kitchen", ["0.0.0.0", "10.0.0.7"]) is True
+
+    assert callbacks.calls_for("on_ip_change") == [
+        ("on_ip_change", "kitchen", "10.0.0.7", ["10.0.0.7"]),
+    ]
 
 
 def test_apply_ip_addresses_fires_when_list_changes_but_primary_does_not() -> None:

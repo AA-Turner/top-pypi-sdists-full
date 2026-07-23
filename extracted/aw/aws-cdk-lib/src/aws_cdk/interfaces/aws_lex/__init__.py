@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class BotAliasReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1da0b54ad485285304e48bef3ec6372c1dfecfd8d84af5c6a4f2d8b56fc0b8fe)
+            type_hints = cached_type_hints(_typecheckingstub__1da0b54ad485285304e48bef3ec6372c1dfecfd8d84af5c6a4f2d8b56fc0b8fe)
             check_type(argname="argument bot_alias_arn", value=bot_alias_arn, expected_type=type_hints["bot_alias_arn"])
             check_type(argname="argument bot_alias_id", value=bot_alias_id, expected_type=type_hints["bot_alias_id"])
             check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
@@ -141,7 +145,7 @@ class BotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5282e11e9199ed0f9be5be574675194a595b2077a284ee6b24496d3e2a5002f0)
+            type_hints = cached_type_hints(_typecheckingstub__5282e11e9199ed0f9be5be574675194a595b2077a284ee6b24496d3e2a5002f0)
             check_type(argname="argument bot_arn", value=bot_arn, expected_type=type_hints["bot_arn"])
             check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -201,7 +205,7 @@ class BotVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bf71d040e6c79ce911d970fafd1623f1fad9a813be670b74ecf8da62fba7280)
+            type_hints = cached_type_hints(_typecheckingstub__0bf71d040e6c79ce911d970fafd1623f1fad9a813be670b74ecf8da62fba7280)
             check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
             check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -238,7 +242,7 @@ class BotVersionReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lex.IBotAliasRef")
 class IBotAliasRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BotAlias.
@@ -258,7 +262,7 @@ class IBotAliasRef(
 
 class _IBotAliasRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BotAlias.
 
@@ -283,7 +287,7 @@ typing.cast(typing.Any, IBotAliasRef).__jsii_proxy_class__ = lambda : _IBotAlias
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lex.IBotRef")
 class IBotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bot.
@@ -303,7 +307,7 @@ class IBotRef(
 
 class _IBotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bot.
 
@@ -328,7 +332,7 @@ typing.cast(typing.Any, IBotRef).__jsii_proxy_class__ = lambda : _IBotRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lex.IBotVersionRef")
 class IBotVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BotVersion.
@@ -348,7 +352,7 @@ class IBotVersionRef(
 
 class _IBotVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BotVersion.
 
@@ -373,7 +377,7 @@ typing.cast(typing.Any, IBotVersionRef).__jsii_proxy_class__ = lambda : _IBotVer
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lex.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
@@ -393,7 +397,7 @@ class IResourcePolicyRef(
 
 class _IResourcePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
 
@@ -439,7 +443,7 @@ class ResourcePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bff46812e15d2537c9c276eefdad3ebc99c271e88aafcdf42f6aa95711e4a1d)
+            type_hints = cached_type_hints(_typecheckingstub__1bff46812e15d2537c9c276eefdad3ebc99c271e88aafcdf42f6aa95711e4a1d)
             check_type(argname="argument resource_policy_id", value=resource_policy_id, expected_type=type_hints["resource_policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_policy_id": resource_policy_id,

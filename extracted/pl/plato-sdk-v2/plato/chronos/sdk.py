@@ -59,6 +59,9 @@ from plato.chronos.api.workspace_repos import (
     audit_file_history as audit_file_history_api,
 )
 from plato.chronos.api.workspace_repos import (
+    get_workspace_repo_credentials as get_workspace_repo_credentials_api,
+)
+from plato.chronos.api.workspace_repos import (
     list_audit_events as list_audit_events_api,
 )
 from plato.chronos.experiments import AsyncExperiments, Experiments
@@ -87,6 +90,7 @@ from plato.chronos.models import (
     Status1,
     TrajectoryMetrics,
     UpdateNotesRequest,
+    WorkspaceRepoCredentialsResponse,
     WorldConfigInput,
     WorldRuntimeConfig,
 )
@@ -116,6 +120,16 @@ def _emit_child_session_span(session_id: str, package: str) -> None:
 
 
 _TERMINAL_STATUSES = {Status.completed, Status.failed, Status.cancelled}
+
+
+def workspace_credentials_env(creds: WorkspaceRepoCredentialsResponse) -> dict[str, str]:
+    """Map a workspace-credentials response to AWS_* env-style credentials."""
+    return {
+        "AWS_ACCESS_KEY_ID": creds.aws_access_key_id,
+        "AWS_SECRET_ACCESS_KEY": creds.aws_secret_access_key,
+        "AWS_SESSION_TOKEN": creds.aws_session_token,
+        "AWS_DEFAULT_REGION": creds.region,
+    }
 
 
 def _normalize_tag(tag: str) -> str:
@@ -539,19 +553,16 @@ class Chronos(_ChronosBase):
         resp.raise_for_status()
         return resp.json()
 
+    def get_workspace_credentials_response(self, repo_id: str) -> WorkspaceRepoCredentialsResponse:
+        """Get the full STS credentials response for a workspace repo (includes ``expires_at``)."""
+        return get_workspace_repo_credentials_api.sync(
+            self._client,
+            repo_public_id=repo_id,
+        )
+
     def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
         """Get STS credentials for accessing a workspace repo's S3 data."""
-        resp = self._client.post(
-            f"/api/workspace-repos/{repo_id}/credentials",
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return {
-            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
-            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
-            "AWS_SESSION_TOKEN": data["aws_session_token"],
-            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
-        }
+        return workspace_credentials_env(self.get_workspace_credentials_response(repo_id))
 
     def pull_workspace(
         self,
@@ -1051,19 +1062,16 @@ class AsyncChronos(_ChronosBase):
         resp.raise_for_status()
         return resp.json()
 
+    async def get_workspace_credentials_response(self, repo_id: str) -> WorkspaceRepoCredentialsResponse:
+        """Get the full STS credentials response for a workspace repo (includes ``expires_at``)."""
+        return await get_workspace_repo_credentials_api.asyncio(
+            self._client,
+            repo_public_id=repo_id,
+        )
+
     async def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
         """Get STS credentials for accessing a workspace repo's S3 data."""
-        resp = await self._client.post(
-            f"/api/workspace-repos/{repo_id}/credentials",
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return {
-            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
-            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
-            "AWS_SESSION_TOKEN": data["aws_session_token"],
-            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
-        }
+        return workspace_credentials_env(await self.get_workspace_credentials_response(repo_id))
 
     async def pull_workspace(
         self,

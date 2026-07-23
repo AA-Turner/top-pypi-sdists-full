@@ -787,6 +787,8 @@ You can specify one of the following `MaintenanceTrackName` values:
 * `CURRENT`: Use the most current approved cluster version.
 * `TRAILING`: Use the cluster version before the current version.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -800,33 +802,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_aws_secretsmanager_ceddda9d = _LazyImport("aws_cdk.aws_secretsmanager")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -877,7 +887,7 @@ class ClusterAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf5e43f35a05f5c5658f39bc00260eed640e4a1a644169632c3ab77941eded83)
+            type_hints = cached_type_hints(_typecheckingstub__cf5e43f35a05f5c5658f39bc00260eed640e4a1a644169632c3ab77941eded83)
             check_type(argname="argument cluster_endpoint_address", value=cluster_endpoint_address, expected_type=type_hints["cluster_endpoint_address"])
             check_type(argname="argument cluster_endpoint_port", value=cluster_endpoint_port, expected_type=type_hints["cluster_endpoint_port"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
@@ -980,7 +990,7 @@ class ClusterParameterGroupProps:
             params.add_parameter("enable_user_activity_logging", "true")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb07da80fc73b7c25808e76fda84dcebec84019d464cfe8908504bd326b69e87)
+            type_hints = cached_type_hints(_typecheckingstub__cb07da80fc73b7c25808e76fda84dcebec84019d464cfe8908504bd326b69e87)
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1151,7 +1161,7 @@ class ClusterProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8184b6f381b827fb337da7fe46dcdf07d3411d00c00a966acf72f7524193e365)
+            type_hints = cached_type_hints(_typecheckingstub__8184b6f381b827fb337da7fe46dcdf07d3411d00c00a966acf72f7524193e365)
             check_type(argname="argument master_user", value=master_user, expected_type=type_hints["master_user"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument availability_zone_relocation", value=availability_zone_relocation, expected_type=type_hints["availability_zone_relocation"])
@@ -1643,7 +1653,7 @@ class ClusterSubnetGroupProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4e8f5beb5d0b96f6d62d9dc9f2e62c24bedea9a666fc29101e682e182fb215a)
+            type_hints = cached_type_hints(_typecheckingstub__d4e8f5beb5d0b96f6d62d9dc9f2e62c24bedea9a666fc29101e682e182fb215a)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -1791,7 +1801,7 @@ class Column:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32216f4dee559bc797af2f48171aa04cf72e7a5ff7495657331f2098b799968d)
+            type_hints = cached_type_hints(_typecheckingstub__32216f4dee559bc797af2f48171aa04cf72e7a5ff7495657331f2098b799968d)
             check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
@@ -2071,7 +2081,7 @@ class DatabaseOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fe4c22044df6e55f8af7e726bd1ff39590ed6b0ad6f13efc5dcf977502c0b7b)
+            type_hints = cached_type_hints(_typecheckingstub__6fe4c22044df6e55f8af7e726bd1ff39590ed6b0ad6f13efc5dcf977502c0b7b)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument admin_user", value=admin_user, expected_type=type_hints["admin_user"])
@@ -2177,7 +2187,7 @@ class DatabaseSecret(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__984b48cb3b4940dc6b6d9cdce4c356224668b8a25e815f08a9d2475010ddc7f7)
+            type_hints = cached_type_hints(_typecheckingstub__984b48cb3b4940dc6b6d9cdce4c356224668b8a25e815f08a9d2475010ddc7f7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseSecretProps(
@@ -2242,7 +2252,7 @@ class DatabaseSecretProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c5db30f831b907067d91296ccc68bfe4767f2efe09ae877fe203adb5df73e42)
+            type_hints = cached_type_hints(_typecheckingstub__6c5db30f831b907067d91296ccc68bfe4767f2efe09ae877fe203adb5df73e42)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
@@ -2326,7 +2336,7 @@ class Endpoint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9156a39d8268aff7d98d3e261bceea1730546d85f7f12d19efdada7e91b09890)
+            type_hints = cached_type_hints(_typecheckingstub__9156a39d8268aff7d98d3e261bceea1730546d85f7f12d19efdada7e91b09890)
             check_type(argname="argument address", value=address, expected_type=type_hints["address"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
         jsii.create(self.__class__, self, [address, port])
@@ -2627,7 +2637,7 @@ class _ITableProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__febfab9a8c6f0c1f081d5f0f1dd5fb2ba403be29fbe7dcef6e4fffb955b09c77)
+            type_hints = cached_type_hints(_typecheckingstub__febfab9a8c6f0c1f081d5f0f1dd5fb2ba403be29fbe7dcef6e4fffb955b09c77)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "grant", [user, *actions]))
@@ -2747,7 +2757,7 @@ class _IUserProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__482349d4a650668e65613cc4cb7308f07f28faff85e9f7754c08cde21ac2e7fb)
+            type_hints = cached_type_hints(_typecheckingstub__482349d4a650668e65613cc4cb7308f07f28faff85e9f7754c08cde21ac2e7fb)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTablePrivileges", [table, *actions]))
@@ -2801,7 +2811,7 @@ class LoggingProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31bfca026b86708f38bf1964cd5ab577729657ca2c1adbb4f4c27e417cbd7b99)
+            type_hints = cached_type_hints(_typecheckingstub__31bfca026b86708f38bf1964cd5ab577729657ca2c1adbb4f4c27e417cbd7b99)
             check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
             check_type(argname="argument logging_key_prefix", value=logging_key_prefix, expected_type=type_hints["logging_key_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2891,7 +2901,7 @@ class Login:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f290e69c40e3c1e3b75f41243f96283d1619e3967c3b2bd3458c974e11b7f430)
+            type_hints = cached_type_hints(_typecheckingstub__f290e69c40e3c1e3b75f41243f96283d1619e3967c3b2bd3458c974e11b7f430)
             check_type(argname="argument master_username", value=master_username, expected_type=type_hints["master_username"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
@@ -3157,7 +3167,7 @@ class RotationMultiUserOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8ff1dc8f069ed8db9a6c9c88c8b732a109f9c9198fa3b3df5acbb57173d041d)
+            type_hints = cached_type_hints(_typecheckingstub__e8ff1dc8f069ed8db9a6c9c88c8b732a109f9c9198fa3b3df5acbb57173d041d)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument automatically_after", value=automatically_after, expected_type=type_hints["automatically_after"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3267,7 +3277,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5bb5cdc9b9d71db081569ce1699ad72f4cda1e74e44ad08c8dfcaa831d2ecfb)
+            type_hints = cached_type_hints(_typecheckingstub__f5bb5cdc9b9d71db081569ce1699ad72f4cda1e74e44ad08c8dfcaa831d2ecfb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TableProps(
@@ -3309,7 +3319,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c588c15b59523c46188be2ed268598c40457a45f5ae6af6ee90f43398b2a87c6)
+            type_hints = cached_type_hints(_typecheckingstub__c588c15b59523c46188be2ed268598c40457a45f5ae6af6ee90f43398b2a87c6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TableAttributes(
@@ -3340,7 +3350,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a2559de86af99b035e3551696efbd323c09454e4966d219dbac73eb0ecbbc26)
+            type_hints = cached_type_hints(_typecheckingstub__7a2559de86af99b035e3551696efbd323c09454e4966d219dbac73eb0ecbbc26)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
@@ -3354,7 +3364,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cedd8e4ce5ed742b7998abe8c2f47aca8c358cbec88a746c68669950dbfcf79)
+            type_hints = cached_type_hints(_typecheckingstub__2cedd8e4ce5ed742b7998abe8c2f47aca8c358cbec88a746c68669950dbfcf79)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "grant", [user, *actions]))
@@ -3513,7 +3523,7 @@ class TableAttributes:
             table.grant(user, TableAction.INSERT)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a72be394d5e035726f67dcce82f498875671e673396787b30bed1cb67dd061c8)
+            type_hints = cached_type_hints(_typecheckingstub__a72be394d5e035726f67dcce82f498875671e673396787b30bed1cb67dd061c8)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument table_columns", value=table_columns, expected_type=type_hints["table_columns"])
@@ -3677,7 +3687,7 @@ class TableProps(DatabaseOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d4444361722818dd5438346bad361ad93c2f629efde6c384600398f4b5051b2)
+            type_hints = cached_type_hints(_typecheckingstub__2d4444361722818dd5438346bad361ad93c2f629efde6c384600398f4b5051b2)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument admin_user", value=admin_user, expected_type=type_hints["admin_user"])
@@ -3918,7 +3928,7 @@ class User(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__684a841e4fc7788170b0197fb7931e6c62bd55d596af8e0196b42df62e434ea4)
+            type_hints = cached_type_hints(_typecheckingstub__684a841e4fc7788170b0197fb7931e6c62bd55d596af8e0196b42df62e434ea4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserProps(
@@ -3959,7 +3969,7 @@ class User(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__483704cbd1ddd53dbc57f757961a2e3d53ae948da0d8d8f8e8d50b847958dfd6)
+            type_hints = cached_type_hints(_typecheckingstub__483704cbd1ddd53dbc57f757961a2e3d53ae948da0d8d8f8e8d50b847958dfd6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = UserAttributes(
@@ -3982,7 +3992,7 @@ class User(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c310d0b8092d0aef06348ff2e68c7aa7577648c18e7656284f491091331d877)
+            type_hints = cached_type_hints(_typecheckingstub__9c310d0b8092d0aef06348ff2e68c7aa7577648c18e7656284f491091331d877)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTablePrivileges", [table, *actions]))
@@ -4006,7 +4016,7 @@ class User(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e783176cde66b005bd7a48047c42d2daa161b7fbf0608fd8c280193b160dc7f9)
+            type_hints = cached_type_hints(_typecheckingstub__e783176cde66b005bd7a48047c42d2daa161b7fbf0608fd8c280193b160dc7f9)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
@@ -4067,7 +4077,7 @@ class User(
     @_database_props.setter
     def _database_props(self, value: "DatabaseOptions") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__215d4d48a362ca590c122ef61d7450d160371decc86d4e5977bce6a23d0ca17f)
+            type_hints = cached_type_hints(_typecheckingstub__215d4d48a362ca590c122ef61d7450d160371decc86d4e5977bce6a23d0ca17f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "databaseProps", value) # pyright: ignore[reportArgumentType]
 
@@ -4126,7 +4136,7 @@ class UserAttributes(DatabaseOptions):
             table.grant(user, TableAction.INSERT)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__939764949bce87bd8dcf6ede326ec239f6dd7c2b716dbb9e552964fdc8d62557)
+            type_hints = cached_type_hints(_typecheckingstub__939764949bce87bd8dcf6ede326ec239f6dd7c2b716dbb9e552964fdc8d62557)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument admin_user", value=admin_user, expected_type=type_hints["admin_user"])
@@ -4259,7 +4269,7 @@ class UserProps(DatabaseOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0daf47fb2a97e4e73621e19347c149764ca3c3592695c3501419bf0d6e79cbd2)
+            type_hints = cached_type_hints(_typecheckingstub__0daf47fb2a97e4e73621e19347c149764ca3c3592695c3501419bf0d6e79cbd2)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument admin_user", value=admin_user, expected_type=type_hints["admin_user"])
@@ -4478,7 +4488,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fccc3c17caf7412d05e4b1ec5aea8d78637d84be2037a887553088f51a674513)
+            type_hints = cached_type_hints(_typecheckingstub__fccc3c17caf7412d05e4b1ec5aea8d78637d84be2037a887553088f51a674513)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterProps(
@@ -4538,7 +4548,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21ba4e3b26d03c0e24d31e65cc9ad3e3adffc0a316cca0f1c80b868747b641b2)
+            type_hints = cached_type_hints(_typecheckingstub__21ba4e3b26d03c0e24d31e65cc9ad3e3adffc0a316cca0f1c80b868747b641b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ClusterAttributes(
@@ -4564,7 +4574,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e07a26bd82e310420fcc9e019333d0a421ad69226414d3d89695ba030672cf77)
+            type_hints = cached_type_hints(_typecheckingstub__e07a26bd82e310420fcc9e019333d0a421ad69226414d3d89695ba030672cf77)
             check_type(argname="argument default_iam_role", value=default_iam_role, expected_type=type_hints["default_iam_role"])
         return typing.cast(None, jsii.invoke(self, "addDefaultIamRole", [default_iam_role]))
 
@@ -4577,7 +4587,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c84ca95ecc8ee9dcc12d23909c7d13bd1e99a1ef01903453c13c9a022f119d3)
+            type_hints = cached_type_hints(_typecheckingstub__8c84ca95ecc8ee9dcc12d23909c7d13bd1e99a1ef01903453c13c9a022f119d3)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "addIamRole", [role]))
 
@@ -4598,7 +4608,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf4dc0f78d44545700f0b343e8999f023e1bab7d4f4c865c93cee1f830e805c6)
+            type_hints = cached_type_hints(_typecheckingstub__bf4dc0f78d44545700f0b343e8999f023e1bab7d4f4c865c93cee1f830e805c6)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RotationMultiUserOptions(
             secret=secret, automatically_after=automatically_after
@@ -4618,7 +4628,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03bb70e95fdd5ebb0b8ad627b50473d40ac5415a6c45f903e9795e6077987222)
+            type_hints = cached_type_hints(_typecheckingstub__03bb70e95fdd5ebb0b8ad627b50473d40ac5415a6c45f903e9795e6077987222)
             check_type(argname="argument automatically_after", value=automatically_after, expected_type=type_hints["automatically_after"])
         return typing.cast("_aws_cdk_aws_secretsmanager_ceddda9d.SecretRotation", jsii.invoke(self, "addRotationSingleUser", [automatically_after]))
 
@@ -4632,7 +4642,7 @@ class Cluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__385a4ef011525dfc9ad9bd24539b599b93556e101525f1c7a782b6fd5572e5dd)
+            type_hints = cached_type_hints(_typecheckingstub__385a4ef011525dfc9ad9bd24539b599b93556e101525f1c7a782b6fd5572e5dd)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addToParameterGroup", [name, value]))
@@ -4715,7 +4725,7 @@ class Cluster(
         value: typing.Optional["IClusterParameterGroup"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c00f21b389b078f00b9e115501d7de9d004e75c209153d409b6968d062b1b36)
+            type_hints = cached_type_hints(_typecheckingstub__2c00f21b389b078f00b9e115501d7de9d004e75c209153d409b6968d062b1b36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterGroup", value) # pyright: ignore[reportArgumentType]
 
@@ -4764,7 +4774,7 @@ class ClusterParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80dbeaae7ee868dc2230702ef3076156af6847871ef2c2eb597bfde0e375aaf9)
+            type_hints = cached_type_hints(_typecheckingstub__80dbeaae7ee868dc2230702ef3076156af6847871ef2c2eb597bfde0e375aaf9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterParameterGroupProps(
@@ -4790,7 +4800,7 @@ class ClusterParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21b8bc608c922439ec081fe8fb6d01595015b6b8871356bcf580d553b2414bbd)
+            type_hints = cached_type_hints(_typecheckingstub__21b8bc608c922439ec081fe8fb6d01595015b6b8871356bcf580d553b2414bbd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
@@ -4806,7 +4816,7 @@ class ClusterParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b52f6296bee4a32ac8e0a689f5aaf7f963573580c0a50a36e73ab367ef30972)
+            type_hints = cached_type_hints(_typecheckingstub__1b52f6296bee4a32ac8e0a689f5aaf7f963573580c0a50a36e73ab367ef30972)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addParameter", [name, value]))
@@ -4901,7 +4911,7 @@ class ClusterSubnetGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79715a97708d01deffdb6c0c2d2b81d1557e42dd639377201ff24e05b2d61e31)
+            type_hints = cached_type_hints(_typecheckingstub__79715a97708d01deffdb6c0c2d2b81d1557e42dd639377201ff24e05b2d61e31)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterSubnetGroupProps(
@@ -4930,7 +4940,7 @@ class ClusterSubnetGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97ed1ec988c1a6d07ef8bd188169b6e2968b52d6809c0d69c1300f758e2539dc)
+            type_hints = cached_type_hints(_typecheckingstub__97ed1ec988c1a6d07ef8bd188169b6e2968b52d6809c0d69c1300f758e2539dc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_subnet_group_name", value=cluster_subnet_group_name, expected_type=type_hints["cluster_subnet_group_name"])

@@ -74,7 +74,7 @@ impl Route {
     }
 }
 
-macro_rules! method_decorator {
+macro_rules! methods {
     (
         $(
              $(#[$docs:meta])*
@@ -98,7 +98,7 @@ macro_rules! method_decorator {
     };
 }
 
-method_decorator!(
+methods!(
     /// Registers an HTTP GET route.
     ///
     /// Can be used as a decorator or as a function to create a `Route` object.
@@ -347,10 +347,10 @@ method_decorator!(
 #[pyclass(from_py_object)]
 #[derive(Default, Clone, Debug)]
 pub struct Router {
-    pub count: usize,
     pub base_path: Option<String>,
-    pub routes: HashMap<String, matchit::Router<Route>>,
+    pub count: usize,
     pub middlewares: Vec<Middleware>,
+    pub routes: HashMap<String, matchit::Router<Route>>,
 }
 
 impl Router {
@@ -394,8 +394,8 @@ impl Router {
         Router {
             base_path,
             count: 0,
-            routes: HashMap::default(),
             middlewares: Vec::new(),
+            routes: HashMap::default(),
         }
     }
 

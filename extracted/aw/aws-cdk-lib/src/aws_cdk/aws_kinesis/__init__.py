@@ -337,6 +337,8 @@ kinesis.ResourcePolicy(self, "ResourcePolicy",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -350,66 +352,42 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_cloudwatch import (
-    Metric as _Metric_e396a4dc,
-    MetricOptions as _MetricOptions_1788b62f,
-    Unit as _Unit_61bc6f70,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    PolicyDocument as _PolicyDocument_3ac34393,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..interfaces.aws_kinesis import (
-    IResourcePolicyRef as _IResourcePolicyRef_e65ec5be,
-    IStreamConsumerRef as _IStreamConsumerRef_62f6b6ad,
-    IStreamRef as _IStreamRef_b484e253,
-    ResourcePolicyReference as _ResourcePolicyReference_3cd91e96,
-    StreamConsumerReference as _StreamConsumerReference_d7ef801e,
-    StreamReference as _StreamReference_030b9268,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.interfaces.aws_kinesis as _aws_kinesis_40f1d96a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kinesis_40f1d96a = _LazyImport("aws_cdk.interfaces.aws_kinesis")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_e65ec5be)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesis_40f1d96a.IResourcePolicyRef)
 class CfnResourcePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.CfnResourcePolicy",
 ):
@@ -447,7 +425,7 @@ class CfnResourcePolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        resource_arn: typing.Union[builtins.str, "_IStreamRef_b484e253", "_IStreamConsumerRef_62f6b6ad"],
+        resource_arn: typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_kinesis_40f1d96a.IStreamConsumerRef"],
         resource_policy: typing.Any,
     ) -> None:
         '''Create a new ``AWS::Kinesis::ResourcePolicy``.
@@ -458,7 +436,7 @@ class CfnResourcePolicy(
         :param resource_policy: This is the description for the resource policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957)
+            type_hints = cached_type_hints(_typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d42fbf957)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourcePolicyProps(
@@ -475,18 +453,18 @@ class CfnResourcePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a87a633e8a051308eb82b9fe958abb6ef411fcd68b6a6a40aa7b2d990bd6fc4b)
+            type_hints = cached_type_hints(_typecheckingstub__a87a633e8a051308eb82b9fe958abb6ef411fcd68b6a6a40aa7b2d990bd6fc4b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f)
+            type_hints = cached_type_hints(_typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -499,7 +477,7 @@ class CfnResourcePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa)
+            type_hints = cached_type_hints(_typecheckingstub__2fbcd9f422a87f866ccf52168beedf905788cffe10833fbaef759cb99a877efa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -521,9 +499,9 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "_ResourcePolicyReference_3cd91e96":
+    def resource_policy_ref(self) -> "_aws_kinesis_40f1d96a.ResourcePolicyReference":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast("_ResourcePolicyReference_3cd91e96", jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_aws_kinesis_40f1d96a.ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -534,7 +512,7 @@ class CfnResourcePolicy(
     @resource_arn.setter
     def resource_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18)
+            type_hints = cached_type_hints(_typecheckingstub__afec0f5206f450a53f1d8f83fabea1a74a415b8e1561742c86dcb34c8df7ef18)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -547,7 +525,7 @@ class CfnResourcePolicy(
     @resource_policy.setter
     def resource_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118)
+            type_hints = cached_type_hints(_typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677451b118)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -561,7 +539,7 @@ class CfnResourcePolicyProps:
     def __init__(
         self,
         *,
-        resource_arn: typing.Union[builtins.str, "_IStreamRef_b484e253", "_IStreamConsumerRef_62f6b6ad"],
+        resource_arn: typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_kinesis_40f1d96a.IStreamConsumerRef"],
         resource_policy: typing.Any,
     ) -> None:
         '''Properties for defining a ``CfnResourcePolicy``.
@@ -586,7 +564,7 @@ class CfnResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc9d3035df5ffd3d2e91ef2e5c2b108309a10ae013584b2ef5c2d3bdde4567bc)
+            type_hints = cached_type_hints(_typecheckingstub__dc9d3035df5ffd3d2e91ef2e5c2b108309a10ae013584b2ef5c2d3bdde4567bc)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -597,14 +575,14 @@ class CfnResourcePolicyProps:
     @builtins.property
     def resource_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IStreamRef_b484e253", "_IStreamConsumerRef_62f6b6ad"]:
+    ) -> typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_kinesis_40f1d96a.IStreamConsumerRef"]:
         '''Returns the Amazon Resource Name (ARN) of the resource-based policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-resourcepolicy.html#cfn-kinesis-resourcepolicy-resourcearn
         '''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IStreamRef_b484e253", "_IStreamConsumerRef_62f6b6ad"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_kinesis_40f1d96a.IStreamRef", "_aws_kinesis_40f1d96a.IStreamConsumerRef"], result)
 
     @builtins.property
     def resource_policy(self) -> typing.Any:
@@ -628,9 +606,9 @@ class CfnResourcePolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStreamRef_b484e253, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesis_40f1d96a.IStreamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStream(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.CfnStream",
 ):
@@ -680,9 +658,9 @@ class CfnStream(
         name: typing.Optional[builtins.str] = None,
         retention_period_hours: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
-        stream_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_mode_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_mode_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         warm_throughput_mi_bps: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Create a new ``AWS::Kinesis::Stream``.
@@ -700,7 +678,7 @@ class CfnStream(
         :param warm_throughput_mi_bps: The target warm throughput in MB/s that the stream should be scaled to handle. This represents the throughput capacity that will be immediately available for write operations.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53)
+            type_hints = cached_type_hints(_typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b042428a53)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStreamProps(
@@ -719,12 +697,15 @@ class CfnStream(
 
     @jsii.member(jsii_name="arnForStream")
     @builtins.classmethod
-    def arn_for_stream(cls, resource: "_IStreamRef_b484e253") -> builtins.str:
+    def arn_for_stream(
+        cls,
+        resource: "_aws_kinesis_40f1d96a.IStreamRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be18e6676a8f818665548c6e6fb25d69de171f74d328fd47682424cdf479211)
+            type_hints = cached_type_hints(_typecheckingstub__1be18e6676a8f818665548c6e6fb25d69de171f74d328fd47682424cdf479211)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStream", [resource]))
 
@@ -735,7 +716,7 @@ class CfnStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IStreamRef_b484e253":
+    ) -> "_aws_kinesis_40f1d96a.IStreamRef":
         '''Creates a new IStreamRef from an ARN.
 
         :param scope: -
@@ -743,11 +724,11 @@ class CfnStream(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c69677685a82f8e525ad2739006025db5278674d3e523946f160156221a9f73)
+            type_hints = cached_type_hints(_typecheckingstub__3c69677685a82f8e525ad2739006025db5278674d3e523946f160156221a9f73)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IStreamRef_b484e253", jsii.sinvoke(cls, "fromStreamArn", [scope, id, arn]))
+        return typing.cast("_aws_kinesis_40f1d96a.IStreamRef", jsii.sinvoke(cls, "fromStreamArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromStreamName")
     @builtins.classmethod
@@ -756,7 +737,7 @@ class CfnStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         stream_name: builtins.str,
-    ) -> "_IStreamRef_b484e253":
+    ) -> "_aws_kinesis_40f1d96a.IStreamRef":
         '''Creates a new IStreamRef from a streamName.
 
         :param scope: -
@@ -764,11 +745,11 @@ class CfnStream(
         :param stream_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29cb46b7ceb2cd8a127a3866d6508b48f921857bfb60faeb20b84a87cb83f072)
+            type_hints = cached_type_hints(_typecheckingstub__29cb46b7ceb2cd8a127a3866d6508b48f921857bfb60faeb20b84a87cb83f072)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
-        return typing.cast("_IStreamRef_b484e253", jsii.sinvoke(cls, "fromStreamName", [scope, id, stream_name]))
+        return typing.cast("_aws_kinesis_40f1d96a.IStreamRef", jsii.sinvoke(cls, "fromStreamName", [scope, id, stream_name]))
 
     @jsii.member(jsii_name="isCfnStream")
     @builtins.classmethod
@@ -778,18 +759,18 @@ class CfnStream(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb56f0d0206179022ce0ac82fd83fad92c062331de20b2f494c1037a0244cbf4)
+            type_hints = cached_type_hints(_typecheckingstub__fb56f0d0206179022ce0ac82fd83fad92c062331de20b2f494c1037a0244cbf4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStream", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1)
+            type_hints = cached_type_hints(_typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -802,7 +783,7 @@ class CfnStream(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046)
+            type_hints = cached_type_hints(_typecheckingstub__0d148a0019b18426b18d2bb879ac22b0f734a78308c5fc8eb38c0acd2b866046)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -823,14 +804,14 @@ class CfnStream(
 
     @builtins.property
     @jsii.member(jsii_name="attrWarmThroughputObject")
-    def attr_warm_throughput_object(self) -> "_IResolvable_da3f097b":
+    def attr_warm_throughput_object(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Warm throughput configuration details for the stream.
 
         Only present for ON_DEMAND streams.
 
         :cloudformationAttribute: WarmThroughputObject
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrWarmThroughputObject"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrWarmThroughputObject"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -844,15 +825,15 @@ class CfnStream(
 
     @builtins.property
     @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "_StreamReference_030b9268":
+    def stream_ref(self) -> "_aws_kinesis_40f1d96a.StreamReference":
         '''A reference to a Stream resource.'''
-        return typing.cast("_StreamReference_030b9268", jsii.get(self, "streamRef"))
+        return typing.cast("_aws_kinesis_40f1d96a.StreamReference", jsii.get(self, "streamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="desiredShardLevelMetrics")
@@ -866,7 +847,7 @@ class CfnStream(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a)
+            type_hints = cached_type_hints(_typecheckingstub__9a26f83e3d95ee6758754d8ca6cb717ae058662a4c47c6b7d2f4ec32a27bd85a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredShardLevelMetrics", value) # pyright: ignore[reportArgumentType]
 
@@ -879,7 +860,7 @@ class CfnStream(
     @max_record_size_in_kib.setter
     def max_record_size_in_kib(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc4d82c06f60950007b5fa7b77421e4c8280037d91abe3d864ec5aefbb103659)
+            type_hints = cached_type_hints(_typecheckingstub__cc4d82c06f60950007b5fa7b77421e4c8280037d91abe3d864ec5aefbb103659)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxRecordSizeInKiB", value) # pyright: ignore[reportArgumentType]
 
@@ -892,7 +873,7 @@ class CfnStream(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e)
+            type_hints = cached_type_hints(_typecheckingstub__69caca5de735efdd86c95d7668c92bbedbfaf458ff05980e7d9773ad8e47288e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -905,7 +886,7 @@ class CfnStream(
     @retention_period_hours.setter
     def retention_period_hours(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0)
+            type_hints = cached_type_hints(_typecheckingstub__85ff44685abff5f890467520e8b3dafd28378759ebf209e5b277199720ca3da0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "retentionPeriodHours", value) # pyright: ignore[reportArgumentType]
 
@@ -918,7 +899,7 @@ class CfnStream(
     @shard_count.setter
     def shard_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08)
+            type_hints = cached_type_hints(_typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b37842a9d08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shardCount", value) # pyright: ignore[reportArgumentType]
 
@@ -926,17 +907,17 @@ class CfnStream(
     @jsii.member(jsii_name="streamEncryption")
     def stream_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamEncryptionProperty"]]:
         '''When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamEncryptionProperty"]], jsii.get(self, "streamEncryption"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamEncryptionProperty"]], jsii.get(self, "streamEncryption"))
 
     @stream_encryption.setter
     def stream_encryption(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamEncryptionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamEncryptionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30)
+            type_hints = cached_type_hints(_typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamEncryption", value) # pyright: ignore[reportArgumentType]
 
@@ -944,30 +925,33 @@ class CfnStream(
     @jsii.member(jsii_name="streamModeDetails")
     def stream_mode_details(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamModeDetailsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamModeDetailsProperty"]]:
         '''Specifies the capacity mode to which you want to set your data stream.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamModeDetailsProperty"]], jsii.get(self, "streamModeDetails"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamModeDetailsProperty"]], jsii.get(self, "streamModeDetails"))
 
     @stream_mode_details.setter
     def stream_mode_details(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamModeDetailsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamModeDetailsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39)
+            type_hints = cached_type_hints(_typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamModeDetails", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171)
+            type_hints = cached_type_hints(_typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -980,7 +964,7 @@ class CfnStream(
     @warm_throughput_mi_bps.setter
     def warm_throughput_mi_bps(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ebae78a2a0d25afa6afc70acece7f64a104c2da8d03ab9751d1e69033a4b601)
+            type_hints = cached_type_hints(_typecheckingstub__4ebae78a2a0d25afa6afc70acece7f64a104c2da8d03ab9751d1e69033a4b601)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "warmThroughputMiBps", value) # pyright: ignore[reportArgumentType]
 
@@ -1026,7 +1010,7 @@ class CfnStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f)
+                type_hints = cached_type_hints(_typecheckingstub__c1476c1b2f337416b576d9c95452f57605e1a1126bd1ee7fda17f3275886914f)
                 check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
                 check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1102,7 +1086,7 @@ class CfnStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa)
+                type_hints = cached_type_hints(_typecheckingstub__5385370e91aca0af1d1a9f60e1e9966ef508e08881f2991b33ef8b8bc832c6fa)
                 check_type(argname="argument stream_mode", value=stream_mode, expected_type=type_hints["stream_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "stream_mode": stream_mode,
@@ -1168,7 +1152,7 @@ class CfnStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3efd7df146efe6aec617c0d3e2e0193eccbea786013bee2661e1f139c12cacf)
+                type_hints = cached_type_hints(_typecheckingstub__e3efd7df146efe6aec617c0d3e2e0193eccbea786013bee2661e1f139c12cacf)
                 check_type(argname="argument current_mi_bps", value=current_mi_bps, expected_type=type_hints["current_mi_bps"])
                 check_type(argname="argument target_mi_bps", value=target_mi_bps, expected_type=type_hints["target_mi_bps"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1211,9 +1195,9 @@ class CfnStream(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStreamConsumerRef_62f6b6ad, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kinesis_40f1d96a.IStreamConsumerRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnStreamConsumer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.CfnStreamConsumer",
 ):
@@ -1255,7 +1239,7 @@ class CfnStreamConsumer(
         *,
         consumer_name: builtins.str,
         stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Kinesis::StreamConsumer``.
 
@@ -1266,7 +1250,7 @@ class CfnStreamConsumer(
         :param tags: An array of tags to be added to a specified Kinesis resource. A tag consists of a required key and an optional value. You can specify up to 50 tag key-value pairs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f)
+            type_hints = cached_type_hints(_typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee353888f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStreamConsumerProps(
@@ -1283,18 +1267,18 @@ class CfnStreamConsumer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bc1cfdf9852f9d91614aeac9917e2dbc70f3fd26e8ff3c1c11e67d26b30abb1)
+            type_hints = cached_type_hints(_typecheckingstub__5bc1cfdf9852f9d91614aeac9917e2dbc70f3fd26e8ff3c1c11e67d26b30abb1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStreamConsumer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a)
+            type_hints = cached_type_hints(_typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1307,7 +1291,7 @@ class CfnStreamConsumer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46)
+            type_hints = cached_type_hints(_typecheckingstub__affe70a9bf7ce2f1cc10e724028941fdc919c045b9549e215e3cdab4c9121d46)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1368,9 +1352,9 @@ class CfnStreamConsumer(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1384,9 +1368,9 @@ class CfnStreamConsumer(
 
     @builtins.property
     @jsii.member(jsii_name="streamConsumerRef")
-    def stream_consumer_ref(self) -> "_StreamConsumerReference_d7ef801e":
+    def stream_consumer_ref(self) -> "_aws_kinesis_40f1d96a.StreamConsumerReference":
         '''A reference to a StreamConsumer resource.'''
-        return typing.cast("_StreamConsumerReference_d7ef801e", jsii.get(self, "streamConsumerRef"))
+        return typing.cast("_aws_kinesis_40f1d96a.StreamConsumerReference", jsii.get(self, "streamConsumerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerName")
@@ -1397,7 +1381,7 @@ class CfnStreamConsumer(
     @consumer_name.setter
     def consumer_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6)
+            type_hints = cached_type_hints(_typecheckingstub__c9d81e78fb19779440622733df5c436d90dc9c457dc907fefa02a2afb632f7f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "consumerName", value) # pyright: ignore[reportArgumentType]
 
@@ -1410,20 +1394,23 @@ class CfnStreamConsumer(
     @stream_arn.setter
     def stream_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6)
+            type_hints = cached_type_hints(_typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446496eac6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of tags to be added to a specified Kinesis resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db)
+            type_hints = cached_type_hints(_typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1443,7 +1430,7 @@ class CfnStreamConsumerProps:
         *,
         consumer_name: builtins.str,
         stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStreamConsumer``.
 
@@ -1473,7 +1460,7 @@ class CfnStreamConsumerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04af0c0cee5710afdb7b50f59ef3686da8bba1bf2ed3a56c1e5209c6859bca6f)
+            type_hints = cached_type_hints(_typecheckingstub__04af0c0cee5710afdb7b50f59ef3686da8bba1bf2ed3a56c1e5209c6859bca6f)
             check_type(argname="argument consumer_name", value=consumer_name, expected_type=type_hints["consumer_name"])
             check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1505,7 +1492,7 @@ class CfnStreamConsumerProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of tags to be added to a specified Kinesis resource.
 
         A tag consists of a required key and an optional value. You can specify up to 50 tag key-value pairs.
@@ -1513,7 +1500,7 @@ class CfnStreamConsumerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-streamconsumer.html#cfn-kinesis-streamconsumer-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1551,9 +1538,9 @@ class CfnStreamProps:
         name: typing.Optional[builtins.str] = None,
         retention_period_hours: typing.Optional[jsii.Number] = None,
         shard_count: typing.Optional[jsii.Number] = None,
-        stream_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stream_mode_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_mode_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStream.StreamModeDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         warm_throughput_mi_bps: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnStream``.
@@ -1599,7 +1586,7 @@ class CfnStreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3bac625363d3769acb567c00e5b48d63afe09fd6d0305829f157ffcc46ec169)
+            type_hints = cached_type_hints(_typecheckingstub__d3bac625363d3769acb567c00e5b48d63afe09fd6d0305829f157ffcc46ec169)
             check_type(argname="argument desired_shard_level_metrics", value=desired_shard_level_metrics, expected_type=type_hints["desired_shard_level_metrics"])
             check_type(argname="argument max_record_size_in_kib", value=max_record_size_in_kib, expected_type=type_hints["max_record_size_in_kib"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -1685,7 +1672,7 @@ class CfnStreamProps:
     @builtins.property
     def stream_encryption(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamEncryptionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamEncryptionProperty"]]:
         '''When specified, enables or updates server-side encryption using an AWS KMS key for a specified stream.
 
         Removing this property from your stack template and updating your stack disables encryption.
@@ -1693,12 +1680,12 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-streamencryption
         '''
         result = self._values.get("stream_encryption")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamEncryptionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamEncryptionProperty"]], result)
 
     @builtins.property
     def stream_mode_details(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamModeDetailsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamModeDetailsProperty"]]:
         '''Specifies the capacity mode to which you want to set your data stream.
 
         Currently, in Kinesis Data Streams, you can choose between an *on-demand* capacity mode and a *provisioned* capacity mode for your data streams.
@@ -1706,10 +1693,10 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-streammodedetails
         '''
         result = self._values.get("stream_mode_details")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamModeDetailsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStream.StreamModeDetailsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An arbitrary set of tags (key–value pairs) to associate with the Kinesis stream.
 
         For information about constraints for this property, see `Tag Restrictions <https://docs.aws.amazon.com/streams/latest/dev/tagging.html#tagging-restrictions>`_ in the *Amazon Kinesis Developer Guide* .
@@ -1717,7 +1704,7 @@ class CfnStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesis-stream.html#cfn-kinesis-stream-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def warm_throughput_mi_bps(self) -> typing.Optional[jsii.Number]:
@@ -1743,7 +1730,11 @@ class CfnStreamProps:
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IStream")
-class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Protocol):
+class IStream(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_kinesis_40f1d96a.IStreamRef,
+    typing_extensions.Protocol,
+):
     '''A Kinesis Stream.'''
 
     @builtins.property
@@ -1766,15 +1757,15 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS encryption key associated with this stream.'''
         ...
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream.
 
         If this stream was created in this stack (``new Stream``), a resource policy
@@ -1788,9 +1779,9 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream to the provided IAM principal.
 
         :param grantee: -
@@ -1799,7 +1790,10 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to decrypt the
@@ -1810,7 +1804,10 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants read/write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to use the key for
@@ -1821,7 +1818,10 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to encrypt the
@@ -1841,14 +1841,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return stream metric based from its metric name.
 
         :param metric_name: name of the stream metric.
@@ -1876,14 +1876,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records retrieved from the shard, measured over the specified time period.
 
         Minimum, Maximum, and
@@ -1916,14 +1916,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes retrieved from the Kinesis stream, measured over the specified time period.
 
         Minimum, Maximum,
@@ -1956,14 +1956,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The age of the last record in all GetRecords calls made against a Kinesis stream, measured over the specified time period.
 
         Age is the difference between the current time and when the last record of the GetRecords call was written
@@ -1996,14 +1996,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per GetRecords operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2032,14 +2032,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful GetRecords operations per stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2068,14 +2068,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -2108,14 +2108,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -2148,14 +2148,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecord operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2184,14 +2184,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecord operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2220,14 +2220,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecords operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2256,14 +2256,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to internal failures in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         Occasional internal failures are to be expected and should be retried.
@@ -2294,14 +2294,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecords operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2330,14 +2330,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of PutRecords operations where at least one record succeeded, per Kinesis stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2366,14 +2366,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful records in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2402,14 +2402,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2438,14 +2438,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of records sent in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2474,14 +2474,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful PutRecord operations per Kinesis stream, measured over the specified time period.
 
         Average
@@ -2513,14 +2513,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of GetRecords calls throttled for the stream over the specified time period.
 
         The most commonly used
@@ -2558,14 +2558,14 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling for the stream over the specified time period.
 
         This metric
@@ -2596,8 +2596,8 @@ class IStream(_IResource_c80c4260, _IStreamRef_b484e253, typing_extensions.Proto
 
 
 class _IStreamProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IStreamRef_b484e253), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_kinesis_40f1d96a.IStreamRef), # type: ignore[misc]
 ):
     '''A Kinesis Stream.'''
 
@@ -2623,15 +2623,15 @@ class _IStreamProxy(
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS encryption key associated with this stream.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream.
 
         If this stream was created in this stack (``new Stream``), a resource policy
@@ -2641,29 +2641,32 @@ class _IStreamProxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f2bc2272d75f698f14f87a303fdf13c87275a121d59d5fa5df4a16bb120598b)
+            type_hints = cached_type_hints(_typecheckingstub__8f2bc2272d75f698f14f87a303fdf13c87275a121d59d5fa5df4a16bb120598b)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream to the provided IAM principal.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__144c672e53e3086b23a7fab80cf6f8440b56b13da782550703291ecf8e7ee03c)
+            type_hints = cached_type_hints(_typecheckingstub__144c672e53e3086b23a7fab80cf6f8440b56b13da782550703291ecf8e7ee03c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to decrypt the
@@ -2672,12 +2675,15 @@ class _IStreamProxy(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31e92e467ef9724bf8c1c834e80eb106fb2f5002d962dd2d6a131eeb921bc9fe)
+            type_hints = cached_type_hints(_typecheckingstub__31e92e467ef9724bf8c1c834e80eb106fb2f5002d962dd2d6a131eeb921bc9fe)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants read/write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to use the key for
@@ -2686,12 +2692,15 @@ class _IStreamProxy(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cade05201ed2077bc3551ad45ec7b384e8e2f17dcfb79377cb643df1aa83610)
+            type_hints = cached_type_hints(_typecheckingstub__7cade05201ed2077bc3551ad45ec7b384e8e2f17dcfb79377cb643df1aa83610)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to encrypt the
@@ -2700,9 +2709,9 @@ class _IStreamProxy(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08cbc4e6cc771633979cc23abc4ecb0d8be72cfb4bde81198f87422305f0629e)
+            type_hints = cached_type_hints(_typecheckingstub__08cbc4e6cc771633979cc23abc4ecb0d8be72cfb4bde81198f87422305f0629e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -2714,14 +2723,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return stream metric based from its metric name.
 
         :param metric_name: name of the stream metric.
@@ -2739,9 +2748,9 @@ class _IStreamProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd578f4ca8facd0463f7e56d3d2cea7e56ba9ad274338af8f84fa661d088f98e)
+            type_hints = cached_type_hints(_typecheckingstub__bd578f4ca8facd0463f7e56d3d2cea7e56ba9ad274338af8f84fa661d088f98e)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2756,7 +2765,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricGetRecords")
     def metric_get_records(
@@ -2767,14 +2776,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records retrieved from the shard, measured over the specified time period.
 
         Minimum, Maximum, and
@@ -2796,7 +2805,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2811,7 +2820,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecords", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsBytes")
     def metric_get_records_bytes(
@@ -2822,14 +2831,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes retrieved from the Kinesis stream, measured over the specified time period.
 
         Minimum, Maximum,
@@ -2851,7 +2860,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2866,7 +2875,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsBytes", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsIteratorAgeMilliseconds")
     def metric_get_records_iterator_age_milliseconds(
@@ -2877,14 +2886,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The age of the last record in all GetRecords calls made against a Kinesis stream, measured over the specified time period.
 
         Age is the difference between the current time and when the last record of the GetRecords call was written
@@ -2906,7 +2915,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2921,7 +2930,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsIteratorAgeMilliseconds", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsIteratorAgeMilliseconds", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsLatency")
     def metric_get_records_latency(
@@ -2932,14 +2941,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per GetRecords operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -2957,7 +2966,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -2972,7 +2981,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsLatency", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsSuccess")
     def metric_get_records_success(
@@ -2983,14 +2992,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful GetRecords operations per stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3008,7 +3017,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3023,7 +3032,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsSuccess", [props]))
 
     @jsii.member(jsii_name="metricIncomingBytes")
     def metric_incoming_bytes(
@@ -3034,14 +3043,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -3063,7 +3072,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3078,7 +3087,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingBytes", [props]))
 
     @jsii.member(jsii_name="metricIncomingRecords")
     def metric_incoming_records(
@@ -3089,14 +3098,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -3118,7 +3127,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3133,7 +3142,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordBytes")
     def metric_put_record_bytes(
@@ -3144,14 +3153,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecord operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3169,7 +3178,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3184,7 +3193,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordBytes", [props]))
 
     @jsii.member(jsii_name="metricPutRecordLatency")
     def metric_put_record_latency(
@@ -3195,14 +3204,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecord operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3220,7 +3229,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3235,7 +3244,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordLatency", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsBytes")
     def metric_put_records_bytes(
@@ -3246,14 +3255,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecords operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3271,7 +3280,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3286,7 +3295,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsBytes", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsFailedRecords")
     def metric_put_records_failed_records(
@@ -3297,14 +3306,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to internal failures in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         Occasional internal failures are to be expected and should be retried.
@@ -3324,7 +3333,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3339,7 +3348,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsFailedRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsFailedRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsLatency")
     def metric_put_records_latency(
@@ -3350,14 +3359,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecords operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3375,7 +3384,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3390,7 +3399,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsLatency", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsSuccess")
     def metric_put_records_success(
@@ -3401,14 +3410,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of PutRecords operations where at least one record succeeded, per Kinesis stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3426,7 +3435,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3441,7 +3450,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsSuccess", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsSuccessfulRecords")
     def metric_put_records_successful_records(
@@ -3452,14 +3461,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful records in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3477,7 +3486,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3492,7 +3501,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsSuccessfulRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsSuccessfulRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsThrottledRecords")
     def metric_put_records_throttled_records(
@@ -3503,14 +3512,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3528,7 +3537,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3543,7 +3552,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsThrottledRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsThrottledRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsTotalRecords")
     def metric_put_records_total_records(
@@ -3554,14 +3563,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of records sent in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -3579,7 +3588,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3594,7 +3603,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsTotalRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsTotalRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordSuccess")
     def metric_put_record_success(
@@ -3605,14 +3614,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful PutRecord operations per Kinesis stream, measured over the specified time period.
 
         Average
@@ -3633,7 +3642,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3648,7 +3657,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordSuccess", [props]))
 
     @jsii.member(jsii_name="metricReadProvisionedThroughputExceeded")
     def metric_read_provisioned_throughput_exceeded(
@@ -3659,14 +3668,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of GetRecords calls throttled for the stream over the specified time period.
 
         The most commonly used
@@ -3693,7 +3702,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3708,7 +3717,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricReadProvisionedThroughputExceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricReadProvisionedThroughputExceeded", [props]))
 
     @jsii.member(jsii_name="metricWriteProvisionedThroughputExceeded")
     def metric_write_provisioned_throughput_exceeded(
@@ -3719,14 +3728,14 @@ class _IStreamProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling for the stream over the specified time period.
 
         This metric
@@ -3753,7 +3762,7 @@ class _IStreamProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -3768,7 +3777,7 @@ class _IStreamProxy(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricWriteProvisionedThroughputExceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricWriteProvisionedThroughputExceeded", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStream).__jsii_proxy_class__ = lambda : _IStreamProxy
@@ -3776,8 +3785,8 @@ typing.cast(typing.Any, IStream).__jsii_proxy_class__ = lambda : _IStreamProxy
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kinesis.IStreamConsumer")
 class IStreamConsumer(
-    _IResource_c80c4260,
-    _IStreamConsumerRef_62f6b6ad,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_kinesis_40f1d96a.IStreamConsumerRef,
     typing_extensions.Protocol,
 ):
     '''A Kinesis Stream Consumer.'''
@@ -3812,8 +3821,8 @@ class IStreamConsumer(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream consumer.
 
         If this stream consumer was created in this stack (``new StreamConsumer``), a resource policy
@@ -3827,9 +3836,9 @@ class IStreamConsumer(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream consumer to the provided IAM principal.
 
         :param grantee: -
@@ -3838,7 +3847,10 @@ class IStreamConsumer(
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream consumer and its associated stream to an IAM principal (Role/Group/User).
 
         :param grantee: -
@@ -3847,8 +3859,8 @@ class IStreamConsumer(
 
 
 class _IStreamConsumerProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IStreamConsumerRef_62f6b6ad), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_kinesis_40f1d96a.IStreamConsumerRef), # type: ignore[misc]
 ):
     '''A Kinesis Stream Consumer.'''
 
@@ -3884,8 +3896,8 @@ class _IStreamConsumerProxy(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream consumer.
 
         If this stream consumer was created in this stack (``new StreamConsumer``), a resource policy
@@ -3895,44 +3907,47 @@ class _IStreamConsumerProxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37c37a05c26ce89345f11707cf8d0c79c7d0abfdb26093c52bdf5503d8f1d7d3)
+            type_hints = cached_type_hints(_typecheckingstub__37c37a05c26ce89345f11707cf8d0c79c7d0abfdb26093c52bdf5503d8f1d7d3)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream consumer to the provided IAM principal.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf3550b30daa1ef048e2fefa63cc0765dc59458fde35eb1301476a6b6c3ac2e9)
+            type_hints = cached_type_hints(_typecheckingstub__cf3550b30daa1ef048e2fefa63cc0765dc59458fde35eb1301476a6b6c3ac2e9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream consumer and its associated stream to an IAM principal (Role/Group/User).
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce58f2c46edcaa40f59d7e5fc1f893d206283c930800a7814a6a4e0636aa7638)
+            type_hints = cached_type_hints(_typecheckingstub__ce58f2c46edcaa40f59d7e5fc1f893d206283c930800a7814a6a4e0636aa7638)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStreamConsumer).__jsii_proxy_class__ = lambda : _IStreamConsumerProxy
 
 
 class ResourcePolicy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.ResourcePolicy",
 ):
@@ -3989,7 +4004,7 @@ class ResourcePolicy(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        policy_document: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        policy_document: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
         stream: typing.Optional["IStream"] = None,
         stream_consumer: typing.Optional["IStreamConsumer"] = None,
     ) -> None:
@@ -4001,7 +4016,7 @@ class ResourcePolicy(
         :param stream_consumer: The stream consumer this policy applies to. Note: only one of ``stream`` and ``streamConsumer`` must be set. Default: - policy is not associated to a consumer
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4488fc34b1387c696011cd138108f10e13139cd2d56365a8ba9602ad6ba244f0)
+            type_hints = cached_type_hints(_typecheckingstub__4488fc34b1387c696011cd138108f10e13139cd2d56365a8ba9602ad6ba244f0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ResourcePolicyProps(
@@ -4020,9 +4035,9 @@ class ResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="document")
-    def document(self) -> "_PolicyDocument_3ac34393":
+    def document(self) -> "_aws_iam_1f54b5e8.PolicyDocument":
         '''The IAM policy document for this policy.'''
-        return typing.cast("_PolicyDocument_3ac34393", jsii.get(self, "document"))
+        return typing.cast("_aws_iam_1f54b5e8.PolicyDocument", jsii.get(self, "document"))
 
 
 @jsii.data_type(
@@ -4038,7 +4053,7 @@ class ResourcePolicyProps:
     def __init__(
         self,
         *,
-        policy_document: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        policy_document: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
         stream: typing.Optional["IStream"] = None,
         stream_consumer: typing.Optional["IStreamConsumer"] = None,
     ) -> None:
@@ -4083,7 +4098,7 @@ class ResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4f61add9bc5e3d367f841a39ff9a752c7eed270f05849d0b5f9dc5e5ad3382a)
+            type_hints = cached_type_hints(_typecheckingstub__b4f61add9bc5e3d367f841a39ff9a752c7eed270f05849d0b5f9dc5e5ad3382a)
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
             check_type(argname="argument stream_consumer", value=stream_consumer, expected_type=type_hints["stream_consumer"])
@@ -4096,13 +4111,13 @@ class ResourcePolicyProps:
             self._values["stream_consumer"] = stream_consumer
 
     @builtins.property
-    def policy_document(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+    def policy_document(self) -> typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"]:
         '''IAM policy document to apply to a data stream.
 
         :default: - empty policy document
         '''
         result = self._values.get("policy_document")
-        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"], result)
 
     @builtins.property
     def stream(self) -> typing.Optional["IStream"]:
@@ -4172,7 +4187,7 @@ class ShardLevelMetrics(enum.Enum):
 
 @jsii.implements(IStream)
 class Stream(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.Stream",
 ):
@@ -4203,9 +4218,9 @@ class Stream(
         id: builtins.str,
         *,
         encryption: typing.Optional["StreamEncryption"] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         shard_level_metrics: typing.Optional[typing.Sequence["ShardLevelMetrics"]] = None,
         stream_mode: typing.Optional["StreamMode"] = None,
@@ -4224,7 +4239,7 @@ class Stream(
         :param stream_name: Enforces a particular physical stream name. Default: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9e4f581406090d861e3fe8214f939eedc5d1ccaffe122a7542878ec423959f9)
+            type_hints = cached_type_hints(_typecheckingstub__d9e4f581406090d861e3fe8214f939eedc5d1ccaffe122a7542878ec423959f9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StreamProps(
@@ -4255,7 +4270,7 @@ class Stream(
         :param stream_arn: Stream ARN (i.e. arn:aws:kinesis:::stream/Foo).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9562701be345bf627d6a288aec36cba32e582d50b4a6f116aadb9ea5596e84b7)
+            type_hints = cached_type_hints(_typecheckingstub__9562701be345bf627d6a288aec36cba32e582d50b4a6f116aadb9ea5596e84b7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
@@ -4269,7 +4284,7 @@ class Stream(
         id: builtins.str,
         *,
         stream_arn: builtins.str,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
     ) -> "IStream":
         '''Creates a Stream construct that represents an external stream.
 
@@ -4279,7 +4294,7 @@ class Stream(
         :param encryption_key: The KMS key securing the contents of the stream if encryption is enabled. Default: - No encryption
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b96a6f7eaad7642c3b76701b21a0f3785de9e62fe0775dc42bcd732de33d3257)
+            type_hints = cached_type_hints(_typecheckingstub__b96a6f7eaad7642c3b76701b21a0f3785de9e62fe0775dc42bcd732de33d3257)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = StreamAttributes(stream_arn=stream_arn, encryption_key=encryption_key)
@@ -4289,8 +4304,8 @@ class Stream(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream.
 
         If this stream was created in this stack (``new Stream``), a resource policy
@@ -4300,16 +4315,16 @@ class Stream(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7e5618d0b21ec8f8ee6f75c9ce4726b0e2f49cca4d61efdf76bb36d81eedef9)
+            type_hints = cached_type_hints(_typecheckingstub__a7e5618d0b21ec8f8ee6f75c9ce4726b0e2f49cca4d61efdf76bb36d81eedef9)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream to the given IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -4318,13 +4333,16 @@ class Stream(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697192e2b3dde0e9d7ea188584de9b7bc6b68afbd4b7ab621caa32eaeecfb0fe)
+            type_hints = cached_type_hints(_typecheckingstub__697192e2b3dde0e9d7ea188584de9b7bc6b68afbd4b7ab621caa32eaeecfb0fe)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to decrypt the
@@ -4335,12 +4353,15 @@ class Stream(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d8a44344ae23b587e02380f20d9223ba0009fdb26889454d5dabdb7f0486ec0)
+            type_hints = cached_type_hints(_typecheckingstub__8d8a44344ae23b587e02380f20d9223ba0009fdb26889454d5dabdb7f0486ec0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.member(jsii_name="grantReadWrite")
-    def grant_read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants read/write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to use the key for
@@ -4351,12 +4372,15 @@ class Stream(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5509ff4488c7776193498cd6084a6b43d5e763a82224de3949c3a50731e8cc7)
+            type_hints = cached_type_hints(_typecheckingstub__a5509ff4488c7776193498cd6084a6b43d5e763a82224de3949c3a50731e8cc7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantReadWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantReadWrite", [grantee]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant write permissions for this stream and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to ues the key to encrypt the
@@ -4367,9 +4391,9 @@ class Stream(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__305d76f8b58f1507ff0d4bc218bfdedef61b6cb5350c4e4234346a7056d315e4)
+            type_hints = cached_type_hints(_typecheckingstub__305d76f8b58f1507ff0d4bc218bfdedef61b6cb5350c4e4234346a7056d315e4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.member(jsii_name="metric")
     def metric(
@@ -4381,14 +4405,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''Return stream metric based from its metric name.
 
         :param metric_name: name of the stream metric.
@@ -4406,9 +4430,9 @@ class Stream(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2a600a35f466b97cb6589291e1c140f381da66a0d5026de6030101a865c80d1)
+            type_hints = cached_type_hints(_typecheckingstub__c2a600a35f466b97cb6589291e1c140f381da66a0d5026de6030101a865c80d1)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4423,7 +4447,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricGetRecords")
     def metric_get_records(
@@ -4434,14 +4458,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records retrieved from the shard, measured over the specified time period.
 
         Minimum, Maximum, and
@@ -4464,7 +4488,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4479,7 +4503,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecords", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsBytes")
     def metric_get_records_bytes(
@@ -4490,14 +4514,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes retrieved from the Kinesis stream, measured over the specified time period.
 
         Minimum, Maximum,
@@ -4519,7 +4543,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4534,7 +4558,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsBytes", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsIteratorAgeMilliseconds")
     def metric_get_records_iterator_age_milliseconds(
@@ -4545,14 +4569,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The age of the last record in all GetRecords calls made against a Kinesis stream, measured over the specified time period.
 
         Age is the difference between the current time and when the last record of the GetRecords call was written
@@ -4574,7 +4598,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4589,7 +4613,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsIteratorAgeMilliseconds", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsIteratorAgeMilliseconds", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsLatency")
     def metric_get_records_latency(
@@ -4600,14 +4624,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful GetRecords operations per stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -4625,7 +4649,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4640,7 +4664,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsLatency", [props]))
 
     @jsii.member(jsii_name="metricGetRecordsSuccess")
     def metric_get_records_success(
@@ -4651,14 +4675,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful GetRecords operations per stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -4676,7 +4700,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4691,7 +4715,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricGetRecordsSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricGetRecordsSuccess", [props]))
 
     @jsii.member(jsii_name="metricIncomingBytes")
     def metric_incoming_bytes(
@@ -4702,14 +4726,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -4731,7 +4755,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4746,7 +4770,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingBytes", [props]))
 
     @jsii.member(jsii_name="metricIncomingRecords")
     def metric_incoming_records(
@@ -4757,14 +4781,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records successfully put to the Kinesis stream over the specified time period.
 
         This metric includes
@@ -4786,7 +4810,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4801,7 +4825,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricIncomingRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricIncomingRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordBytes")
     def metric_put_record_bytes(
@@ -4812,14 +4836,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecord operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -4837,7 +4861,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4852,7 +4876,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordBytes", [props]))
 
     @jsii.member(jsii_name="metricPutRecordLatency")
     def metric_put_record_latency(
@@ -4863,14 +4887,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecord operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -4888,7 +4912,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4903,7 +4927,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordLatency", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsBytes")
     def metric_put_records_bytes(
@@ -4914,14 +4938,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of bytes put to the Kinesis stream using the PutRecords operation over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -4939,7 +4963,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -4954,7 +4978,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsBytes", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsBytes", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsFailedRecords")
     def metric_put_records_failed_records(
@@ -4965,14 +4989,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to internal failures in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         Occasional internal failures are to be expected and should be retried.
@@ -4992,7 +5016,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5007,7 +5031,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsFailedRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsFailedRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsLatency")
     def metric_put_records_latency(
@@ -5018,14 +5042,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The time taken per PutRecords operation, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -5043,7 +5067,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5058,7 +5082,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsLatency", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsLatency", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsSuccess")
     def metric_put_records_success(
@@ -5069,14 +5093,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of PutRecords operations where at least one record succeeded, per Kinesis stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -5094,7 +5118,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5109,7 +5133,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsSuccess", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsSuccessfulRecords")
     def metric_put_records_successful_records(
@@ -5120,14 +5144,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful records in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -5145,7 +5169,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5160,7 +5184,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsSuccessfulRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsSuccessfulRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsThrottledRecords")
     def metric_put_records_throttled_records(
@@ -5171,14 +5195,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -5196,7 +5220,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5211,7 +5235,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsThrottledRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsThrottledRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordsTotalRecords")
     def metric_put_records_total_records(
@@ -5222,14 +5246,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The total number of records sent in a PutRecords operation per Kinesis data stream, measured over the specified time period.
 
         The metric defaults to average over 5 minutes, it can be changed by passing ``statistic`` and ``period`` properties.
@@ -5247,7 +5271,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5262,7 +5286,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordsTotalRecords", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordsTotalRecords", [props]))
 
     @jsii.member(jsii_name="metricPutRecordSuccess")
     def metric_put_record_success(
@@ -5273,14 +5297,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of successful PutRecord operations per Kinesis stream, measured over the specified time period.
 
         Average
@@ -5301,7 +5325,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5316,7 +5340,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricPutRecordSuccess", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricPutRecordSuccess", [props]))
 
     @jsii.member(jsii_name="metricReadProvisionedThroughputExceeded")
     def metric_read_provisioned_throughput_exceeded(
@@ -5327,14 +5351,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of GetRecords calls throttled for the stream over the specified time period.
 
         The most commonly used
@@ -5361,7 +5385,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5376,7 +5400,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricReadProvisionedThroughputExceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricReadProvisionedThroughputExceeded", [props]))
 
     @jsii.member(jsii_name="metricWriteProvisionedThroughputExceeded")
     def metric_write_provisioned_throughput_exceeded(
@@ -5387,14 +5411,14 @@ class Stream(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional["_Unit_61bc6f70"] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> "_Metric_e396a4dc":
+    ) -> "_aws_cloudwatch_386c5543.Metric":
         '''The number of records rejected due to throttling for the stream over the specified time period.
 
         This metric
@@ -5421,7 +5445,7 @@ class Stream(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
         '''
-        props = _MetricOptions_1788b62f(
+        props = _aws_cloudwatch_386c5543.MetricOptions(
             account=account,
             color=color,
             dimensions_map=dimensions_map,
@@ -5436,7 +5460,7 @@ class Stream(
             visible=visible,
         )
 
-        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricWriteProvisionedThroughputExceeded", [props]))
+        return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricWriteProvisionedThroughputExceeded", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5467,15 +5491,15 @@ class Stream(
 
     @builtins.property
     @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "_StreamReference_030b9268":
+    def stream_ref(self) -> "_aws_kinesis_40f1d96a.StreamReference":
         '''A reference to this stream.'''
-        return typing.cast("_StreamReference_030b9268", jsii.get(self, "streamRef"))
+        return typing.cast("_aws_kinesis_40f1d96a.StreamReference", jsii.get(self, "streamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''Optional KMS encryption key associated with this stream.'''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
 
 @jsii.data_type(
@@ -5488,7 +5512,7 @@ class StreamAttributes:
         self,
         *,
         stream_arn: builtins.str,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
     ) -> None:
         '''A reference to a stream.
 
@@ -5509,7 +5533,7 @@ class StreamAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91a6150e079b5a451763b8bb3f2235aa5c667a527f0d1c955101993688448dc4)
+            type_hints = cached_type_hints(_typecheckingstub__91a6150e079b5a451763b8bb3f2235aa5c667a527f0d1c955101993688448dc4)
             check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5526,13 +5550,13 @@ class StreamAttributes:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The KMS key securing the contents of the stream if encryption is enabled.
 
         :default: - No encryption
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5548,7 +5572,7 @@ class StreamAttributes:
 
 @jsii.implements(IStreamConsumer)
 class StreamConsumer(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesis.StreamConsumer",
 ):
@@ -5590,7 +5614,7 @@ class StreamConsumer(
         :param stream_consumer_name: The name of the stream consumer.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92f5f01a78ec0e2889ff9d24638f94bc34cb2e1cb6e828df5ba3bd88446ef982)
+            type_hints = cached_type_hints(_typecheckingstub__92f5f01a78ec0e2889ff9d24638f94bc34cb2e1cb6e828df5ba3bd88446ef982)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = StreamConsumerProps(
@@ -5614,7 +5638,7 @@ class StreamConsumer(
         :param stream_consumer_arn: the arn of the existing stream consumer.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f0b7b629c1bc39d17d380fd07a1480ffe6bd762ae9db4936b106fe46cafc6aa)
+            type_hints = cached_type_hints(_typecheckingstub__5f0b7b629c1bc39d17d380fd07a1480ffe6bd762ae9db4936b106fe46cafc6aa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument stream_consumer_arn", value=stream_consumer_arn, expected_type=type_hints["stream_consumer_arn"])
@@ -5636,7 +5660,7 @@ class StreamConsumer(
         :param stream_consumer_arn: The Amazon Resource Name (ARN) of the stream consumer.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f17e059f4c9c80a17ccaf154600fcef4fb1d6913f82f8c94fa23e8d4ba96b253)
+            type_hints = cached_type_hints(_typecheckingstub__f17e059f4c9c80a17ccaf154600fcef4fb1d6913f82f8c94fa23e8d4ba96b253)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = StreamConsumerAttributes(stream_consumer_arn=stream_consumer_arn)
@@ -5646,8 +5670,8 @@ class StreamConsumer(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this stream consumer.
 
         If this stream consumer was created in this stack (``new StreamConsumer``), a resource policy
@@ -5657,16 +5681,16 @@ class StreamConsumer(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__106f9684fefb675b40f61d28d1dda945ae52717ea3b5e7e128cfc0199ddead44)
+            type_hints = cached_type_hints(_typecheckingstub__106f9684fefb675b40f61d28d1dda945ae52717ea3b5e7e128cfc0199ddead44)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this stream consumer to the given IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -5675,13 +5699,16 @@ class StreamConsumer(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea5ac90fc600673df96ac4c0dfcc78a85073a04b78101720e951e1ad1275947a)
+            type_hints = cached_type_hints(_typecheckingstub__ea5ac90fc600673df96ac4c0dfcc78a85073a04b78101720e951e1ad1275947a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant read permissions for this stream consumer and its associated stream to an IAM principal (Role/Group/User).
 
         [disable-awslint:no-grants]
@@ -5689,9 +5716,9 @@ class StreamConsumer(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21b7fc951011e7e3fc14b6da5ab3310f7cb75cec5142637f1f3948367f34ac02)
+            type_hints = cached_type_hints(_typecheckingstub__21b7fc951011e7e3fc14b6da5ab3310f7cb75cec5142637f1f3948367f34ac02)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5728,9 +5755,9 @@ class StreamConsumer(
 
     @builtins.property
     @jsii.member(jsii_name="streamConsumerRef")
-    def stream_consumer_ref(self) -> "_StreamConsumerReference_d7ef801e":
+    def stream_consumer_ref(self) -> "_aws_kinesis_40f1d96a.StreamConsumerReference":
         '''A reference to this stream consumer.'''
-        return typing.cast("_StreamConsumerReference_d7ef801e", jsii.get(self, "streamConsumerRef"))
+        return typing.cast("_aws_kinesis_40f1d96a.StreamConsumerReference", jsii.get(self, "streamConsumerRef"))
 
 
 @jsii.data_type(
@@ -5757,7 +5784,7 @@ class StreamConsumerAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20c23f144f51a3022c363961c4f41ecf0c94178d27a73de9a47005ed26d27e2f)
+            type_hints = cached_type_hints(_typecheckingstub__20c23f144f51a3022c363961c4f41ecf0c94178d27a73de9a47005ed26d27e2f)
             check_type(argname="argument stream_consumer_arn", value=stream_consumer_arn, expected_type=type_hints["stream_consumer_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stream_consumer_arn": stream_consumer_arn,
@@ -5820,7 +5847,7 @@ class StreamConsumerProps:
             stream_consumer.grant_read(lambda_role)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f73c02253aa03618517236d4d9c34ae8992a4074435af984a475dc83cc0adf8)
+            type_hints = cached_type_hints(_typecheckingstub__9f73c02253aa03618517236d4d9c34ae8992a4074435af984a475dc83cc0adf8)
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
             check_type(argname="argument stream_consumer_name", value=stream_consumer_name, expected_type=type_hints["stream_consumer_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5923,9 +5950,9 @@ class StreamProps:
         self,
         *,
         encryption: typing.Optional["StreamEncryption"] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        retention_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         shard_count: typing.Optional[jsii.Number] = None,
         shard_level_metrics: typing.Optional[typing.Sequence["ShardLevelMetrics"]] = None,
         stream_mode: typing.Optional["StreamMode"] = None,
@@ -5954,7 +5981,7 @@ class StreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88629f78086711b76f550ae13e14f2db1429deb350aa5b10b7073d5852dadfcc)
+            type_hints = cached_type_hints(_typecheckingstub__88629f78086711b76f550ae13e14f2db1429deb350aa5b10b7073d5852dadfcc)
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -5998,7 +6025,7 @@ class StreamProps:
         return typing.cast(typing.Optional["StreamEncryption"], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''External KMS key to use for stream encryption.
 
         The 'encryption' property must be set to "Kms".
@@ -6010,25 +6037,25 @@ class StreamProps:
         will be created and associated with this stream.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the stream is removed from the stack.
 
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def retention_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The number of hours for the data records that are stored in shards to remain accessible.
 
         :default: Duration.hours(24)
         '''
         result = self._values.get("retention_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def shard_count(self) -> typing.Optional[jsii.Number]:
@@ -6110,7 +6137,7 @@ def _typecheckingstub__d637108cee3cd0781f4431aaf5dbbdcd6254ef22d3f2922cee25b64d4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    resource_arn: typing.Union[builtins.str, _IStreamRef_b484e253, _IStreamConsumerRef_62f6b6ad],
+    resource_arn: typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef, _aws_kinesis_40f1d96a.IStreamConsumerRef],
     resource_policy: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -6123,7 +6150,7 @@ def _typecheckingstub__a87a633e8a051308eb82b9fe958abb6ef411fcd68b6a6a40aa7b2d990
     pass
 
 def _typecheckingstub__045925af979db6aed97959dc574fc91b8ebab52940589dd4ac5cea22d9e1c37f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6148,7 +6175,7 @@ def _typecheckingstub__9ce115deea862b93afa1f5f701216876983abcfa93ac3ace697573677
 
 def _typecheckingstub__dc9d3035df5ffd3d2e91ef2e5c2b108309a10ae013584b2ef5c2d3bdde4567bc(
     *,
-    resource_arn: typing.Union[builtins.str, _IStreamRef_b484e253, _IStreamConsumerRef_62f6b6ad],
+    resource_arn: typing.Union[builtins.str, _aws_kinesis_40f1d96a.IStreamRef, _aws_kinesis_40f1d96a.IStreamConsumerRef],
     resource_policy: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -6163,16 +6190,16 @@ def _typecheckingstub__b956aa40f3e4f7ebba018fbc1caa3788147e52190c5c7131c5c035b04
     name: typing.Optional[builtins.str] = None,
     retention_period_hours: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
-    stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_mode_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     warm_throughput_mi_bps: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1be18e6676a8f818665548c6e6fb25d69de171f74d328fd47682424cdf479211(
-    resource: _IStreamRef_b484e253,
+    resource: _aws_kinesis_40f1d96a.IStreamRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6200,7 +6227,7 @@ def _typecheckingstub__fb56f0d0206179022ce0ac82fd83fad92c062331de20b2f494c1037a0
     pass
 
 def _typecheckingstub__333b8ca1bf2a7b045485860c8e016bc7f84165557984c70011b4f8bbc53133b1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6242,19 +6269,19 @@ def _typecheckingstub__cf81f1665d45f36a4371f0c6c3510650ff02597deda53f521a044b378
     pass
 
 def _typecheckingstub__2902225dc9e97f52b40ca049308cc001a0b8b7984af8591e5939a73f4564ec30(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamEncryptionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStream.StreamEncryptionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f162319b0aca53caf885c2507fa53645295796f4a1c5e52d42ffb0b25a723a39(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamModeDetailsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStream.StreamModeDetailsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4d0f1c422640008db062b29f115763c109cc7cb0ad3033ed29d2a4f3281b5171(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6294,7 +6321,7 @@ def _typecheckingstub__40129c585ad941f6708a726728b53f8f98c392e9aac49550e397150ee
     *,
     consumer_name: builtins.str,
     stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6306,7 +6333,7 @@ def _typecheckingstub__5bc1cfdf9852f9d91614aeac9917e2dbc70f3fd26e8ff3c1c11e67d26
     pass
 
 def _typecheckingstub__142656ad38ecbbafd1123538ccfd8bd166543a5684d191610ddb5cfa36aedd8a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6330,7 +6357,7 @@ def _typecheckingstub__decaab8d4ef9478c7a29a7262bbddccc719545cf6499f4ac625d9c446
     pass
 
 def _typecheckingstub__741a97d9ae28403dd10b071c7777bb76448096ad2b30f06325c121d8271174db(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6339,7 +6366,7 @@ def _typecheckingstub__04af0c0cee5710afdb7b50f59ef3686da8bba1bf2ed3a56c1e5209c68
     *,
     consumer_name: builtins.str,
     stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6351,41 +6378,41 @@ def _typecheckingstub__d3bac625363d3769acb567c00e5b48d63afe09fd6d0305829f157ffcc
     name: typing.Optional[builtins.str] = None,
     retention_period_hours: typing.Optional[jsii.Number] = None,
     shard_count: typing.Optional[jsii.Number] = None,
-    stream_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stream_mode_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stream_mode_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStream.StreamModeDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     warm_throughput_mi_bps: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8f2bc2272d75f698f14f87a303fdf13c87275a121d59d5fa5df4a16bb120598b(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__144c672e53e3086b23a7fab80cf6f8440b56b13da782550703291ecf8e7ee03c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31e92e467ef9724bf8c1c834e80eb106fb2f5002d962dd2d6a131eeb921bc9fe(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7cade05201ed2077bc3551ad45ec7b384e8e2f17dcfb79377cb643df1aa83610(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__08cbc4e6cc771633979cc23abc4ecb0d8be72cfb4bde81198f87422305f0629e(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6398,32 +6425,32 @@ def _typecheckingstub__bd578f4ca8facd0463f7e56d3d2cea7e56ba9ad274338af8f84fa661d
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__37c37a05c26ce89345f11707cf8d0c79c7d0abfdb26093c52bdf5503d8f1d7d3(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf3550b30daa1ef048e2fefa63cc0765dc59458fde35eb1301476a6b6c3ac2e9(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ce58f2c46edcaa40f59d7e5fc1f893d206283c930800a7814a6a4e0636aa7638(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6432,7 +6459,7 @@ def _typecheckingstub__4488fc34b1387c696011cd138108f10e13139cd2d56365a8ba9602ad6
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    policy_document: typing.Optional[_PolicyDocument_3ac34393] = None,
+    policy_document: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
     stream: typing.Optional[IStream] = None,
     stream_consumer: typing.Optional[IStreamConsumer] = None,
 ) -> None:
@@ -6441,7 +6468,7 @@ def _typecheckingstub__4488fc34b1387c696011cd138108f10e13139cd2d56365a8ba9602ad6
 
 def _typecheckingstub__b4f61add9bc5e3d367f841a39ff9a752c7eed270f05849d0b5f9dc5e5ad3382a(
     *,
-    policy_document: typing.Optional[_PolicyDocument_3ac34393] = None,
+    policy_document: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
     stream: typing.Optional[IStream] = None,
     stream_consumer: typing.Optional[IStreamConsumer] = None,
 ) -> None:
@@ -6453,9 +6480,9 @@ def _typecheckingstub__d9e4f581406090d861e3fe8214f939eedc5d1ccaffe122a7542878ec4
     id: builtins.str,
     *,
     encryption: typing.Optional[StreamEncryption] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     shard_level_metrics: typing.Optional[typing.Sequence[ShardLevelMetrics]] = None,
     stream_mode: typing.Optional[StreamMode] = None,
@@ -6477,38 +6504,38 @@ def _typecheckingstub__b96a6f7eaad7642c3b76701b21a0f3785de9e62fe0775dc42bcd732de
     id: builtins.str,
     *,
     stream_arn: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a7e5618d0b21ec8f8ee6f75c9ce4726b0e2f49cca4d61efdf76bb36d81eedef9(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__697192e2b3dde0e9d7ea188584de9b7bc6b68afbd4b7ab621caa32eaeecfb0fe(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8d8a44344ae23b587e02380f20d9223ba0009fdb26889454d5dabdb7f0486ec0(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a5509ff4488c7776193498cd6084a6b43d5e763a82224de3949c3a50731e8cc7(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__305d76f8b58f1507ff0d4bc218bfdedef61b6cb5350c4e4234346a7056d315e4(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6521,12 +6548,12 @@ def _typecheckingstub__c2a600a35f466b97cb6589291e1c140f381da66a0d5026de6030101a8
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
-    unit: typing.Optional[_Unit_61bc6f70] = None,
+    unit: typing.Optional[_aws_cloudwatch_386c5543.Unit] = None,
     visible: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6535,7 +6562,7 @@ def _typecheckingstub__c2a600a35f466b97cb6589291e1c140f381da66a0d5026de6030101a8
 def _typecheckingstub__91a6150e079b5a451763b8bb3f2235aa5c667a527f0d1c955101993688448dc4(
     *,
     stream_arn: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6568,20 +6595,20 @@ def _typecheckingstub__f17e059f4c9c80a17ccaf154600fcef4fb1d6913f82f8c94fa23e8d4b
     pass
 
 def _typecheckingstub__106f9684fefb675b40f61d28d1dda945ae52717ea3b5e7e128cfc0199ddead44(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ea5ac90fc600673df96ac4c0dfcc78a85073a04b78101720e951e1ad1275947a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__21b7fc951011e7e3fc14b6da5ab3310f7cb75cec5142637f1f3948367f34ac02(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6604,9 +6631,9 @@ def _typecheckingstub__9f73c02253aa03618517236d4d9c34ae8992a4074435af984a475dc83
 def _typecheckingstub__88629f78086711b76f550ae13e14f2db1429deb350aa5b10b7073d5852dadfcc(
     *,
     encryption: typing.Optional[StreamEncryption] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    retention_period: typing.Optional[_Duration_4839e8c3] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    retention_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     shard_count: typing.Optional[jsii.Number] = None,
     shard_level_metrics: typing.Optional[typing.Sequence[ShardLevelMetrics]] = None,
     stream_mode: typing.Optional[StreamMode] = None,

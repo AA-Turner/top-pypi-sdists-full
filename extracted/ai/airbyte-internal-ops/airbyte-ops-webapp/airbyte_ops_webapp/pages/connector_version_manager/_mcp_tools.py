@@ -403,8 +403,8 @@ def _build_context_result(
         # "eligible unknown" — the latter meaning `get_connector_population`
         # returned early (no connector id, or the actor-population DB query
         # failed). A GCS tier-export failure doesn't reach here: it raises and
-        # aborts the page. Keyed by the disjoint cohort the card enumerates;
-        # the final `ALL`/GA stage is surfaced under `TIER_0`.
+        # aborts the page. Keyed by the disjoint cohort the card enumerates
+        # (`TIER_2`, `TIER_1`, `TIER_0`).
         eligible_by_tier: dict[str, int] = {}
         pinned_by_tier: dict[str, int] = {}
         factors_by_tier: dict[str, TierPopulationFactors] = {}

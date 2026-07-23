@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-tap
-Version: 0.1.138
+Version: 0.1.139
 Summary: Trace AI CLI API requests via local reverse and forward proxies. Inspect system prompts, messages, tools, and token usage.
 Author: liaohch3
 License-Expression: MIT

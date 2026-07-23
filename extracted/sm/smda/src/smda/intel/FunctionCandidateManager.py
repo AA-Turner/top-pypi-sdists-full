@@ -1,3 +1,12 @@
+"""x86/x64 function-candidate discovery.
+
+The candidate registry, priority queue, evidence bookkeeping and gap
+bookkeeping live in the architecture-neutral base under :mod:`smda.common`;
+this subclass supplies the x86 byte-level scans: 0xE8 call-reference discovery,
+prologue byte-pattern seeding, jmp/call-pointer and PLT stub-chain discovery,
+PE x64 ``.pdata`` exception-record seeding, and the NOP/padding-aware gap scan.
+"""
+
 import logging
 import re
 import struct
@@ -5,8 +14,7 @@ import struct
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64, Cs
 
 from smda.common.ExceptionHandling import reraise_non_operational_exception
-from smda.utility.BracketQueue import BracketQueue
-from smda.utility.PriorityQueue import PriorityQueue
+from smda.common.FunctionCandidateManager import FunctionCandidateManager as _CommonFunctionCandidateManager
 
 from .definitions import (
     COMMON_PROLOGUES,
@@ -16,7 +24,6 @@ from .definitions import (
     GAP_SEQUENCES,
 )
 from .FunctionCandidate import FunctionCandidate
-from .LanguageAnalyzer import LanguageAnalyzer
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,204 +38,21 @@ _PADDING_STRIP_BYTES = bytes(sorted(seq[0] for seq in GAP_SEQUENCES[1]))
 _ENTRY_SHAPE_MIN_SCORE = 30
 
 
-class FunctionCandidateManager:
+class FunctionCandidateManager(_CommonFunctionCandidateManager):
+    CANDIDATE_CLASS = FunctionCandidate
+
     def __init__(self, config):
-        self.config = config
-        self.lang_analyzer = None
-        self.disassembly = None
-        self.bitness = None
-        self._code_areas = []
-        self.candidates = {}
-        self.candidate_queue = []
-        self.cached_candidates = None
-        self._candidate_offsets = set()
-        self.candidate_index = 0
-        self._all_call_refs = {}
-        self.symbol_addresses = []
-        self.identified_alignment = 0
-        self.go_objects = None
-        self.delphi_kb_objects = None
-        self.language_candidates_only = False
-        # gap filling
-        self.function_gaps = None
-        self.max_function_addr = 0
-        self.gap_pointer = None
-        self.previously_analyzed_gap = 0
-        self.capstone = None
-        # backstop against memory usage explosion during candidate identification
-        self._candidate_cap_logged = False
-        self._cb_analysis_timeout = None
+        super().__init__(config)
+        self.pdata_start_addresses = set()
+        self.pdata_end_addresses = set()
 
     def init(self, disassembly, cbAnalysisTimeout=None):
-        if disassembly.binary_info.code_areas:
-            self._code_areas = disassembly.binary_info.code_areas
-        self.disassembly = disassembly
-        self._cb_analysis_timeout = cbAnalysisTimeout
-        self.lang_analyzer = LanguageAnalyzer(disassembly)
-        self.disassembly.language = self.lang_analyzer.identify()
-        self.bitness = disassembly.binary_info.bitness
+        # the gap scan decodes potential NOP instructions, so it needs an x86 capstone
+        # matching the binary's bitness; build it before the base init runs discovery
         self.capstone = Cs(CS_ARCH_X86, CS_MODE_32)
-        if self.bitness == 64:
+        if disassembly.binary_info.bitness == 64:
             self.capstone = Cs(CS_ARCH_X86, CS_MODE_64)
-        self.locateCandidates()
-        self.disassembly.identified_alignment = self.identified_alignment
-        self._buildQueue()
-
-    def _passesCodeFilter(self, addr):
-        if addr is None:
-            return False
-        if self._code_areas:
-            return any(area[0] <= addr < area[1] for area in self._code_areas)
-        return True
-
-    def getBitMask(self):
-        if self.bitness == 64:
-            return 0xFFFFFFFFFFFFFFFF
-        return 0xFFFFFFFF
-
-    def setInitialCandidate(self, addr):
-        if addr in self.candidates:
-            self.candidates[addr].setInitialCandidate(True)
-
-    def isFunctionCandidate(self, addr):
-        return addr in self.candidates
-
-    def getFunctionCandidate(self, addr):
-        if addr in self.candidates:
-            return self.candidates[addr]
-        return None
-
-    def getAbortedCandidates(self):
-        aborted = []
-        for addr, candidate in self.candidates.items():
-            if candidate.analysis_aborted:
-                aborted.append(addr)
-        return aborted
-
-    def updateAnalysisAborted(self, addr, reason):
-        LOGGER.debug("function analysis of 0x%08x aborted: %s", addr, reason)
-        if addr in self.candidates:
-            self.candidates[addr].setAnalysisAborted(reason)
-
-    def updateAnalysisFinished(self, addr):
-        LOGGER.debug("function analysis of 0x%08x successfully completed.", addr)
-        if addr in self.candidates:
-            self.candidates[addr].setAnalysisCompleted()
-
-    def updateCandidates(self, state):
-        if self.config.HIGH_ACCURACY:
-            conflicts = state.identifyCallConflicts(self._all_call_refs)
-            if conflicts:
-                for candidate_addr, conflict in conflicts.items():
-                    self.candidates[candidate_addr].removeCallRefs(conflict)
-                    # depending on implementation, update candidates individually
-                    self.candidate_queue.update(self.candidates[candidate_addr])
-                self.candidate_queue.update()
-
-    def _addCappedCallRef(self, candidate, source_ref):
-        """add an inbound call reference, honoring MAX_CALL_REFS_PER_CANDIDATE to bound set growth and rescoring."""
-        cap = getattr(self.config, "MAX_CALL_REFS_PER_CANDIDATE", 0)
-        if cap == 0 or len(candidate.call_ref_sources) < cap:
-            candidate.addCallRef(source_ref)
-
-    def addCandidate(self, addr, is_gap=False, reference_source=None):
-        if not self._passesCodeFilter(addr):
-            return False
-        self.ensureCandidate(addr)
-        if addr not in self.candidates:
-            return False
-        self.candidates[addr].setIsGapCandidate(is_gap)
-        if reference_source:
-            # register in _all_call_refs as well so late references still
-            # participate in HIGH_ACCURACY call-conflict resolution
-            self._all_call_refs[reference_source] = addr
-            self._addCappedCallRef(self.candidates[addr], reference_source)
-        self.candidate_queue.add(self.candidates[addr])
-        self.candidate_queue.update()
-
-    def getNextFunctionStartCandidate(self):
-        for candidate in self.candidate_queue:
-            if not (candidate.isFinished() or candidate.getScore() == 0):
-                if self.language_candidates_only and candidate.lang_spec is None:
-                    continue
-                if self.identified_alignment and candidate.alignment < self.identified_alignment:
-                    continue
-                yield candidate
-
-    def getFunctionStartCandidates(self):
-        return self._candidate_offsets
-
-    def updateFunctionGaps(self):
-        gaps = []
-        prev_ins = 0
-        min_code = min(self.disassembly.code_map) if self.disassembly.code_map else self.getBitMask()
-        max_code = max(self.disassembly.code_map) if self.disassembly.code_map else 0
-        # Raw memory dumps are loaded without section info, so self._code_areas is empty; fall back to
-        # the full mapped image so the head (before the first instruction) and tail (after the last
-        # instruction) still get gap-scanned. Without this, functions that lie entirely before the
-        # first or after the last already-discovered instruction (e.g. trailing jmp/thunk tables) are
-        # never reached by the gap pass.
-        using_synthetic_area = not self._code_areas
-        code_areas = self._code_areas or [
-            [
-                self.disassembly.binary_info.base_addr,
-                self.disassembly.binary_info.base_addr + self.disassembly.binary_info.binary_size,
-            ]
-        ]
-        for code_area in code_areas:
-            if code_area[0] < min_code < code_area[1] and min_code != code_area[0]:
-                gaps.append([code_area[0], min_code, min_code - code_area[0]])
-            if code_area[0] < max_code < code_area[1] and max_code != code_area[1]:
-                # For the synthetic full-image fallback (raw memory dumps with no section info),
-                # the tail gap must start AFTER the last instruction's address, mirroring the
-                # interior-hole branch's prev_ins + 1 below. max_code is itself in code_map, so a
-                # gap starting at max_code leaves the gap-pointer on a code_map address;
-                # getNextGap()'s strict "gap[0] > gap_pointer" test then finds no further gap,
-                # returns the bitmask sentinel, and the scan terminates -- abandoning the whole tail
-                # region unscanned. Section-derived code areas keep the legacy start (behavior-neutral).
-                tail_start = max_code + 1 if using_synthetic_area else max_code
-                gaps.append([tail_start, code_area[1], code_area[1] - tail_start])
-        for ins in sorted(self.disassembly.code_map.keys()):
-            if prev_ins != 0 and ins - prev_ins > 1:
-                gaps.append([prev_ins + 1, ins, ins - prev_ins])
-            prev_ins = ins
-        self.function_gaps = sorted(gaps)
-
-    def initGapSearch(self):
-        if self.gap_pointer is None:
-            LOGGER.debug("initGapSearch()")
-            self.gap_pointer = self.getBitMask()
-            self.updateFunctionGaps()
-            if self.function_gaps:
-                self.gap_pointer = self.function_gaps[0][0]
-        LOGGER.debug("initGapSearch() gaps are:")
-        for gap in self.function_gaps:
-            LOGGER.debug("initGapSearch() 0x%08x - 0x%08x == %d", gap[0], gap[1], gap[2])
-        return
-
-    def getNextGap(self, dont_skip=False):
-        next_gap = self.getBitMask()
-        for gap in self.function_gaps:
-            if gap[0] > self.gap_pointer:
-                next_gap = gap[0]
-                break
-        LOGGER.debug(
-            "getNextGap(%s) for 0x%08x based on gap_map: 0x%08x",
-            dont_skip,
-            self.gap_pointer,
-            next_gap,
-        )
-        # we potentially just disassembled a function and want to continue directly behind it in case we would otherwise miss more
-        if dont_skip and self.gap_pointer in self.disassembly.code_map:
-            function = self.disassembly.ins2fn[self.gap_pointer]
-            next_gap = min(next_gap, self.disassembly.function_borders[function][1])
-            LOGGER.debug(
-                "getNextGap(%s) without skip => after checking versus code map: 0x%08x",
-                dont_skip,
-                next_gap,
-            )
-        LOGGER.debug("getNextGap(%s) final gap_ptr: 0x%08x", dont_skip, next_gap)
-        return next_gap
+        super().init(disassembly, cbAnalysisTimeout)
 
     def isEffectiveNop(self, byte_sequence):
         return byte_sequence in GAP_SEQUENCES[len(byte_sequence)]
@@ -252,23 +76,33 @@ class FunctionCandidateManager:
         # single strong single-byte case (0x55 "push ebp/rbp") clears it too.
         return FunctionCandidate(self.disassembly.binary_info, addr).getFunctionStartScore() >= _ENTRY_SHAPE_MIN_SCORE
 
-    def isAlignmentSequence(self, instruction_sequence):
+    def isAlignmentSequence(self, instruction_sequence, raw_bytes=None):
         is_alignment_sequence = False
         instructions_analyzed = 0
         if len(instruction_sequence) > 0:
-            current_offset = instruction_sequence[0].address
+            start_addr = instruction_sequence[0].address if raw_bytes is None else instruction_sequence[0][0]
+            current_offset = start_addr
             for instruction in instruction_sequence:
-                if instruction.bytes in GAP_SEQUENCES[len(instruction.bytes)]:
+                if raw_bytes is None:
+                    size = len(instruction.bytes)
+                    instruction_bytes = instruction.bytes
+                else:
+                    address, size, _mnemonic, _operands = instruction
+                    instruction_bytes = raw_bytes[address - start_addr : address - start_addr + size]
+                if instruction_bytes in GAP_SEQUENCES[size]:
                     instructions_analyzed += 1
-                    current_offset += len(instruction.bytes)
+                    current_offset += size
                     if current_offset % 16 == 0:
                         is_alignment_sequence = True
                         break
                 else:
                     break
-        if len(instruction_sequence) > instructions_analyzed and instruction_sequence[
-            instructions_analyzed
-        ].mnemonic.split(" ")[-1] in [
+        if len(instruction_sequence) > instructions_analyzed:
+            trailing_instruction = instruction_sequence[instructions_analyzed]
+            trailing_mnemonic = trailing_instruction.mnemonic if raw_bytes is None else trailing_instruction[2]
+        else:
+            trailing_mnemonic = ""
+        if trailing_mnemonic.split(" ")[-1] in [
             "leave",
             "ret",
             "retn",
@@ -417,13 +251,6 @@ class FunctionCandidateManager:
             current_entry = entry
         return False
 
-    def checkCodePadding(self):
-        pattern_functions = []
-        for _pattern_count, pattern in enumerate(
-            re.finditer(r"((\xCC){2,}|(\x90){2,})", self.disassembly.binary_info.binary), 1
-        ):
-            pattern_functions.append(pattern.span()[1] + 1)
-
     def ensureCandidate(self, addr):
         """create candidate if it does not exist yet, returns True if newly created, else False"""
         if addr not in self.candidates:
@@ -495,10 +322,14 @@ class FunctionCandidateManager:
     def resolvePointerReference(self, offset):
         if self.bitness == 32:
             addr_block = self.disassembly.getRawBytes(offset + 2, 4)
+            if addr_block is None or len(addr_block) < 4:
+                return None
             function_pointer = struct.unpack("I", addr_block)[0]
             return self.disassembly.dereferenceDword(function_pointer)
         if self.bitness == 64:
             addr_block = self.disassembly.getRawBytes(offset + 2, 4)
+            if addr_block is None or len(addr_block) < 4:
+                return None
             function_pointer = struct.unpack("i", addr_block)[0]
             # we need to calculate RIP + offset + 7 (48 ff 25 ** ** ** **)
             if self.disassembly.getRawBytes(offset, 2) == b"\xff\x25":
@@ -509,39 +340,6 @@ class FunctionCandidateManager:
                 raise Exception("resolvePointerReference: should only be used on call/jmp * ptr")
             return self.disassembly.binary_info.base_addr + function_pointer
         raise Exception("resolvePointerReference: undefined bitness")
-
-    def _identifyAlignment(self):
-        identified_alignment = 0
-        if self.config.USE_ALIGNMENT:
-            candidates_with_refs = [c for c in self.candidates.values() if len(c.call_ref_sources) > 1]
-            num_candidates = len(candidates_with_refs)
-            if num_candidates > 20:
-                max_unaligned_16_budget = int(0.05 * num_candidates)
-                max_unaligned_4_budget = int(0.05 * num_candidates)
-                unaligned_16_count = 0
-                unaligned_4_count = 0
-                for candidate in candidates_with_refs:
-                    if candidate.alignment != 16:
-                        unaligned_16_count += 1
-                    if candidate.alignment < 4:
-                        unaligned_4_count += 1
-                    if unaligned_16_count > max_unaligned_16_budget and unaligned_4_count > max_unaligned_4_budget:
-                        break
-                if unaligned_4_count <= max_unaligned_4_budget:
-                    identified_alignment = 4
-                if unaligned_16_count <= max_unaligned_16_budget:
-                    identified_alignment = 16
-        return identified_alignment
-
-    def _candidateTimeoutTripped(self):
-        """returns True once the wall-clock analysis timeout has been hit during candidate identification."""
-        if self.disassembly is not None and self.disassembly.analysis_timeout:
-            return True
-        if self._cb_analysis_timeout is not None and self._cb_analysis_timeout():
-            if self.disassembly is not None:
-                self.disassembly.analysis_timeout = True
-            return True
-        return False
 
     def locateCandidates(self):
         # add guaranteed / high-value starts first so that, if the candidate cap is hit, the most reliable
@@ -564,28 +362,6 @@ class FunctionCandidateManager:
         self.locateStubChainCandidates()
         self.identified_alignment = self._identifyAlignment()
 
-    def locateDeferredCandidates(self):
-        """Deferred candidate sources that need the primary pass's results (e.g.
-        code_map claims) before they can be filtered; yields addresses the engine
-        analyzes between the primary pass and gap analysis. No sources here."""
-        return ()
-
-    def _buildQueue(self):
-        LOGGER.debug("Located %d function candidates", len(self.candidates))
-        # increase lookup speed with static set
-        self._candidate_offsets = {c.addr for c in self.candidates.values()}
-        self.cached_candidates = list(self.candidates.values())
-        if self.config.CANDIDATE_QUEUE == "BracketQueue":
-            self.candidate_queue = BracketQueue(candidates=self.cached_candidates)
-            LOGGER.debug("Using BracketQueue")
-        else:
-            self.candidate_queue = PriorityQueue(content=self.cached_candidates)
-            LOGGER.debug("Using PriorityQueue")
-
-    def locateSymbolCandidates(self):
-        for symbol_addr in self.symbol_addresses:
-            self.addSymbolCandidate(symbol_addr)
-
     def locateReferenceCandidates(self):
         # check for potential call instructions and check if their destinations have a common function prologue
         for match_count, call_match in enumerate(re.finditer(b"\xe8", self.disassembly.binary_info.binary)):
@@ -593,7 +369,7 @@ class FunctionCandidateManager:
                 return
             if not self._passesCodeFilter(self.disassembly.binary_info.base_addr + call_match.start()):
                 continue
-            if len(self.disassembly.binary_info.binary) - call_match.start() > 5:
+            if len(self.disassembly.binary_info.binary) - call_match.start() >= 5:
                 packed_call = self.disassembly.getRawBytes(call_match.start() + 1, 4)
                 rel_call_offset = struct.unpack("i", packed_call)[0]
                 # ignore zero offset calls, as they will likely not lead to functions but are rather used for positioning in shellcode etc
@@ -683,6 +459,8 @@ class FunctionCandidateManager:
             LOGGER.debug("Iterating relocations.")
             binary_as_array = bytearray(self.disassembly.binary_info.binary)
             for relocation_offset in relocations:
+                if not (relocation_offset > 0 and relocation_offset + 3 < len(binary_as_array)):
+                    continue
                 # don't relocate relative jumps/calls
                 if self.disassembly.binary_info.binary[relocation_offset - 1] not in [
                     0xE8,
@@ -779,6 +557,10 @@ class FunctionCandidateManager:
     def locateExceptionHandlerCandidates(self):
         # 64bit only - if we have a .pdata section describing exception handlers, we extract entries of guaranteed function starts from it.
         if self.disassembly.binary_info.bitness == 64:
+            self.pdata_start_addresses = set()
+            self.pdata_end_addresses = set()
+            record_pdata_ends = self.config.USE_PE_X64_PDATA_ENDS
+            base_addr = self.disassembly.binary_info.base_addr
             for section_info in self.disassembly.binary_info.getSections():
                 section_name, section_va_start, section_va_end = section_info
                 if section_name == ".pdata":
@@ -797,7 +579,12 @@ class FunctionCandidateManager:
                             # split-off cold/epilogue chunk) chained to another function's
                             # primary RUNTIME_FUNCTION entry, not an independent function start.
                             continue
-                        self.addExceptionCandidate(self.disassembly.binary_info.base_addr + rva_function_candidate)
+                        self.addExceptionCandidate(base_addr + rva_function_candidate)
+                        if record_pdata_ends and _rva_function_end > rva_function_candidate:
+                            # record .pdata EndAddresses as candidate split points; skip degenerate
+                            # (EndAddress <= BeginAddress) entries and keep them as VAs.
+                            self.pdata_start_addresses.add(base_addr + rva_function_candidate)
+                            self.pdata_end_addresses.add(base_addr + _rva_function_end)
 
     def _isChainedUnwindInfo(self, rva_unwind_info):
         # x64 UNWIND_INFO header byte 0 packs Version (bits 0-2) and Flags (bits 3-7);

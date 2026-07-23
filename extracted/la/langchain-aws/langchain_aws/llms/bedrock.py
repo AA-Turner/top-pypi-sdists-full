@@ -38,7 +38,10 @@ from langchain_aws.utils import (
     enforce_stop_tokens,
     get_num_tokens_anthropic,
     get_token_ids_anthropic,
+    parse_model_provider,
+    thinking_disabled_in_params,
     thinking_in_params,
+    thinking_on_by_default,
 )
 
 logger = logging.getLogger(__name__)
@@ -1026,16 +1029,7 @@ class BedrockBase(BaseLanguageModel, ABC):
         # If model_id has region prefixed to them,
         # for example eu.anthropic.claude-3-haiku-20240307-v1:0,
         # provider is the second part, otherwise, the first part
-        parts = self.model_id.split(".", maxsplit=2)
-        return (
-            parts[1]
-            if (
-                len(parts) > 1
-                and parts[0].lower()
-                in {"eu", "us", "us-gov", "apac", "sa", "amer", "global", "jp", "au"}
-            )
-            else parts[0]
-        )
+        return parse_model_provider(self.model_id)
 
     def _get_base_model(self) -> str:
         return (
@@ -1296,6 +1290,10 @@ class BedrockBase(BaseLanguageModel, ABC):
                     temperature=self.temperature,
                 )
             elif thinking_in_params(params):
+                coerce_content_to_string = False
+            elif thinking_on_by_default(
+                self._get_base_model()
+            ) and not thinking_disabled_in_params(params):
                 coerce_content_to_string = False
             elif messages is not None and _citations_enabled(messages):
                 coerce_content_to_string = False

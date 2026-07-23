@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46872316b94e76798e953517db575f1b0ffa8b517272545ee2c95a5770e2e786)
+            type_hints = cached_type_hints(_typecheckingstub__46872316b94e76798e953517db575f1b0ffa8b517272545ee2c95a5770e2e786)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_arn": cluster_arn,
@@ -107,7 +111,7 @@ class ControlPanelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05e13533961e7f00349c3f489aa2ccb43d3bea34fc8803c5b5d5c0d6b30d7249)
+            type_hints = cached_type_hints(_typecheckingstub__05e13533961e7f00349c3f489aa2ccb43d3bea34fc8803c5b5d5c0d6b30d7249)
             check_type(argname="argument control_panel_arn", value=control_panel_arn, expected_type=type_hints["control_panel_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "control_panel_arn": control_panel_arn,
@@ -137,7 +141,7 @@ class ControlPanelReference:
 )
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -157,7 +161,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -184,7 +188,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 )
 class IControlPanelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ControlPanel.
@@ -204,7 +208,7 @@ class IControlPanelRef(
 
 class _IControlPanelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ControlPanel.
 
@@ -231,7 +235,7 @@ typing.cast(typing.Any, IControlPanelRef).__jsii_proxy_class__ = lambda : _ICont
 )
 class IRoutingControlRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RoutingControl.
@@ -251,7 +255,7 @@ class IRoutingControlRef(
 
 class _IRoutingControlRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RoutingControl.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IRoutingControlRef).__jsii_proxy_class__ = lambda : _IRo
 )
 class ISafetyRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SafetyRule.
@@ -298,7 +302,7 @@ class ISafetyRuleRef(
 
 class _ISafetyRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SafetyRule.
 
@@ -344,7 +348,7 @@ class RoutingControlReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f897bde02ed612039eb8e1bb3180a4a89f2eb0bfde83e34cc1d52103eea37a4d)
+            type_hints = cached_type_hints(_typecheckingstub__f897bde02ed612039eb8e1bb3180a4a89f2eb0bfde83e34cc1d52103eea37a4d)
             check_type(argname="argument routing_control_arn", value=routing_control_arn, expected_type=type_hints["routing_control_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "routing_control_arn": routing_control_arn,
@@ -393,7 +397,7 @@ class SafetyRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c9b8a5d4251f49522e156e6840f8d173913e327325acbe2014a2c3de571da04)
+            type_hints = cached_type_hints(_typecheckingstub__3c9b8a5d4251f49522e156e6840f8d173913e327325acbe2014a2c3de571da04)
             check_type(argname="argument safety_rule_arn", value=safety_rule_arn, expected_type=type_hints["safety_rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "safety_rule_arn": safety_rule_arn,

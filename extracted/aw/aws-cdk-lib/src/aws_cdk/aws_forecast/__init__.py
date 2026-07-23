@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_forecast import (
-    DatasetGroupReference as _DatasetGroupReference_4bec336c,
-    DatasetReference as _DatasetReference_9a84d365,
-    IDatasetGroupRef as _IDatasetGroupRef_6d6b1f2e,
-    IDatasetRef as _IDatasetRef_e339586a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_forecast as _aws_forecast_c5904cef
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_forecast_c5904cef = _LazyImport("aws_cdk.interfaces.aws_forecast")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDatasetRef_e339586a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_forecast_c5904cef.IDatasetRef)
 class CfnDataset(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_forecast.CfnDataset",
 ):
@@ -157,7 +149,7 @@ class CfnDataset(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b255d6566d3108723fad5445eb36969a47899e6f15f691797cfff629b1678c6)
+            type_hints = cached_type_hints(_typecheckingstub__1b255d6566d3108723fad5445eb36969a47899e6f15f691797cfff629b1678c6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDatasetProps(
@@ -174,12 +166,15 @@ class CfnDataset(
 
     @jsii.member(jsii_name="arnForDataset")
     @builtins.classmethod
-    def arn_for_dataset(cls, resource: "_IDatasetRef_e339586a") -> builtins.str:
+    def arn_for_dataset(
+        cls,
+        resource: "_aws_forecast_c5904cef.IDatasetRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7321d2a22c43244bdb8c0f7c1054f5978ceb1e5113b993c92c6751db081ef4c)
+            type_hints = cached_type_hints(_typecheckingstub__e7321d2a22c43244bdb8c0f7c1054f5978ceb1e5113b993c92c6751db081ef4c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataset", [resource]))
 
@@ -191,18 +186,18 @@ class CfnDataset(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd8e1aea50f441ccc197802977524067f5e89254f3c87ae04e46afb2d6fdc7b3)
+            type_hints = cached_type_hints(_typecheckingstub__cd8e1aea50f441ccc197802977524067f5e89254f3c87ae04e46afb2d6fdc7b3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataset", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c3188a463f212919233b295ee25b6e0aaffc31e7e8210e2646c840e3c1e66be)
+            type_hints = cached_type_hints(_typecheckingstub__1c3188a463f212919233b295ee25b6e0aaffc31e7e8210e2646c840e3c1e66be)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -215,7 +210,7 @@ class CfnDataset(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dcab10230142468293fe0c84ee2dca7b8353f00639d3a0e9bfa1de7e20537e7)
+            type_hints = cached_type_hints(_typecheckingstub__5dcab10230142468293fe0c84ee2dca7b8353f00639d3a0e9bfa1de7e20537e7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -246,9 +241,9 @@ class CfnDataset(
 
     @builtins.property
     @jsii.member(jsii_name="datasetRef")
-    def dataset_ref(self) -> "_DatasetReference_9a84d365":
+    def dataset_ref(self) -> "_aws_forecast_c5904cef.DatasetReference":
         '''A reference to a Dataset resource.'''
-        return typing.cast("_DatasetReference_9a84d365", jsii.get(self, "datasetRef"))
+        return typing.cast("_aws_forecast_c5904cef.DatasetReference", jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetName")
@@ -259,7 +254,7 @@ class CfnDataset(
     @dataset_name.setter
     def dataset_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b754c38a82fdcd6016a24bc7ac9b0d41ff3366a2352145163ab3afa722107f7)
+            type_hints = cached_type_hints(_typecheckingstub__1b754c38a82fdcd6016a24bc7ac9b0d41ff3366a2352145163ab3afa722107f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datasetName", value) # pyright: ignore[reportArgumentType]
 
@@ -272,7 +267,7 @@ class CfnDataset(
     @dataset_type.setter
     def dataset_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2d3f028db3bababc8fc6f4e6b1e592566174441b4275653f9d65d512acf4a7)
+            type_hints = cached_type_hints(_typecheckingstub__9e2d3f028db3bababc8fc6f4e6b1e592566174441b4275653f9d65d512acf4a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datasetType", value) # pyright: ignore[reportArgumentType]
 
@@ -285,7 +280,7 @@ class CfnDataset(
     @domain.setter
     def domain(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd4a5170dde28222f90fa2eb9089b50cf27e859cac326bf949c4064a1e50e745)
+            type_hints = cached_type_hints(_typecheckingstub__bd4a5170dde28222f90fa2eb9089b50cf27e859cac326bf949c4064a1e50e745)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
@@ -298,7 +293,7 @@ class CfnDataset(
     @encryption_config.setter
     def encryption_config(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c)
+            type_hints = cached_type_hints(_typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -311,7 +306,7 @@ class CfnDataset(
     @schema.setter
     def schema(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f5dccb41607f7af22b487b37c94a337de9edf29cb65181159351c314b80932e)
+            type_hints = cached_type_hints(_typecheckingstub__0f5dccb41607f7af22b487b37c94a337de9edf29cb65181159351c314b80932e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
 
@@ -327,7 +322,7 @@ class CfnDataset(
     @data_frequency.setter
     def data_frequency(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1880747710a34aa45fe3a21d0b5e87cfc7cb1a3cd69266d3a56c5eb118a9bdd5)
+            type_hints = cached_type_hints(_typecheckingstub__1880747710a34aa45fe3a21d0b5e87cfc7cb1a3cd69266d3a56c5eb118a9bdd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataFrequency", value) # pyright: ignore[reportArgumentType]
 
@@ -343,7 +338,7 @@ class CfnDataset(
         value: typing.Optional[typing.List["CfnDataset.TagsItemsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce85147f0dc12a0085d01e2028ccfa36d24773ead5faa49e2f582ad3abcf3c72)
+            type_hints = cached_type_hints(_typecheckingstub__ce85147f0dc12a0085d01e2028ccfa36d24773ead5faa49e2f582ad3abcf3c72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -381,7 +376,7 @@ class CfnDataset(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f8b397577b9d363467195b54062fbc14f505281bb8dd9882881de67583d9d858)
+                type_hints = cached_type_hints(_typecheckingstub__f8b397577b9d363467195b54062fbc14f505281bb8dd9882881de67583d9d858)
                 check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
                 check_type(argname="argument attribute_type", value=attribute_type, expected_type=type_hints["attribute_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -453,7 +448,7 @@ class CfnDataset(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e9776fd8d063d34976e74f95e315b65287537c1e1e8f9ee6425c520133f1a511)
+                type_hints = cached_type_hints(_typecheckingstub__e9776fd8d063d34976e74f95e315b65287537c1e1e8f9ee6425c520133f1a511)
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -502,7 +497,7 @@ class CfnDataset(
         def __init__(
             self,
             *,
-            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataset.AttributesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataset.AttributesItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Defines the fields of a dataset.
 
@@ -525,7 +520,7 @@ class CfnDataset(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d3933e3a7fa3b2f17538f56d4b83071ea6bf15961a6dd14384d2d3e358e6f7a8)
+                type_hints = cached_type_hints(_typecheckingstub__d3933e3a7fa3b2f17538f56d4b83071ea6bf15961a6dd14384d2d3e358e6f7a8)
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if attributes is not None:
@@ -534,13 +529,13 @@ class CfnDataset(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataset.AttributesItemsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataset.AttributesItemsProperty"]]]]:
             '''An array of attributes specifying the name and type of each field in a dataset.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-forecast-dataset-schema.html#cfn-forecast-dataset-schema-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataset.AttributesItemsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataset.AttributesItemsProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -580,7 +575,7 @@ class CfnDataset(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__580dea66b1656569d5d70adafc4ab0bce810f20c8fb78e2139aa1dd72121eb9b)
+                type_hints = cached_type_hints(_typecheckingstub__580dea66b1656569d5d70adafc4ab0bce810f20c8fb78e2139aa1dd72121eb9b)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -624,9 +619,9 @@ class CfnDataset(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDatasetGroupRef_6d6b1f2e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_forecast_c5904cef.IDatasetGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDatasetGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_forecast.CfnDatasetGroup",
 ):
@@ -676,7 +671,7 @@ class CfnDatasetGroup(
         dataset_group_name: builtins.str,
         domain: builtins.str,
         dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Forecast::DatasetGroup``.
 
@@ -688,7 +683,7 @@ class CfnDatasetGroup(
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5388ec02293ab366c5482f6fdf1bcfeef6fb2f3ebfa93879ddc0f4ab183507ca)
+            type_hints = cached_type_hints(_typecheckingstub__5388ec02293ab366c5482f6fdf1bcfeef6fb2f3ebfa93879ddc0f4ab183507ca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDatasetGroupProps(
@@ -704,13 +699,13 @@ class CfnDatasetGroup(
     @builtins.classmethod
     def arn_for_dataset_group(
         cls,
-        resource: "_IDatasetGroupRef_6d6b1f2e",
+        resource: "_aws_forecast_c5904cef.IDatasetGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa0a6d9f67d9280e67a066e006de2d1335a7652278affaf48c4585d95de30f33)
+            type_hints = cached_type_hints(_typecheckingstub__fa0a6d9f67d9280e67a066e006de2d1335a7652278affaf48c4585d95de30f33)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDatasetGroup", [resource]))
 
@@ -722,18 +717,18 @@ class CfnDatasetGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3326d247c6ac96f9ca3814dff0ae4efbd7e49a9ee66ebb11d044210450b45f7)
+            type_hints = cached_type_hints(_typecheckingstub__a3326d247c6ac96f9ca3814dff0ae4efbd7e49a9ee66ebb11d044210450b45f7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDatasetGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0356d2b324adc774f3600ffa6074a4d5df5f1ecd1c9bf79754d3a41d26067fb)
+            type_hints = cached_type_hints(_typecheckingstub__f0356d2b324adc774f3600ffa6074a4d5df5f1ecd1c9bf79754d3a41d26067fb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -746,7 +741,7 @@ class CfnDatasetGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a082577dc071e26466fe8f7a7632f84b69e63b42dc40d2b0a7b47b224027157b)
+            type_hints = cached_type_hints(_typecheckingstub__a082577dc071e26466fe8f7a7632f84b69e63b42dc40d2b0a7b47b224027157b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -777,15 +772,15 @@ class CfnDatasetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="datasetGroupRef")
-    def dataset_group_ref(self) -> "_DatasetGroupReference_4bec336c":
+    def dataset_group_ref(self) -> "_aws_forecast_c5904cef.DatasetGroupReference":
         '''A reference to a DatasetGroup resource.'''
-        return typing.cast("_DatasetGroupReference_4bec336c", jsii.get(self, "datasetGroupRef"))
+        return typing.cast("_aws_forecast_c5904cef.DatasetGroupReference", jsii.get(self, "datasetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="datasetGroupName")
@@ -796,7 +791,7 @@ class CfnDatasetGroup(
     @dataset_group_name.setter
     def dataset_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a917c23649631249e5fb71dfcb8c4e47a9af533b82bb09094a1afaa2a7326c1)
+            type_hints = cached_type_hints(_typecheckingstub__6a917c23649631249e5fb71dfcb8c4e47a9af533b82bb09094a1afaa2a7326c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datasetGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -809,7 +804,7 @@ class CfnDatasetGroup(
     @domain.setter
     def domain(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35bbc5db693e738719138b681646a5a11b6c5698efcb96b81d79b2944e5b344c)
+            type_hints = cached_type_hints(_typecheckingstub__35bbc5db693e738719138b681646a5a11b6c5698efcb96b81d79b2944e5b344c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
@@ -822,20 +817,23 @@ class CfnDatasetGroup(
     @dataset_arns.setter
     def dataset_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae3d11cd662c3b30a7b58f2d335f5dada7f4395c8a3b9cf9744bf869ed04c799)
+            type_hints = cached_type_hints(_typecheckingstub__ae3d11cd662c3b30a7b58f2d335f5dada7f4395c8a3b9cf9744bf869ed04c799)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datasetArns", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ca2df71e9c6989cff46a364238fa01ea9289ca1eab6c0498f98d265444d51da)
+            type_hints = cached_type_hints(_typecheckingstub__8ca2df71e9c6989cff46a364238fa01ea9289ca1eab6c0498f98d265444d51da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -857,7 +855,7 @@ class CfnDatasetGroupProps:
         dataset_group_name: builtins.str,
         domain: builtins.str,
         dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDatasetGroup``.
 
@@ -889,7 +887,7 @@ class CfnDatasetGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4)
+            type_hints = cached_type_hints(_typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e362a540a4)
             check_type(argname="argument dataset_group_name", value=dataset_group_name, expected_type=type_hints["dataset_group_name"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument dataset_arns", value=dataset_arns, expected_type=type_hints["dataset_arns"])
@@ -937,7 +935,7 @@ class CfnDatasetGroupProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -945,7 +943,7 @@ class CfnDatasetGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-forecast-datasetgroup.html#cfn-forecast-datasetgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1022,7 +1020,7 @@ class CfnDatasetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a)
+            type_hints = cached_type_hints(_typecheckingstub__f1e2e9305f556e8b279af127ae87288bc6138a25c53b598e9a63f91b3d39696a)
             check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
             check_type(argname="argument dataset_type", value=dataset_type, expected_type=type_hints["dataset_type"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -1162,7 +1160,7 @@ def _typecheckingstub__1b255d6566d3108723fad5445eb36969a47899e6f15f691797cfff629
     pass
 
 def _typecheckingstub__e7321d2a22c43244bdb8c0f7c1054f5978ceb1e5113b993c92c6751db081ef4c(
-    resource: _IDatasetRef_e339586a,
+    resource: _aws_forecast_c5904cef.IDatasetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1174,7 +1172,7 @@ def _typecheckingstub__cd8e1aea50f441ccc197802977524067f5e89254f3c87ae04e46afb2d
     pass
 
 def _typecheckingstub__1c3188a463f212919233b295ee25b6e0aaffc31e7e8210e2646c840e3c1e66be(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1245,7 +1243,7 @@ def _typecheckingstub__e9776fd8d063d34976e74f95e315b65287537c1e1e8f9ee6425c52013
 
 def _typecheckingstub__d3933e3a7fa3b2f17538f56d4b83071ea6bf15961a6dd14384d2d3e358e6f7a8(
     *,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.AttributesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.AttributesItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1265,13 +1263,13 @@ def _typecheckingstub__5388ec02293ab366c5482f6fdf1bcfeef6fb2f3ebfa93879ddc0f4ab1
     dataset_group_name: builtins.str,
     domain: builtins.str,
     dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fa0a6d9f67d9280e67a066e006de2d1335a7652278affaf48c4585d95de30f33(
-    resource: _IDatasetGroupRef_6d6b1f2e,
+    resource: _aws_forecast_c5904cef.IDatasetGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1283,7 +1281,7 @@ def _typecheckingstub__a3326d247c6ac96f9ca3814dff0ae4efbd7e49a9ee66ebb11d0442104
     pass
 
 def _typecheckingstub__f0356d2b324adc774f3600ffa6074a4d5df5f1ecd1c9bf79754d3a41d26067fb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1313,7 +1311,7 @@ def _typecheckingstub__ae3d11cd662c3b30a7b58f2d335f5dada7f4395c8a3b9cf9744bf869e
     pass
 
 def _typecheckingstub__8ca2df71e9c6989cff46a364238fa01ea9289ca1eab6c0498f98d265444d51da(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1323,7 +1321,7 @@ def _typecheckingstub__c19156fd8ebb942dd44825fcedf68d6a17e93d8c1813380c630917e36
     dataset_group_name: builtins.str,
     domain: builtins.str,
     dataset_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

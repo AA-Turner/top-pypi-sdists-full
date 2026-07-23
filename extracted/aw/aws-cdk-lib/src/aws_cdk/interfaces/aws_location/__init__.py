@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class APIKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c29d7290666058d83acadae810c0321e8dd71be129b26f0dfc2518848c5a9aa)
+            type_hints = cached_type_hints(_typecheckingstub__5c29d7290666058d83acadae810c0321e8dd71be129b26f0dfc2518848c5a9aa)
             check_type(argname="argument api_key_arn", value=api_key_arn, expected_type=type_hints["api_key_arn"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -128,7 +132,7 @@ class GeofenceCollectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1625b96f91de82401056da752c57830a97a84b46c36bb3d94e727681756853f4)
+            type_hints = cached_type_hints(_typecheckingstub__1625b96f91de82401056da752c57830a97a84b46c36bb3d94e727681756853f4)
             check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
             check_type(argname="argument geofence_collection_arn", value=geofence_collection_arn, expected_type=type_hints["geofence_collection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -165,7 +169,7 @@ class GeofenceCollectionReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.IAPIKeyRef")
 class IAPIKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a APIKey.
@@ -185,7 +189,7 @@ class IAPIKeyRef(
 
 class _IAPIKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a APIKey.
 
@@ -210,7 +214,7 @@ typing.cast(typing.Any, IAPIKeyRef).__jsii_proxy_class__ = lambda : _IAPIKeyRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.IGeofenceCollectionRef")
 class IGeofenceCollectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GeofenceCollection.
@@ -230,7 +234,7 @@ class IGeofenceCollectionRef(
 
 class _IGeofenceCollectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GeofenceCollection.
 
@@ -255,7 +259,7 @@ typing.cast(typing.Any, IGeofenceCollectionRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.IMapRef")
 class IMapRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Map.
@@ -275,7 +279,7 @@ class IMapRef(
 
 class _IMapRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Map.
 
@@ -300,7 +304,7 @@ typing.cast(typing.Any, IMapRef).__jsii_proxy_class__ = lambda : _IMapRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.IPlaceIndexRef")
 class IPlaceIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaceIndex.
@@ -320,7 +324,7 @@ class IPlaceIndexRef(
 
 class _IPlaceIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaceIndex.
 
@@ -345,7 +349,7 @@ typing.cast(typing.Any, IPlaceIndexRef).__jsii_proxy_class__ = lambda : _IPlaceI
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.IRouteCalculatorRef")
 class IRouteCalculatorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteCalculator.
@@ -365,7 +369,7 @@ class IRouteCalculatorRef(
 
 class _IRouteCalculatorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RouteCalculator.
 
@@ -390,7 +394,7 @@ typing.cast(typing.Any, IRouteCalculatorRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.ITrackerConsumerRef")
 class ITrackerConsumerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrackerConsumer.
@@ -410,7 +414,7 @@ class ITrackerConsumerRef(
 
 class _ITrackerConsumerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrackerConsumer.
 
@@ -435,7 +439,7 @@ typing.cast(typing.Any, ITrackerConsumerRef).__jsii_proxy_class__ = lambda : _IT
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_location.ITrackerRef")
 class ITrackerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tracker.
@@ -455,7 +459,7 @@ class ITrackerRef(
 
 class _ITrackerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Tracker.
 
@@ -503,7 +507,7 @@ class MapReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcef94a6744362e1a624a8d7bfa260010b35a87139fd3e9537897bfc9a3b7814)
+            type_hints = cached_type_hints(_typecheckingstub__fcef94a6744362e1a624a8d7bfa260010b35a87139fd3e9537897bfc9a3b7814)
             check_type(argname="argument map_arn", value=map_arn, expected_type=type_hints["map_arn"])
             check_type(argname="argument map_name", value=map_name, expected_type=type_hints["map_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -568,7 +572,7 @@ class PlaceIndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdccdd950b00dc4272c43d70bc115004ce00a81fcccf4dd10211eee9fc01752a)
+            type_hints = cached_type_hints(_typecheckingstub__cdccdd950b00dc4272c43d70bc115004ce00a81fcccf4dd10211eee9fc01752a)
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
             check_type(argname="argument place_index_arn", value=place_index_arn, expected_type=type_hints["place_index_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -636,7 +640,7 @@ class RouteCalculatorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb97f3bca552e2842a19f1fa398f9f372b6092b67f47dd32b2d6d5e0b9a6e23d)
+            type_hints = cached_type_hints(_typecheckingstub__eb97f3bca552e2842a19f1fa398f9f372b6092b67f47dd32b2d6d5e0b9a6e23d)
             check_type(argname="argument calculator_name", value=calculator_name, expected_type=type_hints["calculator_name"])
             check_type(argname="argument route_calculator_arn", value=route_calculator_arn, expected_type=type_hints["route_calculator_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -701,7 +705,7 @@ class TrackerConsumerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a724199fd8d3d2f5effc88a45a26c498f879bf4a9c3c42d03dd8ce49e615c590)
+            type_hints = cached_type_hints(_typecheckingstub__a724199fd8d3d2f5effc88a45a26c498f879bf4a9c3c42d03dd8ce49e615c590)
             check_type(argname="argument consumer_arn", value=consumer_arn, expected_type=type_hints["consumer_arn"])
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -766,7 +770,7 @@ class TrackerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41c2a2f9d3ee6d88f6fbff2fbd32c71f7dc8719f50618a2e3e8758d744775da7)
+            type_hints = cached_type_hints(_typecheckingstub__41c2a2f9d3ee6d88f6fbff2fbd32c71f7dc8719f50618a2e3e8758d744775da7)
             check_type(argname="argument tracker_arn", value=tracker_arn, expected_type=type_hints["tracker_arn"])
             check_type(argname="argument tracker_name", value=tracker_name, expected_type=type_hints["tracker_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

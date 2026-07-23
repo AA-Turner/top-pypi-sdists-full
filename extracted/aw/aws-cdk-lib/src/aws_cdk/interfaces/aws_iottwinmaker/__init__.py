@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class ComponentTypeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dc685c1089bb9a53de50b842233c9155fdc148333fff5ed8fcc367aef938790)
+            type_hints = cached_type_hints(_typecheckingstub__6dc685c1089bb9a53de50b842233c9155fdc148333fff5ed8fcc367aef938790)
             check_type(argname="argument component_type_arn", value=component_type_arn, expected_type=type_hints["component_type_arn"])
             check_type(argname="argument component_type_id", value=component_type_id, expected_type=type_hints["component_type_id"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
@@ -153,7 +157,7 @@ class EntityReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01af4d013f53806e57baa99c7c74a274a25ee2b767a2291fbf71578f88d3bcea)
+            type_hints = cached_type_hints(_typecheckingstub__01af4d013f53806e57baa99c7c74a274a25ee2b767a2291fbf71578f88d3bcea)
             check_type(argname="argument entity_arn", value=entity_arn, expected_type=type_hints["entity_arn"])
             check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
@@ -199,7 +203,7 @@ class EntityReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iottwinmaker.IComponentTypeRef")
 class IComponentTypeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ComponentType.
@@ -219,7 +223,7 @@ class IComponentTypeRef(
 
 class _IComponentTypeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ComponentType.
 
@@ -244,7 +248,7 @@ typing.cast(typing.Any, IComponentTypeRef).__jsii_proxy_class__ = lambda : _ICom
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iottwinmaker.IEntityRef")
 class IEntityRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Entity.
@@ -264,7 +268,7 @@ class IEntityRef(
 
 class _IEntityRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Entity.
 
@@ -289,7 +293,7 @@ typing.cast(typing.Any, IEntityRef).__jsii_proxy_class__ = lambda : _IEntityRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iottwinmaker.ISceneRef")
 class ISceneRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Scene.
@@ -309,7 +313,7 @@ class ISceneRef(
 
 class _ISceneRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Scene.
 
@@ -334,7 +338,7 @@ typing.cast(typing.Any, ISceneRef).__jsii_proxy_class__ = lambda : _ISceneRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iottwinmaker.ISyncJobRef")
 class ISyncJobRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SyncJob.
@@ -354,7 +358,7 @@ class ISyncJobRef(
 
 class _ISyncJobRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SyncJob.
 
@@ -379,7 +383,7 @@ typing.cast(typing.Any, ISyncJobRef).__jsii_proxy_class__ = lambda : _ISyncJobRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iottwinmaker.IWorkspaceRef")
 class IWorkspaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workspace.
@@ -399,7 +403,7 @@ class IWorkspaceRef(
 
 class _IWorkspaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Workspace.
 
@@ -459,7 +463,7 @@ class SceneReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f667fc053086b3ea2a81d4089672740702dd500bc1cbf71a567b116aab474c77)
+            type_hints = cached_type_hints(_typecheckingstub__f667fc053086b3ea2a81d4089672740702dd500bc1cbf71a567b116aab474c77)
             check_type(argname="argument scene_arn", value=scene_arn, expected_type=type_hints["scene_arn"])
             check_type(argname="argument scene_id", value=scene_id, expected_type=type_hints["scene_id"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
@@ -540,7 +544,7 @@ class SyncJobReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7450525f998dd1f23de2b8b96a6c1d4c86117ae84db291e29753a00d2b3ae80)
+            type_hints = cached_type_hints(_typecheckingstub__f7450525f998dd1f23de2b8b96a6c1d4c86117ae84db291e29753a00d2b3ae80)
             check_type(argname="argument sync_job_arn", value=sync_job_arn, expected_type=type_hints["sync_job_arn"])
             check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
@@ -614,7 +618,7 @@ class WorkspaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cd3eb4cf296b893ef22d67a42efb8885efb092d0142b5a3c4c9949f2caa06d3)
+            type_hints = cached_type_hints(_typecheckingstub__2cd3eb4cf296b893ef22d67a42efb8885efb092d0142b5a3c4c9949f2caa06d3)
             check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
             check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

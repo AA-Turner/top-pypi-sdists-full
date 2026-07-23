@@ -23,7 +23,7 @@ class CallableEventWithFilter:
     Args:
         value: The actual enum value. Only needed for internal use. Do not touch!
         event_filter: A function taking the engine and the current event value as input and returning a
-            boolean to indicate whether this event should be executed. Defaults to None, which will result to a
+            boolean to indicate whether this event should be executed. Defaults to None, which will result in a
             function that always returns `True`
         name: The enum-name of the current object. Only needed for internal use. Do not touch!
     """
@@ -178,7 +178,7 @@ class CallableEventWithFilter:
 
     @staticmethod
     def default_event_filter(engine: "Engine", event: int) -> bool:
-        """Default event filter. This method is is deprecated and will be removed. Please, use None instead"""
+        """Default event filter. This method is deprecated and will be removed. Please, use None instead"""
         warnings.warn("Events.default_event_filter is deprecated and will be removed. Please, use None instead")
         return True
 
@@ -347,7 +347,7 @@ class Events(EventEnum):
     Event filter function `event_filter` accepts as input `engine` and `event` and should return True/False.
     Argument `event` is the value of iteration or epoch, depending on which type of Events the function is passed.
 
-    Since v0.4.0, user can also combine events with `|`-operator:
+    Since v0.4.0, users can also combine events with `|`-operator:
 
     .. code-block:: python
 
@@ -461,6 +461,7 @@ class State:
         state.dataloader        # data passed to engine
         state.epoch_length      # optional length of an epoch
         state.max_epochs        # number of epochs to run
+        state.max_iters         # number of iterations to run
         state.batch             # batch passed to `process_function`
         state.output            # output of `process_function` after a single iteration
         state.metrics           # dictionary with defined metrics if any
@@ -487,6 +488,7 @@ class State:
         self.epoch = 0
         self.epoch_length: int | None = None
         self.max_epochs: int | None = None
+        self.max_iters: int | None = None
         self.output: int | None = None
         self.batch: int | None = None
         self.metrics: dict[str, Any] = {}

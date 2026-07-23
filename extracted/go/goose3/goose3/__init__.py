@@ -117,8 +117,6 @@ class Goose:
             Article: Representation of the article contents including other parsed and extracted metadata"""
         if not url and not raw_html:
             raise ValueError("Either url or raw_html should be provided")
-        if url is None and raw_html is None:
-            raise ValueError("Either url or raw_html should be provided")
         crawl_candidate = CrawlCandidate(self.config, url, raw_html)
         return self.__crawl(crawl_candidate)
 

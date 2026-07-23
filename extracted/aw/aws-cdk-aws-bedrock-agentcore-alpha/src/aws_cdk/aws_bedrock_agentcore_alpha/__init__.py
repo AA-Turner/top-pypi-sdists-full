@@ -408,6 +408,8 @@ gateway.role.add_to_principal_policy(iam.PolicyStatement(
 ))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -421,45 +423,65 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_apigateway as _aws_cdk_aws_apigateway_ceddda9d
-import aws_cdk.aws_bedrock_alpha as _aws_cdk_aws_bedrock_alpha_3753ded9
-import aws_cdk.aws_bedrockagentcore as _aws_cdk_aws_bedrockagentcore_ceddda9d
-import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
-import aws_cdk.aws_cognito as _aws_cdk_aws_cognito_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
-import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kinesisfirehose as _aws_cdk_aws_kinesisfirehose_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
-import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
-import aws_cdk.interfaces.aws_bedrockagentcore as _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_apigateway as _aws_cdk_aws_apigateway_ceddda9d
+    import aws_cdk.aws_bedrock_alpha as _aws_cdk_aws_bedrock_alpha_3753ded9
+    import aws_cdk.aws_bedrockagentcore as _aws_cdk_aws_bedrockagentcore_ceddda9d
+    import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+    import aws_cdk.aws_cognito as _aws_cdk_aws_cognito_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_ecr as _aws_cdk_aws_ecr_ceddda9d
+    import aws_cdk.aws_ecr_assets as _aws_cdk_aws_ecr_assets_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kinesisfirehose as _aws_cdk_aws_kinesisfirehose_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+    import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
+    import aws_cdk.interfaces.aws_bedrockagentcore as _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_apigateway_ceddda9d = _LazyImport("aws_cdk.aws_apigateway")
+    _aws_cdk_aws_bedrock_alpha_3753ded9 = _LazyImport("aws_cdk.aws_bedrock_alpha")
+    _aws_cdk_aws_bedrockagentcore_ceddda9d = _LazyImport("aws_cdk.aws_bedrockagentcore")
+    _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cdk_aws_cognito_ceddda9d = _LazyImport("aws_cdk.aws_cognito")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_ecr_assets_ceddda9d = _LazyImport("aws_cdk.aws_ecr_assets")
+    _aws_cdk_aws_ecr_ceddda9d = _LazyImport("aws_cdk.aws_ecr")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kinesisfirehose_ceddda9d = _LazyImport("aws_cdk.aws_kinesisfirehose")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_s3_assets_ceddda9d = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_aws_sns_ceddda9d = _LazyImport("aws_cdk.aws_sns")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_bedrockagentcore_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_bedrockagentcore")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -548,7 +570,7 @@ class AddApiGatewayTargetOptions:
         if isinstance(metadata_configuration, dict):
             metadata_configuration = MetadataConfiguration(**metadata_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cf2de67279e99b46119475c53fff4b33a412b5e6291dff66f04e94beb48c332)
+            type_hints = cached_type_hints(_typecheckingstub__5cf2de67279e99b46119475c53fff4b33a412b5e6291dff66f04e94beb48c332)
             check_type(argname="argument api_gateway_tool_configuration", value=api_gateway_tool_configuration, expected_type=type_hints["api_gateway_tool_configuration"])
             check_type(argname="argument rest_api", value=rest_api, expected_type=type_hints["rest_api"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
@@ -694,7 +716,7 @@ class AddEndpointOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__175b1aee490f549cb19d8945b728786765752ce863f0a55d8732e6f777128e9b)
+            type_hints = cached_type_hints(_typecheckingstub__175b1aee490f549cb19d8945b728786765752ce863f0a55d8732e6f777128e9b)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -793,7 +815,7 @@ class AddLambdaTargetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec33a10a74860a0168b949639e85a9bf36512f2d742f94d3e76096d869467bd2)
+            type_hints = cached_type_hints(_typecheckingstub__ec33a10a74860a0168b949639e85a9bf36512f2d742f94d3e76096d869467bd2)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument tool_schema", value=tool_schema, expected_type=type_hints["tool_schema"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
@@ -926,7 +948,7 @@ class AddMcpServerTargetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cd8d2a62f38a411b6450b8df9aba3a2eda7a8b55fa844a15a006c6955301975)
+            type_hints = cached_type_hints(_typecheckingstub__7cd8d2a62f38a411b6450b8df9aba3a2eda7a8b55fa844a15a006c6955301975)
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1059,7 +1081,7 @@ class AddOpenApiTargetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e470bb39eca66fb6432853e6b587e6dfd6a12cbae113042c771ed94c3e23047)
+            type_hints = cached_type_hints(_typecheckingstub__0e470bb39eca66fb6432853e6b587e6dfd6a12cbae113042c771ed94c3e23047)
             check_type(argname="argument api_schema", value=api_schema, expected_type=type_hints["api_schema"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1195,7 +1217,7 @@ class AddPolicyOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d6f5ede60211ce6d3bddaf50c8332aedc56652bcbee28d8139fddfd36a49896)
+            type_hints = cached_type_hints(_typecheckingstub__3d6f5ede60211ce6d3bddaf50c8332aedc56652bcbee28d8139fddfd36a49896)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
@@ -1340,7 +1362,7 @@ class AddSmithyTargetOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80a0bcf5a3eea44f738db8734590c45531b3cde1884bbdf36295ab684a4c70bb)
+            type_hints = cached_type_hints(_typecheckingstub__80a0bcf5a3eea44f738db8734590c45531b3cde1884bbdf36295ab684a4c70bb)
             check_type(argname="argument smithy_model", value=smithy_model, expected_type=type_hints["smithy_model"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1590,7 +1612,7 @@ class AgentRuntimeArtifact(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__604d365a86a290247af7992e6be98b47b27307a51f5ffdb436c6c1ea4019453a)
+            type_hints = cached_type_hints(_typecheckingstub__604d365a86a290247af7992e6be98b47b27307a51f5ffdb436c6c1ea4019453a)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
         options = _aws_cdk_aws_ecr_assets_ceddda9d.DockerImageAssetOptions(
             asset_name=asset_name,
@@ -1686,7 +1708,7 @@ class AgentRuntimeArtifact(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5378ad450d2e50130983bd4e4c0d41f7ddc7b25ef75b63e107cdace81383db49)
+            type_hints = cached_type_hints(_typecheckingstub__5378ad450d2e50130983bd4e4c0d41f7ddc7b25ef75b63e107cdace81383db49)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
         return typing.cast("AgentRuntimeArtifact", jsii.sinvoke(cls, "fromEcrRepository", [repository, tag]))
@@ -1706,7 +1728,7 @@ class AgentRuntimeArtifact(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__907762762d63eb145f408ea386c13fd1db9651b69b7858c936234d36da8ee581)
+            type_hints = cached_type_hints(_typecheckingstub__907762762d63eb145f408ea386c13fd1db9651b69b7858c936234d36da8ee581)
             check_type(argname="argument container_uri", value=container_uri, expected_type=type_hints["container_uri"])
         return typing.cast("AgentRuntimeArtifact", jsii.sinvoke(cls, "fromImageUri", [container_uri]))
 
@@ -1727,7 +1749,7 @@ class AgentRuntimeArtifact(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfecaad6900641369650578d4c89d255dcf5af42592830a627a985e0c044b640)
+            type_hints = cached_type_hints(_typecheckingstub__bfecaad6900641369650578d4c89d255dcf5af42592830a627a985e0c044b640)
             check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
@@ -1757,7 +1779,7 @@ class _AgentRuntimeArtifactProxy(AgentRuntimeArtifact):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bedccb351eb2d100e954ac8354c709d22031237b55a8c9439b4fa56a9c488298)
+            type_hints = cached_type_hints(_typecheckingstub__bedccb351eb2d100e954ac8354c709d22031237b55a8c9439b4fa56a9c488298)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope, runtime]))
@@ -1840,7 +1862,7 @@ class AgentRuntimeAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__521eb5a43c1809da91e6b913f83fa6446f5b8ac2c440a565fa2764b3cd9f4ad8)
+            type_hints = cached_type_hints(_typecheckingstub__521eb5a43c1809da91e6b913f83fa6446f5b8ac2c440a565fa2764b3cd9f4ad8)
             check_type(argname="argument agent_runtime_arn", value=agent_runtime_arn, expected_type=type_hints["agent_runtime_arn"])
             check_type(argname="argument agent_runtime_id", value=agent_runtime_id, expected_type=type_hints["agent_runtime_id"])
             check_type(argname="argument agent_runtime_name", value=agent_runtime_name, expected_type=type_hints["agent_runtime_name"])
@@ -2109,7 +2131,7 @@ class ApiGatewayTargetConfigurationProps:
         if isinstance(metadata_configuration, dict):
             metadata_configuration = MetadataConfiguration(**metadata_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5bc402b0da837ba25bb9cf51be3a8abf5042aff3029019de7e40369d4362cc8)
+            type_hints = cached_type_hints(_typecheckingstub__f5bc402b0da837ba25bb9cf51be3a8abf5042aff3029019de7e40369d4362cc8)
             check_type(argname="argument api_gateway_tool_configuration", value=api_gateway_tool_configuration, expected_type=type_hints["api_gateway_tool_configuration"])
             check_type(argname="argument rest_api", value=rest_api, expected_type=type_hints["rest_api"])
             check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
@@ -2227,7 +2249,7 @@ class ApiGatewayToolConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c890bb553886f54eacb1051f2d1f4d53ad2b27b4e90400afb754dc3ab3418385)
+            type_hints = cached_type_hints(_typecheckingstub__c890bb553886f54eacb1051f2d1f4d53ad2b27b4e90400afb754dc3ab3418385)
             check_type(argname="argument tool_filters", value=tool_filters, expected_type=type_hints["tool_filters"])
             check_type(argname="argument tool_overrides", value=tool_overrides, expected_type=type_hints["tool_overrides"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2309,7 +2331,7 @@ class ApiGatewayToolFilter:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2eda3221ad663859798cd545c829069f6a76b5bb8a417a2b34cb2e5c9de9d8d)
+            type_hints = cached_type_hints(_typecheckingstub__f2eda3221ad663859798cd545c829069f6a76b5bb8a417a2b34cb2e5c9de9d8d)
             check_type(argname="argument filter_path", value=filter_path, expected_type=type_hints["filter_path"])
             check_type(argname="argument methods", value=methods, expected_type=type_hints["methods"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2401,7 +2423,7 @@ class ApiGatewayToolOverride:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60209ba34e2b80577d98026ffc1a966c8982967fab09f97b34bee81b5d69d114)
+            type_hints = cached_type_hints(_typecheckingstub__60209ba34e2b80577d98026ffc1a966c8982967fab09f97b34bee81b5d69d114)
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2504,7 +2526,7 @@ class ApiKeyAdditionalConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3886e57de68499b515c2958f57c1ebeaae53d27479a785d50549d52aba22006d)
+            type_hints = cached_type_hints(_typecheckingstub__3886e57de68499b515c2958f57c1ebeaae53d27479a785d50549d52aba22006d)
             check_type(argname="argument credential_parameter_name", value=credential_parameter_name, expected_type=type_hints["credential_parameter_name"])
             check_type(argname="argument credential_prefix", value=credential_prefix, expected_type=type_hints["credential_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2701,7 +2723,7 @@ class ApiKeyCredentialProviderAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a2182cf8ec2c9894763ab60b7031a72542fdf034e79838893fcfe5cb8bc354e)
+            type_hints = cached_type_hints(_typecheckingstub__2a2182cf8ec2c9894763ab60b7031a72542fdf034e79838893fcfe5cb8bc354e)
             check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
             check_type(argname="argument created_time", value=created_time, expected_type=type_hints["created_time"])
@@ -2876,7 +2898,7 @@ class ApiKeyCredentialProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__614e2bb2c4820c942132fa85d45d8a41ab578b8f96d35693db4d0d06456d5860)
+            type_hints = cached_type_hints(_typecheckingstub__614e2bb2c4820c942132fa85d45d8a41ab578b8f96d35693db4d0d06456d5860)
             check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
             check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             check_type(argname="argument credential_location", value=credential_location, expected_type=type_hints["credential_location"])
@@ -2984,7 +3006,7 @@ class ApiKeyCredentialProviderResourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__082f5278142aedd4394e2fad2578a1541a1f7ec7ead91827453afc72d032eeb7)
+            type_hints = cached_type_hints(_typecheckingstub__082f5278142aedd4394e2fad2578a1541a1f7ec7ead91827453afc72d032eeb7)
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_credential_provider_name", value=api_key_credential_provider_name, expected_type=type_hints["api_key_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3074,7 +3096,7 @@ class ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64e0c54366580285b99c6b654016c5fc9979a84558caf750832248fe766962b8)
+            type_hints = cached_type_hints(_typecheckingstub__64e0c54366580285b99c6b654016c5fc9979a84558caf750832248fe766962b8)
             check_type(argname="argument s3_file", value=s3_file, expected_type=type_hints["s3_file"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
             check_type(argname="argument inline_schema", value=inline_schema, expected_type=type_hints["inline_schema"])
@@ -3090,7 +3112,7 @@ class ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c37b9b3e1c2221761fd1e4b30e9da92986e6e383177ff9d10690067084da77c6)
+            type_hints = cached_type_hints(_typecheckingstub__c37b9b3e1c2221761fd1e4b30e9da92986e6e383177ff9d10690067084da77c6)
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
         return typing.cast("InlineApiSchema", jsii.sinvoke(cls, "fromInline", [schema]))
 
@@ -3104,7 +3126,7 @@ class ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cad1a8485d6ab3b86cb754c2aadc715cbff19a0bab69f2533a2504b2b543599b)
+            type_hints = cached_type_hints(_typecheckingstub__cad1a8485d6ab3b86cb754c2aadc715cbff19a0bab69f2533a2504b2b543599b)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("AssetApiSchema", jsii.sinvoke(cls, "fromLocalAsset", [path]))
 
@@ -3125,7 +3147,7 @@ class ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__886270298869b2593973fdbce5b3b8d695d20e7957e9d92ba7af30f6bd82c1a8)
+            type_hints = cached_type_hints(_typecheckingstub__886270298869b2593973fdbce5b3b8d695d20e7957e9d92ba7af30f6bd82c1a8)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
@@ -3198,7 +3220,7 @@ class _ApiSchemaProxy(ApiSchema):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57c62d0f10e1965aa7b80fc9d575aa896473c67941ef92d3b480054aa42fe694)
+            type_hints = cached_type_hints(_typecheckingstub__57c62d0f10e1965aa7b80fc9d575aa896473c67941ef92d3b480054aa42fe694)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -3214,7 +3236,7 @@ class _ApiSchemaProxy(ApiSchema):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ff5a000fafb4b016ab53316892687185adfe6db84dbde5f3239db77de7c3d9a)
+            type_hints = cached_type_hints(_typecheckingstub__0ff5a000fafb4b016ab53316892687185adfe6db84dbde5f3239db77de7c3d9a)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -3321,7 +3343,7 @@ class AssetApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0490cdefde225bfdca568f5935cfa97ba30ee7b25c98ef5e3bc4eb4dff8c9f0)
+            type_hints = cached_type_hints(_typecheckingstub__e0490cdefde225bfdca568f5935cfa97ba30ee7b25c98ef5e3bc4eb4dff8c9f0)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
             deploy_time=deploy_time,
@@ -3350,7 +3372,7 @@ class AssetApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feb968cde21db7768ced07ebe9b26c16ccd8caeae40eda3089f40077ecebea2e)
+            type_hints = cached_type_hints(_typecheckingstub__feb968cde21db7768ced07ebe9b26c16ccd8caeae40eda3089f40077ecebea2e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -3366,7 +3388,7 @@ class AssetApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1969177f30cd75ca15eb5fe82753cf55235f009c3212efb6859ea47bdcef142a)
+            type_hints = cached_type_hints(_typecheckingstub__1969177f30cd75ca15eb5fe82753cf55235f009c3212efb6859ea47bdcef142a)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -3401,7 +3423,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad79c7ede66109ea698e7bef89e9b4d8a445fe1cbf2847caac7b193ba4ce20cb)
+            type_hints = cached_type_hints(_typecheckingstub__ad79c7ede66109ea698e7bef89e9b4d8a445fe1cbf2847caac7b193ba4ce20cb)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
         jsii.create(self.__class__, self, [path, parent])
@@ -3415,7 +3437,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd0f34b60371640e40c8f58396cedf1061c13d4a394710ed3f980d62578b3f78)
+            type_hints = cached_type_hints(_typecheckingstub__bd0f34b60371640e40c8f58396cedf1061c13d4a394710ed3f980d62578b3f78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "contains", [value]))
 
@@ -3431,7 +3453,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74ec28744dac34dfbc97342f9cb65ba0868785d32e78b623cf6e678865961e20)
+            type_hints = cached_type_hints(_typecheckingstub__74ec28744dac34dfbc97342f9cb65ba0868785d32e78b623cf6e678865961e20)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "equalTo", [value]))
 
@@ -3444,7 +3466,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af6bb5564081a88488d4af236d076654e5b7e6c0064bdbc0443920e4aadabd26)
+            type_hints = cached_type_hints(_typecheckingstub__af6bb5564081a88488d4af236d076654e5b7e6c0064bdbc0443920e4aadabd26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "greaterThan", [value]))
 
@@ -3457,7 +3479,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee7fcda935a94a60db2e445e0385756067b10fdbe23c0db304304dddbc6e03fe)
+            type_hints = cached_type_hints(_typecheckingstub__ee7fcda935a94a60db2e445e0385756067b10fdbe23c0db304304dddbc6e03fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "greaterThanOrEqualTo", [value]))
 
@@ -3473,7 +3495,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc520361571a0a8f9d3ba4d4f6a515ac2b996e8f6bb6937c91beb25a5dda547d)
+            type_hints = cached_type_hints(_typecheckingstub__bc520361571a0a8f9d3ba4d4f6a515ac2b996e8f6bb6937c91beb25a5dda547d)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "isIn", [values]))
 
@@ -3486,7 +3508,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80c0e138c72af3ed2a8775bf7c03c2abaa3ee98c4e66609343465bc6413b6c4d)
+            type_hints = cached_type_hints(_typecheckingstub__80c0e138c72af3ed2a8775bf7c03c2abaa3ee98c4e66609343465bc6413b6c4d)
             check_type(argname="argument ip_range", value=ip_range, expected_type=type_hints["ip_range"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "isInRange", [ip_range]))
 
@@ -3499,7 +3521,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c9a002fe1be39b2bb193a89d1f3ce6993b55c525047510793a37d5121dc5931)
+            type_hints = cached_type_hints(_typecheckingstub__5c9a002fe1be39b2bb193a89d1f3ce6993b55c525047510793a37d5121dc5931)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "lessThan", [value]))
 
@@ -3512,7 +3534,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75e9c1d43a240c04f527fa53184a545a456f445752bfe117b0076f41d562e7fb)
+            type_hints = cached_type_hints(_typecheckingstub__75e9c1d43a240c04f527fa53184a545a456f445752bfe117b0076f41d562e7fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "lessThanOrEqualTo", [value]))
 
@@ -3528,7 +3550,7 @@ class AttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9734afe25b3e7dee71166c8dab754a65a4d78a901c2c3d73e7caff5ff05faca)
+            type_hints = cached_type_hints(_typecheckingstub__d9734afe25b3e7dee71166c8dab754a65a4d78a901c2c3d73e7caff5ff05faca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionBuilder", jsii.invoke(self, "notEqualTo", [value]))
 
@@ -3591,7 +3613,7 @@ class BrowserCustomAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14ea7632e5df00d60970b59a9a4cb5f38d208fd7a26740e3444fd2b1e4b432ba)
+            type_hints = cached_type_hints(_typecheckingstub__14ea7632e5df00d60970b59a9a4cb5f38d208fd7a26740e3444fd2b1e4b432ba)
             check_type(argname="argument browser_arn", value=browser_arn, expected_type=type_hints["browser_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
@@ -3766,7 +3788,7 @@ class BrowserCustomProps:
         if isinstance(recording_config, dict):
             recording_config = RecordingConfig(**recording_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c723ceb06d7434df1c72a1865f418037daeeda29f30194820f0872da7d50bbe8)
+            type_hints = cached_type_hints(_typecheckingstub__c723ceb06d7434df1c72a1865f418037daeeda29f30194820f0872da7d50bbe8)
             check_type(argname="argument browser_custom_name", value=browser_custom_name, expected_type=type_hints["browser_custom_name"])
             check_type(argname="argument browser_signing", value=browser_signing, expected_type=type_hints["browser_signing"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3949,7 +3971,7 @@ class BuiltinEvaluator(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c64b518622eda3e8cf35b8bde183d3444b690bdbbf5cd62f6d41aa8f1c26bcf0)
+            type_hints = cached_type_hints(_typecheckingstub__c64b518622eda3e8cf35b8bde183d3444b690bdbbf5cd62f6d41aa8f1c26bcf0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -4111,7 +4133,7 @@ class CategoricalRatingOption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bfec67267f97e218d64e56bdc39a1dc92173127a8c358b3ece8653eaa554c81)
+            type_hints = cached_type_hints(_typecheckingstub__4bfec67267f97e218d64e56bdc39a1dc92173127a8c358b3ece8653eaa554c81)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4197,7 +4219,7 @@ class CloudWatchLogsDataSourceConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7281b8b8211a54151ede624dc20bdd0ab27f35fa8aba5638a4da0fb4569416f9)
+            type_hints = cached_type_hints(_typecheckingstub__7281b8b8211a54151ede624dc20bdd0ab27f35fa8aba5638a4da0fb4569416f9)
             check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
             check_type(argname="argument service_names", value=service_names, expected_type=type_hints["service_names"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4362,7 +4384,7 @@ class CodeAssetOptions(_aws_cdk_aws_s3_assets_ceddda9d.AssetOptions):
         if isinstance(bundling, dict):
             bundling = _aws_cdk_ceddda9d.BundlingOptions(**bundling)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1722cde23a70aaf0cccbf9f57a88893bfa43b7d559d5838108f3e61b3f88dc6)
+            type_hints = cached_type_hints(_typecheckingstub__f1722cde23a70aaf0cccbf9f57a88893bfa43b7d559d5838108f3e61b3f88dc6)
             check_type(argname="argument asset_hash", value=asset_hash, expected_type=type_hints["asset_hash"])
             check_type(argname="argument asset_hash_type", value=asset_hash_type, expected_type=type_hints["asset_hash_type"])
             check_type(argname="argument bundling", value=bundling, expected_type=type_hints["bundling"])
@@ -4633,7 +4655,7 @@ class CodeBasedOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de86e3616d4ebbaef310a5c799e42b7efed10a0305a5642f119c360affd3f732)
+            type_hints = cached_type_hints(_typecheckingstub__de86e3616d4ebbaef310a5c799e42b7efed10a0305a5642f119c360affd3f732)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4741,7 +4763,7 @@ class CodeInterpreterCustomAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f96ed57c1afc648e15cebfa320e03f93dc4c161c09d253072930e4b7d4e4ed24)
+            type_hints = cached_type_hints(_typecheckingstub__f96ed57c1afc648e15cebfa320e03f93dc4c161c09d253072930e4b7d4e4ed24)
             check_type(argname="argument code_interpreter_arn", value=code_interpreter_arn, expected_type=type_hints["code_interpreter_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
@@ -4896,7 +4918,7 @@ class CodeInterpreterCustomProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e75974384deaaee0d0812c3570b15b1adf0a19fbd67095aea1229a4d3d5c5c05)
+            type_hints = cached_type_hints(_typecheckingstub__e75974384deaaee0d0812c3570b15b1adf0a19fbd67095aea1229a4d3d5c5c05)
             check_type(argname="argument code_interpreter_custom_name", value=code_interpreter_custom_name, expected_type=type_hints["code_interpreter_custom_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
@@ -5043,7 +5065,7 @@ class CognitoAuthorizerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92abeeb0cd72ad10c1ed39de7f364db187c911a46c1bb3a5d59f6d256c3fb6f2)
+            type_hints = cached_type_hints(_typecheckingstub__92abeeb0cd72ad10c1ed39de7f364db187c911a46c1bb3a5d59f6d256c3fb6f2)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument allowed_audiences", value=allowed_audiences, expected_type=type_hints["allowed_audiences"])
             check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
@@ -5178,7 +5200,7 @@ class ConditionBuilder(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8478bf1b023d2aba9a8e54a78c249de58d816b9136c130a9d57692f94f5da02)
+            type_hints = cached_type_hints(_typecheckingstub__f8478bf1b023d2aba9a8e54a78c249de58d816b9136c130a9d57692f94f5da02)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("AttributeAccessor", jsii.invoke(self, "contextAttribute", [attribute]))
 
@@ -5202,7 +5224,7 @@ class ConditionBuilder(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41fc4817a38aa72174ec607c60642f22503d43635dbdfaf63dc1a95b7092b12a)
+            type_hints = cached_type_hints(_typecheckingstub__41fc4817a38aa72174ec607c60642f22503d43635dbdfaf63dc1a95b7092b12a)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("AttributeAccessor", jsii.invoke(self, "principalAttribute", [attribute]))
 
@@ -5218,7 +5240,7 @@ class ConditionBuilder(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3088e7d7697775a9684c5551d40c17927b5c3f399201caeda5b0e75ba8543271)
+            type_hints = cached_type_hints(_typecheckingstub__3088e7d7697775a9684c5551d40c17927b5c3f399201caeda5b0e75ba8543271)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("AttributeAccessor", jsii.invoke(self, "resourceAttribute", [attribute]))
 
@@ -5260,7 +5282,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__537e07b7ca40ce37744fcbd9090102d4beffd9dcec8e2816db91c153f9d7b45b)
+            type_hints = cached_type_hints(_typecheckingstub__537e07b7ca40ce37744fcbd9090102d4beffd9dcec8e2816db91c153f9d7b45b)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
             check_type(argname="argument condition_builder", value=condition_builder, expected_type=type_hints["condition_builder"])
@@ -5275,7 +5297,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c27d65bd3bfcd3d80238f8b3b9587ddf103981888b1484537cfdbc3adcb9c81)
+            type_hints = cached_type_hints(_typecheckingstub__3c27d65bd3bfcd3d80238f8b3b9587ddf103981888b1484537cfdbc3adcb9c81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "contains", [value]))
 
@@ -5291,7 +5313,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cff688ba8d6fc004627f1fc3e7adf1e85949dc175792eaf3bf5d238dbc22800)
+            type_hints = cached_type_hints(_typecheckingstub__5cff688ba8d6fc004627f1fc3e7adf1e85949dc175792eaf3bf5d238dbc22800)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "equalTo", [value]))
 
@@ -5304,7 +5326,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd5927ace99133f1b53885795d81e311b0626bfd31a5a73cb415700347bb716b)
+            type_hints = cached_type_hints(_typecheckingstub__fd5927ace99133f1b53885795d81e311b0626bfd31a5a73cb415700347bb716b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "greaterThan", [value]))
 
@@ -5320,7 +5342,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__799f293df5a168bf6579b7a46ce71f1859146c159f6ee5c35c303e71daf0eb5a)
+            type_hints = cached_type_hints(_typecheckingstub__799f293df5a168bf6579b7a46ce71f1859146c159f6ee5c35c303e71daf0eb5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "greaterThanOrEqualTo", [value]))
 
@@ -5336,7 +5358,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b6699ee67df1e7f27943b374c2864602f326ad7cfef019189e19ed2b925ccfe)
+            type_hints = cached_type_hints(_typecheckingstub__1b6699ee67df1e7f27943b374c2864602f326ad7cfef019189e19ed2b925ccfe)
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "isIn", [values]))
 
@@ -5349,7 +5371,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45ed4d9e6cd632c5af4cce72d5bd3ba6f5d77c55f6e5cad97dd215752867d7d3)
+            type_hints = cached_type_hints(_typecheckingstub__45ed4d9e6cd632c5af4cce72d5bd3ba6f5d77c55f6e5cad97dd215752867d7d3)
             check_type(argname="argument ip_range", value=ip_range, expected_type=type_hints["ip_range"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "isInRange", [ip_range]))
 
@@ -5362,7 +5384,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c131841f49718895c8db4525d0cd3c305789cd5c0632ef4b32a47cf891ec801)
+            type_hints = cached_type_hints(_typecheckingstub__8c131841f49718895c8db4525d0cd3c305789cd5c0632ef4b32a47cf891ec801)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "lessThan", [value]))
 
@@ -5375,7 +5397,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61c5bf7b1e6a8c42d2784908d3c6e3f2a674817384ae3a3327042b13742156c8)
+            type_hints = cached_type_hints(_typecheckingstub__61c5bf7b1e6a8c42d2784908d3c6e3f2a674817384ae3a3327042b13742156c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "lessThanOrEqualTo", [value]))
 
@@ -5391,7 +5413,7 @@ class ConditionalAttributeAccessor(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cd04e1bbac856bd40610343c9f1121e220eaafcd27c8f0198a1d514c5cd5b3e)
+            type_hints = cached_type_hints(_typecheckingstub__7cd04e1bbac856bd40610343c9f1121e220eaafcd27c8f0198a1d514c5cd5b3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("ConditionalPolicyStatement", jsii.invoke(self, "notEqualTo", [value]))
 
@@ -5433,7 +5455,7 @@ class ConditionalPolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ebb164d99d3b380394f129ea2c18833fada60a06115bddcbc95b9b59c745de4)
+            type_hints = cached_type_hints(_typecheckingstub__3ebb164d99d3b380394f129ea2c18833fada60a06115bddcbc95b9b59c745de4)
             check_type(argname="argument policy_statement", value=policy_statement, expected_type=type_hints["policy_statement"])
             check_type(argname="argument condition_builder", value=condition_builder, expected_type=type_hints["condition_builder"])
         jsii.create(self.__class__, self, [policy_statement, condition_builder])
@@ -5458,7 +5480,7 @@ class ConditionalPolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6ccca968702d9925351b54e6431acb46402826bf350aa4576d4d60bfa906f44)
+            type_hints = cached_type_hints(_typecheckingstub__d6ccca968702d9925351b54e6431acb46402826bf350aa4576d4d60bfa906f44)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "contextAttribute", [attribute]))
 
@@ -5493,7 +5515,7 @@ class ConditionalPolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__831599bb25914ffffff05cb8461e3fdb5fe4dedcb9557172875de775a3375cab)
+            type_hints = cached_type_hints(_typecheckingstub__831599bb25914ffffff05cb8461e3fdb5fe4dedcb9557172875de775a3375cab)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "principalAttribute", [attribute]))
 
@@ -5509,7 +5531,7 @@ class ConditionalPolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__887fc1f99f546ea642566ecdcc77a2bd6556200dbe08079081886699758ce6b5)
+            type_hints = cached_type_hints(_typecheckingstub__887fc1f99f546ea642566ecdcc77a2bd6556200dbe08079081886699758ce6b5)
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("ConditionalAttributeAccessor", jsii.invoke(self, "resourceAttribute", [attribute]))
 
@@ -5633,7 +5655,7 @@ class CustomJwtConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f177e0b2ed3cb35819aacc05e59d683acdf040799acfae81a60470ec0eb3e55)
+            type_hints = cached_type_hints(_typecheckingstub__8f177e0b2ed3cb35819aacc05e59d683acdf040799acfae81a60470ec0eb3e55)
             check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
             check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
             check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
@@ -5775,7 +5797,7 @@ class DataSourceConfig(
             data_source = agentcore.DataSourceConfig.from_agent_runtime_endpoint(runtime, endpoint)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__608028d7dda6525dcefc34b2a31873df052121e11ff38a61f2d2bebf9e4fee25)
+            type_hints = cached_type_hints(_typecheckingstub__608028d7dda6525dcefc34b2a31873df052121e11ff38a61f2d2bebf9e4fee25)
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
         return typing.cast("DataSourceConfig", jsii.sinvoke(cls, "fromAgentRuntimeEndpoint", [runtime, endpoint]))
@@ -5806,7 +5828,7 @@ class DataSourceConfig(
             data_source = agentcore.DataSourceConfig.from_agent_runtime_endpoint_name(runtime, "PROD")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc8b295781d2efb2a3d28ac0a899ab0d567bff2e9eed1f3737ef80a789caa757)
+            type_hints = cached_type_hints(_typecheckingstub__fc8b295781d2efb2a3d28ac0a899ab0d567bff2e9eed1f3737ef80a789caa757)
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
         return typing.cast("DataSourceConfig", jsii.sinvoke(cls, "fromAgentRuntimeEndpointName", [runtime, endpoint_name]))
@@ -5898,7 +5920,7 @@ class DataSourceConfigBindResult:
         if isinstance(cloud_watch_logs, dict):
             cloud_watch_logs = CloudWatchLogsDataSourceConfig(**cloud_watch_logs)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bc028b9d5f3d45c85126f37b3ddf24ae952303050ae9b7c6da6e9e2684128a7)
+            type_hints = cached_type_hints(_typecheckingstub__0bc028b9d5f3d45c85126f37b3ddf24ae952303050ae9b7c6da6e9e2684128a7)
             check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_watch_logs": cloud_watch_logs,
@@ -5953,7 +5975,7 @@ class EpisodicReflectionConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c4009fde2425385edf6acd53c03bb6ab333043999fcb5a0cc042139c06bd5e)
+            type_hints = cached_type_hints(_typecheckingstub__54c4009fde2425385edf6acd53c03bb6ab333043999fcb5a0cc042139c06bd5e)
             check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "namespaces": namespaces,
@@ -6029,7 +6051,7 @@ class EvaluationLevel(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90fe49e13ace26ccf215e2abdcf87060584ac1b771cd036596197ec539b8d469)
+            type_hints = cached_type_hints(_typecheckingstub__90fe49e13ace26ccf215e2abdcf87060584ac1b771cd036596197ec539b8d469)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -6113,7 +6135,7 @@ class EvaluatorAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__017671bd4962adee0ccb4f525b93f2d75bcdc92c860fd211435161c16a85e6e8)
+            type_hints = cached_type_hints(_typecheckingstub__017671bd4962adee0ccb4f525b93f2d75bcdc92c860fd211435161c16a85e6e8)
             check_type(argname="argument evaluator_arn", value=evaluator_arn, expected_type=type_hints["evaluator_arn"])
             check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
             check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
@@ -6309,7 +6331,7 @@ class EvaluatorInferenceConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dda8a5925596a630543af53419d38ff61112eb31a476b58b3fb626d01f4ef843)
+            type_hints = cached_type_hints(_typecheckingstub__dda8a5925596a630543af53419d38ff61112eb31a476b58b3fb626d01f4ef843)
             check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
             check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
             check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
@@ -6432,7 +6454,7 @@ class EvaluatorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d74bbcd5ee4f575d954406fc5352fc68f924eaea2fae76a38213b6bb2b10c2d5)
+            type_hints = cached_type_hints(_typecheckingstub__d74bbcd5ee4f575d954406fc5352fc68f924eaea2fae76a38213b6bb2b10c2d5)
             check_type(argname="argument evaluator_config", value=evaluator_config, expected_type=type_hints["evaluator_config"])
             check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -6565,7 +6587,7 @@ class EvaluatorRatingScale(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16b7ad74457fe996812af209cb0c733411b3fd2cb4a912c9702e031bb95e4cb9)
+            type_hints = cached_type_hints(_typecheckingstub__16b7ad74457fe996812af209cb0c733411b3fd2cb4a912c9702e031bb95e4cb9)
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         return typing.cast("EvaluatorRatingScale", jsii.sinvoke(cls, "categorical", [options]))
 
@@ -6585,7 +6607,7 @@ class EvaluatorRatingScale(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e8041733be7396b0e0c67c0999048edd07a3ce0c06ff9681b9243ed9b627f8f)
+            type_hints = cached_type_hints(_typecheckingstub__4e8041733be7396b0e0c67c0999048edd07a3ce0c06ff9681b9243ed9b627f8f)
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         return typing.cast("EvaluatorRatingScale", jsii.sinvoke(cls, "numerical", [options]))
 
@@ -6634,7 +6656,7 @@ class EvaluatorReference(
             goal_success = agentcore.EvaluatorReference.builtin(agentcore.BuiltinEvaluator.GOAL_SUCCESS_RATE)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57d17c6f2091ceedf7621934061147eff319f1405d29def761c3bf70a23e5348)
+            type_hints = cached_type_hints(_typecheckingstub__57d17c6f2091ceedf7621934061147eff319f1405d29def761c3bf70a23e5348)
             check_type(argname="argument evaluator", value=evaluator, expected_type=type_hints["evaluator"])
         return typing.cast("EvaluatorReference", jsii.sinvoke(cls, "builtin", [evaluator]))
 
@@ -6659,7 +6681,7 @@ class EvaluatorReference(
             ref = agentcore.EvaluatorReference.custom(my_custom_evaluator)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4512bc05f3ad996c3fb87a54540d33fc04c2c5dd9b918dc36a6d9e8d969b57b)
+            type_hints = cached_type_hints(_typecheckingstub__c4512bc05f3ad996c3fb87a54540d33fc04c2c5dd9b918dc36a6d9e8d969b57b)
             check_type(argname="argument evaluator", value=evaluator, expected_type=type_hints["evaluator"])
         return typing.cast("EvaluatorReference", jsii.sinvoke(cls, "custom", [evaluator]))
 
@@ -6708,7 +6730,7 @@ class EvaluatorReferenceBindResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49bf149295521066e23655e950d5855f8c6852d2c13e60118de85e20de5e77ac)
+            type_hints = cached_type_hints(_typecheckingstub__49bf149295521066e23655e950d5855f8c6852d2c13e60118de85e20de5e77ac)
             check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "evaluator_id": evaluator_id,
@@ -6763,7 +6785,7 @@ class ExecutionStatus(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d59b764b9e49b99334bc892b999b33903268b56c3d49c67b09bf4a3c9fdb58c9)
+            type_hints = cached_type_hints(_typecheckingstub__d59b764b9e49b99334bc892b999b33903268b56c3d49c67b09bf4a3c9fdb58c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -6838,7 +6860,7 @@ class FilterConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93fef7108b4bbe5886bd2129da0e5e01b9ced7c31ba9589b0314aa86a20f4226)
+            type_hints = cached_type_hints(_typecheckingstub__93fef7108b4bbe5886bd2129da0e5e01b9ced7c31ba9589b0314aa86a20f4226)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6924,7 +6946,7 @@ class FilterOperator(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__471e02ea1eb75d1bd71743a5925b898d917942a70b87aa7a39b1a787666fa9d8)
+            type_hints = cached_type_hints(_typecheckingstub__471e02ea1eb75d1bd71743a5925b898d917942a70b87aa7a39b1a787666fa9d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -7046,7 +7068,7 @@ class FilterValue(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68c079cba98359611e2491d4262f13373d9e55a8232db637f71da726d0629707)
+            type_hints = cached_type_hints(_typecheckingstub__68c079cba98359611e2491d4262f13373d9e55a8232db637f71da726d0629707)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("FilterValue", jsii.sinvoke(cls, "boolean", [value]))
 
@@ -7060,7 +7082,7 @@ class FilterValue(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4a1483c2da1bf5c139b639df1247e9204b52f92fc9c103dc18f99b082aef002)
+            type_hints = cached_type_hints(_typecheckingstub__f4a1483c2da1bf5c139b639df1247e9204b52f92fc9c103dc18f99b082aef002)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("FilterValue", jsii.sinvoke(cls, "number", [value]))
 
@@ -7074,7 +7096,7 @@ class FilterValue(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__859cea693e3314575661e3a2a74444ad64e6cdca5fedb1e75b9add02ecc260b8)
+            type_hints = cached_type_hints(_typecheckingstub__859cea693e3314575661e3a2a74444ad64e6cdca5fedb1e75b9add02ecc260b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("FilterValue", jsii.sinvoke(cls, "string", [value]))
 
@@ -7112,7 +7134,7 @@ class FromApiKeyIdentityOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__539f3a498cc13eb9db7f829d2bb80f99ebc177a8d5a679bc61cf3cb61cf7e7c4)
+            type_hints = cached_type_hints(_typecheckingstub__539f3a498cc13eb9db7f829d2bb80f99ebc177a8d5a679bc61cf3cb61cf7e7c4)
             check_type(argname="argument credential_location", value=credential_location, expected_type=type_hints["credential_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if credential_location is not None:
@@ -7179,7 +7201,7 @@ class FromOauthIdentityOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aa981fb0279d2abbf0463ca469306d5f21b30f06d07e0bd6f0511dcaf953d31)
+            type_hints = cached_type_hints(_typecheckingstub__7aa981fb0279d2abbf0463ca469306d5f21b30f06d07e0bd6f0511dcaf953d31)
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7252,7 +7274,7 @@ class GatewayApiKeyIdentityBinding:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d3a917907782412742b4b3c757f5fb0bb7e02d738f88cb02f175c8c5aec767)
+            type_hints = cached_type_hints(_typecheckingstub__70d3a917907782412742b4b3c757f5fb0bb7e02d738f88cb02f175c8c5aec767)
             check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
             check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7340,7 +7362,7 @@ class GatewayAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef66534f7494f00e52f0c25b93a3e7a334b1cc15e8a8332c47206d846e170caf)
+            type_hints = cached_type_hints(_typecheckingstub__ef66534f7494f00e52f0c25b93a3e7a334b1cc15e8a8332c47206d846e170caf)
             check_type(argname="argument gateway_arn", value=gateway_arn, expected_type=type_hints["gateway_arn"])
             check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
             check_type(argname="argument gateway_name", value=gateway_name, expected_type=type_hints["gateway_name"])
@@ -7581,7 +7603,7 @@ class GatewayCredentialProvider(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69382c3afcdc26b67fb5ef85edf0c6c5b3456964ce6f55748f141df5a31388f9)
+            type_hints = cached_type_hints(_typecheckingstub__69382c3afcdc26b67fb5ef85edf0c6c5b3456964ce6f55748f141df5a31388f9)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         options = FromApiKeyIdentityOptions(credential_location=credential_location)
 
@@ -7645,7 +7667,7 @@ class GatewayCredentialProvider(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__421fa50c7b8cf7ee1a7c69e472dda9aa59529b58aaac52039d2d5e986d2051da)
+            type_hints = cached_type_hints(_typecheckingstub__421fa50c7b8cf7ee1a7c69e472dda9aa59529b58aaac52039d2d5e986d2051da)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         options = FromOauthIdentityOptions(
             scopes=scopes, custom_parameters=custom_parameters
@@ -7735,7 +7757,7 @@ class GatewayCustomClaim(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cadba215e10b66f73f4fb2543646d3921a81baa825932f5d4a9c59a5d21d174d)
+            type_hints = cached_type_hints(_typecheckingstub__cadba215e10b66f73f4fb2543646d3921a81baa825932f5d4a9c59a5d21d174d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
@@ -7760,7 +7782,7 @@ class GatewayCustomClaim(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97ec8a345ac29ddf979f31966a7251449d3e536194411e1f95b7903ea35c29b7)
+            type_hints = cached_type_hints(_typecheckingstub__97ec8a345ac29ddf979f31966a7251449d3e536194411e1f95b7903ea35c29b7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("GatewayCustomClaim", jsii.sinvoke(cls, "withStringValue", [name, value]))
@@ -7835,7 +7857,7 @@ class GatewayOAuth2IdentityBinding:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a32723a64a83544bf5b2afc35f1e3752cb8306fffe7c7f4b92a87ca3d68535cd)
+            type_hints = cached_type_hints(_typecheckingstub__a32723a64a83544bf5b2afc35f1e3752cb8306fffe7c7f4b92a87ca3d68535cd)
             check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
@@ -7972,7 +7994,7 @@ class GatewayPolicyEngineConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__435057ae4f78629e4878de149e02cd44d5162ebec4281a566717b0158d964524)
+            type_hints = cached_type_hints(_typecheckingstub__435057ae4f78629e4878de149e02cd44d5162ebec4281a566717b0158d964524)
             check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8113,7 +8135,7 @@ class GatewayProps:
         if isinstance(policy_engine_configuration, dict):
             policy_engine_configuration = GatewayPolicyEngineConfig(**policy_engine_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a23c669f31d3b397457d411ed0f8b3bc5e4864707cd7ad3439804b69b0e7b9f)
+            type_hints = cached_type_hints(_typecheckingstub__2a23c669f31d3b397457d411ed0f8b3bc5e4864707cd7ad3439804b69b0e7b9f)
             check_type(argname="argument authorizer_configuration", value=authorizer_configuration, expected_type=type_hints["authorizer_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument exception_level", value=exception_level, expected_type=type_hints["exception_level"])
@@ -8402,7 +8424,7 @@ class GatewayTargetAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd0d10646e0b41b0e3ea8104308e9a426269e8ff86a6ffb8d83507c1745bd70e)
+            type_hints = cached_type_hints(_typecheckingstub__bd0d10646e0b41b0e3ea8104308e9a426269e8ff86a6ffb8d83507c1745bd70e)
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
@@ -8545,7 +8567,7 @@ class GatewayTargetCommonProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4db5543dd1246ef2799cfacaf36abb4303bfec7a9a286b86aede242a67a593c)
+            type_hints = cached_type_hints(_typecheckingstub__c4db5543dd1246ef2799cfacaf36abb4303bfec7a9a286b86aede242a67a593c)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8649,7 +8671,7 @@ class GatewayTargetLambdaProps(GatewayTargetCommonProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edb0737ed0363d7ee7ebe1291a9a8e6f5e5b45f78e264ac688a75facceaa0786)
+            type_hints = cached_type_hints(_typecheckingstub__edb0737ed0363d7ee7ebe1291a9a8e6f5e5b45f78e264ac688a75facceaa0786)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
@@ -8799,7 +8821,7 @@ class GatewayTargetMcpServerProps(GatewayTargetCommonProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10b172d926c2e22bd9def8e2605c7c65208aacea3538a007f07e4fb2afa7c971)
+            type_hints = cached_type_hints(_typecheckingstub__10b172d926c2e22bd9def8e2605c7c65208aacea3538a007f07e4fb2afa7c971)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
@@ -8946,7 +8968,7 @@ class GatewayTargetOpenApiProps(GatewayTargetCommonProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dd8dea4981947a9505cdeced5e45ad2d2577dbf7fb6caea5f827efbebf3b6c5)
+            type_hints = cached_type_hints(_typecheckingstub__1dd8dea4981947a9505cdeced5e45ad2d2577dbf7fb6caea5f827efbebf3b6c5)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument api_schema", value=api_schema, expected_type=type_hints["api_schema"])
@@ -9101,7 +9123,7 @@ class GatewayTargetProps(GatewayTargetCommonProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5103b947a7aa61d19eaf192baa47205697acc20184dda8f7e880eafd7ed5650f)
+            type_hints = cached_type_hints(_typecheckingstub__5103b947a7aa61d19eaf192baa47205697acc20184dda8f7e880eafd7ed5650f)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
@@ -9256,7 +9278,7 @@ class GatewayTargetSmithyProps(GatewayTargetCommonProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad9850a6e369854708ff6c699bc071680d68cd09a6f27b3dcb08e9a8f84aa2c6)
+            type_hints = cached_type_hints(_typecheckingstub__ad9850a6e369854708ff6c699bc071680d68cd09a6f27b3dcb08e9a8f84aa2c6)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
@@ -9552,7 +9574,7 @@ class _IApiKeyCredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb71b0468a4dd1e089bf9b02781860e3acb5b93cec775789b1e4cbd590336d3e)
+            type_hints = cached_type_hints(_typecheckingstub__fb71b0468a4dd1e089bf9b02781860e3acb5b93cec775789b1e4cbd590336d3e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -9569,7 +9591,7 @@ class _IApiKeyCredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0e21516b2bf275effe700cd262f598ef780e3fbf3004f2e94f79ae62071cf53)
+            type_hints = cached_type_hints(_typecheckingstub__a0e21516b2bf275effe700cd262f598ef780e3fbf3004f2e94f79ae62071cf53)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -9585,7 +9607,7 @@ class _IApiKeyCredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2263f8bd341a95eff6af9c82a3a4968263ea993087070a5c7955083752e40ad)
+            type_hints = cached_type_hints(_typecheckingstub__b2263f8bd341a95eff6af9c82a3a4968263ea993087070a5c7955083752e40ad)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -9601,7 +9623,7 @@ class _IApiKeyCredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31268dbfd5090a0e6839f5ebf9eb08118596a0e5778f14728c0362a207cb3bcd)
+            type_hints = cached_type_hints(_typecheckingstub__31268dbfd5090a0e6839f5ebf9eb08118596a0e5778f14728c0362a207cb3bcd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -9617,7 +9639,7 @@ class _IApiKeyCredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75fb291d3d7e8ce43be1820639183f0258b7ca338abdc70aecd4c3eb7a368eb0)
+            type_hints = cached_type_hints(_typecheckingstub__75fb291d3d7e8ce43be1820639183f0258b7ca338abdc70aecd4c3eb7a368eb0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -10291,7 +10313,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b1a5766ae93ba39d5e7df12bdfc35c2a7d298375e7689fbc39a3c76d50d2639)
+            type_hints = cached_type_hints(_typecheckingstub__3b1a5766ae93ba39d5e7df12bdfc35c2a7d298375e7689fbc39a3c76d50d2639)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("IBedrockAgentRuntime", jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -10311,7 +10333,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3208bdcc07b3a3b3b7ac0ed80c7b033074eab2659722a2dec0d8400cf5da5af8)
+            type_hints = cached_type_hints(_typecheckingstub__3208bdcc07b3a3b3b7ac0ed80c7b033074eab2659722a2dec0d8400cf5da5af8)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [actions, resources]))
@@ -10328,7 +10350,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e4ed0dc7cd812fb1d50239f33a79cd0a5de1be6488c8ee24a3b016a546ef94b)
+            type_hints = cached_type_hints(_typecheckingstub__6e4ed0dc7cd812fb1d50239f33a79cd0a5de1be6488c8ee24a3b016a546ef94b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
 
@@ -10344,7 +10366,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e37d3744eaf4f98404f5daccedff6e7a637774c39193ceadfd0f88c7aa16d50)
+            type_hints = cached_type_hints(_typecheckingstub__4e37d3744eaf4f98404f5daccedff6e7a637774c39193ceadfd0f88c7aa16d50)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvokeRuntime", [grantee]))
 
@@ -10360,7 +10382,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b28241dea68e79093525ede5e9deed8adeda944e89126bbcebe733fd16561495)
+            type_hints = cached_type_hints(_typecheckingstub__b28241dea68e79093525ede5e9deed8adeda944e89126bbcebe733fd16561495)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvokeRuntimeForUser", [grantee]))
 
@@ -10403,7 +10425,7 @@ class _IBedrockAgentRuntimeProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3beecc1a8cde07edfff6ed6fa9c6deb0e5c35524c1b4ca5bc87c39f95ca1f565)
+            type_hints = cached_type_hints(_typecheckingstub__3beecc1a8cde07edfff6ed6fa9c6deb0e5c35524c1b4ca5bc87c39f95ca1f565)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -11542,7 +11564,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4826f7478acda3a04d53cc2e00e999d28d4b6af89d40b4863b0007b08c0b26bf)
+            type_hints = cached_type_hints(_typecheckingstub__4826f7478acda3a04d53cc2e00e999d28d4b6af89d40b4863b0007b08c0b26bf)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -11559,7 +11581,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da9382b030a7d475c5afa4286f7e177b609a5f61d4d9d40b1767f5c1e99b8815)
+            type_hints = cached_type_hints(_typecheckingstub__da9382b030a7d475c5afa4286f7e177b609a5f61d4d9d40b1767f5c1e99b8815)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -11575,7 +11597,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd8850bcf1d06baf4b66c051e33ef652a6c75bc169744326c9d541535c3f3ca7)
+            type_hints = cached_type_hints(_typecheckingstub__dd8850bcf1d06baf4b66c051e33ef652a6c75bc169744326c9d541535c3f3ca7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -11618,7 +11640,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efd83ae8402a4ac91c4d9cee61087a64dc24f53da2f48b59aa2cc85cde883b29)
+            type_hints = cached_type_hints(_typecheckingstub__efd83ae8402a4ac91c4d9cee61087a64dc24f53da2f48b59aa2cc85cde883b29)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -11675,7 +11697,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9182d2fd8511b983f694d71df771315bd2911e5e5d9482b933161a628210ec54)
+            type_hints = cached_type_hints(_typecheckingstub__9182d2fd8511b983f694d71df771315bd2911e5e5d9482b933161a628210ec54)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -11733,7 +11755,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e825fd71c16a04ffa07fa3e9ff9d61d6e478bdf2f90788eba67bba76e9f38ccb)
+            type_hints = cached_type_hints(_typecheckingstub__e825fd71c16a04ffa07fa3e9ff9d61d6e478bdf2f90788eba67bba76e9f38ccb)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -11790,7 +11812,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf7f7691dff5fcb719882b3a76ff7b4a55b686f01244cf9ab3c1ee39a4dd4fc)
+            type_hints = cached_type_hints(_typecheckingstub__8cf7f7691dff5fcb719882b3a76ff7b4a55b686f01244cf9ab3c1ee39a4dd4fc)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -11846,7 +11868,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6be7d90ffdb2f66b76b997f0926ae3ff14c53cc65c008f5a0591e3f4676265a)
+            type_hints = cached_type_hints(_typecheckingstub__f6be7d90ffdb2f66b76b997f0926ae3ff14c53cc65c008f5a0591e3f4676265a)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -11953,7 +11975,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfb1295c98675d8b1f487abc85bf1d69ec7ac709035de1d15c83e328863a23ec)
+            type_hints = cached_type_hints(_typecheckingstub__cfb1295c98675d8b1f487abc85bf1d69ec7ac709035de1d15c83e328863a23ec)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -12162,7 +12184,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea0c6d4b07cd9212bb39f789638d8a9a6af30cbc0157a19bcd58f6b94d852755)
+            type_hints = cached_type_hints(_typecheckingstub__ea0c6d4b07cd9212bb39f789638d8a9a6af30cbc0157a19bcd58f6b94d852755)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -12218,7 +12240,7 @@ class _IBrowserCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1768ca682c2fd421a544ff8111e6e6985b07e3d62cdc62c35ef9cee5896ce2e)
+            type_hints = cached_type_hints(_typecheckingstub__c1768ca682c2fd421a544ff8111e6e6985b07e3d62cdc62c35ef9cee5896ce2e)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -12791,7 +12813,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04274b315577b6819dda4346fc076850f28656449a559f5561ca7d53df97f5e3)
+            type_hints = cached_type_hints(_typecheckingstub__04274b315577b6819dda4346fc076850f28656449a559f5561ca7d53df97f5e3)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -12808,7 +12830,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ec65ea8e752705bafc58f0d6cacd39d556973c472ffb0789fa4af3ebcce4bcc)
+            type_hints = cached_type_hints(_typecheckingstub__0ec65ea8e752705bafc58f0d6cacd39d556973c472ffb0789fa4af3ebcce4bcc)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -12824,7 +12846,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d24a36658edbfd7ecf76e5be971a6012fc93c641f1a510d1ddfd95730be1d7db)
+            type_hints = cached_type_hints(_typecheckingstub__d24a36658edbfd7ecf76e5be971a6012fc93c641f1a510d1ddfd95730be1d7db)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -12867,7 +12889,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4df790d3e336e48159d1eef607374eaf8f903928d69bd2620e375c4794e4fb3)
+            type_hints = cached_type_hints(_typecheckingstub__e4df790d3e336e48159d1eef607374eaf8f903928d69bd2620e375c4794e4fb3)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -12924,7 +12946,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eedad4c7938113f5f34f301a9b648ae40f5400a9e4de351b0186137052a65fab)
+            type_hints = cached_type_hints(_typecheckingstub__eedad4c7938113f5f34f301a9b648ae40f5400a9e4de351b0186137052a65fab)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -12982,7 +13004,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__669e8f3a0db7a0b0e3787f22af4e559b8709590c28a9b79f240d11855cd87a11)
+            type_hints = cached_type_hints(_typecheckingstub__669e8f3a0db7a0b0e3787f22af4e559b8709590c28a9b79f240d11855cd87a11)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -13039,7 +13061,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ade6561c63063084b2bd832a2df3362c624482ddaf7b7207ebec55d3e5431b)
+            type_hints = cached_type_hints(_typecheckingstub__d5ade6561c63063084b2bd832a2df3362c624482ddaf7b7207ebec55d3e5431b)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -13095,7 +13117,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79fd1126b940aa58648080ebef78a6ecac9291a3f4e257a9e9b8a3b62fb84e5a)
+            type_hints = cached_type_hints(_typecheckingstub__79fd1126b940aa58648080ebef78a6ecac9291a3f4e257a9e9b8a3b62fb84e5a)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -13202,7 +13224,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b950226f77f1b8ff84aba977a1f05f62ed459462976db6648d94a67e1e1ef8cf)
+            type_hints = cached_type_hints(_typecheckingstub__b950226f77f1b8ff84aba977a1f05f62ed459462976db6648d94a67e1e1ef8cf)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -13258,7 +13280,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4e3175daf088ea941aee60546645fc39148e3a11ab2b2e5d897a48eff09f4e0)
+            type_hints = cached_type_hints(_typecheckingstub__e4e3175daf088ea941aee60546645fc39148e3a11ab2b2e5d897a48eff09f4e0)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -13314,7 +13336,7 @@ class _ICodeInterpreterCustomProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e9e3e47628eaf2b6a4ffa31b2d7904f6d5438386a823eeca9d34b97f6f484df)
+            type_hints = cached_type_hints(_typecheckingstub__4e9e3e47628eaf2b6a4ffa31b2d7904f6d5438386a823eeca9d34b97f6f484df)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -13402,7 +13424,7 @@ class _ICredentialProviderConfigProxy:
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01c13eef12b0c56a9c64f5606f19dffc282f6dc3b2394e327eeac510163dbf75)
+            type_hints = cached_type_hints(_typecheckingstub__01c13eef12b0c56a9c64f5606f19dffc282f6dc3b2394e327eeac510163dbf75)
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grantNeededPermissionsToRole", [gateway]))
 
@@ -13586,7 +13608,7 @@ class _IEvaluatorProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc2d013758bf4d9b9229644e2e6bbc95db1ca008248c92419dfbcea9e96ad358)
+            type_hints = cached_type_hints(_typecheckingstub__fc2d013758bf4d9b9229644e2e6bbc95db1ca008248c92419dfbcea9e96ad358)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -14319,7 +14341,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67a7b74c78c66e6c4ae5fa4f1a6d7613f7b57cbdb98f41003e4cca6b66fe58e7)
+            type_hints = cached_type_hints(_typecheckingstub__67a7b74c78c66e6c4ae5fa4f1a6d7613f7b57cbdb98f41003e4cca6b66fe58e7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -14336,7 +14358,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bab2e3d5e4ab28bc868dacf6fd5b7054fce29b5540ebe11ce40f3f59a5ba4159)
+            type_hints = cached_type_hints(_typecheckingstub__bab2e3d5e4ab28bc868dacf6fd5b7054fce29b5540ebe11ce40f3f59a5ba4159)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
 
@@ -14352,7 +14374,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a142e670fe3a2c859908917628054ada46f4b92878c6c94cfad9afb2c470909)
+            type_hints = cached_type_hints(_typecheckingstub__2a142e670fe3a2c859908917628054ada46f4b92878c6c94cfad9afb2c470909)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantManage", [grantee]))
 
@@ -14368,7 +14390,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9003d87fcf715800e08d2520caf14b29811b10618745d8473d41744bf89ca752)
+            type_hints = cached_type_hints(_typecheckingstub__9003d87fcf715800e08d2520caf14b29811b10618745d8473d41744bf89ca752)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -14411,7 +14433,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11aff3456c4f4a058c54a4a4ea55a8c79ef38340ea1d035b560d3e8b6ebe3480)
+            type_hints = cached_type_hints(_typecheckingstub__11aff3456c4f4a058c54a4a4ea55a8c79ef38340ea1d035b560d3e8b6ebe3480)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -14748,7 +14770,7 @@ class _IGatewayProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bac85fd5322cd5b51fe73b210f860a656134395f64e2d918b2689175ffff789)
+            type_hints = cached_type_hints(_typecheckingstub__0bac85fd5322cd5b51fe73b210f860a656134395f64e2d918b2689175ffff789)
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -15271,7 +15293,7 @@ class _IGatewayTargetProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0f1f23fab30cc47f20af94dffa9eb6a9e7ea00285451b6d0c2ebe11f90b4ac9)
+            type_hints = cached_type_hints(_typecheckingstub__a0f1f23fab30cc47f20af94dffa9eb6a9e7ea00285451b6d0c2ebe11f90b4ac9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -15288,7 +15310,7 @@ class _IGatewayTargetProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39c13f0fa55feed100716f5fad6939e13fdf4fb983652e1e933ea36f28eb113c)
+            type_hints = cached_type_hints(_typecheckingstub__39c13f0fa55feed100716f5fad6939e13fdf4fb983652e1e933ea36f28eb113c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantManage", [grantee]))
 
@@ -15304,7 +15326,7 @@ class _IGatewayTargetProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e328c8c6ecac496967522afda4c48779086bd81e2d17e991a4482e35687193c)
+            type_hints = cached_type_hints(_typecheckingstub__4e328c8c6ecac496967522afda4c48779086bd81e2d17e991a4482e35687193c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -15399,7 +15421,7 @@ class _IInterceptorProxy:
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74609ac7e15a1b64016d190b95ba97ce4212206594f40c895a1dea99e7cdbea4)
+            type_hints = cached_type_hints(_typecheckingstub__74609ac7e15a1b64016d190b95ba97ce4212206594f40c895a1dea99e7cdbea4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("InterceptorBindConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -16001,7 +16023,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1ba6d29d64132509e28874cca93c8505709d69d09be77f6f547e643a9774030)
+            type_hints = cached_type_hints(_typecheckingstub__c1ba6d29d64132509e28874cca93c8505709d69d09be77f6f547e643a9774030)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -16018,7 +16040,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a457d9a5a92b2c5dd54c5d40968692e34fd532950d041ea5bfd0de913373be6)
+            type_hints = cached_type_hints(_typecheckingstub__7a457d9a5a92b2c5dd54c5d40968692e34fd532950d041ea5bfd0de913373be6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -16034,7 +16056,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c3efca2cc63cffb669b48299f658d617bda63982dc81fa5aa921c81c38ca079)
+            type_hints = cached_type_hints(_typecheckingstub__8c3efca2cc63cffb669b48299f658d617bda63982dc81fa5aa921c81c38ca079)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDelete", [grantee]))
 
@@ -16050,7 +16072,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7fcbbdfb908085fece3b62e0ffaf13f969e5bedd85b66a5c13523ce5bbee646)
+            type_hints = cached_type_hints(_typecheckingstub__b7fcbbdfb908085fece3b62e0ffaf13f969e5bedd85b66a5c13523ce5bbee646)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDeleteLongTermMemory", [grantee]))
 
@@ -16066,7 +16088,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__525b2d326cfe421d9a86d322af9dc60a4ed2bb6edc363fe98cfa6d82ff3adc06)
+            type_hints = cached_type_hints(_typecheckingstub__525b2d326cfe421d9a86d322af9dc60a4ed2bb6edc363fe98cfa6d82ff3adc06)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDeleteShortTermMemory", [grantee]))
 
@@ -16082,7 +16104,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af17b3916084293603368124beefd4ec59dde44dc47b240d7c9a1ec0f2f5ffa5)
+            type_hints = cached_type_hints(_typecheckingstub__af17b3916084293603368124beefd4ec59dde44dc47b240d7c9a1ec0f2f5ffa5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -16100,7 +16122,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__783d0a6fd1dc20ff0f9527e5c3a52633d4321b96341e6b9bc5d3fa0e92dc5dfe)
+            type_hints = cached_type_hints(_typecheckingstub__783d0a6fd1dc20ff0f9527e5c3a52633d4321b96341e6b9bc5d3fa0e92dc5dfe)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -16116,7 +16138,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f0a0f5b7fbecabe02b1b20a8835379801ca7f66484f1dd2ef68046ff8b462f)
+            type_hints = cached_type_hints(_typecheckingstub__f9f0a0f5b7fbecabe02b1b20a8835379801ca7f66484f1dd2ef68046ff8b462f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadLongTermMemory", [grantee]))
 
@@ -16132,7 +16154,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c589e19a59d911709d856e20382d97b619ddb3a73bbe0dee0153bfc97d443b7c)
+            type_hints = cached_type_hints(_typecheckingstub__c589e19a59d911709d856e20382d97b619ddb3a73bbe0dee0153bfc97d443b7c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadShortTermMemory", [grantee]))
 
@@ -16148,7 +16170,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94eb3e104c0dd678b10cd6541492be79335617ce87b76c7e823bbc387f58660e)
+            type_hints = cached_type_hints(_typecheckingstub__94eb3e104c0dd678b10cd6541492be79335617ce87b76c7e823bbc387f58660e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
@@ -16191,7 +16213,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9345c8520d55c1b82df6b4c9358835ed22ef5781b504459d222e3fc6908b84c7)
+            type_hints = cached_type_hints(_typecheckingstub__9345c8520d55c1b82df6b4c9358835ed22ef5781b504459d222e3fc6908b84c7)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -16248,7 +16270,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22ff2e593babb16dbf3ae7775b5b673ea5bc68bba3e2e5317817e4a1a5206a17)
+            type_hints = cached_type_hints(_typecheckingstub__22ff2e593babb16dbf3ae7775b5b673ea5bc68bba3e2e5317817e4a1a5206a17)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -16357,7 +16379,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a0a57ceae64fde7d7d2cfe0668f54aa401bbf9dcd02a1c202ab70648e8cda21)
+            type_hints = cached_type_hints(_typecheckingstub__7a0a57ceae64fde7d7d2cfe0668f54aa401bbf9dcd02a1c202ab70648e8cda21)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -16414,7 +16436,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e61b20f12b812c882b8260200f86a0153fe5fbde4437c6d474693246202a1b9)
+            type_hints = cached_type_hints(_typecheckingstub__9e61b20f12b812c882b8260200f86a0153fe5fbde4437c6d474693246202a1b9)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -16470,7 +16492,7 @@ class _IMemoryProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9002a7efe6fb5cf7e675e605de960b66ee27aeceb3ef6161eac905e343326468)
+            type_hints = cached_type_hints(_typecheckingstub__9002a7efe6fb5cf7e675e605de960b66ee27aeceb3ef6161eac905e343326468)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -16606,7 +16628,7 @@ class _IMemoryStrategyProxy:
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__934b8b491b04ba3c7c4ab4f5bc06c324dbefd303c41cbc2cfa977906701fa994)
+            type_hints = cached_type_hints(_typecheckingstub__934b8b491b04ba3c7c4ab4f5bc06c324dbefd303c41cbc2cfa977906701fa994)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grant", [grantee]))
 
@@ -16873,7 +16895,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49927417b714137c2c94c3282ff357b77d67170cd9702e0337e2fd6dfbf05f3c)
+            type_hints = cached_type_hints(_typecheckingstub__49927417b714137c2c94c3282ff357b77d67170cd9702e0337e2fd6dfbf05f3c)
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
         return typing.cast("GatewayOAuth2IdentityBinding", jsii.invoke(self, "bindForGatewayOAuthTarget", [scopes, custom_parameters]))
@@ -16892,7 +16914,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__025e6a8dbb38fbdec171ec947dbaf0dc74237902e3f36198dae3e8d44e51bb41)
+            type_hints = cached_type_hints(_typecheckingstub__025e6a8dbb38fbdec171ec947dbaf0dc74237902e3f36198dae3e8d44e51bb41)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -16909,7 +16931,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8962a23840ff430e444f9ab678d43f416bc36b4351439aa2cfe741344deb61a)
+            type_hints = cached_type_hints(_typecheckingstub__d8962a23840ff430e444f9ab678d43f416bc36b4351439aa2cfe741344deb61a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -16925,7 +16947,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d475d93094d6a381e8bc3afe0c37a938781cca1f54860c99514d60057cf1e0)
+            type_hints = cached_type_hints(_typecheckingstub__48d475d93094d6a381e8bc3afe0c37a938781cca1f54860c99514d60057cf1e0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -16941,7 +16963,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35f5adbab59a959f93d44b158ddcad846f5d4e4936451492bac638ee6755c237)
+            type_hints = cached_type_hints(_typecheckingstub__35f5adbab59a959f93d44b158ddcad846f5d4e4936451492bac638ee6755c237)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -16957,7 +16979,7 @@ class _IOAuth2CredentialProviderProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ec9f8cfc25b566cb6039837b0f8ea5dcfa7b9b776e3bdac2dec279f1867c797)
+            type_hints = cached_type_hints(_typecheckingstub__0ec9f8cfc25b566cb6039837b0f8ea5dcfa7b9b776e3bdac2dec279f1867c797)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -17181,7 +17203,7 @@ class _IOnlineEvaluationConfigProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__567ead95796d9490b56bd9cd9aab08dc0523b8decb60724ea8dc07474b2ed972)
+            type_hints = cached_type_hints(_typecheckingstub__567ead95796d9490b56bd9cd9aab08dc0523b8decb60724ea8dc07474b2ed972)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -17496,7 +17518,7 @@ class _IPolicyProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b06d682754dabb267b2363658c431dab477668c081aca5169652420e8e2fd7b0)
+            type_hints = cached_type_hints(_typecheckingstub__b06d682754dabb267b2363658c431dab477668c081aca5169652420e8e2fd7b0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -17516,7 +17538,7 @@ class _IPolicyProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4151e11652fd8cb4c7881ed73f2682071e66519ce35be4ffaaf08c6b4077b8af)
+            type_hints = cached_type_hints(_typecheckingstub__4151e11652fd8cb4c7881ed73f2682071e66519ce35be4ffaaf08c6b4077b8af)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -17559,7 +17581,7 @@ class _IPolicyProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ba5ef78a25a2bc38482302d3e630747fb5952e00a7df97f4106735369c1bf59)
+            type_hints = cached_type_hints(_typecheckingstub__5ba5ef78a25a2bc38482302d3e630747fb5952e00a7df97f4106735369c1bf59)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -18047,7 +18069,7 @@ class _IPolicyEngineProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__148192c5398a59c586d71214857a39232819b2bd42bea22dfee7a891b4290c8b)
+            type_hints = cached_type_hints(_typecheckingstub__148192c5398a59c586d71214857a39232819b2bd42bea22dfee7a891b4290c8b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -18068,7 +18090,7 @@ class _IPolicyEngineProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e585477e6e26879cd9e1093388492a452d2806210bd7d1519945696009f895ab)
+            type_hints = cached_type_hints(_typecheckingstub__e585477e6e26879cd9e1093388492a452d2806210bd7d1519945696009f895ab)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluate", [grantee]))
 
@@ -18092,7 +18114,7 @@ class _IPolicyEngineProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9772c1b57118ae52a70b2df1fd6f8148234e389c7d4c6e150c288fa3d5d7d0c5)
+            type_hints = cached_type_hints(_typecheckingstub__9772c1b57118ae52a70b2df1fd6f8148234e389c7d4c6e150c288fa3d5d7d0c5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluateForGateway", [grantee, gateway]))
@@ -18112,7 +18134,7 @@ class _IPolicyEngineProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1860e73b8be2fec2486f160542c4bda3067a4177710ff35f5a2a1662531ae1d5)
+            type_hints = cached_type_hints(_typecheckingstub__1860e73b8be2fec2486f160542c4bda3067a4177710ff35f5a2a1662531ae1d5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -18155,7 +18177,7 @@ class _IPolicyEngineProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c33cbd179cc843f026ea3816459fe334400806b7154f2ee404b2c3d65bc10fa0)
+            type_hints = cached_type_hints(_typecheckingstub__c33cbd179cc843f026ea3816459fe334400806b7154f2ee404b2c3d65bc10fa0)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -18600,7 +18622,7 @@ class _ITargetConfigurationProxy:
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1717bbf253ab46d20bef66b2b02083fcd9ff690cbfcb83e8c649f81b006ea810)
+            type_hints = cached_type_hints(_typecheckingstub__1717bbf253ab46d20bef66b2b02083fcd9ff690cbfcb83e8c649f81b006ea810)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -18809,7 +18831,7 @@ class _IWorkloadIdentityProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7d1997e665eb610a591ccc8a73e17f82fb0727b5db5de7f85c03bc2517bdc05)
+            type_hints = cached_type_hints(_typecheckingstub__a7d1997e665eb610a591ccc8a73e17f82fb0727b5db5de7f85c03bc2517bdc05)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -18826,7 +18848,7 @@ class _IWorkloadIdentityProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80211079e32d76ecb8c02ca1d184276639927a7e05c6c8345dbcd1d21c3b9547)
+            type_hints = cached_type_hints(_typecheckingstub__80211079e32d76ecb8c02ca1d184276639927a7e05c6c8345dbcd1d21c3b9547)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -18842,7 +18864,7 @@ class _IWorkloadIdentityProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c32ab15b0749c93e4f9a6f99c90c7c8ee64d7b75827875ab7e42a2e6537911)
+            type_hints = cached_type_hints(_typecheckingstub__12c32ab15b0749c93e4f9a6f99c90c7c8ee64d7b75827875ab7e42a2e6537911)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -18858,7 +18880,7 @@ class _IWorkloadIdentityProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa14807c7bdb8f7be3f5a8cf2138011a635a40114966cf9e6d5935aa055feb98)
+            type_hints = cached_type_hints(_typecheckingstub__fa14807c7bdb8f7be3f5a8cf2138011a635a40114966cf9e6d5935aa055feb98)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -18874,7 +18896,7 @@ class _IWorkloadIdentityProxy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__621213d286580a29d4fcf5f08a7c257c341537a4c33e693e9c3e802a091d9596)
+            type_hints = cached_type_hints(_typecheckingstub__621213d286580a29d4fcf5f08a7c257c341537a4c33e693e9c3e802a091d9596)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -18960,7 +18982,7 @@ class IncludedOauth2TenantEndpoints:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6f91c43f8aae80a63a6f19437a584a748aa47b47d77fc476a4697f74e641886)
+            type_hints = cached_type_hints(_typecheckingstub__a6f91c43f8aae80a63a6f19437a584a748aa47b47d77fc476a4697f74e641886)
             check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
             check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
             check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
@@ -19048,7 +19070,7 @@ class InlineApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0826b38fae9dacf35beaacf96e92372ee407c938f1987c74ccd1fb97aa9a5aeb)
+            type_hints = cached_type_hints(_typecheckingstub__0826b38fae9dacf35beaacf96e92372ee407c938f1987c74ccd1fb97aa9a5aeb)
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
         jsii.create(self.__class__, self, [schema])
 
@@ -19061,7 +19083,7 @@ class InlineApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a0c86c36c70663fe2e77ce6d0815de1218665f0a12414de968012aeccd9279)
+            type_hints = cached_type_hints(_typecheckingstub__d3a0c86c36c70663fe2e77ce6d0815de1218665f0a12414de968012aeccd9279)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -19077,7 +19099,7 @@ class InlineApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2a7412e580f63a82b97547fda7a8462fd9cd4a51880415bec912d3d65240bcd)
+            type_hints = cached_type_hints(_typecheckingstub__c2a7412e580f63a82b97547fda7a8462fd9cd4a51880415bec912d3d65240bcd)
             check_type(argname="argument _role", value=_role, expected_type=type_hints["_role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [_role]))
 
@@ -19132,7 +19154,7 @@ class InterceptorBindConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ccb51a33e44854b41891852977d43531fed7ae07c2e4e71dc5e821bac0d4f4a)
+            type_hints = cached_type_hints(_typecheckingstub__6ccb51a33e44854b41891852977d43531fed7ae07c2e4e71dc5e821bac0d4f4a)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration": configuration,
@@ -19191,7 +19213,7 @@ class InterceptorOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56788e0e0fb810a87375c3d7c6e4b6a23df70db2fed3629b8e3f05433c9c8fce)
+            type_hints = cached_type_hints(_typecheckingstub__56788e0e0fb810a87375c3d7c6e4b6a23df70db2fed3629b8e3f05433c9c8fce)
             check_type(argname="argument pass_request_headers", value=pass_request_headers, expected_type=type_hints["pass_request_headers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if pass_request_headers is not None:
@@ -19271,7 +19293,7 @@ class InvocationConfiguration:
         if isinstance(s3_location, dict):
             s3_location = _aws_cdk_aws_s3_ceddda9d.Location(**s3_location)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa543deca8fc3f65b1c914de7ff1c671f34fc56d017dd3a14ead3387b906c0c4)
+            type_hints = cached_type_hints(_typecheckingstub__aa543deca8fc3f65b1c914de7ff1c671f34fc56d017dd3a14ead3387b906c0c4)
             check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -19365,7 +19387,7 @@ class LambdaInterceptor(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97a2edaeefc194ccbbeda22578f97133a8f9ab3e9c99a8f27aab41c460e1c18f)
+            type_hints = cached_type_hints(_typecheckingstub__97a2edaeefc194ccbbeda22578f97133a8f9ab3e9c99a8f27aab41c460e1c18f)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
         options = InterceptorOptions(pass_request_headers=pass_request_headers)
 
@@ -19393,7 +19415,7 @@ class LambdaInterceptor(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f440725220eb9bb72ecebcd5d53b133f144f46464f701c5efaeac16c25a89f5)
+            type_hints = cached_type_hints(_typecheckingstub__5f440725220eb9bb72ecebcd5d53b133f144f46464f701c5efaeac16c25a89f5)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
         options = InterceptorOptions(pass_request_headers=pass_request_headers)
 
@@ -19420,7 +19442,7 @@ class LambdaInterceptor(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9984f258bb907cffe2d90e7ef6bce237c0cc1906c1072b58863d7aed6adab323)
+            type_hints = cached_type_hints(_typecheckingstub__9984f258bb907cffe2d90e7ef6bce237c0cc1906c1072b58863d7aed6adab323)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("InterceptorBindConfig", jsii.invoke(self, "bind", [_scope, gateway]))
@@ -19476,7 +19498,7 @@ class LifecycleConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f39adc22c8396a71405e7fd3ec49f4208fd91c3ccafc829e042a75577d83f574)
+            type_hints = cached_type_hints(_typecheckingstub__f39adc22c8396a71405e7fd3ec49f4208fd91c3ccafc829e042a75577d83f574)
             check_type(argname="argument idle_runtime_session_timeout", value=idle_runtime_session_timeout, expected_type=type_hints["idle_runtime_session_timeout"])
             check_type(argname="argument max_lifetime", value=max_lifetime, expected_type=type_hints["max_lifetime"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -19594,7 +19616,7 @@ class LlmAsAJudgeOptions:
         if isinstance(inference_config, dict):
             inference_config = EvaluatorInferenceConfig(**inference_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed6371cdd6785d561211c1e821b30da5fafdfb6267069703b6ae1426b867d935)
+            type_hints = cached_type_hints(_typecheckingstub__ed6371cdd6785d561211c1e821b30da5fafdfb6267069703b6ae1426b867d935)
             check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
             check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
             check_type(argname="argument rating_scale", value=rating_scale, expected_type=type_hints["rating_scale"])
@@ -19723,7 +19745,7 @@ class LogType(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71fa942160dc29641e8a833cbb88163994e44dcd90d7aa9de1bd4ae58c4a8230)
+            type_hints = cached_type_hints(_typecheckingstub__71fa942160dc29641e8a833cbb88163994e44dcd90d7aa9de1bd4ae58c4a8230)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("LogType", jsii.sinvoke(cls, "of", [value]))
 
@@ -19792,7 +19814,7 @@ class LoggingConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__654f884964ac0b13fac1e55ba4c404875b612a8564bc94c251872f35452c6364)
+            type_hints = cached_type_hints(_typecheckingstub__654f884964ac0b13fac1e55ba4c404875b612a8564bc94c251872f35452c6364)
             check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
             check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -19880,7 +19902,7 @@ class LoggingDestination(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e0db8113583ca06d41b3358e48b67227ce94f048b875bb6361017f54aa196c1)
+            type_hints = cached_type_hints(_typecheckingstub__5e0db8113583ca06d41b3358e48b67227ce94f048b875bb6361017f54aa196c1)
             check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
         return typing.cast("LoggingDestination", jsii.sinvoke(cls, "cloudWatchLogs", [log_group]))
 
@@ -19897,7 +19919,7 @@ class LoggingDestination(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac3aaaf8127edf6b2c5993dc602a7f3a2a95268826944b9c1ca2ad932da8b4a0)
+            type_hints = cached_type_hints(_typecheckingstub__ac3aaaf8127edf6b2c5993dc602a7f3a2a95268826944b9c1ca2ad932da8b4a0)
             check_type(argname="argument stream", value=stream, expected_type=type_hints["stream"])
         return typing.cast("LoggingDestination", jsii.sinvoke(cls, "firehose", [stream]))
 
@@ -19911,7 +19933,7 @@ class LoggingDestination(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__963a8e2b4e6bd265e3a6ff1cbaadd89f56ca4a30cb151994e3b6b7d127c54c9f)
+            type_hints = cached_type_hints(_typecheckingstub__963a8e2b4e6bd265e3a6ff1cbaadd89f56ca4a30cb151994e3b6b7d127c54c9f)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         return typing.cast("LoggingDestination", jsii.sinvoke(cls, "s3", [bucket]))
 
@@ -20016,7 +20038,7 @@ class ManagedMemoryStrategy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9656ac57c24ef4e4e75d86e1e22eccddbeda2a4c2f59b55521bc042a2350d17c)
+            type_hints = cached_type_hints(_typecheckingstub__9656ac57c24ef4e4e75d86e1e22eccddbeda2a4c2f59b55521bc042a2350d17c)
             check_type(argname="argument strategy_type", value=strategy_type, expected_type=type_hints["strategy_type"])
         props = ManagedStrategyProps(
             namespaces=namespaces,
@@ -20045,7 +20067,7 @@ class ManagedMemoryStrategy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__026d68ecbae145c075bcc9aa152bf018434394cf6d580dcb55ada773bcffda7b)
+            type_hints = cached_type_hints(_typecheckingstub__026d68ecbae145c075bcc9aa152bf018434394cf6d580dcb55ada773bcffda7b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grant", [grantee]))
 
@@ -20170,7 +20192,7 @@ class McpConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3797ebea8fba55ad435efe9fea477cbfc4a184bffd1ebfc344f5c2b48855470)
+            type_hints = cached_type_hints(_typecheckingstub__a3797ebea8fba55ad435efe9fea477cbfc4a184bffd1ebfc344f5c2b48855470)
             check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
             check_type(argname="argument search_type", value=search_type, expected_type=type_hints["search_type"])
             check_type(argname="argument supported_versions", value=supported_versions, expected_type=type_hints["supported_versions"])
@@ -20405,7 +20427,7 @@ class _McpTargetConfigurationProxy(McpTargetConfiguration):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea674d7a16ddbe2f65ae2eacb45108bb4487c8670e6a15c01d77128485af6d67)
+            type_hints = cached_type_hints(_typecheckingstub__ea674d7a16ddbe2f65ae2eacb45108bb4487c8670e6a15c01d77128485af6d67)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -20522,7 +20544,7 @@ class MemoryAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6a086dd3c259b4f5133e8dcca3563182c7cc9f12c0de8e826898a8aa640669c)
+            type_hints = cached_type_hints(_typecheckingstub__c6a086dd3c259b4f5133e8dcca3563182c7cc9f12c0de8e826898a8aa640669c)
             check_type(argname="argument memory_arn", value=memory_arn, expected_type=type_hints["memory_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
@@ -20656,7 +20678,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__574392a6603a24fac59c9a505b5e2ff912c7921a0c811d31aaf821e33095a259)
+            type_hints = cached_type_hints(_typecheckingstub__574392a6603a24fac59c9a505b5e2ff912c7921a0c811d31aaf821e33095a259)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -20686,7 +20708,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80f21eef09775f5de00521f704cd0b377a899072ad12f31d3c102e3fcba11ff5)
+            type_hints = cached_type_hints(_typecheckingstub__80f21eef09775f5de00521f704cd0b377a899072ad12f31d3c102e3fcba11ff5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -20715,7 +20737,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c6e4dd70011581876e2bb5e8f8c08ac5c3444fd18ed45b7f0cff62c5076e299)
+            type_hints = cached_type_hints(_typecheckingstub__2c6e4dd70011581876e2bb5e8f8c08ac5c3444fd18ed45b7f0cff62c5076e299)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -20743,7 +20765,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6789868eda605d017128a6c6f954d81b5ef91ae498ca9b98f70464d6766b7fdd)
+            type_hints = cached_type_hints(_typecheckingstub__6789868eda605d017128a6c6f954d81b5ef91ae498ca9b98f70464d6766b7fdd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDelete", [grantee]))
 
@@ -20768,7 +20790,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22d835385ded311b3a50da18cd698dd96efa8b025c2ce811f6b2c37cf0dcfd7a)
+            type_hints = cached_type_hints(_typecheckingstub__22d835385ded311b3a50da18cd698dd96efa8b025c2ce811f6b2c37cf0dcfd7a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDeleteLongTermMemory", [grantee]))
 
@@ -20793,7 +20815,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e45f2d16955307339b561c5f88315e38b6e333658c3c42bf5a60ebfe2401865)
+            type_hints = cached_type_hints(_typecheckingstub__7e45f2d16955307339b561c5f88315e38b6e333658c3c42bf5a60ebfe2401865)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantDeleteShortTermMemory", [grantee]))
 
@@ -20829,7 +20851,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0ec9374ec0867626f333d6a0e1b2e28e0bdb667583aee6e3be29fed5279bb21)
+            type_hints = cached_type_hints(_typecheckingstub__b0ec9374ec0867626f333d6a0e1b2e28e0bdb667583aee6e3be29fed5279bb21)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -20860,7 +20882,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1c7af8fe6270d50b6d982667d42ab7e139c4f172018cd2035904bd5d7ff917)
+            type_hints = cached_type_hints(_typecheckingstub__be1c7af8fe6270d50b6d982667d42ab7e139c4f172018cd2035904bd5d7ff917)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -20889,7 +20911,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebc2c8cd9c54c3d6983b81accbc7ae829b363a07574e1fe80dac1e83df78ac00)
+            type_hints = cached_type_hints(_typecheckingstub__ebc2c8cd9c54c3d6983b81accbc7ae829b363a07574e1fe80dac1e83df78ac00)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadLongTermMemory", [grantee]))
 
@@ -20917,7 +20939,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75b65dac82aa42a649070040d4a89e636efd205f740e9648e93babd0b2fdeee2)
+            type_hints = cached_type_hints(_typecheckingstub__75b65dac82aa42a649070040d4a89e636efd205f740e9648e93babd0b2fdeee2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadShortTermMemory", [grantee]))
 
@@ -20942,7 +20964,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590ba37ea58d7dff8c2d3fc8274cc9987427363e687967c1d3958d73cbc53039)
+            type_hints = cached_type_hints(_typecheckingstub__590ba37ea58d7dff8c2d3fc8274cc9987427363e687967c1d3958d73cbc53039)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
@@ -20988,7 +21010,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f53f70948f0d97aeb01fc6c9fd678ba05fbe2b91bfb844ed7ea119b30028142)
+            type_hints = cached_type_hints(_typecheckingstub__9f53f70948f0d97aeb01fc6c9fd678ba05fbe2b91bfb844ed7ea119b30028142)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -21045,7 +21067,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9e54bcc7e67cf46e5411aaa6f13470ba871429e3c67f47fa25598bc844c2d35)
+            type_hints = cached_type_hints(_typecheckingstub__c9e54bcc7e67cf46e5411aaa6f13470ba871429e3c67f47fa25598bc844c2d35)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -21154,7 +21176,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61fe7dbf381a793e49e0d24bad4f6af5b13e7d599048ff0dfa6bc01da7c285a9)
+            type_hints = cached_type_hints(_typecheckingstub__61fe7dbf381a793e49e0d24bad4f6af5b13e7d599048ff0dfa6bc01da7c285a9)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -21211,7 +21233,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285e37e135c8ed6622ae06a06eac22ac25d53d96ce2553b060d7ddf527d730b3)
+            type_hints = cached_type_hints(_typecheckingstub__285e37e135c8ed6622ae06a06eac22ac25d53d96ce2553b060d7ddf527d730b3)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -21273,7 +21295,7 @@ class MemoryBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec8b37ef906686d3aceb55dac9ac696a112df78300ecb5165e0f8c21d6c442b8)
+            type_hints = cached_type_hints(_typecheckingstub__ec8b37ef906686d3aceb55dac9ac696a112df78300ecb5165e0f8c21d6c442b8)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -21581,7 +21603,7 @@ class MemoryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12709904e77db162aec81a7042ff51a5ef06724c2d2a50b65427d8cc3d0a4513)
+            type_hints = cached_type_hints(_typecheckingstub__12709904e77db162aec81a7042ff51a5ef06724c2d2a50b65427d8cc3d0a4513)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
             check_type(argname="argument expiration_duration", value=expiration_duration, expected_type=type_hints["expiration_duration"])
@@ -22010,7 +22032,7 @@ class MemoryStrategyCommonProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33bd2546f76cfe4b81d759a553b1092fab937231ba1d88a09e69aed7c50ee949)
+            type_hints = cached_type_hints(_typecheckingstub__33bd2546f76cfe4b81d759a553b1092fab937231ba1d88a09e69aed7c50ee949)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -22129,7 +22151,7 @@ class MetadataConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3af774b535cd891812fc8caea76dbc8bc91aa9670ef6fd40c51a4abde2451dd8)
+            type_hints = cached_type_hints(_typecheckingstub__3af774b535cd891812fc8caea76dbc8bc91aa9670ef6fd40c51a4abde2451dd8)
             check_type(argname="argument allowed_query_parameters", value=allowed_query_parameters, expected_type=type_hints["allowed_query_parameters"])
             check_type(argname="argument allowed_request_headers", value=allowed_request_headers, expected_type=type_hints["allowed_request_headers"])
             check_type(argname="argument allowed_response_headers", value=allowed_response_headers, expected_type=type_hints["allowed_response_headers"])
@@ -22237,7 +22259,7 @@ class NetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1156fe37fe7149a4f863e83246fb36b82ce35366fd78287a7abd74852fa9ecd)
+            type_hints = cached_type_hints(_typecheckingstub__b1156fe37fe7149a4f863e83246fb36b82ce35366fd78287a7abd74852fa9ecd)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
@@ -22374,7 +22396,7 @@ class NumericalRatingOption:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c1f4343791430a43aee87ae88eebb3d30ca9e5945a1c3f235d263ce8b04098b)
+            type_hints = cached_type_hints(_typecheckingstub__3c1f4343791430a43aee87ae88eebb3d30ca9e5945a1c3f235d263ce8b04098b)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -22486,7 +22508,7 @@ class OAuth2AuthorizationServerMetadata:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49686e277ad6776661148f376f0851f08d51d8cff7a529d7194af00dc2b804bb)
+            type_hints = cached_type_hints(_typecheckingstub__49686e277ad6776661148f376f0851f08d51d8cff7a529d7194af00dc2b804bb)
             check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
             check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
             check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
@@ -22589,7 +22611,7 @@ class OAuth2ClientCredentials:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cba1ea3930561dcb15203f2cc343740720f5a8a62b7ccf19bb99eb12a8b13e67)
+            type_hints = cached_type_hints(_typecheckingstub__cba1ea3930561dcb15203f2cc343740720f5a8a62b7ccf19bb99eb12a8b13e67)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -22834,7 +22856,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__024beff91c60f5f8e0d996bbb5d050d0381cbc4998c1108f3c275db0acbb232a)
+            type_hints = cached_type_hints(_typecheckingstub__024beff91c60f5f8e0d996bbb5d050d0381cbc4998c1108f3c275db0acbb232a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OAuth2CredentialProviderProps(
@@ -22874,7 +22896,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a82f2de92ea22897c61952ec301e28840bb7f40a39627cf8c7452e88291efd44)
+            type_hints = cached_type_hints(_typecheckingstub__a82f2de92ea22897c61952ec301e28840bb7f40a39627cf8c7452e88291efd44)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = OAuth2CredentialProviderAttributes(
@@ -22912,7 +22934,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef6c058768e2781c826a237e65780d83c6ab7ce544884f95ac126eead9cda362)
+            type_hints = cached_type_hints(_typecheckingstub__ef6c058768e2781c826a237e65780d83c6ab7ce544884f95ac126eead9cda362)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AtlassianOAuth2CredentialProviderProps(
@@ -22955,7 +22977,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5c1536e2e6d4c0f1dda69051f9f8f939efd0ffb5b9e4a1963d03ed5b452f58f)
+            type_hints = cached_type_hints(_typecheckingstub__e5c1536e2e6d4c0f1dda69051f9f8f939efd0ffb5b9e4a1963d03ed5b452f58f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23001,7 +23023,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f729c0759c6bc53f292a1f167e5a26050a5911aa54ecca72b9a7ed5421bca8fe)
+            type_hints = cached_type_hints(_typecheckingstub__f729c0759c6bc53f292a1f167e5a26050a5911aa54ecca72b9a7ed5421bca8fe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23044,7 +23066,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10e4d3cfb35ec0aa9906afda77a8cb6432d348fa14750ff9c79480137aeb29c)
+            type_hints = cached_type_hints(_typecheckingstub__d10e4d3cfb35ec0aa9906afda77a8cb6432d348fa14750ff9c79480137aeb29c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CustomOAuth2CredentialProviderProps(
@@ -23089,7 +23111,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1a7c62f7fb66b7a5a66f94cd79fd98d74ec3885508c474c634957f6e47e0324)
+            type_hints = cached_type_hints(_typecheckingstub__e1a7c62f7fb66b7a5a66f94cd79fd98d74ec3885508c474c634957f6e47e0324)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23129,7 +23151,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__027f34347767113b63af75909dbed925f8f0bf0cea27c7647624eefff71d40ae)
+            type_hints = cached_type_hints(_typecheckingstub__027f34347767113b63af75909dbed925f8f0bf0cea27c7647624eefff71d40ae)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DropboxOAuth2CredentialProviderProps(
@@ -23166,7 +23188,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54a32dd07f0f2759bc8f038cdc6234362696a176abd8eecd003638052316bcff)
+            type_hints = cached_type_hints(_typecheckingstub__54a32dd07f0f2759bc8f038cdc6234362696a176abd8eecd003638052316bcff)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = FacebookOAuth2CredentialProviderProps(
@@ -23209,7 +23231,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2661b6d4a7d176e1218f5375d83d994ed41514ef8bfb5d181e443050123157a3)
+            type_hints = cached_type_hints(_typecheckingstub__2661b6d4a7d176e1218f5375d83d994ed41514ef8bfb5d181e443050123157a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23248,7 +23270,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__baac2b885b4cc2ecb358bc2a63ad24808a08266cb688ae3b980a6c32493b188b)
+            type_hints = cached_type_hints(_typecheckingstub__baac2b885b4cc2ecb358bc2a63ad24808a08266cb688ae3b980a6c32493b188b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GithubOAuth2CredentialProviderProps(
@@ -23284,7 +23306,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d14f42981d7d1c45a45d078740323ba7af55d54bc3fd0312a57a8c5c12b1f96)
+            type_hints = cached_type_hints(_typecheckingstub__5d14f42981d7d1c45a45d078740323ba7af55d54bc3fd0312a57a8c5c12b1f96)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GoogleOAuth2CredentialProviderProps(
@@ -23321,7 +23343,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4b05f30eac32a7a713804b3118f1c9b9c36c9ecd4a069097fde01f95c6cb17b)
+            type_hints = cached_type_hints(_typecheckingstub__b4b05f30eac32a7a713804b3118f1c9b9c36c9ecd4a069097fde01f95c6cb17b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HubspotOAuth2CredentialProviderProps(
@@ -23357,7 +23379,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74992cf31f4dbbf4098b7e8fc464e4c399c0666c045336029a7067937d472a8d)
+            type_hints = cached_type_hints(_typecheckingstub__74992cf31f4dbbf4098b7e8fc464e4c399c0666c045336029a7067937d472a8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LinkedinOAuth2CredentialProviderProps(
@@ -23395,7 +23417,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__313d8717178b0df0eed0484c18e33c4db9719c71ddf93724b343df334c92d4b9)
+            type_hints = cached_type_hints(_typecheckingstub__313d8717178b0df0eed0484c18e33c4db9719c71ddf93724b343df334c92d4b9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MicrosoftOAuth2CredentialProviderProps(
@@ -23433,7 +23455,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9247cb9b14396fa19c0c7a2c79ae338dc0170b9da376274063845cc807e8011a)
+            type_hints = cached_type_hints(_typecheckingstub__9247cb9b14396fa19c0c7a2c79ae338dc0170b9da376274063845cc807e8011a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NotionOAuth2CredentialProviderProps(
@@ -23476,7 +23498,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e84a818ca200adb107923c7a3fa1cc54ed0547dd4ce0288b1d092b244b80754b)
+            type_hints = cached_type_hints(_typecheckingstub__e84a818ca200adb107923c7a3fa1cc54ed0547dd4ce0288b1d092b244b80754b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23522,7 +23544,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b3da22a0325de625b3f615dfd1af25078d6bd96f86a6af6469a11b9a94ed90d)
+            type_hints = cached_type_hints(_typecheckingstub__0b3da22a0325de625b3f615dfd1af25078d6bd96f86a6af6469a11b9a94ed90d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23568,7 +23590,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57be03918f3736d1b71d4d7d6d9a361de935744f6d19ec1efa296d8f3a5b647a)
+            type_hints = cached_type_hints(_typecheckingstub__57be03918f3736d1b71d4d7d6d9a361de935744f6d19ec1efa296d8f3a5b647a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IncludedOauth2TenantCredentialProviderProps(
@@ -23608,7 +23630,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__891bbfb18f28ad0e126fb601487c3f8d832335dc82815034e4010c1079178181)
+            type_hints = cached_type_hints(_typecheckingstub__891bbfb18f28ad0e126fb601487c3f8d832335dc82815034e4010c1079178181)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RedditOAuth2CredentialProviderProps(
@@ -23644,7 +23666,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b73f6d51e0a5afd2f55825297c1e190345cc02bb055b71bdb1e09a4a6fe3609)
+            type_hints = cached_type_hints(_typecheckingstub__3b73f6d51e0a5afd2f55825297c1e190345cc02bb055b71bdb1e09a4a6fe3609)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SalesforceOAuth2CredentialProviderProps(
@@ -23680,7 +23702,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7947e10fbc44c03682ac4401855902e2b0fea9763ed175fd98390ff513c735f9)
+            type_hints = cached_type_hints(_typecheckingstub__7947e10fbc44c03682ac4401855902e2b0fea9763ed175fd98390ff513c735f9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SlackOAuth2CredentialProviderProps(
@@ -23717,7 +23739,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bd7b725c496311229d00c69605b0d3a1a33c2e33c47fcd8bda9ad01cd375a1b)
+            type_hints = cached_type_hints(_typecheckingstub__3bd7b725c496311229d00c69605b0d3a1a33c2e33c47fcd8bda9ad01cd375a1b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SpotifyOAuth2CredentialProviderProps(
@@ -23754,7 +23776,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c01fea3ef8bde4d5c599803b2bdcdc8c2c4b8e74653dfddfaa7cb674c9c5488e)
+            type_hints = cached_type_hints(_typecheckingstub__c01fea3ef8bde4d5c599803b2bdcdc8c2c4b8e74653dfddfaa7cb674c9c5488e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TwitchOAuth2CredentialProviderProps(
@@ -23791,7 +23813,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54666f101a64a9ed1a63985e2dd766d24d0cb3f24f75552a22cbfb72db0a3f0d)
+            type_hints = cached_type_hints(_typecheckingstub__54666f101a64a9ed1a63985e2dd766d24d0cb3f24f75552a22cbfb72db0a3f0d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = XOAuth2CredentialProviderProps(
@@ -23828,7 +23850,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dc58e37a9e8c0931bbd0cb8285a8e86ae4d74696738b94b54f3230e384bce8f)
+            type_hints = cached_type_hints(_typecheckingstub__8dc58e37a9e8c0931bbd0cb8285a8e86ae4d74696738b94b54f3230e384bce8f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = YandexOAuth2CredentialProviderProps(
@@ -23865,7 +23887,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bfb389d71619d74af7770f803d7106b498c89660d132940665e70acdf53badd)
+            type_hints = cached_type_hints(_typecheckingstub__4bfb389d71619d74af7770f803d7106b498c89660d132940665e70acdf53badd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ZoomOAuth2CredentialProviderProps(
@@ -23891,7 +23913,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e032e4464402cb18a9d3f03ebdf3f9554187957807f57f6272273bbbe0d2586b)
+            type_hints = cached_type_hints(_typecheckingstub__e032e4464402cb18a9d3f03ebdf3f9554187957807f57f6272273bbbe0d2586b)
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument custom_parameters", value=custom_parameters, expected_type=type_hints["custom_parameters"])
         return typing.cast("GatewayOAuth2IdentityBinding", jsii.invoke(self, "bindForGatewayOAuthTarget", [scopes, custom_parameters]))
@@ -23910,7 +23932,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d59b5102bff017db495e9bf429534b44bae47a2e2188a08a2874bc03679d7ee)
+            type_hints = cached_type_hints(_typecheckingstub__0d59b5102bff017db495e9bf429534b44bae47a2e2188a08a2874bc03679d7ee)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -23927,7 +23949,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77c7e4d0f8db833219a8340cfe25eb7bb26a913510f382ae8e2c61468493c77f)
+            type_hints = cached_type_hints(_typecheckingstub__77c7e4d0f8db833219a8340cfe25eb7bb26a913510f382ae8e2c61468493c77f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -23943,7 +23965,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d0329b4b46e3a2b4c70265c25408aaa602f0a779588c6ba7eef0722a1007ab3)
+            type_hints = cached_type_hints(_typecheckingstub__6d0329b4b46e3a2b4c70265c25408aaa602f0a779588c6ba7eef0722a1007ab3)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -23959,7 +23981,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2a6cb0f02440fb06555ee4e547aff6c3a14a8a9bde2b73c22e1b642e264cd9)
+            type_hints = cached_type_hints(_typecheckingstub__ad2a6cb0f02440fb06555ee4e547aff6c3a14a8a9bde2b73c22e1b642e264cd9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -23975,7 +23997,7 @@ class OAuth2CredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e16e25ba85c289f200eed5ce6e4f6254a58f4159117c86a64fe13d0dbc79680)
+            type_hints = cached_type_hints(_typecheckingstub__1e16e25ba85c289f200eed5ce6e4f6254a58f4159117c86a64fe13d0dbc79680)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -24130,7 +24152,7 @@ class OAuth2CredentialProviderAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b92bb09416d724eaed2eafa8846eae6f227ab3ed0cdba31a2a0074397f3b479)
+            type_hints = cached_type_hints(_typecheckingstub__6b92bb09416d724eaed2eafa8846eae6f227ab3ed0cdba31a2a0074397f3b479)
             check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
             check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
             check_type(argname="argument callback_url", value=callback_url, expected_type=type_hints["callback_url"])
@@ -24265,7 +24287,7 @@ class OAuth2CredentialProviderBaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41ec372d7f18c7e5f2a0c115f27aac555018aa7f9351186823f5de32a6590be5)
+            type_hints = cached_type_hints(_typecheckingstub__41ec372d7f18c7e5f2a0c115f27aac555018aa7f9351186823f5de32a6590be5)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -24363,7 +24385,7 @@ class OAuth2CredentialProviderFactoryBaseProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65aaddb30823d617d6a90c5d50440a4bde7f94a8eca4e84754358dbf99b955bc)
+            type_hints = cached_type_hints(_typecheckingstub__65aaddb30823d617d6a90c5d50440a4bde7f94a8eca4e84754358dbf99b955bc)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -24688,7 +24710,7 @@ class OAuth2CredentialProviderProps:
         if isinstance(oauth2_provider_config_input, dict):
             oauth2_provider_config_input = _aws_cdk_aws_bedrockagentcore_ceddda9d.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(**oauth2_provider_config_input)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76d0f9cb6797bdc8a2cdcc6618ea1b6254eff9a273d2846fd016ec0a7b6f957c)
+            type_hints = cached_type_hints(_typecheckingstub__76d0f9cb6797bdc8a2cdcc6618ea1b6254eff9a273d2846fd016ec0a7b6f957c)
             check_type(argname="argument credential_provider_vendor", value=credential_provider_vendor, expected_type=type_hints["credential_provider_vendor"])
             check_type(argname="argument oauth2_provider_config_input", value=oauth2_provider_config_input, expected_type=type_hints["oauth2_provider_config_input"])
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
@@ -24946,7 +24968,7 @@ class OAuthConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0137f5a762bb8c7a6492963f354c75cc86adeb6d1bf737ed28f0e801c65264e7)
+            type_hints = cached_type_hints(_typecheckingstub__0137f5a762bb8c7a6492963f354c75cc86adeb6d1bf737ed28f0e801c65264e7)
             check_type(argname="argument provider_arn", value=provider_arn, expected_type=type_hints["provider_arn"])
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
@@ -25062,7 +25084,7 @@ class OnlineEvaluationBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16d18d1e12d843a3477575d4c9cae4dd9756a53c9b53eedfc94c9ceb67118467)
+            type_hints = cached_type_hints(_typecheckingstub__16d18d1e12d843a3477575d4c9cae4dd9756a53c9b53eedfc94c9ceb67118467)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -25092,7 +25114,7 @@ class OnlineEvaluationBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__240768cbaa5502face56b15e91d6da9d9303ba2b2614d308a2b1f25c38caef14)
+            type_hints = cached_type_hints(_typecheckingstub__240768cbaa5502face56b15e91d6da9d9303ba2b2614d308a2b1f25c38caef14)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -25361,7 +25383,7 @@ class OnlineEvaluationBaseProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__970ac25b691a4147925cb3f72a1e5836736377b42f56f02e5ed5055c38c49a79)
+            type_hints = cached_type_hints(_typecheckingstub__970ac25b691a4147925cb3f72a1e5836736377b42f56f02e5ed5055c38c49a79)
             check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
@@ -25552,7 +25574,7 @@ class OnlineEvaluationConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1001024a6ebb29b0c624ada92131a16222ac1ee29a1d16766472f0fd9797e4cd)
+            type_hints = cached_type_hints(_typecheckingstub__1001024a6ebb29b0c624ada92131a16222ac1ee29a1d16766472f0fd9797e4cd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OnlineEvaluationConfigProps(
@@ -25589,7 +25611,7 @@ class OnlineEvaluationConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ea2026290719019990cbfbaa609785c437acf3cec5b40b35eb11cb93038f95e)
+            type_hints = cached_type_hints(_typecheckingstub__8ea2026290719019990cbfbaa609785c437acf3cec5b40b35eb11cb93038f95e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument online_evaluation_config_arn", value=online_evaluation_config_arn, expected_type=type_hints["online_evaluation_config_arn"])
@@ -25621,7 +25643,7 @@ class OnlineEvaluationConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e7de32c1aa50ae096893de3be988353a2a498af8550f11bee28bc1394a596d1)
+            type_hints = cached_type_hints(_typecheckingstub__2e7de32c1aa50ae096893de3be988353a2a498af8550f11bee28bc1394a596d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = OnlineEvaluationConfigAttributes(
@@ -25652,7 +25674,7 @@ class OnlineEvaluationConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba35fda4e4afbd41fa655640a8da12da8850b83e599da7efba7dedf7ae6c1044)
+            type_hints = cached_type_hints(_typecheckingstub__ba35fda4e4afbd41fa655640a8da12da8850b83e599da7efba7dedf7ae6c1044)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument online_evaluation_config_id", value=online_evaluation_config_id, expected_type=type_hints["online_evaluation_config_id"])
@@ -25802,7 +25824,7 @@ class OnlineEvaluationConfigAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c95b2947373e88076563859403fe3b0d8775317bd89a468f0feb369e7c52ea)
+            type_hints = cached_type_hints(_typecheckingstub__12c95b2947373e88076563859403fe3b0d8775317bd89a468f0feb369e7c52ea)
             check_type(argname="argument online_evaluation_config_arn", value=online_evaluation_config_arn, expected_type=type_hints["online_evaluation_config_arn"])
             check_type(argname="argument online_evaluation_config_id", value=online_evaluation_config_id, expected_type=type_hints["online_evaluation_config_id"])
             check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
@@ -25945,7 +25967,7 @@ class OnlineEvaluationConfigProps(OnlineEvaluationBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27dc1427f4bb35e3053a69ca483a3ec825bc727691876fdf50ffeda9fc19d50e)
+            type_hints = cached_type_hints(_typecheckingstub__27dc1427f4bb35e3053a69ca483a3ec825bc727691876fdf50ffeda9fc19d50e)
             check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
@@ -26156,7 +26178,7 @@ class OpenApiTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5d584ae2ddb75a04e46178daac1161fd4ca699460fa3e37b50ee175942774e1)
+            type_hints = cached_type_hints(_typecheckingstub__f5d584ae2ddb75a04e46178daac1161fd4ca699460fa3e37b50ee175942774e1)
             check_type(argname="argument api_schema", value=api_schema, expected_type=type_hints["api_schema"])
             check_type(argname="argument validate_schema", value=validate_schema, expected_type=type_hints["validate_schema"])
         jsii.create(self.__class__, self, [api_schema, validate_schema])
@@ -26178,7 +26200,7 @@ class OpenApiTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c6e0f5fb3b8efb1ebcb2141207f25ecaf08801e55e15ae93744d8756fd5f8b5)
+            type_hints = cached_type_hints(_typecheckingstub__5c6e0f5fb3b8efb1ebcb2141207f25ecaf08801e55e15ae93744d8756fd5f8b5)
             check_type(argname="argument api_schema", value=api_schema, expected_type=type_hints["api_schema"])
             check_type(argname="argument validate_schema", value=validate_schema, expected_type=type_hints["validate_schema"])
         return typing.cast("OpenApiTargetConfiguration", jsii.sinvoke(cls, "create", [api_schema, validate_schema]))
@@ -26197,7 +26219,7 @@ class OpenApiTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09d986621af9eaeccef5c536287dd5103e4b82486822b82c289a1dddd5fdf756)
+            type_hints = cached_type_hints(_typecheckingstub__09d986621af9eaeccef5c536287dd5103e4b82486822b82c289a1dddd5fdf756)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -26266,7 +26288,7 @@ class OverrideConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3dfe3652e8566d6eb013039b79337022b12d64febe65e86a809b46dff375947)
+            type_hints = cached_type_hints(_typecheckingstub__b3dfe3652e8566d6eb013039b79337022b12d64febe65e86a809b46dff375947)
             check_type(argname="argument append_to_prompt", value=append_to_prompt, expected_type=type_hints["append_to_prompt"])
             check_type(argname="argument model", value=model, expected_type=type_hints["model"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -26349,7 +26371,7 @@ class PolicyAttributes:
             imported_policy.grant_read(role)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a349c59b6a28e8c6a9bfb6287b4772bbc5cb59029c08ede4e4dd98ab2a300301)
+            type_hints = cached_type_hints(_typecheckingstub__a349c59b6a28e8c6a9bfb6287b4772bbc5cb59029c08ede4e4dd98ab2a300301)
             check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
             check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -26423,7 +26445,7 @@ class PolicyBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7d80c72df117beffdb5fa2062373d47765a93cd8f2290374234ba017e392c08)
+            type_hints = cached_type_hints(_typecheckingstub__f7d80c72df117beffdb5fa2062373d47765a93cd8f2290374234ba017e392c08)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -26453,7 +26475,7 @@ class PolicyBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__513937dbc4ae96a58c739eb9d0b3351508ef2c7a54c20cb26d98c6739b8e9225)
+            type_hints = cached_type_hints(_typecheckingstub__513937dbc4ae96a58c739eb9d0b3351508ef2c7a54c20cb26d98c6739b8e9225)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -26482,7 +26504,7 @@ class PolicyBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e413208486f080a8a19ffe7a93f7e19d74a3a5539aa04172d9ccd45d4170df3e)
+            type_hints = cached_type_hints(_typecheckingstub__e413208486f080a8a19ffe7a93f7e19d74a3a5539aa04172d9ccd45d4170df3e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -26528,7 +26550,7 @@ class PolicyBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a8bc8fd6b9f95f4761d8cd71d54145fdf9a0a46975f4a7a23e4ff9bd6cf8e10)
+            type_hints = cached_type_hints(_typecheckingstub__6a8bc8fd6b9f95f4761d8cd71d54145fdf9a0a46975f4a7a23e4ff9bd6cf8e10)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -26841,7 +26863,7 @@ class PolicyEngineAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15903847864dfa4ba0fb9644cd35e68d31e4a0bc382c6328f11c375e29c82184)
+            type_hints = cached_type_hints(_typecheckingstub__15903847864dfa4ba0fb9644cd35e68d31e4a0bc382c6328f11c375e29c82184)
             check_type(argname="argument policy_engine_arn", value=policy_engine_arn, expected_type=type_hints["policy_engine_arn"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -26917,7 +26939,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b833461b581a40cfbff65b497cab7ffd8a1a9ea8a526357b52abfdf2d02d9a6)
+            type_hints = cached_type_hints(_typecheckingstub__1b833461b581a40cfbff65b497cab7ffd8a1a9ea8a526357b52abfdf2d02d9a6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -26947,7 +26969,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__115be8ff5ce162ce863e43ee462116a9e04be35f2c07165c87f0b9982abf85db)
+            type_hints = cached_type_hints(_typecheckingstub__115be8ff5ce162ce863e43ee462116a9e04be35f2c07165c87f0b9982abf85db)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -26972,7 +26994,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f757ae7ed9b5ea6eff07664bffc5946a880b8ef47088200d9c206f2198ad476)
+            type_hints = cached_type_hints(_typecheckingstub__2f757ae7ed9b5ea6eff07664bffc5946a880b8ef47088200d9c206f2198ad476)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluate", [grantee]))
 
@@ -26999,7 +27021,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e4298fd9a5000914a5239bd2451e05845e5a861b0cdc12fe1b9f05e7793f8fe)
+            type_hints = cached_type_hints(_typecheckingstub__9e4298fd9a5000914a5239bd2451e05845e5a861b0cdc12fe1b9f05e7793f8fe)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantEvaluateForGateway", [grantee, gateway]))
@@ -27024,7 +27046,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb187ca9118ad519dcab9c8a34fb8a330b6d703cde2a550444bb6e13539658d6)
+            type_hints = cached_type_hints(_typecheckingstub__fb187ca9118ad519dcab9c8a34fb8a330b6d703cde2a550444bb6e13539658d6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -27070,7 +27092,7 @@ class PolicyEngineBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e28ab00ca545731b7d6e11787a86ffe9c84d06b5cf43be8fe7d4ee41a07632c)
+            type_hints = cached_type_hints(_typecheckingstub__7e28ab00ca545731b7d6e11787a86ffe9c84d06b5cf43be8fe7d4ee41a07632c)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -27497,7 +27519,7 @@ class PolicyEngineMode(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__622a324404fed6c321a67a3ac68e1f127641f97aaa5eb357ed2acb593cb7fc4b)
+            type_hints = cached_type_hints(_typecheckingstub__622a324404fed6c321a67a3ac68e1f127641f97aaa5eb357ed2acb593cb7fc4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -27579,7 +27601,7 @@ class PolicyEngineProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24140c33786b19b00228bcdaae493864733f9f0da75b482cc3f927ae89e0e56e)
+            type_hints = cached_type_hints(_typecheckingstub__24140c33786b19b00228bcdaae493864733f9f0da75b482cc3f927ae89e0e56e)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument policy_engine_name", value=policy_engine_name, expected_type=type_hints["policy_engine_name"])
@@ -27714,7 +27736,7 @@ class PolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8363fb4096a59944f0d2f98a244709dc4327c371267fab92dfac96359309ab18)
+            type_hints = cached_type_hints(_typecheckingstub__8363fb4096a59944f0d2f98a244709dc4327c371267fab92dfac96359309ab18)
             check_type(argname="argument policy_engine", value=policy_engine, expected_type=type_hints["policy_engine"])
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -27903,7 +27925,7 @@ class PolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22557703ec55a600948cd6747e04f25b3aafc3397b0c95357b8cd4d3b209f045)
+            type_hints = cached_type_hints(_typecheckingstub__22557703ec55a600948cd6747e04f25b3aafc3397b0c95357b8cd4d3b209f045)
             check_type(argname="argument cedar_statement", value=cedar_statement, expected_type=type_hints["cedar_statement"])
         return typing.cast("PolicyStatement", jsii.sinvoke(cls, "fromCedar", [cedar_statement]))
 
@@ -27945,7 +27967,7 @@ class PolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9dbf9cd610a7752ff740eb9c965493e5eab437a9d2eb0f5f7141874b547061e6)
+            type_hints = cached_type_hints(_typecheckingstub__9dbf9cd610a7752ff740eb9c965493e5eab437a9d2eb0f5f7141874b547061e6)
             check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
             check_type(argname="argument entity_id", value=entity_id, expected_type=type_hints["entity_id"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "forPrincipal", [entity_type, entity_id]))
@@ -27966,7 +27988,7 @@ class PolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea07f89b2ecd68d587bc1ff6116ed9784fdb3999d6234f99477dbd42db4751c2)
+            type_hints = cached_type_hints(_typecheckingstub__ea07f89b2ecd68d587bc1ff6116ed9784fdb3999d6234f99477dbd42db4751c2)
             check_type(argname="argument group_type", value=group_type, expected_type=type_hints["group_type"])
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "forPrincipalInGroup", [group_type, group_id]))
@@ -27982,7 +28004,7 @@ class PolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__129e559145fecf5e9b9e27089816cc1576480472c9869380127c9a003c75345c)
+            type_hints = cached_type_hints(_typecheckingstub__129e559145fecf5e9b9e27089816cc1576480472c9869380127c9a003c75345c)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "onAction", [action]))
 
@@ -27997,7 +28019,7 @@ class PolicyStatement(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27f4cb6794d3ea842578b1a2cfc77dc9ad17053a54a5ae656a4a8efa0b7edbca)
+            type_hints = cached_type_hints(_typecheckingstub__27f4cb6794d3ea842578b1a2cfc77dc9ad17053a54a5ae656a4a8efa0b7edbca)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "onActions", [actions]))
 
@@ -28040,7 +28062,7 @@ class PolicyStatement(
             PolicyStatement.permit().for_all_principals().on_all_actions().on_all_resources("AgentCore::Runtime")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d43adf2799cf9a34de0961a8ae26a80f34f04195e2ba006e94aff82cdbdada6)
+            type_hints = cached_type_hints(_typecheckingstub__3d43adf2799cf9a34de0961a8ae26a80f34f04195e2ba006e94aff82cdbdada6)
             check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "onAllResources", [entity_type]))
 
@@ -28071,7 +28093,7 @@ class PolicyStatement(
             PolicyStatement.forbid().for_all_principals().on_action("AgentCore::Action::Delete").on_resource("AgentCore::Gateway", gateway_arn)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05401a9b1108cf76784603ece6acaee8e9c23afc00d798d76ea53029f0686c2d)
+            type_hints = cached_type_hints(_typecheckingstub__05401a9b1108cf76784603ece6acaee8e9c23afc00d798d76ea53029f0686c2d)
             check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
             check_type(argname="argument entity_arn", value=entity_arn, expected_type=type_hints["entity_arn"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "onResource", [entity_type, entity_arn]))
@@ -28097,7 +28119,7 @@ class PolicyStatement(
             PolicyStatement.permit().for_all_principals().on_all_actions().on_resource_type("AgentCore::Gateway")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56659c2ecdc209115a5701a8e2946f591513814f7adb983832abe5cc4b341c73)
+            type_hints = cached_type_hints(_typecheckingstub__56659c2ecdc209115a5701a8e2946f591513814f7adb983832abe5cc4b341c73)
             check_type(argname="argument entity_type", value=entity_type, expected_type=type_hints["entity_type"])
         return typing.cast("PolicyStatement", jsii.invoke(self, "onResourceType", [entity_type]))
 
@@ -28175,7 +28197,7 @@ class PolicyValidationMode(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__722bffc4dbcac5d09b1c8e417ac1d75b0072e92c62151a5841c8bc621b6d3b48)
+            type_hints = cached_type_hints(_typecheckingstub__722bffc4dbcac5d09b1c8e417ac1d75b0072e92c62151a5841c8bc621b6d3b48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -28286,7 +28308,7 @@ class RecordingConfig:
         if isinstance(s3_location, dict):
             s3_location = _aws_cdk_aws_s3_ceddda9d.Location(**s3_location)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__847016f3fc41e4cdc9b08f4aeed6b6521f23c2c1ef8b55de56db5d14f7dbdc82)
+            type_hints = cached_type_hints(_typecheckingstub__847016f3fc41e4cdc9b08f4aeed6b6521f23c2c1ef8b55de56db5d14f7dbdc82)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -28382,7 +28404,7 @@ class RedditOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cdcb3e2e6a1cdf98a43e7eac183481e9916bfe4043ca4d7f7caa4f4911a990)
+            type_hints = cached_type_hints(_typecheckingstub__37cdcb3e2e6a1cdf98a43e7eac183481e9916bfe4043ca4d7f7caa4f4911a990)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -28487,7 +28509,7 @@ class RequestHeaderConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__580049ddd6c3ba1c5e7bfe52880d960f0b7040637b9f17bfa50974adb8500a69)
+            type_hints = cached_type_hints(_typecheckingstub__580049ddd6c3ba1c5e7bfe52880d960f0b7040637b9f17bfa50974adb8500a69)
             check_type(argname="argument allowlisted_headers", value=allowlisted_headers, expected_type=type_hints["allowlisted_headers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allowlisted_headers is not None:
@@ -28574,7 +28596,7 @@ class RuntimeAuthorizerConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b924023484b6dec8c84698f52f4e325bbda80efa65704ec656d07d774f0f360a)
+            type_hints = cached_type_hints(_typecheckingstub__b924023484b6dec8c84698f52f4e325bbda80efa65704ec656d07d774f0f360a)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument user_pool_clients", value=user_pool_clients, expected_type=type_hints["user_pool_clients"])
             check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
@@ -28620,7 +28642,7 @@ class RuntimeAuthorizerConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac01ece0cc4140cb0b2a31ed95c6b9e03284a2363131d8f59958f4506fdec5f)
+            type_hints = cached_type_hints(_typecheckingstub__9ac01ece0cc4140cb0b2a31ed95c6b9e03284a2363131d8f59958f4506fdec5f)
             check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
             check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
             check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
@@ -28651,7 +28673,7 @@ class RuntimeAuthorizerConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0b8de9eb8f6b27c5ad0708ddadcf0e5e78987856a5b94b421cb1abbcc761229)
+            type_hints = cached_type_hints(_typecheckingstub__a0b8de9eb8f6b27c5ad0708ddadcf0e5e78987856a5b94b421cb1abbcc761229)
             check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
@@ -28701,7 +28723,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16350f8e803148ae58824c157d92d6b5b360c3802a4018cc1e88f99466e7fa95)
+            type_hints = cached_type_hints(_typecheckingstub__16350f8e803148ae58824c157d92d6b5b360c3802a4018cc1e88f99466e7fa95)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -28727,7 +28749,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7231f6dcdd2551159f4e644a7b39271f091fade67469f9bf285044a8c4c90b60)
+            type_hints = cached_type_hints(_typecheckingstub__7231f6dcdd2551159f4e644a7b39271f091fade67469f9bf285044a8c4c90b60)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("IBedrockAgentRuntime", jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -28749,7 +28771,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87eb6e84d44b507957213f90c634b593ff68893ef29137a6154e73fa53e18e18)
+            type_hints = cached_type_hints(_typecheckingstub__87eb6e84d44b507957213f90c634b593ff68893ef29137a6154e73fa53e18e18)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [actions, resources]))
@@ -28768,7 +28790,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f464dbb8ec8dc44c2f152bffa0fe6b7e25a72226db47d4575639ab76a3ee504b)
+            type_hints = cached_type_hints(_typecheckingstub__f464dbb8ec8dc44c2f152bffa0fe6b7e25a72226db47d4575639ab76a3ee504b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
 
@@ -28786,7 +28808,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23262a416c2bde8ca6024d06971509afa97486440111e79dfae8c143d05ed9be)
+            type_hints = cached_type_hints(_typecheckingstub__23262a416c2bde8ca6024d06971509afa97486440111e79dfae8c143d05ed9be)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvokeRuntime", [grantee]))
 
@@ -28804,7 +28826,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__894ad60671ea950414fd0416fead36cee5e0bc1348fcb31b422ba8e37ea00c08)
+            type_hints = cached_type_hints(_typecheckingstub__894ad60671ea950414fd0416fead36cee5e0bc1348fcb31b422ba8e37ea00c08)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvokeRuntimeForUser", [grantee]))
 
@@ -28850,7 +28872,7 @@ class RuntimeBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6a2aba3c163e6d2d8cfa3127ef4170f55abf85a15cea83297552f1fe625776d)
+            type_hints = cached_type_hints(_typecheckingstub__f6a2aba3c163e6d2d8cfa3127ef4170f55abf85a15cea83297552f1fe625776d)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -29576,7 +29598,7 @@ class RuntimeCustomClaim(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c376f20b5799d95115b47d9ce900c5d7d3a9e6086d775210efe972eaa1dc3b73)
+            type_hints = cached_type_hints(_typecheckingstub__c376f20b5799d95115b47d9ce900c5d7d3a9e6086d775210efe972eaa1dc3b73)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
@@ -29601,7 +29623,7 @@ class RuntimeCustomClaim(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f9e2a1d70fee90cf36d5ba4e3ee290db4f1d24d444a124a37ef23f41c49ead3)
+            type_hints = cached_type_hints(_typecheckingstub__6f9e2a1d70fee90cf36d5ba4e3ee290db4f1d24d444a124a37ef23f41c49ead3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("RuntimeCustomClaim", jsii.sinvoke(cls, "withStringValue", [name, value]))
@@ -29678,7 +29700,7 @@ class RuntimeEndpointAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8f995850b550d0ef0b0c5967813f910df0c54b53b6273e50eef58f9c9a599ff)
+            type_hints = cached_type_hints(_typecheckingstub__d8f995850b550d0ef0b0c5967813f910df0c54b53b6273e50eef58f9c9a599ff)
             check_type(argname="argument agent_runtime_arn", value=agent_runtime_arn, expected_type=type_hints["agent_runtime_arn"])
             check_type(argname="argument agent_runtime_endpoint_arn", value=agent_runtime_endpoint_arn, expected_type=type_hints["agent_runtime_endpoint_arn"])
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
@@ -29862,7 +29884,7 @@ class RuntimeEndpointBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07caa672d91c2d444bbd6350d0c5232e8b425f0f99ff16fa910ac554ef216410)
+            type_hints = cached_type_hints(_typecheckingstub__07caa672d91c2d444bbd6350d0c5232e8b425f0f99ff16fa910ac554ef216410)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -30099,7 +30121,7 @@ class RuntimeEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7edf14b5674c2c3647a66c54aa24ffa82abf23b571539cd8f02aa354e64da16a)
+            type_hints = cached_type_hints(_typecheckingstub__7edf14b5674c2c3647a66c54aa24ffa82abf23b571539cd8f02aa354e64da16a)
             check_type(argname="argument agent_runtime_id", value=agent_runtime_id, expected_type=type_hints["agent_runtime_id"])
             check_type(argname="argument agent_runtime_version", value=agent_runtime_version, expected_type=type_hints["agent_runtime_version"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -30228,7 +30250,7 @@ class RuntimeNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3fca872b84d08855284949a94ef7ceab6679568661613e4224125dbf7add5d5)
+            type_hints = cached_type_hints(_typecheckingstub__f3fca872b84d08855284949a94ef7ceab6679568661613e4224125dbf7add5d5)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
@@ -30280,7 +30302,7 @@ class RuntimeNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b65f23ce4df9170ab1ea5e330f24e42113b36afa69e504b887bda27e2e0919b)
+            type_hints = cached_type_hints(_typecheckingstub__5b65f23ce4df9170ab1ea5e330f24e42113b36afa69e504b887bda27e2e0919b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
             vpc=vpc,
@@ -30400,7 +30422,7 @@ class RuntimeProps:
         if isinstance(request_header_configuration, dict):
             request_header_configuration = RequestHeaderConfiguration(**request_header_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e60d912f60dcec4a97a088e67e9b6da136fd8fbd51038c0380995a1946e1724f)
+            type_hints = cached_type_hints(_typecheckingstub__e60d912f60dcec4a97a088e67e9b6da136fd8fbd51038c0380995a1946e1724f)
             check_type(argname="argument agent_runtime_artifact", value=agent_runtime_artifact, expected_type=type_hints["agent_runtime_artifact"])
             check_type(argname="argument authorizer_configuration", value=authorizer_configuration, expected_type=type_hints["authorizer_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -30651,7 +30673,7 @@ class S3ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__779b8c88ed245fc53b9b065c11f214c0ad6de452eebea37403c1c184ffdd9bbf)
+            type_hints = cached_type_hints(_typecheckingstub__779b8c88ed245fc53b9b065c11f214c0ad6de452eebea37403c1c184ffdd9bbf)
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
         jsii.create(self.__class__, self, [location, bucket_owner_account_id])
@@ -30665,7 +30687,7 @@ class S3ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64e4b34188c85d02d53ebfb3b05050fb793fac7054a6bc6bbbe5f46a06b7712d)
+            type_hints = cached_type_hints(_typecheckingstub__64e4b34188c85d02d53ebfb3b05050fb793fac7054a6bc6bbbe5f46a06b7712d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -30681,7 +30703,7 @@ class S3ApiSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af45300a7285ae4d341d7fdb6a3209c188e6422aa23d931b66320d403194ae40)
+            type_hints = cached_type_hints(_typecheckingstub__af45300a7285ae4d341d7fdb6a3209c188e6422aa23d931b66320d403194ae40)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -30747,7 +30769,7 @@ class SalesforceOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBas
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f561657c3f559914a4fae5d8177f1cc9c1e667b404ecf277a18da36930726d04)
+            type_hints = cached_type_hints(_typecheckingstub__f561657c3f559914a4fae5d8177f1cc9c1e667b404ecf277a18da36930726d04)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -30878,7 +30900,7 @@ class SchemaDefinition:
         if isinstance(items, dict):
             items = SchemaDefinition(**items)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdb97586fb0bb9932fd6f71a09b2eee6eb606632f26e23585aa4d54c6a464298)
+            type_hints = cached_type_hints(_typecheckingstub__bdb97586fb0bb9932fd6f71a09b2eee6eb606632f26e23585aa4d54c6a464298)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument items", value=items, expected_type=type_hints["items"])
@@ -31084,7 +31106,7 @@ class SelfManagedMemoryStrategy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__188ac6000401e2d39206f8bbeab856bca92c12af2135f85632e30611238f3ea6)
+            type_hints = cached_type_hints(_typecheckingstub__188ac6000401e2d39206f8bbeab856bca92c12af2135f85632e30611238f3ea6)
             check_type(argname="argument strategy_type", value=strategy_type, expected_type=type_hints["strategy_type"])
         props = SelfManagedStrategyProps(
             invocation_configuration=invocation_configuration,
@@ -31112,7 +31134,7 @@ class SelfManagedMemoryStrategy(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f97328d30e65eff0ed4b3734cf9226ca12826a94fecee765dbba85c70b4b3635)
+            type_hints = cached_type_hints(_typecheckingstub__f97328d30e65eff0ed4b3734cf9226ca12826a94fecee765dbba85c70b4b3635)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.Grant"], jsii.invoke(self, "grant", [grantee]))
 
@@ -31253,7 +31275,7 @@ class SelfManagedStrategyProps(MemoryStrategyCommonProps):
         if isinstance(trigger_conditions, dict):
             trigger_conditions = TriggerConditions(**trigger_conditions)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbcf3bdd0c9f8eaadddbc029d9f0a9dece8550883bffe0164f389e25d3629630)
+            type_hints = cached_type_hints(_typecheckingstub__bbcf3bdd0c9f8eaadddbc029d9f0a9dece8550883bffe0164f389e25d3629630)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument invocation_configuration", value=invocation_configuration, expected_type=type_hints["invocation_configuration"])
@@ -31389,7 +31411,7 @@ class SlackOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProp
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__800c9b5c6e06c467259e8ea202d262c086a1340a228c5974519cdd33005117eb)
+            type_hints = cached_type_hints(_typecheckingstub__800c9b5c6e06c467259e8ea202d262c086a1340a228c5974519cdd33005117eb)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -31496,7 +31518,7 @@ class SmithyTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__920dd4eda9daa9ec955e6b528f8743f99465b49b642e1a2c4aa507eb02e10cb1)
+            type_hints = cached_type_hints(_typecheckingstub__920dd4eda9daa9ec955e6b528f8743f99465b49b642e1a2c4aa507eb02e10cb1)
             check_type(argname="argument smithy_model", value=smithy_model, expected_type=type_hints["smithy_model"])
         jsii.create(self.__class__, self, [smithy_model])
 
@@ -31512,7 +31534,7 @@ class SmithyTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f83d6cae9030d6f192462c14af1d60c6c7f32a326d2d24bf74c768b95e99ec02)
+            type_hints = cached_type_hints(_typecheckingstub__f83d6cae9030d6f192462c14af1d60c6c7f32a326d2d24bf74c768b95e99ec02)
             check_type(argname="argument smithy_model", value=smithy_model, expected_type=type_hints["smithy_model"])
         return typing.cast("SmithyTargetConfiguration", jsii.sinvoke(cls, "create", [smithy_model]))
 
@@ -31530,7 +31552,7 @@ class SmithyTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd61ba8fbb228693cde2889178f9e75de4d15155e88212e1d39686b3a3282fea)
+            type_hints = cached_type_hints(_typecheckingstub__cd61ba8fbb228693cde2889178f9e75de4d15155e88212e1d39686b3a3282fea)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -31615,7 +31637,7 @@ class SpotifyOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePr
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__244433bb5f373968b3afad13e68470e940299c0fe183d84fb63d3232f8b6e223)
+            type_hints = cached_type_hints(_typecheckingstub__244433bb5f373968b3afad13e68470e940299c0fe183d84fb63d3232f8b6e223)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -31716,7 +31738,7 @@ class TargetConfigurationConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78dcfb904205e4737296340f744e1ba9af33e5ecea0c192aa4b1f9f5a5b25eb7)
+            type_hints = cached_type_hints(_typecheckingstub__78dcfb904205e4737296340f744e1ba9af33e5ecea0c192aa4b1f9f5a5b25eb7)
             check_type(argname="argument bound", value=bound, expected_type=type_hints["bound"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bound": bound,
@@ -31817,7 +31839,7 @@ class ToolDefinition:
         if isinstance(output_schema, dict):
             output_schema = SchemaDefinition(**output_schema)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__446931f46606178b092548c7286abfb79c37b222a21ad1d9aa514bb5e21f537e)
+            type_hints = cached_type_hints(_typecheckingstub__446931f46606178b092548c7286abfb79c37b222a21ad1d9aa514bb5e21f537e)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument input_schema", value=input_schema, expected_type=type_hints["input_schema"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -31925,7 +31947,7 @@ class ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27f91ec31ee5e8e834ed6688616b9f0b84ea6b4636d89f2b9e404b2830d3d27b)
+            type_hints = cached_type_hints(_typecheckingstub__27f91ec31ee5e8e834ed6688616b9f0b84ea6b4636d89f2b9e404b2830d3d27b)
             check_type(argname="argument s3_file", value=s3_file, expected_type=type_hints["s3_file"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
             check_type(argname="argument inline_schema", value=inline_schema, expected_type=type_hints["inline_schema"])
@@ -31944,7 +31966,7 @@ class ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc0950acb2fb45d92c80c49bdb62822e4feb663903bc3a21f8e93367b8009eb)
+            type_hints = cached_type_hints(_typecheckingstub__adc0950acb2fb45d92c80c49bdb62822e4feb663903bc3a21f8e93367b8009eb)
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
         return typing.cast("InlineToolSchema", jsii.sinvoke(cls, "fromInline", [schema]))
 
@@ -31958,7 +31980,7 @@ class ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a1d60e805bc4ebe5e9f067be0f9420dddf15bdb472eb785e131e1baf30a58fe)
+            type_hints = cached_type_hints(_typecheckingstub__0a1d60e805bc4ebe5e9f067be0f9420dddf15bdb472eb785e131e1baf30a58fe)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("ToolSchema", jsii.sinvoke(cls, "fromLocalAsset", [path]))
 
@@ -31979,7 +32001,7 @@ class ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c13abde6335200a5ba5535ad675f3ef4085a16749439b7e089063b71e9795fe)
+            type_hints = cached_type_hints(_typecheckingstub__7c13abde6335200a5ba5535ad675f3ef4085a16749439b7e089063b71e9795fe)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
@@ -32052,7 +32074,7 @@ class _ToolSchemaProxy(ToolSchema):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__504d9e9bea88c28fbd0bd82283405b2754ad78333a77fea0184c2dd6c2e961e0)
+            type_hints = cached_type_hints(_typecheckingstub__504d9e9bea88c28fbd0bd82283405b2754ad78333a77fea0184c2dd6c2e961e0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -32068,7 +32090,7 @@ class _ToolSchemaProxy(ToolSchema):
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c165b7919b006f036386e64c940fa59ba352c0cbf35d7d5b8b012102201f5ebb)
+            type_hints = cached_type_hints(_typecheckingstub__c165b7919b006f036386e64c940fa59ba352c0cbf35d7d5b8b012102201f5ebb)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -32118,7 +32140,7 @@ class TriggerConditions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__effa7c1822f5dd9bca17e2aca728718fe021317ef7ef3e7d41d4ea4fa5f2112a)
+            type_hints = cached_type_hints(_typecheckingstub__effa7c1822f5dd9bca17e2aca728718fe021317ef7ef3e7d41d4ea4fa5f2112a)
             check_type(argname="argument message_based_trigger", value=message_based_trigger, expected_type=type_hints["message_based_trigger"])
             check_type(argname="argument time_based_trigger", value=time_based_trigger, expected_type=type_hints["time_based_trigger"])
             check_type(argname="argument token_based_trigger", value=token_based_trigger, expected_type=type_hints["token_based_trigger"])
@@ -32230,7 +32252,7 @@ class TwitchOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bb2388a4032bbe27c20a7ba51d566aa647aa0187aa5d0f50a109852141d08ef)
+            type_hints = cached_type_hints(_typecheckingstub__8bb2388a4032bbe27c20a7ba51d566aa647aa0187aa5d0f50a109852141d08ef)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -32368,7 +32390,7 @@ class VpcConfigProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2116ad0a264d69770800f27d273a661a955fcb5c6c066f36456e9178f63d742d)
+            type_hints = cached_type_hints(_typecheckingstub__2116ad0a264d69770800f27d273a661a955fcb5c6c066f36456e9178f63d742d)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -32508,7 +32530,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97d10d0545496c8c9c667b9c81eb9e6f25aaff4583da3b03c2b669108acb28b0)
+            type_hints = cached_type_hints(_typecheckingstub__97d10d0545496c8c9c667b9c81eb9e6f25aaff4583da3b03c2b669108acb28b0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WorkloadIdentityProps(
@@ -32543,7 +32565,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c5527e44ebb753f7ba2d874a18b302072a97a67d23938245fb4fd04ad686eaa)
+            type_hints = cached_type_hints(_typecheckingstub__6c5527e44ebb753f7ba2d874a18b302072a97a67d23938245fb4fd04ad686eaa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = WorkloadIdentityAttributes(
@@ -32569,7 +32591,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43bdbdc7da4d68f12dbc579b18c1acc23b625a27cd8dd765656a85727a801c20)
+            type_hints = cached_type_hints(_typecheckingstub__43bdbdc7da4d68f12dbc579b18c1acc23b625a27cd8dd765656a85727a801c20)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -32586,7 +32608,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddd95a53889380a06f6d4fde4967fe82da9eb99bdcefb4b8e50abe574ccc25ad)
+            type_hints = cached_type_hints(_typecheckingstub__ddd95a53889380a06f6d4fde4967fe82da9eb99bdcefb4b8e50abe574ccc25ad)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -32602,7 +32624,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9651cfbf7de054f0574db1607ef9048aecadb059998182950568baed3d0778)
+            type_hints = cached_type_hints(_typecheckingstub__3e9651cfbf7de054f0574db1607ef9048aecadb059998182950568baed3d0778)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -32618,7 +32640,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62334996c840b1fd326709cdaf2f98a0b2bd39099ea17b8576c6047642e3503f)
+            type_hints = cached_type_hints(_typecheckingstub__62334996c840b1fd326709cdaf2f98a0b2bd39099ea17b8576c6047642e3503f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -32634,7 +32656,7 @@ class WorkloadIdentity(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26cb5659c65226d52bcbd2aeb3cd8f98952487db7178ca2f7df8400512b9e2d8)
+            type_hints = cached_type_hints(_typecheckingstub__26cb5659c65226d52bcbd2aeb3cd8f98952487db7178ca2f7df8400512b9e2d8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -32751,7 +32773,7 @@ class WorkloadIdentityAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38f72550bcd468e0131706bf76712997d8665b894571e9040e34b671747932f0)
+            type_hints = cached_type_hints(_typecheckingstub__38f72550bcd468e0131706bf76712997d8665b894571e9040e34b671747932f0)
             check_type(argname="argument workload_identity_arn", value=workload_identity_arn, expected_type=type_hints["workload_identity_arn"])
             check_type(argname="argument workload_identity_name", value=workload_identity_name, expected_type=type_hints["workload_identity_name"])
             check_type(argname="argument created_time", value=created_time, expected_type=type_hints["created_time"])
@@ -32924,7 +32946,7 @@ class WorkloadIdentityProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cbfee16270dcfda2115917d238574cfc6c4f48117d51e8892e1376aeb89c4f9)
+            type_hints = cached_type_hints(_typecheckingstub__4cbfee16270dcfda2115917d238574cfc6c4f48117d51e8892e1376aeb89c4f9)
             check_type(argname="argument allowed_resource_oauth2_return_urls", value=allowed_resource_oauth2_return_urls, expected_type=type_hints["allowed_resource_oauth2_return_urls"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument workload_identity_name", value=workload_identity_name, expected_type=type_hints["workload_identity_name"])
@@ -33036,7 +33058,7 @@ class XOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a2cca2927dc90aa6221511b13cb6b7f45b0e3eaee25422f5eeb7ad2a4adff41)
+            type_hints = cached_type_hints(_typecheckingstub__3a2cca2927dc90aa6221511b13cb6b7f45b0e3eaee25422f5eeb7ad2a4adff41)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -33163,7 +33185,7 @@ class YandexOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a1950cefe79cb4f6b897b8eae2ebd4352ec7e41d2db07b4f871b2ba6f7fc3f0)
+            type_hints = cached_type_hints(_typecheckingstub__2a1950cefe79cb4f6b897b8eae2ebd4352ec7e41d2db07b4f871b2ba6f7fc3f0)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -33290,7 +33312,7 @@ class ZoomOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseProps
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc436b400edca2e594dd6f8a6314abedf2490d48ef40597b9aaa80003c743ccc)
+            type_hints = cached_type_hints(_typecheckingstub__cc436b400edca2e594dd6f8a6314abedf2490d48ef40597b9aaa80003c743ccc)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -33495,7 +33517,7 @@ class ApiGatewayTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9282342bb9c34884dc49f8060426e332c76768c4bc7adff01066a0811f3a8ad)
+            type_hints = cached_type_hints(_typecheckingstub__d9282342bb9c34884dc49f8060426e332c76768c4bc7adff01066a0811f3a8ad)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [_scope, gateway]))
@@ -33608,7 +33630,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f6986dce2fbbb12cabb2c1c5fba24757781df13e551d4c784a01e2ec34c428a)
+            type_hints = cached_type_hints(_typecheckingstub__8f6986dce2fbbb12cabb2c1c5fba24757781df13e551d4c784a01e2ec34c428a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApiKeyCredentialProviderResourceProps(
@@ -33643,7 +33665,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30c6ce6080e85dab1afebfdc0b5f99b87c45be025364b795a4f6278a23e86d91)
+            type_hints = cached_type_hints(_typecheckingstub__30c6ce6080e85dab1afebfdc0b5f99b87c45be025364b795a4f6278a23e86d91)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApiKeyCredentialProviderAttributes(
@@ -33677,7 +33699,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77b751ecc45c4fc597e67b7ee9f81e867acc415ae00580b17cb9f91c9c8b86f9)
+            type_hints = cached_type_hints(_typecheckingstub__77b751ecc45c4fc597e67b7ee9f81e867acc415ae00580b17cb9f91c9c8b86f9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -33694,7 +33716,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8178fda67e0ff1a44e0790ff191d0aa2e9c69b844e3858ee2a13d55eb097e53b)
+            type_hints = cached_type_hints(_typecheckingstub__8178fda67e0ff1a44e0790ff191d0aa2e9c69b844e3858ee2a13d55eb097e53b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
@@ -33710,7 +33732,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a33d981c16148913df41ffb1543cf6bc44bf156f5536c6f7d8d89f3bc44c2b)
+            type_hints = cached_type_hints(_typecheckingstub__08a33d981c16148913df41ffb1543cf6bc44bf156f5536c6f7d8d89f3bc44c2b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantFullAccess", [grantee]))
 
@@ -33726,7 +33748,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7f4784bd2beb4149ce13c91361c3aad1028c63ac33adf084ccd84b617f1b6a5)
+            type_hints = cached_type_hints(_typecheckingstub__e7f4784bd2beb4149ce13c91361c3aad1028c63ac33adf084ccd84b617f1b6a5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -33742,7 +33764,7 @@ class ApiKeyCredentialProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8ceb67a6c391cac26c838a3031a722faefa266b4fe9cb054f1b922fe86528f9)
+            type_hints = cached_type_hints(_typecheckingstub__e8ceb67a6c391cac26c838a3031a722faefa266b4fe9cb054f1b922fe86528f9)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -33923,7 +33945,7 @@ class AssetToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20f2da3bdc8da39004c75dca98173fab633e899904e2d2a5960f73d9f57b1792)
+            type_hints = cached_type_hints(_typecheckingstub__20f2da3bdc8da39004c75dca98173fab633e899904e2d2a5960f73d9f57b1792)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
             deploy_time=deploy_time,
@@ -33952,7 +33974,7 @@ class AssetToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d350f48013e153f72942d7c2e931708371866816ce17e87ac698fa6c9e51e440)
+            type_hints = cached_type_hints(_typecheckingstub__d350f48013e153f72942d7c2e931708371866816ce17e87ac698fa6c9e51e440)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -33968,7 +33990,7 @@ class AssetToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4df0ef7d2f8a2d0222b05b12743d8b5e668a25bffbb90ffbce5c0842d32d0de8)
+            type_hints = cached_type_hints(_typecheckingstub__4df0ef7d2f8a2d0222b05b12743d8b5e668a25bffbb90ffbce5c0842d32d0de8)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -34025,7 +34047,7 @@ class AtlassianOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBase
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67a088974ff4b896c9184a70c8b7a31bc891ff3fb0f3e7da119eda6a03683683)
+            type_hints = cached_type_hints(_typecheckingstub__67a088974ff4b896c9184a70c8b7a31bc891ff3fb0f3e7da119eda6a03683683)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -34135,7 +34157,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c77d9cceeabf2dd05d534145778ab3e1e597cf25fdabc7bdbdbc642c412f2435)
+            type_hints = cached_type_hints(_typecheckingstub__c77d9cceeabf2dd05d534145778ab3e1e597cf25fdabc7bdbdbc642c412f2435)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -34165,7 +34187,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6facf14dce62b7f6f12e4abaf4eb022dff3a45f4068e5f45350aab6e10355a0)
+            type_hints = cached_type_hints(_typecheckingstub__d6facf14dce62b7f6f12e4abaf4eb022dff3a45f4068e5f45350aab6e10355a0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -34194,7 +34216,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d32eecca999e221fe7baaea3ba395ddee5578ec83675efa9efdbea664213da2)
+            type_hints = cached_type_hints(_typecheckingstub__2d32eecca999e221fe7baaea3ba395ddee5578ec83675efa9efdbea664213da2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -34220,7 +34242,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9186b5df0e333eb3469e897ab73dc50dee27c22f707afd8f3645295ca9d00d55)
+            type_hints = cached_type_hints(_typecheckingstub__9186b5df0e333eb3469e897ab73dc50dee27c22f707afd8f3645295ca9d00d55)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -34266,7 +34288,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8d3ed248b0e1fbb8321d56521a7d7da90f0d2609d7149da6e1d786cbb7e8af8)
+            type_hints = cached_type_hints(_typecheckingstub__f8d3ed248b0e1fbb8321d56521a7d7da90f0d2609d7149da6e1d786cbb7e8af8)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -34331,7 +34353,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78f3dfb28f4dc0851b8a333b577550c3ed04b83619039f5923124cdcbed267cd)
+            type_hints = cached_type_hints(_typecheckingstub__78f3dfb28f4dc0851b8a333b577550c3ed04b83619039f5923124cdcbed267cd)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -34398,7 +34420,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44ddd5de65d8344be82e751ad250cc43e9faa11ea964e6b229c0a4d1ec72d5f7)
+            type_hints = cached_type_hints(_typecheckingstub__44ddd5de65d8344be82e751ad250cc43e9faa11ea964e6b229c0a4d1ec72d5f7)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -34463,7 +34485,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad4dce28a348ae0a4ea1f8be12576c56d15cb4cfabe63fa3ad38edc91bd2674d)
+            type_hints = cached_type_hints(_typecheckingstub__ad4dce28a348ae0a4ea1f8be12576c56d15cb4cfabe63fa3ad38edc91bd2674d)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -34527,7 +34549,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__def70821036fc28a14280760ae0b74a0fece9251b8de279a7787b620952b96f2)
+            type_hints = cached_type_hints(_typecheckingstub__def70821036fc28a14280760ae0b74a0fece9251b8de279a7787b620952b96f2)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -34650,7 +34672,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35a69ebb2bb4842640813061b2ac17af0959c464410a959b014b4c88834032a5)
+            type_hints = cached_type_hints(_typecheckingstub__35a69ebb2bb4842640813061b2ac17af0959c464410a959b014b4c88834032a5)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -34891,7 +34913,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__945c10dd6a920f679edb8ab070a635638c847e8d49d196a218ff5b77cdf8d742)
+            type_hints = cached_type_hints(_typecheckingstub__945c10dd6a920f679edb8ab070a635638c847e8d49d196a218ff5b77cdf8d742)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -34955,7 +34977,7 @@ class BrowserCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a2ee85b94b08620ec9b5951320326c2a5e06e58d8c74143b59faaa569c5db5a)
+            type_hints = cached_type_hints(_typecheckingstub__6a2ee85b94b08620ec9b5951320326c2a5e06e58d8c74143b59faaa569c5db5a)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35179,7 +35201,7 @@ class BrowserNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a61932e41a10c1b55eb12421708f57f6f8fa7f51c4a52602ae921332f603e4bc)
+            type_hints = cached_type_hints(_typecheckingstub__a61932e41a10c1b55eb12421708f57f6f8fa7f51c4a52602ae921332f603e4bc)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
@@ -35231,7 +35253,7 @@ class BrowserNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffadf1618c1ccf9e7f800598ace60f876ef2c866dfa2193de733904aef830531)
+            type_hints = cached_type_hints(_typecheckingstub__ffadf1618c1ccf9e7f800598ace60f876ef2c866dfa2193de733904aef830531)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
             vpc=vpc,
@@ -35279,7 +35301,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3ba04960e2402fcf93e24376e08d3027678d856540da250157c6e19f1dc1862)
+            type_hints = cached_type_hints(_typecheckingstub__c3ba04960e2402fcf93e24376e08d3027678d856540da250157c6e19f1dc1862)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -35309,7 +35331,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1788c6502070824895d3503d450005bb1c205c4d74bb8738add0bf26f3de4904)
+            type_hints = cached_type_hints(_typecheckingstub__1788c6502070824895d3503d450005bb1c205c4d74bb8738add0bf26f3de4904)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -35336,7 +35358,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2db493ce830ccc0f4897a55b53f8cb527c29ca1faf55e5ef17c8df1975c84db)
+            type_hints = cached_type_hints(_typecheckingstub__b2db493ce830ccc0f4897a55b53f8cb527c29ca1faf55e5ef17c8df1975c84db)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
 
@@ -35364,7 +35386,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49cb39b73910ca0e9b10fd69d88ba3c962540e3ffe52e4af83aa081763523e1e)
+            type_hints = cached_type_hints(_typecheckingstub__49cb39b73910ca0e9b10fd69d88ba3c962540e3ffe52e4af83aa081763523e1e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -35390,7 +35412,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4d919318556058b051ce30963bb88b3ea857942f805b6da65b497596bc8e39b)
+            type_hints = cached_type_hints(_typecheckingstub__b4d919318556058b051ce30963bb88b3ea857942f805b6da65b497596bc8e39b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantUse", [grantee]))
 
@@ -35436,7 +35458,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e89914064bfd399d5233c80170ff40fe971de7b840aeca4ac822fd1fcaf4c53)
+            type_hints = cached_type_hints(_typecheckingstub__1e89914064bfd399d5233c80170ff40fe971de7b840aeca4ac822fd1fcaf4c53)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -35501,7 +35523,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a96b5df243162f6e4ccc604d71ceff9d4907e1fb21c4bdc077b17e437bad6d1e)
+            type_hints = cached_type_hints(_typecheckingstub__a96b5df243162f6e4ccc604d71ceff9d4907e1fb21c4bdc077b17e437bad6d1e)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35568,7 +35590,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__601c512b2394720d7f44430e54e52ac9b991b7aa673c58633b67406ae999ec8a)
+            type_hints = cached_type_hints(_typecheckingstub__601c512b2394720d7f44430e54e52ac9b991b7aa673c58633b67406ae999ec8a)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -35633,7 +35655,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da0ad6292c612c8f34d7b641b68c10de89777fe2d41763b66d9ea6f7c878c4a6)
+            type_hints = cached_type_hints(_typecheckingstub__da0ad6292c612c8f34d7b641b68c10de89777fe2d41763b66d9ea6f7c878c4a6)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35697,7 +35719,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72deaefdc0ab67927aa48a7e5dbfb70a9004b85dab32f68b95be249b26066bd0)
+            type_hints = cached_type_hints(_typecheckingstub__72deaefdc0ab67927aa48a7e5dbfb70a9004b85dab32f68b95be249b26066bd0)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35820,7 +35842,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65d0b839015fe6a1c368d562bdee51b93c69cb5b759c1f1173dc2758a1413968)
+            type_hints = cached_type_hints(_typecheckingstub__65d0b839015fe6a1c368d562bdee51b93c69cb5b759c1f1173dc2758a1413968)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35884,7 +35906,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a56c641c8e2af33eb396292b7658955fbae3d77a1c0a87985f4020dfe2e45f2)
+            type_hints = cached_type_hints(_typecheckingstub__3a56c641c8e2af33eb396292b7658955fbae3d77a1c0a87985f4020dfe2e45f2)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -35948,7 +35970,7 @@ class CodeInterpreterCustomBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9be097202746caca62d9d0d7831461e673cceaf8e528a88286bd03a9c0c5b694)
+            type_hints = cached_type_hints(_typecheckingstub__9be097202746caca62d9d0d7831461e673cceaf8e528a88286bd03a9c0c5b694)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -36172,7 +36194,7 @@ class CodeInterpreterNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5abf274e5386aff6188eb410a31a1f9a74e1ef0c691c2c7886dd26347a9bbcc6)
+            type_hints = cached_type_hints(_typecheckingstub__5abf274e5386aff6188eb410a31a1f9a74e1ef0c691c2c7886dd26347a9bbcc6)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
@@ -36236,7 +36258,7 @@ class CodeInterpreterNetworkConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38e59bc603de9e405a37067fca444858724ba4a5692828408586100c7172d14d)
+            type_hints = cached_type_hints(_typecheckingstub__38e59bc603de9e405a37067fca444858724ba4a5692828408586100c7172d14d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         vpc_config = VpcConfigProps(
             vpc=vpc,
@@ -36389,7 +36411,7 @@ class CustomOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
         if isinstance(authorization_server_metadata, dict):
             authorization_server_metadata = OAuth2AuthorizationServerMetadata(**authorization_server_metadata)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27f33d5d2d62588397c3ff9442d9641b789124b4015b37adaa37712254aa4495)
+            type_hints = cached_type_hints(_typecheckingstub__27f33d5d2d62588397c3ff9442d9641b789124b4015b37adaa37712254aa4495)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -36546,7 +36568,7 @@ class DropboxOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePr
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4f6daf231619fee0410949477582c8afca392a969d1f764a605f1935ef6b3fd)
+            type_hints = cached_type_hints(_typecheckingstub__e4f6daf231619fee0410949477582c8afca392a969d1f764a605f1935ef6b3fd)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -36656,7 +36678,7 @@ class EvaluatorBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bcb43fc81)
+            type_hints = cached_type_hints(_typecheckingstub__f1956858c6aa7281476440c9d7c0efc70e0a92db1420d086117a574bcb43fc81)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -36686,7 +36708,7 @@ class EvaluatorBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d80e071a3f139e5511023edf2876393d9e67b9aca4c6a8a38dfcc5d38be7a8d4)
+            type_hints = cached_type_hints(_typecheckingstub__d80e071a3f139e5511023edf2876393d9e67b9aca4c6a8a38dfcc5d38be7a8d4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -36878,7 +36900,7 @@ class FacebookOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseP
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ca9ca41514dd466670d066684d7a1be94703c501dbfc5d4db6e1a25570bce44)
+            type_hints = cached_type_hints(_typecheckingstub__8ca9ca41514dd466670d066684d7a1be94703c501dbfc5d4db6e1a25570bce44)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -36986,7 +37008,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40a3cb82c305d29384ea80844afa06cf3bc54e68964fa6c1e0c46b5fcfec11c4)
+            type_hints = cached_type_hints(_typecheckingstub__40a3cb82c305d29384ea80844afa06cf3bc54e68964fa6c1e0c46b5fcfec11c4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -37014,7 +37036,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8840f7c00afb3cc47519a7351ac568c53cacb88aa8122e61b57faf6d8393761a)
+            type_hints = cached_type_hints(_typecheckingstub__8840f7c00afb3cc47519a7351ac568c53cacb88aa8122e61b57faf6d8393761a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -37033,7 +37055,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb6b5dfed0f065af8112752c9e97740296100f8bcf323820e91d75e963f8ce7)
+            type_hints = cached_type_hints(_typecheckingstub__2eb6b5dfed0f065af8112752c9e97740296100f8bcf323820e91d75e963f8ce7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
 
@@ -37051,7 +37073,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__812a974d028b9f3ab0714da14aede8ec3227a9938acd86ff09734d69b0396ac0)
+            type_hints = cached_type_hints(_typecheckingstub__812a974d028b9f3ab0714da14aede8ec3227a9938acd86ff09734d69b0396ac0)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantManage", [grantee]))
 
@@ -37069,7 +37091,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4903eec178292b9c300bb40948bd9e9035e171c1b355b8338f4a69118a9e71b)
+            type_hints = cached_type_hints(_typecheckingstub__a4903eec178292b9c300bb40948bd9e9035e171c1b355b8338f4a69118a9e71b)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -37115,7 +37137,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b967838ab3033c8aad5c61423dbfb75358df28c679ebbb2b199f02a3a3f876dc)
+            type_hints = cached_type_hints(_typecheckingstub__b967838ab3033c8aad5c61423dbfb75358df28c679ebbb2b199f02a3a3f876dc)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
@@ -37436,7 +37458,7 @@ class GatewayBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c36c386bbe05aa537a423fb2b2cc99320c80184cde97130e8e081007c3d88b54)
+            type_hints = cached_type_hints(_typecheckingstub__c36c386bbe05aa537a423fb2b2cc99320c80184cde97130e8e081007c3d88b54)
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -37934,7 +37956,7 @@ class GatewayTargetApiGatewayProps(GatewayTargetCommonProps):
         if isinstance(metadata_configuration, dict):
             metadata_configuration = MetadataConfiguration(**metadata_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c6d470299b4305fcc14464bc63323137b725af7c7c373d74391723ea79a8ab8)
+            type_hints = cached_type_hints(_typecheckingstub__8c6d470299b4305fcc14464bc63323137b725af7c7c373d74391723ea79a8ab8)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_target_name", value=gateway_target_name, expected_type=type_hints["gateway_target_name"])
             check_type(argname="argument api_gateway_tool_configuration", value=api_gateway_tool_configuration, expected_type=type_hints["api_gateway_tool_configuration"])
@@ -38093,7 +38115,7 @@ class GatewayTargetBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10b145800c88105dcde9bffef29a790d212ec7075bb885df36a4efe8bd6328f2)
+            type_hints = cached_type_hints(_typecheckingstub__10b145800c88105dcde9bffef29a790d212ec7075bb885df36a4efe8bd6328f2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -38121,7 +38143,7 @@ class GatewayTargetBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__773d87e3b60a96efc1c2247e0325e8471933d0a73c8cece187844916980e273c)
+            type_hints = cached_type_hints(_typecheckingstub__773d87e3b60a96efc1c2247e0325e8471933d0a73c8cece187844916980e273c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -38140,7 +38162,7 @@ class GatewayTargetBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b463dc116106bf0c27005fb71873cc1cedd1e47325dfd9ef5078f95840855807)
+            type_hints = cached_type_hints(_typecheckingstub__b463dc116106bf0c27005fb71873cc1cedd1e47325dfd9ef5078f95840855807)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantManage", [grantee]))
 
@@ -38158,7 +38180,7 @@ class GatewayTargetBase(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d9a5c63ef870e87772620b6849f0738be9b22407a38e8031d0767e9ca0d88af)
+            type_hints = cached_type_hints(_typecheckingstub__0d9a5c63ef870e87772620b6849f0738be9b22407a38e8031d0767e9ca0d88af)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
@@ -38447,7 +38469,7 @@ class GithubOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17272e93e59e5c1bcf094351b982e44e03054dda0bfd73d1f51561663b2d5ffb)
+            type_hints = cached_type_hints(_typecheckingstub__17272e93e59e5c1bcf094351b982e44e03054dda0bfd73d1f51561663b2d5ffb)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -38573,7 +38595,7 @@ class GoogleOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a31a4aaf9a6c6ddc3f888dc56f8d014a4bb34a62dc54d8a0cf5bbeac8cdab6af)
+            type_hints = cached_type_hints(_typecheckingstub__a31a4aaf9a6c6ddc3f888dc56f8d014a4bb34a62dc54d8a0cf5bbeac8cdab6af)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -38700,7 +38722,7 @@ class HubspotOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePr
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d6bd87e0b2d638e9c88af0f39c97fd965b5ede2375cea6e8d6582fc3cd90aa1)
+            type_hints = cached_type_hints(_typecheckingstub__7d6bd87e0b2d638e9c88af0f39c97fd965b5ede2375cea6e8d6582fc3cd90aa1)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -38843,7 +38865,7 @@ class IncludedOauth2TenantCredentialProviderProps(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dfd5d4dcb87c6bb091909f536959ae4b8ad6bf706afb14a1fedb708f60c98dd)
+            type_hints = cached_type_hints(_typecheckingstub__7dfd5d4dcb87c6bb091909f536959ae4b8ad6bf706afb14a1fedb708f60c98dd)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -39021,7 +39043,7 @@ class InlineToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19bd0f600eb2a4b83b12fe5c31ff74c99dff52a462baee952a1913fb9e49bb3c)
+            type_hints = cached_type_hints(_typecheckingstub__19bd0f600eb2a4b83b12fe5c31ff74c99dff52a462baee952a1913fb9e49bb3c)
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
         jsii.create(self.__class__, self, [schema])
 
@@ -39034,7 +39056,7 @@ class InlineToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b11f6c5d84db8b017b917b425d6528212c38e9ce5142725b72cbc09b6f5eb877)
+            type_hints = cached_type_hints(_typecheckingstub__b11f6c5d84db8b017b917b425d6528212c38e9ce5142725b72cbc09b6f5eb877)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -39050,7 +39072,7 @@ class InlineToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__218e15140bb7b361983a575ae6d15d58ad94ed8c84535c7512c072f557f6fdf4)
+            type_hints = cached_type_hints(_typecheckingstub__218e15140bb7b361983a575ae6d15d58ad94ed8c84535c7512c072f557f6fdf4)
             check_type(argname="argument _role", value=_role, expected_type=type_hints["_role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [_role]))
 
@@ -39095,7 +39117,7 @@ class LambdaTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7593b811ff1af27d40e12138ea00f2c087b764c13b657b7d5f51f895a49a06cc)
+            type_hints = cached_type_hints(_typecheckingstub__7593b811ff1af27d40e12138ea00f2c087b764c13b657b7d5f51f895a49a06cc)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument tool_schema", value=tool_schema, expected_type=type_hints["tool_schema"])
         jsii.create(self.__class__, self, [lambda_function, tool_schema])
@@ -39117,7 +39139,7 @@ class LambdaTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9175931151b9669b7726344ddaa7b1b0a24e0d7e6b34a3149aa76532d10a8ff8)
+            type_hints = cached_type_hints(_typecheckingstub__9175931151b9669b7726344ddaa7b1b0a24e0d7e6b34a3149aa76532d10a8ff8)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument tool_schema", value=tool_schema, expected_type=type_hints["tool_schema"])
         return typing.cast("LambdaTargetConfiguration", jsii.sinvoke(cls, "create", [lambda_function, tool_schema]))
@@ -39136,7 +39158,7 @@ class LambdaTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80871f781a9f42407e78e2c5159f625f222be16a0e327b80a0c56586010c28d2)
+            type_hints = cached_type_hints(_typecheckingstub__80871f781a9f42407e78e2c5159f625f222be16a0e327b80a0c56586010c28d2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument gateway", value=gateway, expected_type=type_hints["gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [scope, gateway]))
@@ -39229,7 +39251,7 @@ class LinkedinOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBaseP
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aec907f3bbee4c79969ea4214cb7515d80496e1bab97980f1ac8f86bb0e0f527)
+            type_hints = cached_type_hints(_typecheckingstub__aec907f3bbee4c79969ea4214cb7515d80496e1bab97980f1ac8f86bb0e0f527)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -39375,7 +39397,7 @@ class ManagedStrategyProps(MemoryStrategyCommonProps):
         if isinstance(reflection_configuration, dict):
             reflection_configuration = EpisodicReflectionConfiguration(**reflection_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb47cf6cb64f16941e24867573f447a6c7700a0e548c605ab3a6c79766903dd3)
+            type_hints = cached_type_hints(_typecheckingstub__fb47cf6cb64f16941e24867573f447a6c7700a0e548c605ab3a6c79766903dd3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
@@ -39525,7 +39547,7 @@ class McpServerTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64282d7da495cc332e0f2d2fa59022f5294bab6d1f8c8b985911fdb971408ff)
+            type_hints = cached_type_hints(_typecheckingstub__f64282d7da495cc332e0f2d2fa59022f5294bab6d1f8c8b985911fdb971408ff)
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
         jsii.create(self.__class__, self, [endpoint])
 
@@ -39541,7 +39563,7 @@ class McpServerTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d7aefa970b46f82e87aa80610e8a3a7f92bf1d1fb74548b4aabc115333400e3)
+            type_hints = cached_type_hints(_typecheckingstub__3d7aefa970b46f82e87aa80610e8a3a7f92bf1d1fb74548b4aabc115333400e3)
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
         return typing.cast("McpServerTargetConfiguration", jsii.sinvoke(cls, "create", [endpoint]))
 
@@ -39559,7 +39581,7 @@ class McpServerTargetConfiguration(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8926bf38932621b5a236bce5d408020b82155ef3626b99f11002fb0702ffb7f9)
+            type_hints = cached_type_hints(_typecheckingstub__8926bf38932621b5a236bce5d408020b82155ef3626b99f11002fb0702ffb7f9)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _gateway", value=_gateway, expected_type=type_hints["_gateway"])
         return typing.cast("TargetConfigurationConfig", jsii.invoke(self, "bind", [_scope, _gateway]))
@@ -39659,7 +39681,7 @@ class Memory(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e76fa6dc189b8b63815ed558f95c760b00a4f52735d77ee7738d05646cb0f60)
+            type_hints = cached_type_hints(_typecheckingstub__1e76fa6dc189b8b63815ed558f95c760b00a4f52735d77ee7738d05646cb0f60)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = MemoryProps(
@@ -39704,7 +39726,7 @@ class Memory(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d1ef3ab147d318f2cfae70c86258d2aaae60999cbf091f81112ab74f9a797f8)
+            type_hints = cached_type_hints(_typecheckingstub__8d1ef3ab147d318f2cfae70c86258d2aaae60999cbf091f81112ab74f9a797f8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = MemoryAttributes(
@@ -39729,7 +39751,7 @@ class Memory(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d88d525f5db5bcf500ab4eef917307847de4249de07b49c2ddf92dd64065092b)
+            type_hints = cached_type_hints(_typecheckingstub__d88d525f5db5bcf500ab4eef917307847de4249de07b49c2ddf92dd64065092b)
             check_type(argname="argument memory_strategy", value=memory_strategy, expected_type=type_hints["memory_strategy"])
         return typing.cast(None, jsii.invoke(self, "addMemoryStrategy", [memory_strategy]))
 
@@ -39932,7 +39954,7 @@ class MicrosoftOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBase
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f4b385980eb4168a162c27dcfe27fb3d67e3aab97bb1cdf733e08cb9cf50996)
+            type_hints = cached_type_hints(_typecheckingstub__8f4b385980eb4168a162c27dcfe27fb3d67e3aab97bb1cdf733e08cb9cf50996)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -40073,7 +40095,7 @@ class NotionOAuth2CredentialProviderProps(OAuth2CredentialProviderFactoryBasePro
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ec702adfb4e82b3e171ceeb5d58c8f6557dc84f960124eeee30ec5dbfb2bb3f)
+            type_hints = cached_type_hints(_typecheckingstub__0ec702adfb4e82b3e171ceeb5d58c8f6557dc84f960124eeee30ec5dbfb2bb3f)
             check_type(argname="argument o_auth2_credential_provider_name", value=o_auth2_credential_provider_name, expected_type=type_hints["o_auth2_credential_provider_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -40206,7 +40228,7 @@ class Policy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7004ff7e66eb9bd92f5e3382efd82acca2795fddd2ceb6f63d7ec61fc26b5bc2)
+            type_hints = cached_type_hints(_typecheckingstub__7004ff7e66eb9bd92f5e3382efd82acca2795fddd2ceb6f63d7ec61fc26b5bc2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PolicyProps(
@@ -40242,7 +40264,7 @@ class Policy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba58938674de237078683f4259b17ae55e9b37e93e341f8f76079106517e29ae)
+            type_hints = cached_type_hints(_typecheckingstub__ba58938674de237078683f4259b17ae55e9b37e93e341f8f76079106517e29ae)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PolicyAttributes(policy_arn=policy_arn, policy_engine=policy_engine)
@@ -40392,7 +40414,7 @@ class PolicyEngine(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4973799f2174196a829eb95925f878a0bcf1d3f21efa0d39e02114f3a43d1b97)
+            type_hints = cached_type_hints(_typecheckingstub__4973799f2174196a829eb95925f878a0bcf1d3f21efa0d39e02114f3a43d1b97)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PolicyEngineProps(
@@ -40426,7 +40448,7 @@ class PolicyEngine(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea6ccd06549c765b0e6519dea3e84eed679fcd3984dbf9ca907498340f77475)
+            type_hints = cached_type_hints(_typecheckingstub__7ea6ccd06549c765b0e6519dea3e84eed679fcd3984dbf9ca907498340f77475)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = PolicyEngineAttributes(
@@ -40467,7 +40489,7 @@ class PolicyEngine(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa647a5a7f1d91ff69b94f03554d6de3a76e17f7170282cc545819d13600a2c1)
+            type_hints = cached_type_hints(_typecheckingstub__aa647a5a7f1d91ff69b94f03554d6de3a76e17f7170282cc545819d13600a2c1)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = AddPolicyOptions(
             definition=definition,
@@ -40669,7 +40691,7 @@ class Runtime(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3c75c162a496b2457c5b16d4ab318237dd0f6028aaaa787f5968728ad5bea40)
+            type_hints = cached_type_hints(_typecheckingstub__d3c75c162a496b2457c5b16d4ab318237dd0f6028aaaa787f5968728ad5bea40)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RuntimeProps(
@@ -40728,7 +40750,7 @@ class Runtime(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05959bcf4b4bc641f8cd5e6663c98667c22ec794751ac633e033ccabebf69312)
+            type_hints = cached_type_hints(_typecheckingstub__05959bcf4b4bc641f8cd5e6663c98667c22ec794751ac633e033ccabebf69312)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AgentRuntimeAttributes(
@@ -40765,7 +40787,7 @@ class Runtime(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9f210c62e6b8a9cc9f91d2223cadcf66989308f610a152e24937c2e6f75fea)
+            type_hints = cached_type_hints(_typecheckingstub__9c9f210c62e6b8a9cc9f91d2223cadcf66989308f610a152e24937c2e6f75fea)
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
         options = AddEndpointOptions(description=description, version=version)
 
@@ -40945,7 +40967,7 @@ class RuntimeEndpoint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08f9203e17afcdac6a5a193e263989301ad529a8b9defc871c88e757bc1f18a)
+            type_hints = cached_type_hints(_typecheckingstub__c08f9203e17afcdac6a5a193e263989301ad529a8b9defc871c88e757bc1f18a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RuntimeEndpointProps(
@@ -40996,7 +41018,7 @@ class RuntimeEndpoint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7aac4684398202199ff45b016211ef025a54472a69d037cfafe89eaa76bac9ac)
+            type_hints = cached_type_hints(_typecheckingstub__7aac4684398202199ff45b016211ef025a54472a69d037cfafe89eaa76bac9ac)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = RuntimeEndpointAttributes(
@@ -41199,7 +41221,7 @@ class S3ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f43641d3a18b7f3488ef817d81474abcfa33f9ecfd44b4e017f7dabaef2a41)
+            type_hints = cached_type_hints(_typecheckingstub__79f43641d3a18b7f3488ef817d81474abcfa33f9ecfd44b4e017f7dabaef2a41)
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument bucket_owner_account_id", value=bucket_owner_account_id, expected_type=type_hints["bucket_owner_account_id"])
         jsii.create(self.__class__, self, [location, bucket_owner_account_id])
@@ -41213,7 +41235,7 @@ class S3ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f58360e4b71bf94ad64227cedc6d4fd1f7942dd4954e215fd42d7742b3975a5c)
+            type_hints = cached_type_hints(_typecheckingstub__f58360e4b71bf94ad64227cedc6d4fd1f7942dd4954e215fd42d7742b3975a5c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "bind", [scope]))
 
@@ -41229,7 +41251,7 @@ class S3ToolSchema(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26c0f41c2cdd7e18a0d47bf49b0c53a8b48256e979aa63d27d10a9884adc9888)
+            type_hints = cached_type_hints(_typecheckingstub__26c0f41c2cdd7e18a0d47bf49b0c53a8b48256e979aa63d27d10a9884adc9888)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "grantPermissionsToRole", [role]))
 
@@ -41317,7 +41339,7 @@ class BrowserCustom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1158b103a85cbce3d28e980992f8b82595d918f92538cc576de16ed55fbc4071)
+            type_hints = cached_type_hints(_typecheckingstub__1158b103a85cbce3d28e980992f8b82595d918f92538cc576de16ed55fbc4071)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BrowserCustomProps(
@@ -41362,7 +41384,7 @@ class BrowserCustom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e143bea37e02f65f29c3f3dfd523e8452322bb7ee9d57f98ab6bd947e40e261)
+            type_hints = cached_type_hints(_typecheckingstub__3e143bea37e02f65f29c3f3dfd523e8452322bb7ee9d57f98ab6bd947e40e261)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = BrowserCustomAttributes(
@@ -41578,7 +41600,7 @@ class CodeInterpreterCustom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97059670dcd4750424fbb12f68be0e5fc4005cf0b64c6621aff517561009ef5a)
+            type_hints = cached_type_hints(_typecheckingstub__97059670dcd4750424fbb12f68be0e5fc4005cf0b64c6621aff517561009ef5a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CodeInterpreterCustomProps(
@@ -41621,7 +41643,7 @@ class CodeInterpreterCustom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da00b980caf9bfd0b84d4f7c4ec856774682fff062a743c88616a5a9368f2a09)
+            type_hints = cached_type_hints(_typecheckingstub__da00b980caf9bfd0b84d4f7c4ec856774682fff062a743c88616a5a9368f2a09)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = CodeInterpreterCustomAttributes(
@@ -41830,7 +41852,7 @@ class Evaluator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a213c787d5e06fd0085acab9adc0d092a8fc4ff841f2977557f89fadf1ae78a)
+            type_hints = cached_type_hints(_typecheckingstub__2a213c787d5e06fd0085acab9adc0d092a8fc4ff841f2977557f89fadf1ae78a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EvaluatorProps(
@@ -41862,7 +41884,7 @@ class Evaluator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1f18abf83e243bf3690677a581bdd6022ab327e544fc2a2d9faf40482c9c277)
+            type_hints = cached_type_hints(_typecheckingstub__b1f18abf83e243bf3690677a581bdd6022ab327e544fc2a2d9faf40482c9c277)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument evaluator_arn", value=evaluator_arn, expected_type=type_hints["evaluator_arn"])
@@ -41892,7 +41914,7 @@ class Evaluator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a34e0557523312284eac757bd0347ba30413a5f48478b255b50ec8b70c7b4dd)
+            type_hints = cached_type_hints(_typecheckingstub__9a34e0557523312284eac757bd0347ba30413a5f48478b255b50ec8b70c7b4dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = EvaluatorAttributes(
@@ -41922,7 +41944,7 @@ class Evaluator(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f85cfbc93e449e96b7ba268ce9ee76c6b61acac16e380d249f5d78ff6836bb6)
+            type_hints = cached_type_hints(_typecheckingstub__5f85cfbc93e449e96b7ba268ce9ee76c6b61acac16e380d249f5d78ff6836bb6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
@@ -42088,7 +42110,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2985121a5f15718200b977df97c21191f0a411a8b56ec2d94bff0c84f990058b)
+            type_hints = cached_type_hints(_typecheckingstub__2985121a5f15718200b977df97c21191f0a411a8b56ec2d94bff0c84f990058b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayProps(
@@ -42132,7 +42154,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8256bb628405301cf0344d1c89752b23de34d4fc6785b5776fa7394232a0afad)
+            type_hints = cached_type_hints(_typecheckingstub__8256bb628405301cf0344d1c89752b23de34d4fc6785b5776fa7394232a0afad)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = GatewayAttributes(
@@ -42174,7 +42196,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc2712e5343cf896192b3c49cdcdf27de802b3084629ae42409f9aa4ae80fae)
+            type_hints = cached_type_hints(_typecheckingstub__dfc2712e5343cf896192b3c49cdcdf27de802b3084629ae42409f9aa4ae80fae)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddApiGatewayTargetOptions(
             api_gateway_tool_configuration=api_gateway_tool_configuration,
@@ -42205,7 +42227,7 @@ class Gateway(
         :throws: Error if an interceptor of the same type already exists
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3703e8b059544f40631cd9fe9c31f8f80ac7c7990484c151bc49e89f5875ef9)
+            type_hints = cached_type_hints(_typecheckingstub__e3703e8b059544f40631cd9fe9c31f8f80ac7c7990484c151bc49e89f5875ef9)
             check_type(argname="argument interceptor", value=interceptor, expected_type=type_hints["interceptor"])
         return typing.cast(None, jsii.invoke(self, "addInterceptor", [interceptor]))
 
@@ -42234,7 +42256,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e63c11bff010402bb1a8c64dac77ebf8310ebbdd5a7daee161aebce81dec3a2)
+            type_hints = cached_type_hints(_typecheckingstub__0e63c11bff010402bb1a8c64dac77ebf8310ebbdd5a7daee161aebce81dec3a2)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddLambdaTargetOptions(
             lambda_function=lambda_function,
@@ -42270,7 +42292,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1db5b0c251329dead6408d13757bbe448bce54bdc4206777eb2e78c322e3e02)
+            type_hints = cached_type_hints(_typecheckingstub__b1db5b0c251329dead6408d13757bbe448bce54bdc4206777eb2e78c322e3e02)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddMcpServerTargetOptions(
             credential_provider_configurations=credential_provider_configurations,
@@ -42306,7 +42328,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__492a1c8e1ad04d86f783a1f7bf80c20031b8e9a6a06e8704056662a5d1d8615e)
+            type_hints = cached_type_hints(_typecheckingstub__492a1c8e1ad04d86f783a1f7bf80c20031b8e9a6a06e8704056662a5d1d8615e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddOpenApiTargetOptions(
             api_schema=api_schema,
@@ -42341,7 +42363,7 @@ class Gateway(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__318fadbbc2af7c18a846f6839b40eb5bdb972abfac0a6038a874ee4ad5cf5a9f)
+            type_hints = cached_type_hints(_typecheckingstub__318fadbbc2af7c18a846f6839b40eb5bdb972abfac0a6038a874ee4ad5cf5a9f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AddSmithyTargetOptions(
             smithy_model=smithy_model,
@@ -42553,7 +42575,7 @@ class Gateway(
         value: typing.Optional["_aws_cdk_aws_cognito_ceddda9d.IUserPoolResourceServer"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3954f8e97ce7f09736bf9036c6a046eb60f3e00da7f7c0928b517c1d85286bbb)
+            type_hints = cached_type_hints(_typecheckingstub__3954f8e97ce7f09736bf9036c6a046eb60f3e00da7f7c0928b517c1d85286bbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceServer", value) # pyright: ignore[reportArgumentType]
 
@@ -42572,7 +42594,7 @@ class Gateway(
         value: typing.Optional["_aws_cdk_aws_cognito_ceddda9d.IUserPool"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__991c2e0aef5952c64d93e89155e94365a2087267a1c1cf30bd6f7f717150c6cd)
+            type_hints = cached_type_hints(_typecheckingstub__991c2e0aef5952c64d93e89155e94365a2087267a1c1cf30bd6f7f717150c6cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPool", value) # pyright: ignore[reportArgumentType]
 
@@ -42593,7 +42615,7 @@ class Gateway(
         value: typing.Optional["_aws_cdk_aws_cognito_ceddda9d.IUserPoolClient"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__686e41113f41414074577cc7685fee9c3797a2281cea05dc1d5e062a3311ba45)
+            type_hints = cached_type_hints(_typecheckingstub__686e41113f41414074577cc7685fee9c3797a2281cea05dc1d5e062a3311ba45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolClient", value) # pyright: ignore[reportArgumentType]
 
@@ -42614,7 +42636,7 @@ class Gateway(
         value: typing.Optional["_aws_cdk_aws_cognito_ceddda9d.IUserPoolDomain"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed0801bd6a977d5656ae13dadf249224dc9713e559f3f59f39ca7a1f401b885d)
+            type_hints = cached_type_hints(_typecheckingstub__ed0801bd6a977d5656ae13dadf249224dc9713e559f3f59f39ca7a1f401b885d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolDomain", value) # pyright: ignore[reportArgumentType]
 
@@ -42682,7 +42704,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9141e9a458eec31d3ca9dfb5636c6c31f37df582abd9cfee1ae05cdbbf80dd54)
+            type_hints = cached_type_hints(_typecheckingstub__9141e9a458eec31d3ca9dfb5636c6c31f37df582abd9cfee1ae05cdbbf80dd54)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetProps(
@@ -42730,7 +42752,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06487b986968504c04aa6eb452b1fc092c8ae5abeb43a12f936e81237b779404)
+            type_hints = cached_type_hints(_typecheckingstub__06487b986968504c04aa6eb452b1fc092c8ae5abeb43a12f936e81237b779404)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetApiGatewayProps(
@@ -42776,7 +42798,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__054baeb8bc6232f7b0d5c7dee65887b4e7ddcd1971bf7946016b3fac7d1d0dd6)
+            type_hints = cached_type_hints(_typecheckingstub__054baeb8bc6232f7b0d5c7dee65887b4e7ddcd1971bf7946016b3fac7d1d0dd6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetLambdaProps(
@@ -42819,7 +42841,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bfcd24efaa63166aaad81912490c23837aa45fcf8842bdde2106cb809fffa8c)
+            type_hints = cached_type_hints(_typecheckingstub__8bfcd24efaa63166aaad81912490c23837aa45fcf8842bdde2106cb809fffa8c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetMcpServerProps(
@@ -42862,7 +42884,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9893826da52348bae3ea0c60955aab142c1098f63e79052d2844f9bf1064b784)
+            type_hints = cached_type_hints(_typecheckingstub__9893826da52348bae3ea0c60955aab142c1098f63e79052d2844f9bf1064b784)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetOpenApiProps(
@@ -42904,7 +42926,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9086c5189a7024653038e40048cd08e291aa0aa5fd9ed41618cf23ac06e1aa05)
+            type_hints = cached_type_hints(_typecheckingstub__9086c5189a7024653038e40048cd08e291aa0aa5fd9ed41618cf23ac06e1aa05)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GatewayTargetSmithyProps(
@@ -42949,7 +42971,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94555f422f12bd7e886f797d82e2c866679f274c7220b5b914357b1a1c51739b)
+            type_hints = cached_type_hints(_typecheckingstub__94555f422f12bd7e886f797d82e2c866679f274c7220b5b914357b1a1c51739b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = GatewayTargetAttributes(
@@ -42982,7 +43004,7 @@ class GatewayTarget(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d19feef196b77e5e83bf68d3b43488ef8ac66df0eb65c4f1ece12f93df534a58)
+            type_hints = cached_type_hints(_typecheckingstub__d19feef196b77e5e83bf68d3b43488ef8ac66df0eb65c4f1ece12f93df534a58)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantSync", [grantee]))
 

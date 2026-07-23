@@ -19,15 +19,19 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Union
 
 from .literals import (
     AccountingModeType,
     ClusterStatusType,
     ComputeNodeGroupStatusType,
     EndpointTypeType,
+    ExecutionPolicyType,
     NetworkTypeType,
+    OnErrorType,
     PurchaseOptionType,
     QueueStatusType,
+    ScriptCachingPolicyType,
     SizeType,
     SlurmRestModeType,
     SpotAllocationStrategyType,
@@ -86,6 +90,14 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "NetworkingRequestTypeDef",
     "NetworkingTypeDef",
+    "NodeLifecycleActionsRequestTypeDef",
+    "NodeLifecycleActionsTypeDef",
+    "NodeLifecycleScriptOutputTypeDef",
+    "NodeLifecycleScriptTypeDef",
+    "NodeLifecycleScriptUnionTypeDef",
+    "NodeLifecycleStagesOutputTypeDef",
+    "NodeLifecycleStagesTypeDef",
+    "NodeLifecycleStagesUnionTypeDef",
     "PaginatorConfigTypeDef",
     "QueueSlurmConfigurationRequestTypeDef",
     "QueueSlurmConfigurationTypeDef",
@@ -98,6 +110,7 @@ __all__ = (
     "ScalingConfigurationTypeDef",
     "SchedulerRequestTypeDef",
     "SchedulerTypeDef",
+    "ScriptSourceTypeDef",
     "SlurmAuthKeyTypeDef",
     "SlurmCustomSettingTypeDef",
     "SlurmRestRequestTypeDef",
@@ -113,6 +126,7 @@ __all__ = (
     "UpdateComputeNodeGroupRequestTypeDef",
     "UpdateComputeNodeGroupResponseTypeDef",
     "UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef",
+    "UpdateNodeLifecycleActionsRequestTypeDef",
     "UpdateQueueRequestTypeDef",
     "UpdateQueueResponseTypeDef",
     "UpdateQueueSlurmConfigurationRequestTypeDef",
@@ -345,6 +359,12 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class ScriptSourceTypeDef(TypedDict):
+    scriptLocation: str
+    s3VersionId: NotRequired[str]
+    checksum: NotRequired[str]
+
+
 class RegisterComputeNodeGroupInstanceRequestTypeDef(TypedDict):
     clusterIdentifier: str
     bootstrapId: str
@@ -426,13 +446,6 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class RegisterComputeNodeGroupInstanceResponseTypeDef(TypedDict):
-    nodeID: str
-    sharedSecret: str
-    endpoints: list[EndpointTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class JwtAuthTypeDef(TypedDict):
     jwtKey: NotRequired[JwtKeyTypeDef]
 
@@ -457,6 +470,22 @@ class ListQueuesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class NodeLifecycleScriptOutputTypeDef(TypedDict):
+    name: str
+    scriptSource: ScriptSourceTypeDef
+    arguments: NotRequired[list[str]]
+    onError: NotRequired[OnErrorType]
+    executionPolicy: NotRequired[ExecutionPolicyType]
+
+
+class NodeLifecycleScriptTypeDef(TypedDict):
+    name: str
+    scriptSource: ScriptSourceTypeDef
+    arguments: NotRequired[Sequence[str]]
+    onError: NotRequired[OnErrorType]
+    executionPolicy: NotRequired[ExecutionPolicyType]
+
+
 class UpdateClusterSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
@@ -464,46 +493,6 @@ class UpdateClusterSlurmConfigurationRequestTypeDef(TypedDict):
     cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
     accounting: NotRequired[UpdateAccountingRequestTypeDef]
     slurmRest: NotRequired[UpdateSlurmRestRequestTypeDef]
-
-
-class CreateComputeNodeGroupRequestTypeDef(TypedDict):
-    clusterIdentifier: str
-    computeNodeGroupName: str
-    subnetIds: Sequence[str]
-    customLaunchTemplate: CustomLaunchTemplateTypeDef
-    iamInstanceProfileArn: str
-    scalingConfiguration: ScalingConfigurationRequestTypeDef
-    instanceConfigs: Sequence[InstanceConfigTypeDef]
-    amiId: NotRequired[str]
-    purchaseOption: NotRequired[PurchaseOptionType]
-    spotOptions: NotRequired[SpotOptionsTypeDef]
-    slurmConfiguration: NotRequired[ComputeNodeGroupSlurmConfigurationRequestTypeDef]
-    clientToken: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-
-ComputeNodeGroupTypeDef = TypedDict(
-    "ComputeNodeGroupTypeDef",
-    {
-        "name": str,
-        "id": str,
-        "arn": str,
-        "clusterId": str,
-        "createdAt": datetime,
-        "modifiedAt": datetime,
-        "status": ComputeNodeGroupStatusType,
-        "subnetIds": list[str],
-        "customLaunchTemplate": CustomLaunchTemplateTypeDef,
-        "iamInstanceProfileArn": str,
-        "scalingConfiguration": ScalingConfigurationTypeDef,
-        "instanceConfigs": list[InstanceConfigTypeDef],
-        "amiId": NotRequired[str],
-        "purchaseOption": NotRequired[PurchaseOptionType],
-        "spotOptions": NotRequired[SpotOptionsTypeDef],
-        "slurmConfiguration": NotRequired[ComputeNodeGroupSlurmConfigurationTypeDef],
-        "errorInfo": NotRequired[list[ErrorInfoTypeDef]],
-    },
-)
 
 
 class CreateQueueRequestTypeDef(TypedDict):
@@ -530,20 +519,6 @@ QueueTypeDef = TypedDict(
         "errorInfo": NotRequired[list[ErrorInfoTypeDef]],
     },
 )
-
-
-class UpdateComputeNodeGroupRequestTypeDef(TypedDict):
-    clusterIdentifier: str
-    computeNodeGroupIdentifier: str
-    amiId: NotRequired[str]
-    subnetIds: NotRequired[Sequence[str]]
-    customLaunchTemplate: NotRequired[CustomLaunchTemplateTypeDef]
-    purchaseOption: NotRequired[PurchaseOptionType]
-    spotOptions: NotRequired[SpotOptionsTypeDef]
-    scalingConfiguration: NotRequired[ScalingConfigurationRequestTypeDef]
-    iamInstanceProfileArn: NotRequired[str]
-    slurmConfiguration: NotRequired[UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef]
-    clientToken: NotRequired[str]
 
 
 class UpdateQueueRequestTypeDef(TypedDict):
@@ -575,26 +550,21 @@ class ClusterSlurmConfigurationTypeDef(TypedDict):
     slurmRest: NotRequired[SlurmRestTypeDef]
 
 
+class NodeLifecycleStagesOutputTypeDef(TypedDict):
+    nodeBootstrapped: NotRequired[list[NodeLifecycleScriptOutputTypeDef]]
+    nodeReady: NotRequired[list[NodeLifecycleScriptOutputTypeDef]]
+
+
+NodeLifecycleScriptUnionTypeDef = Union[
+    NodeLifecycleScriptTypeDef, NodeLifecycleScriptOutputTypeDef
+]
+
+
 class UpdateClusterRequestTypeDef(TypedDict):
     clusterIdentifier: str
     clientToken: NotRequired[str]
     slurmConfiguration: NotRequired[UpdateClusterSlurmConfigurationRequestTypeDef]
     scheduler: NotRequired[UpdateSchedulerRequestTypeDef]
-
-
-class CreateComputeNodeGroupResponseTypeDef(TypedDict):
-    computeNodeGroup: ComputeNodeGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetComputeNodeGroupResponseTypeDef(TypedDict):
-    computeNodeGroup: ComputeNodeGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateComputeNodeGroupResponseTypeDef(TypedDict):
-    computeNodeGroup: ComputeNodeGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateQueueResponseTypeDef(TypedDict):
@@ -631,6 +601,16 @@ ClusterTypeDef = TypedDict(
 )
 
 
+class NodeLifecycleActionsTypeDef(TypedDict):
+    stages: NodeLifecycleStagesOutputTypeDef
+    scriptCachingPolicy: NotRequired[ScriptCachingPolicyType]
+
+
+class NodeLifecycleStagesTypeDef(TypedDict):
+    nodeBootstrapped: NotRequired[Sequence[NodeLifecycleScriptUnionTypeDef]]
+    nodeReady: NotRequired[Sequence[NodeLifecycleScriptUnionTypeDef]]
+
+
 class CreateClusterResponseTypeDef(TypedDict):
     cluster: ClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -644,3 +624,101 @@ class GetClusterResponseTypeDef(TypedDict):
 class UpdateClusterResponseTypeDef(TypedDict):
     cluster: ClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+ComputeNodeGroupTypeDef = TypedDict(
+    "ComputeNodeGroupTypeDef",
+    {
+        "name": str,
+        "id": str,
+        "arn": str,
+        "clusterId": str,
+        "createdAt": datetime,
+        "modifiedAt": datetime,
+        "status": ComputeNodeGroupStatusType,
+        "subnetIds": list[str],
+        "customLaunchTemplate": CustomLaunchTemplateTypeDef,
+        "iamInstanceProfileArn": str,
+        "scalingConfiguration": ScalingConfigurationTypeDef,
+        "instanceConfigs": list[InstanceConfigTypeDef],
+        "amiId": NotRequired[str],
+        "purchaseOption": NotRequired[PurchaseOptionType],
+        "spotOptions": NotRequired[SpotOptionsTypeDef],
+        "slurmConfiguration": NotRequired[ComputeNodeGroupSlurmConfigurationTypeDef],
+        "nodeLifecycleActions": NotRequired[NodeLifecycleActionsTypeDef],
+        "errorInfo": NotRequired[list[ErrorInfoTypeDef]],
+    },
+)
+
+
+class RegisterComputeNodeGroupInstanceResponseTypeDef(TypedDict):
+    nodeID: str
+    sharedSecret: str
+    endpoints: list[EndpointTypeDef]
+    clusterName: str
+    computeNodeGroupId: str
+    computeNodeGroupName: str
+    nodeLifecycleActions: NodeLifecycleActionsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+NodeLifecycleStagesUnionTypeDef = Union[
+    NodeLifecycleStagesTypeDef, NodeLifecycleStagesOutputTypeDef
+]
+
+
+class CreateComputeNodeGroupResponseTypeDef(TypedDict):
+    computeNodeGroup: ComputeNodeGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetComputeNodeGroupResponseTypeDef(TypedDict):
+    computeNodeGroup: ComputeNodeGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateComputeNodeGroupResponseTypeDef(TypedDict):
+    computeNodeGroup: ComputeNodeGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class NodeLifecycleActionsRequestTypeDef(TypedDict):
+    stages: NodeLifecycleStagesUnionTypeDef
+    scriptCachingPolicy: NotRequired[ScriptCachingPolicyType]
+
+
+class UpdateNodeLifecycleActionsRequestTypeDef(TypedDict):
+    stages: NodeLifecycleStagesUnionTypeDef
+    scriptCachingPolicy: NotRequired[ScriptCachingPolicyType]
+
+
+class CreateComputeNodeGroupRequestTypeDef(TypedDict):
+    clusterIdentifier: str
+    computeNodeGroupName: str
+    subnetIds: Sequence[str]
+    customLaunchTemplate: CustomLaunchTemplateTypeDef
+    iamInstanceProfileArn: str
+    scalingConfiguration: ScalingConfigurationRequestTypeDef
+    instanceConfigs: Sequence[InstanceConfigTypeDef]
+    amiId: NotRequired[str]
+    purchaseOption: NotRequired[PurchaseOptionType]
+    spotOptions: NotRequired[SpotOptionsTypeDef]
+    slurmConfiguration: NotRequired[ComputeNodeGroupSlurmConfigurationRequestTypeDef]
+    nodeLifecycleActions: NotRequired[NodeLifecycleActionsRequestTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateComputeNodeGroupRequestTypeDef(TypedDict):
+    clusterIdentifier: str
+    computeNodeGroupIdentifier: str
+    amiId: NotRequired[str]
+    subnetIds: NotRequired[Sequence[str]]
+    customLaunchTemplate: NotRequired[CustomLaunchTemplateTypeDef]
+    purchaseOption: NotRequired[PurchaseOptionType]
+    spotOptions: NotRequired[SpotOptionsTypeDef]
+    scalingConfiguration: NotRequired[ScalingConfigurationRequestTypeDef]
+    iamInstanceProfileArn: NotRequired[str]
+    slurmConfiguration: NotRequired[UpdateComputeNodeGroupSlurmConfigurationRequestTypeDef]
+    nodeLifecycleActions: NotRequired[UpdateNodeLifecycleActionsRequestTypeDef]
+    clientToken: NotRequired[str]

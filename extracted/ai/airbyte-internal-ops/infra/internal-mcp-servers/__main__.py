@@ -236,28 +236,42 @@ def define_mcp_cloud_run_service(
     public_url: str,
     oauth_client_id: str,
     oauth_client_secret_id: str,
+    oidc_client_id_env: str = "AIRBYTE_MCP_OIDC_CLIENT_ID",
+    oidc_client_secret_env: str = "AIRBYTE_MCP_OIDC_CLIENT_SECRET",
+    oidc_config_url_env: str = "AIRBYTE_MCP_OIDC_CONFIG_URL",
+    oidc_config_url: str | None = None,
     service_account: gcp.serviceaccount.Account,
     api_services: list[gcp.projects.Service],
     min_instances: int = 0,
     extra_envs: list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs] | None = None,
     extra_depends: list[pulumi.Resource] | None = None,
 ) -> gcp.cloudrunv2.Service:
-    """Define a hosted MCP Cloud Run service with OIDC auth.
+    """Define a hosted MCP Cloud Run service.
 
-    Generic factory used for ops-mcp and ops-mcp-preview services. Each
-    gets its own Cloud Run instance behind the shared
-    `mcp.internal.airbyte.ai` load balancer.
+    Generic factory used for the ops-mcp, cloud-mcp, and agent-mcp services
+    (plus their preview variants). Each gets its own Cloud Run instance behind
+    the shared
+    `mcp.internal.airbyte.ai` load balancer. The service authenticates every
+    request on its own; this factory only supplies the deployment-specific
+    inputs (public URL and the OIDC client credentials).
+
+    The OIDC client credentials are passed under `oidc_client_id_env` /
+    `oidc_client_secret_env`, and the discovery URL (when supplied) under
+    `oidc_config_url_env`. These default to the Airbyte-branded names
+    (`AIRBYTE_MCP_OIDC_*`) that the current branded-auth images read, with
+    `oidc_config_url` defaulting to `None` because those images already default
+    the OIDC discovery URL to Airbyte Cloud (so it is not duplicated here). A
+    service on the pre-rename generic contract (e.g. the legacy `agent-mcp`
+    image) overrides these with the generic names and an explicit discovery URL.
     """
     envs = [
         _env("GCP_PROJECT", PROJECT),
         _env("MCP_SERVER_URL", public_url),
-        _env(
-            "OIDC_CONFIG_URL",
-            f"{OAUTH_ISSUER}/.well-known/openid-configuration",
-        ),
-        _env("OIDC_CLIENT_ID", oauth_client_id),
-        _secret_env("OIDC_CLIENT_SECRET", oauth_client_secret_id),
+        _env(oidc_client_id_env, oauth_client_id),
+        _secret_env(oidc_client_secret_env, oauth_client_secret_id),
     ]
+    if oidc_config_url is not None:
+        envs.append(_env(oidc_config_url_env, oidc_config_url))
     if extra_envs:
         envs.extend(extra_envs)
 
@@ -759,6 +773,12 @@ def main() -> None:
         _env("ZENDESK_EMAIL", ZENDESK_EMAIL),
         _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
     ]
+    # ops-mcp and cloud-mcp (both branded-auth images) authenticate every HTTP
+    # request on their own and default the auth realm to Airbyte Cloud, so no
+    # auth realm env is passed here. They read the OIDC client credentials under
+    # the Airbyte-branded names and default their own OIDC discovery URL, which
+    # is exactly the factory default (`AIRBYTE_MCP_OIDC_*`, no `OIDC_CONFIG_URL`)
+    # — so they pass nothing extra. Only agent-mcp overrides, below.
     # MCP services
     mcp_common = {
         "service_account": service_account,
@@ -804,6 +824,16 @@ def main() -> None:
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         **mcp_common,
     )
+    # agent-mcp still runs a generic pre-rename PyAirbyte image (its rebrand is a
+    # follow-up when its image is bumped; its deploy is currently paused), so it
+    # overrides the branded defaults with the generic env names and an explicit
+    # Airbyte Cloud OIDC discovery URL.
+    legacy_generic_oidc = {
+        "oidc_client_id_env": "OIDC_CLIENT_ID",
+        "oidc_client_secret_env": "OIDC_CLIENT_SECRET",
+        "oidc_config_url_env": "OIDC_CONFIG_URL",
+        "oidc_config_url": f"{OAUTH_ISSUER}/.well-known/openid-configuration",
+    }
     agent_mcp = define_mcp_cloud_run_service(
         service_name=AGENT_MCP_SERVICE_NAME,
         description="Airbyte Agents MCP hosted server (internal mirror of mcp.airbyte.ai)",
@@ -812,6 +842,7 @@ def main() -> None:
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         min_instances=MIN_INSTANCES,
+        **legacy_generic_oidc,
         **mcp_common,
     )
     agent_mcp_preview = define_mcp_cloud_run_service(
@@ -821,6 +852,7 @@ def main() -> None:
         public_url=AGENT_MCP_PREVIEW_PUBLIC_URL,
         oauth_client_id=OPS_MCP_OAUTH_CLIENT_ID,
         oauth_client_secret_id=OPS_MCP_OAUTH_CLIENT_SECRET_ID,
+        **legacy_generic_oidc,
         **mcp_common,
     )
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AccessKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fdf978f313644fc2895c99a1a87de980e5c5ff112c8f959a8d3a00d764056d6)
+            type_hints = cached_type_hints(_typecheckingstub__1fdf978f313644fc2895c99a1a87de980e5c5ff112c8f959a8d3a00d764056d6)
             check_type(argname="argument access_key_id", value=access_key_id, expected_type=type_hints["access_key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_key_id": access_key_id,
@@ -109,7 +113,7 @@ class GroupPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a92e2164c75bf6bcfba84804dfd379fe7ae5bbacff8cfb251fa4518fecbd9e3)
+            type_hints = cached_type_hints(_typecheckingstub__6a92e2164c75bf6bcfba84804dfd379fe7ae5bbacff8cfb251fa4518fecbd9e3)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -169,7 +173,7 @@ class GroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48c8635b06f4f7a207b37033ec5b2f54d63a6bd398917fd397f0d89e84491b56)
+            type_hints = cached_type_hints(_typecheckingstub__48c8635b06f4f7a207b37033ec5b2f54d63a6bd398917fd397f0d89e84491b56)
             check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -206,7 +210,7 @@ class GroupReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IAccessKeyRef")
 class IAccessKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessKey.
@@ -226,7 +230,7 @@ class IAccessKeyRef(
 
 class _IAccessKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessKey.
 
@@ -251,7 +255,7 @@ typing.cast(typing.Any, IAccessKeyRef).__jsii_proxy_class__ = lambda : _IAccessK
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IGroupPolicyRef")
 class IGroupPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupPolicy.
@@ -271,7 +275,7 @@ class IGroupPolicyRef(
 
 class _IGroupPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupPolicy.
 
@@ -296,7 +300,7 @@ typing.cast(typing.Any, IGroupPolicyRef).__jsii_proxy_class__ = lambda : _IGroup
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IGroupRef")
 class IGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
@@ -316,7 +320,7 @@ class IGroupRef(
 
 class _IGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
 
@@ -341,7 +345,7 @@ typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IInstanceProfileRef")
 class IInstanceProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
@@ -361,7 +365,7 @@ class IInstanceProfileRef(
 
 class _IInstanceProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
 
@@ -386,7 +390,7 @@ typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _II
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IManagedPolicyRef")
 class IManagedPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedPolicy.
@@ -406,7 +410,7 @@ class IManagedPolicyRef(
 
 class _IManagedPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedPolicy.
 
@@ -431,7 +435,7 @@ typing.cast(typing.Any, IManagedPolicyRef).__jsii_proxy_class__ = lambda : _IMan
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IOIDCProviderRef")
 class IOIDCProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OIDCProvider.
@@ -451,7 +455,7 @@ class IOIDCProviderRef(
 
 class _IOIDCProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OIDCProvider.
 
@@ -476,7 +480,7 @@ typing.cast(typing.Any, IOIDCProviderRef).__jsii_proxy_class__ = lambda : _IOIDC
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IPolicyRef")
 class IPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
@@ -496,7 +500,7 @@ class IPolicyRef(
 
 class _IPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
 
@@ -521,7 +525,7 @@ typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IRolePolicyRef")
 class IRolePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RolePolicy.
@@ -541,7 +545,7 @@ class IRolePolicyRef(
 
 class _IRolePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RolePolicy.
 
@@ -566,7 +570,7 @@ typing.cast(typing.Any, IRolePolicyRef).__jsii_proxy_class__ = lambda : _IRolePo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IRoleRef")
 class IRoleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Role.
@@ -586,7 +590,7 @@ class IRoleRef(
 
 class _IRoleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Role.
 
@@ -611,7 +615,7 @@ typing.cast(typing.Any, IRoleRef).__jsii_proxy_class__ = lambda : _IRoleRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.ISAMLProviderRef")
 class ISAMLProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SAMLProvider.
@@ -631,7 +635,7 @@ class ISAMLProviderRef(
 
 class _ISAMLProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SAMLProvider.
 
@@ -656,7 +660,7 @@ typing.cast(typing.Any, ISAMLProviderRef).__jsii_proxy_class__ = lambda : _ISAML
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IServerCertificateRef")
 class IServerCertificateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServerCertificate.
@@ -676,7 +680,7 @@ class IServerCertificateRef(
 
 class _IServerCertificateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServerCertificate.
 
@@ -701,7 +705,7 @@ typing.cast(typing.Any, IServerCertificateRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IServiceLinkedRoleRef")
 class IServiceLinkedRoleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceLinkedRole.
@@ -721,7 +725,7 @@ class IServiceLinkedRoleRef(
 
 class _IServiceLinkedRoleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceLinkedRole.
 
@@ -746,7 +750,7 @@ typing.cast(typing.Any, IServiceLinkedRoleRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IUserPolicyRef")
 class IUserPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPolicy.
@@ -766,7 +770,7 @@ class IUserPolicyRef(
 
 class _IUserPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPolicy.
 
@@ -791,7 +795,7 @@ typing.cast(typing.Any, IUserPolicyRef).__jsii_proxy_class__ = lambda : _IUserPo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IUserRef")
 class IUserRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a User.
@@ -811,7 +815,7 @@ class IUserRef(
 
 class _IUserRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a User.
 
@@ -836,7 +840,7 @@ typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IUserToGroupAdditionRef")
 class IUserToGroupAdditionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserToGroupAddition.
@@ -856,7 +860,7 @@ class IUserToGroupAdditionRef(
 
 class _IUserToGroupAdditionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserToGroupAddition.
 
@@ -881,7 +885,7 @@ typing.cast(typing.Any, IUserToGroupAdditionRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iam.IVirtualMFADeviceRef")
 class IVirtualMFADeviceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualMFADevice.
@@ -901,7 +905,7 @@ class IVirtualMFADeviceRef(
 
 class _IVirtualMFADeviceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VirtualMFADevice.
 
@@ -957,7 +961,7 @@ class InstanceProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e278c65645b8f47fd7ab3d7f254a6f4ac872019a1d58d6cd116d14aebb6c382)
+            type_hints = cached_type_hints(_typecheckingstub__3e278c65645b8f47fd7ab3d7f254a6f4ac872019a1d58d6cd116d14aebb6c382)
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
             check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1015,7 +1019,7 @@ class ManagedPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5ede49b7b72dccd002b041b171ec9cb172ace16b07ccc90a21255cbcb1e760e)
+            type_hints = cached_type_hints(_typecheckingstub__d5ede49b7b72dccd002b041b171ec9cb172ace16b07ccc90a21255cbcb1e760e)
             check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "policy_arn": policy_arn,
@@ -1064,7 +1068,7 @@ class OIDCProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7fdcd0c708983fab5326e867388d77dc6bcf3d79a19cd0bc79f0f69e83bbcc8c)
+            type_hints = cached_type_hints(_typecheckingstub__7fdcd0c708983fab5326e867388d77dc6bcf3d79a19cd0bc79f0f69e83bbcc8c)
             check_type(argname="argument oidc_provider_arn", value=oidc_provider_arn, expected_type=type_hints["oidc_provider_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "oidc_provider_arn": oidc_provider_arn,
@@ -1113,7 +1117,7 @@ class PolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1927f9850fdf1b98b3abd6fed75aa0b487e2270ee89d7d5991ea4f89e74a56)
+            type_hints = cached_type_hints(_typecheckingstub__2b1927f9850fdf1b98b3abd6fed75aa0b487e2270ee89d7d5991ea4f89e74a56)
             check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "policy_id": policy_id,
@@ -1164,7 +1168,7 @@ class RolePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92a77912e091d2e0f4bb1ad8633d3018aa38cf6213036728f95381f487c8cee0)
+            type_hints = cached_type_hints(_typecheckingstub__92a77912e091d2e0f4bb1ad8633d3018aa38cf6213036728f95381f487c8cee0)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1224,7 +1228,7 @@ class RoleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4780c9aede30855235614eeb6da66db193c83a1f04685e3fa06e35bae882342b)
+            type_hints = cached_type_hints(_typecheckingstub__4780c9aede30855235614eeb6da66db193c83a1f04685e3fa06e35bae882342b)
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1282,7 +1286,7 @@ class SAMLProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d012d2ab10f0ab78f39627eb6bdc0c97b1f1342ca2fd51e11d63cfc59e3b3d86)
+            type_hints = cached_type_hints(_typecheckingstub__d012d2ab10f0ab78f39627eb6bdc0c97b1f1342ca2fd51e11d63cfc59e3b3d86)
             check_type(argname="argument saml_provider_arn", value=saml_provider_arn, expected_type=type_hints["saml_provider_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "saml_provider_arn": saml_provider_arn,
@@ -1341,7 +1345,7 @@ class ServerCertificateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9632d820af333095fd417c185685286fd7db0c977eb8eea44a8209ae8f3f9fc)
+            type_hints = cached_type_hints(_typecheckingstub__d9632d820af333095fd417c185685286fd7db0c977eb8eea44a8209ae8f3f9fc)
             check_type(argname="argument server_certificate_arn", value=server_certificate_arn, expected_type=type_hints["server_certificate_arn"])
             check_type(argname="argument server_certificate_name", value=server_certificate_name, expected_type=type_hints["server_certificate_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1399,7 +1403,7 @@ class ServiceLinkedRoleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0aa119a901d7a9697858a5ced3b58046a1e27cff84f716e2f86013f941bf7a09)
+            type_hints = cached_type_hints(_typecheckingstub__0aa119a901d7a9697858a5ced3b58046a1e27cff84f716e2f86013f941bf7a09)
             check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role_name": role_name,
@@ -1450,7 +1454,7 @@ class UserPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cab5a96542e550e4b334265e989b83972253ea21d0828d076d7c4b0ccb745e5)
+            type_hints = cached_type_hints(_typecheckingstub__8cab5a96542e550e4b334265e989b83972253ea21d0828d076d7c4b0ccb745e5)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1510,7 +1514,7 @@ class UserReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fad3b9b7a23c350b5548423788a9bef4f969359516c6348af88289a88db1dde9)
+            type_hints = cached_type_hints(_typecheckingstub__fad3b9b7a23c350b5548423788a9bef4f969359516c6348af88289a88db1dde9)
             check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1568,7 +1572,7 @@ class UserToGroupAdditionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14666140aa4ecbff94af7251b3f36479108da56c1e3c695b9a978c2102d4d6cd)
+            type_hints = cached_type_hints(_typecheckingstub__14666140aa4ecbff94af7251b3f36479108da56c1e3c695b9a978c2102d4d6cd)
             check_type(argname="argument user_to_group_addition_id", value=user_to_group_addition_id, expected_type=type_hints["user_to_group_addition_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_to_group_addition_id": user_to_group_addition_id,
@@ -1617,7 +1621,7 @@ class VirtualMFADeviceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15d8382904decd1526f54845e59f8f82ecf72689c0d49dff56ad55e42cfe314b)
+            type_hints = cached_type_hints(_typecheckingstub__15d8382904decd1526f54845e59f8f82ecf72689c0d49dff56ad55e42cfe314b)
             check_type(argname="argument serial_number", value=serial_number, expected_type=type_hints["serial_number"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "serial_number": serial_number,

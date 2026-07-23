@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,33 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3tables.INamespaceRef")
 class INamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Namespace.
@@ -57,7 +61,7 @@ class INamespaceRef(
 
 class _INamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Namespace.
 
@@ -82,7 +86,7 @@ typing.cast(typing.Any, INamespaceRef).__jsii_proxy_class__ = lambda : _INamespa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3tables.ITableBucketPolicyRef")
 class ITableBucketPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TableBucketPolicy.
@@ -102,7 +106,7 @@ class ITableBucketPolicyRef(
 
 class _ITableBucketPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TableBucketPolicy.
 
@@ -127,7 +131,7 @@ typing.cast(typing.Any, ITableBucketPolicyRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3tables.ITableBucketRef")
 class ITableBucketRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TableBucket.
@@ -147,7 +151,7 @@ class ITableBucketRef(
 
 class _ITableBucketRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TableBucket.
 
@@ -172,7 +176,7 @@ typing.cast(typing.Any, ITableBucketRef).__jsii_proxy_class__ = lambda : _ITable
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3tables.ITablePolicyRef")
 class ITablePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TablePolicy.
@@ -192,7 +196,7 @@ class ITablePolicyRef(
 
 class _ITablePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TablePolicy.
 
@@ -217,7 +221,7 @@ typing.cast(typing.Any, ITablePolicyRef).__jsii_proxy_class__ = lambda : _ITable
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3tables.ITableRef")
 class ITableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Table.
@@ -237,7 +241,7 @@ class ITableRef(
 
 class _ITableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Table.
 
@@ -290,7 +294,7 @@ class NamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__769c2eb3c2914dbd75fc67980d6fd8dc4704fe32d9503bb3d89c0052dc522e22)
+            type_hints = cached_type_hints(_typecheckingstub__769c2eb3c2914dbd75fc67980d6fd8dc4704fe32d9503bb3d89c0052dc522e22)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -348,7 +352,7 @@ class TableBucketPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac3df4e653a51813567ce9a1405bcbffaaab69af66c1bdd8a4ff9e5759c4ef47)
+            type_hints = cached_type_hints(_typecheckingstub__ac3df4e653a51813567ce9a1405bcbffaaab69af66c1bdd8a4ff9e5759c4ef47)
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "table_bucket_arn": table_bucket_arn,
@@ -397,7 +401,7 @@ class TableBucketReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab47e4b70198d3821edeaa467fb3b68145e801287014631d803d69036d4647bf)
+            type_hints = cached_type_hints(_typecheckingstub__ab47e4b70198d3821edeaa467fb3b68145e801287014631d803d69036d4647bf)
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "table_bucket_arn": table_bucket_arn,
@@ -446,7 +450,7 @@ class TablePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42326fef6bef2084b71f2902b0cc9888ea9338c0e1c16e36a9a255fbf3c3d98e)
+            type_hints = cached_type_hints(_typecheckingstub__42326fef6bef2084b71f2902b0cc9888ea9338c0e1c16e36a9a255fbf3c3d98e)
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "table_arn": table_arn,
@@ -495,7 +499,7 @@ class TableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2df438cc32b11b0de6320fbbdc2453915a1766092e7471e03d5d8fc7b0dd698b)
+            type_hints = cached_type_hints(_typecheckingstub__2df438cc32b11b0de6320fbbdc2453915a1766092e7471e03d5d8fc7b0dd698b)
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "table_arn": table_arn,

@@ -1,13 +1,12 @@
 use std::cmp::Ordering;
 
 use jsonschema::{
-    canonical::{options, CanonicalKind, CanonicalView},
-    canonicalize, Draft, JsonType, JsonTypeSet,
+    canonical::{options, CanonicalKind, CanonicalSchema, CanonicalView},
+    canonicalize, CanonicalizationError, Draft, JsonType, PatternOptions,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
 
-#[test_case(&json!({"type": "string", "minLength": 3}); "string constraints")]
 #[test_case(&json!({"allOf": [{"type": "integer"}, {"minimum": 0}]}); "allOf")]
 #[test_case(&json!({"$defs": {"a": {"type": "null"}}, "$ref": "#/$defs/a"}); "ref into defs")]
 fn unmodeled_document_round_trips_verbatim(schema: &Value) {
@@ -16,12 +15,88 @@ fn unmodeled_document_round_trips_verbatim(schema: &Value) {
     assert!(matches!(canonical.view(), CanonicalView::Raw(_)));
 }
 
+#[test]
+fn string_view_exposes_facets() {
+    let CanonicalView::String(view) =
+        canonicalize(&json!({"type": "string", "minLength": 2, "pattern": "^a"}))
+            .unwrap()
+            .view()
+    else {
+        panic!("expected a String view");
+    };
+    assert_eq!(view.min_length, Some(Number::from(2u64)));
+    assert_eq!(view.max_length, None);
+    assert_eq!(view.patterns, vec!["^a".to_string()]);
+}
+
+#[test]
+fn integer_view_exposes_bounds() {
+    let CanonicalView::Integer(view) =
+        canonicalize(&json!({"type": "integer", "minimum": 2, "maximum": 9}))
+            .unwrap()
+            .view()
+    else {
+        panic!("expected an Integer view");
+    };
+    assert_eq!(view.minimum, Some(Number::from(2)));
+    assert_eq!(view.maximum, Some(Number::from(9)));
+}
+
+// Arbitrary precision models a bound past `u64`/`i64` as a big integer and emits it back exactly;
+// the default build keeps such a document raw.
+#[cfg(feature = "arbitrary-precision")]
+#[test_case(r#"{"type": "string", "minLength": 99999999999999999999999}"#, CanonicalKind::String, "minLength"; "length bound")]
+#[test_case(r#"{"type": "integer", "minimum": 99999999999999999999999}"#, CanonicalKind::Integer, "minimum"; "integer bound")]
+fn past_range_bound_round_trips(text: &str, kind: CanonicalKind, keyword: &str) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    assert_eq!(canonical.kind(), kind);
+    assert_eq!(
+        canonical.to_json_schema()[keyword].to_string(),
+        "99999999999999999999999"
+    );
+}
+
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case("minLength")]
+#[test_case("maxLength")]
+fn huge_length_bound_stays_raw(keyword: &str) {
+    let schema: Value = serde_json::from_str(&format!(
+        r#"{{"type": "string", "{keyword}": 99999999999999999999999}}"#
+    ))
+    .unwrap();
+    assert_eq!(canonicalize(&schema).unwrap().kind(), CanonicalKind::Raw);
+}
+
+// The `regex` engine rejects a negative lookahead the fancy engine accepts.
+#[test]
+fn pattern_engine_selects_dialect() {
+    let schema = json!({"pattern": "^(?!x)"});
+    assert!(canonicalize(&schema).is_ok());
+    let error = options()
+        .with_pattern_options(PatternOptions::regex())
+        .canonicalize(&schema)
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        CanonicalizationError::InvalidPattern { .. }
+    ));
+}
+
+// The suite checks only the error variant; the `Display` message is exercised here.
+#[test_case(&json!(42), "schema must be a boolean or object, got: 42"; "invalid schema type")]
+#[test_case(&json!({"pattern": "["}), "invalid regular expression: \"[\""; "invalid pattern")]
+fn error_display(schema: &Value, message: &str) {
+    assert_eq!(canonicalize(schema).unwrap_err().to_string(), message);
+}
+
 #[test_case(&json!({"type": "string"}), CanonicalKind::MultiType, "multi_type"; "multi_type")]
 #[test_case(&json!({"const": 1}), CanonicalKind::Const, "const"; "const_value")]
 #[test_case(&json!({"enum": [1, 2, 3]}), CanonicalKind::Enum, "enum"; "enum_values")]
 #[test_case(&json!({}), CanonicalKind::True, "true"; "empty object")]
 #[test_case(&json!(false), CanonicalKind::False, "false"; "boolean false")]
-#[test_case(&json!({"type": "string", "minLength": 3}), CanonicalKind::Raw, "raw"; "raw")]
+#[test_case(&json!({"type": "integer", "minimum": 0}), CanonicalKind::Integer, "integer"; "integer_leaf")]
+#[test_case(&json!({"type": "number", "minimum": 0}), CanonicalKind::Raw, "raw"; "raw")]
 fn kind_reports_its_label(schema: &Value, kind: CanonicalKind, label: &str) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(canonical.kind(), kind);
@@ -29,7 +104,7 @@ fn kind_reports_its_label(schema: &Value, kind: CanonicalKind, label: &str) {
 }
 
 // `view()` exposes each modeled node with its payload.
-#[test_case(&json!({"type": ["string", "number"]}), &CanonicalView::MultiType(JsonTypeSet::empty().insert(JsonType::String).insert(JsonType::Number)); "multi_type")]
+#[test_case(&json!({"type": ["string", "number"]}), &CanonicalView::MultiType(JsonType::String | JsonType::Number); "multi_type")]
 #[test_case(&json!({"const": [1, "a"]}), &CanonicalView::Const(json!([1, "a"])); "const_value")]
 #[test_case(&json!({"enum": [3, 1, 2]}), &CanonicalView::Enum(vec![json!(1), json!(2), json!(3)]); "enum_values")]
 #[test_case(&json!(true), &CanonicalView::True; "boolean true")]
@@ -39,12 +114,53 @@ fn view_matches_expected(schema: &Value, expected: &CanonicalView) {
     assert_eq!(&canonicalize(schema).unwrap().view(), expected);
 }
 
-// Draft 4 keeps a type guard on `integer` values because value equality cannot tell `1` from `1.0`.
-#[test]
-fn draft4_integer_values_are_a_typed_group() {
+// Default build: an integer past `i64` lies above the whole representable range, so it satisfies any
+// minimum and violates any maximum - decided by overflow direction, without representing it.
+#[cfg(not(feature = "arbitrary-precision"))]
+#[test_case(r#"{"type":"integer","enum":[1,2,10000000000000000000],"minimum":2}"#, &json!({"enum":[2,10_000_000_000_000_000_000_u64]}); "minimum keeps oversized")]
+#[test_case(r#"{"type":"integer","enum":[1,2,10000000000000000000],"maximum":5}"#, &json!({"enum":[1,2]}); "maximum drops oversized")]
+#[test_case(r#"{"allOf":[{"type":"integer","minimum":2},{"enum":[1,2,10000000000000000000]}]}"#, &json!({"enum":[2,10_000_000_000_000_000_000_u64]}); "cross-branch minimum keeps oversized")]
+#[test_case(r#"{"type":"integer","enum":[1,2,-10000000000000000000],"maximum":5}"#, &json!({"enum":[1,2,-1e19]}); "maximum keeps undersized")]
+#[test_case(r#"{"type":"integer","enum":[1,2,-10000000000000000000],"minimum":0}"#, &json!({"enum":[1,2]}); "minimum drops undersized")]
+fn oversized_integer_compares_by_overflow_direction(text: &str, expected: &Value) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let canonical = canonicalize(&schema).expect("canonicalizes");
+    let mut expected = expected.as_object().expect("object").clone();
+    expected.insert(
+        "$schema".into(),
+        json!("https://json-schema.org/draft/2020-12/schema"),
+    );
+    assert_eq!(canonical.to_json_schema(), Value::Object(expected));
+}
+
+// Draft 4 `integer` is a typed group an interval bound narrows; a bound excluding every member leaves
+// nothing satisfiable, a mixed type set guards only its integer members, and the bound may sit on
+// either side of the intersection.
+#[test_case(&json!({"type": "integer", "enum": [1, 2, 3], "minimum": 2}), &json!({"type": "integer", "enum": [2, 3]}); "narrows to survivors")]
+#[test_case(&json!({"type": "integer", "enum": [1, 2, 3], "minimum": 5}), &json!({"not": {}}); "bound excludes all")]
+#[test_case(&json!({"allOf": [{"type": ["string", "integer"]}, {"enum": ["a", 1]}]}), &json!({"anyOf": [{"type": "integer", "enum": [1]}, {"enum": ["a"]}]}); "mixed type set guards only integers")]
+#[test_case(&json!({"allOf": [{"type": "integer", "minimum": 2}, {"type": "integer", "enum": [1, 2, 3]}]}), &json!({"type": "integer", "enum": [2, 3]}); "bound before typed group")]
+fn draft4_integer_typed_group_intersects_bound(schema: &Value, expected: &Value) {
     let canonical = options()
         .with_draft(Draft::Draft4)
-        .canonicalize(&json!({"type": "integer", "enum": [1, 2, 3]}))
+        .canonicalize(schema)
+        .expect("canonicalizes");
+    let mut expected = expected.as_object().expect("object").clone();
+    expected.insert(
+        "$schema".into(),
+        json!("http://json-schema.org/draft-04/schema#"),
+    );
+    assert_eq!(canonical.to_json_schema(), Value::Object(expected));
+}
+
+// Draft 4 keeps a type guard on `integer` values because value equality cannot tell `1` from `1.0`,
+// whether the values come from the same object or meet a bound from another `allOf` branch.
+#[test_case(&json!({"type": "integer", "enum": [1, 2, 3]}); "same object")]
+#[test_case(&json!({"allOf": [{"enum": [1, 2, 3]}, {"type": "integer", "minimum": 2}]}); "value set meets a bound")]
+fn draft4_integer_values_are_a_typed_group(schema: &Value) {
+    let canonical = options()
+        .with_draft(Draft::Draft4)
+        .canonicalize(schema)
         .expect("canonicalizes");
     assert_eq!(canonical.kind(), CanonicalKind::TypedGroup);
     assert_eq!(canonical.kind().as_str(), "typed_group");
@@ -53,6 +169,28 @@ fn draft4_integer_values_are_a_typed_group() {
     };
     assert_eq!(group.ty, JsonType::Integer);
     assert_eq!(group.body.kind(), CanonicalKind::Enum);
+}
+
+// An `anyOf` whose branches stay disjoint surfaces as an AnyOf view exposing each branch.
+#[test]
+fn view_exposes_anyof_branches() {
+    let canonical =
+        canonicalize(&json!({"anyOf": [{"type": "string"}, {"const": 1}]})).expect("canonicalizes");
+    assert_eq!(canonical.kind(), CanonicalKind::AnyOf);
+    assert_eq!(canonical.kind().as_str(), "any_of");
+    let CanonicalView::AnyOf(branches) = canonical.view() else {
+        panic!("expected an AnyOf view");
+    };
+    assert_eq!(
+        branches
+            .iter()
+            .map(CanonicalSchema::view)
+            .collect::<Vec<_>>(),
+        vec![
+            CanonicalView::MultiType(JsonType::String.into()),
+            CanonicalView::Const(json!(1)),
+        ]
+    );
 }
 
 #[test]

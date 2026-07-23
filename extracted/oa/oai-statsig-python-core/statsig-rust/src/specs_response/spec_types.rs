@@ -40,6 +40,7 @@ pub struct Spec {
     pub forward_all_exposures: Option<bool>,
     pub fields_used: Option<Vec<InternedString>>,
     pub use_new_layer_eval: Option<bool>,
+    pub session_update_mode: Option<InternedString>,
 }
 
 #[skip_serializing_none]

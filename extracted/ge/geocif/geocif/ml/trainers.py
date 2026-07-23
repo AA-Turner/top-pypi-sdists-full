@@ -656,6 +656,48 @@ def auto_train(
             from sklearn.linear_model import LogisticRegression
             model = LogisticRegression(multi_class='multinomial', solver='lbfgs')
 
+        elif model_name == "extratrees":
+            # sklearn Extremely Randomized Trees (axis-aligned splits, random
+            # thresholds) — distinct from geocif's 'oblique' (treeple oblique
+            # extra-forest). sklearn can't ingest string categoricals or NaN,
+            # so wrap it: one-hot the object/category cols + median-impute
+            # (mirrors BassRegressor._numeric), remembering the fit-time
+            # columns so predict reindexes to the same layout. Delegates any
+            # other attribute (feature_importances_ etc.) to the underlying
+            # estimator like _CubistUnseenSafe.
+            from sklearn.ensemble import ExtraTreesRegressor, ExtraTreesClassifier
+            et_cls = ExtraTreesRegressor if model_type == "REGRESSION" else ExtraTreesClassifier
+
+            class _ExtraTreesNumeric:
+                def __init__(self, **kw):
+                    self._m = et_cls(**kw)
+
+                @staticmethod
+                def _numeric(X):
+                    X = pd.DataFrame(X).copy()
+                    obj = list(X.select_dtypes(include=["object", "category"]).columns)
+                    if obj:
+                        X = pd.get_dummies(X, columns=obj, dummy_na=False)
+                    return X.apply(pd.to_numeric, errors="coerce")
+
+                def fit(self, X, y):
+                    Xn = self._numeric(X)
+                    self._median = Xn.median(numeric_only=True)
+                    Xn = Xn.fillna(self._median).fillna(0.0)
+                    self.columns_ = list(Xn.columns)
+                    self._m.fit(Xn.values.astype(float), y)
+                    return self
+
+                def predict(self, X):
+                    Xn = self._numeric(X).reindex(columns=self.columns_, fill_value=0.0)
+                    Xn = Xn.fillna(self._median).fillna(0.0)
+                    return self._m.predict(Xn.values.astype(float))
+
+                def __getattr__(self, name):
+                    return getattr(self._m, name)
+
+            model = _ExtraTreesNumeric(n_estimators=500, n_jobs=-1, random_state=seed)
+
         elif model_name.startswith("gam"):
             # Placeholder — real term construction and the single gridsearch
             # fit happen in GAMFitter.fit() where the final fit-time feature

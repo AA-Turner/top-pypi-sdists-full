@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mwaaserverless import (
-    IWorkflowRef as _IWorkflowRef_a598eb41,
-    WorkflowReference as _WorkflowReference_c262e190,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mwaaserverless as _aws_mwaaserverless_cdfd681b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mwaaserverless_cdfd681b = _LazyImport("aws_cdk.interfaces.aws_mwaaserverless")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkflowRef_a598eb41, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mwaaserverless_cdfd681b.IWorkflowRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkflow(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow",
 ):
@@ -138,13 +133,13 @@ class CfnWorkflow(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        definition_s3_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition_s3_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         trigger_mode: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -163,7 +158,7 @@ class CfnWorkflow(
         :param trigger_mode: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b7845258e0)
+            type_hints = cached_type_hints(_typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b7845258e0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkflowProps(
@@ -182,12 +177,15 @@ class CfnWorkflow(
 
     @jsii.member(jsii_name="arnForWorkflow")
     @builtins.classmethod
-    def arn_for_workflow(cls, resource: "_IWorkflowRef_a598eb41") -> builtins.str:
+    def arn_for_workflow(
+        cls,
+        resource: "_aws_mwaaserverless_cdfd681b.IWorkflowRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efc54da51356e725bfba680e59b62e7e55f48ab6956daffaa508b6cab05c5e86)
+            type_hints = cached_type_hints(_typecheckingstub__efc54da51356e725bfba680e59b62e7e55f48ab6956daffaa508b6cab05c5e86)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkflow", [resource]))
 
@@ -199,18 +197,18 @@ class CfnWorkflow(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5697aec59969556cfbcaceefca05dbf4c705565c3ec1073054085e4a20769875)
+            type_hints = cached_type_hints(_typecheckingstub__5697aec59969556cfbcaceefca05dbf4c705565c3ec1073054085e4a20769875)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkflow", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f57466d2bdf054afc7e3d49308403099c41f9ad23a2a007aa91db68f1d828655)
+            type_hints = cached_type_hints(_typecheckingstub__f57466d2bdf054afc7e3d49308403099c41f9ad23a2a007aa91db68f1d828655)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -223,7 +221,7 @@ class CfnWorkflow(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d08c346e322e0ff67f18f1d4fda12317dc15cef6543ce133d019da52b2c66aa)
+            type_hints = cached_type_hints(_typecheckingstub__8d08c346e322e0ff67f18f1d4fda12317dc15cef6543ce133d019da52b2c66aa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -251,11 +249,11 @@ class CfnWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="attrScheduleConfiguration")
-    def attr_schedule_configuration(self) -> "_IResolvable_da3f097b":
+    def attr_schedule_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: ScheduleConfiguration
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrScheduleConfiguration"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrScheduleConfiguration"))
 
     @builtins.property
     @jsii.member(jsii_name="attrWorkflowArn")
@@ -283,9 +281,9 @@ class CfnWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -299,24 +297,24 @@ class CfnWorkflow(
 
     @builtins.property
     @jsii.member(jsii_name="workflowRef")
-    def workflow_ref(self) -> "_WorkflowReference_c262e190":
+    def workflow_ref(self) -> "_aws_mwaaserverless_cdfd681b.WorkflowReference":
         '''A reference to a Workflow resource.'''
-        return typing.cast("_WorkflowReference_c262e190", jsii.get(self, "workflowRef"))
+        return typing.cast("_aws_mwaaserverless_cdfd681b.WorkflowReference", jsii.get(self, "workflowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="definitionS3Location")
     def definition_s3_location(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkflow.S3LocationProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkflow.S3LocationProperty"], jsii.get(self, "definitionS3Location"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.S3LocationProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.S3LocationProperty"], jsii.get(self, "definitionS3Location"))
 
     @definition_s3_location.setter
     def definition_s3_location(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnWorkflow.S3LocationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.S3LocationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9833b67c113a89f2316d0e981ed4884c44210bb5afe3d98b3f48c3dbd4c6636)
+            type_hints = cached_type_hints(_typecheckingstub__d9833b67c113a89f2316d0e981ed4884c44210bb5afe3d98b3f48c3dbd4c6636)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
 
@@ -328,7 +326,7 @@ class CfnWorkflow(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f38d2888a3ed8ca88fab9cf362f64be8b28ae698d973d6eb717ffc7d26ea95d1)
+            type_hints = cached_type_hints(_typecheckingstub__f38d2888a3ed8ca88fab9cf362f64be8b28ae698d973d6eb717ffc7d26ea95d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -340,7 +338,7 @@ class CfnWorkflow(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c0e967a0d20001fac7826a1236cef88937fe92efa3aea43c4aee0668b77ace4)
+            type_hints = cached_type_hints(_typecheckingstub__3c0e967a0d20001fac7826a1236cef88937fe92efa3aea43c4aee0668b77ace4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -348,16 +346,16 @@ class CfnWorkflow(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.EncryptionConfigurationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d814594e)
+            type_hints = cached_type_hints(_typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d814594e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -365,16 +363,16 @@ class CfnWorkflow(
     @jsii.member(jsii_name="loggingConfiguration")
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.LoggingConfigurationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.LoggingConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.LoggingConfigurationProperty"]], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
     def logging_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.LoggingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.LoggingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c616011f97b5b305e924c2f2daf971e2cd5a3d599eaa2a5175e319dd0350d98e)
+            type_hints = cached_type_hints(_typecheckingstub__c616011f97b5b305e924c2f2daf971e2cd5a3d599eaa2a5175e319dd0350d98e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -386,7 +384,7 @@ class CfnWorkflow(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31f3fefe9f76e831f4847bf707c5a491dada758aeb33ba982ee044c4ceb516af)
+            type_hints = cached_type_hints(_typecheckingstub__31f3fefe9f76e831f4847bf707c5a491dada758aeb33ba982ee044c4ceb516af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -394,16 +392,16 @@ class CfnWorkflow(
     @jsii.member(jsii_name="networkConfiguration")
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.NetworkConfigurationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.NetworkConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.NetworkConfigurationProperty"]], jsii.get(self, "networkConfiguration"))
 
     @network_configuration.setter
     def network_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.NetworkConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.NetworkConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e84aedb46d5aeced351a3acc6109aa72f2931744f9ad449eb7c33a1f3e2a6537)
+            type_hints = cached_type_hints(_typecheckingstub__e84aedb46d5aeced351a3acc6109aa72f2931744f9ad449eb7c33a1f3e2a6537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -419,7 +417,7 @@ class CfnWorkflow(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba570a00bba6210a762247c25ee50e6fe4f1c5b260184321978c4e85227da8ab)
+            type_hints = cached_type_hints(_typecheckingstub__ba570a00bba6210a762247c25ee50e6fe4f1c5b260184321978c4e85227da8ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -431,7 +429,7 @@ class CfnWorkflow(
     @trigger_mode.setter
     def trigger_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__557aba21ad8506797a84212d0251edcf4b4a6f696028d7d683d648a27326f66c)
+            type_hints = cached_type_hints(_typecheckingstub__557aba21ad8506797a84212d0251edcf4b4a6f696028d7d683d648a27326f66c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggerMode", value) # pyright: ignore[reportArgumentType]
 
@@ -468,7 +466,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__efe2f8cb733b4f3d7876c831146f412fca47453cee38a647e87fa75297eb0496)
+                type_hints = cached_type_hints(_typecheckingstub__efe2f8cb733b4f3d7876c831146f412fca47453cee38a647e87fa75297eb0496)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -529,7 +527,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8fd38e2fbacdb3636b041bc0c31da853f2a1440112ae620aee7dcbcb464ed0d2)
+                type_hints = cached_type_hints(_typecheckingstub__8fd38e2fbacdb3636b041bc0c31da853f2a1440112ae620aee7dcbcb464ed0d2)
                 check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "log_group_name": log_group_name,
@@ -589,7 +587,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc665a96ee907dadbb61655a0cb8e254c68ed2f7ce1a7cd2fb137b2a62b24b74)
+                type_hints = cached_type_hints(_typecheckingstub__cc665a96ee907dadbb61655a0cb8e254c68ed2f7ce1a7cd2fb137b2a62b24b74)
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -665,7 +663,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c0b299a68cbcd9cd5ffcaabf1024d30bf5364601588183689d527cf511904c20)
+                type_hints = cached_type_hints(_typecheckingstub__c0b299a68cbcd9cd5ffcaabf1024d30bf5364601588183689d527cf511904c20)
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
                 check_type(argname="argument version_id", value=version_id, expected_type=type_hints["version_id"])
@@ -741,7 +739,7 @@ class CfnWorkflow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d814c110ae85b71696876c2542c53feea69d634875096fa14e3d8603f231b37)
+                type_hints = cached_type_hints(_typecheckingstub__8d814c110ae85b71696876c2542c53feea69d634875096fa14e3d8603f231b37)
                 check_type(argname="argument cron_expression", value=cron_expression, expected_type=type_hints["cron_expression"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if cron_expression is not None:
@@ -786,13 +784,13 @@ class CfnWorkflowProps:
     def __init__(
         self,
         *,
-        definition_s3_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        definition_s3_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
         role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        logging_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
-        network_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkflow.NetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         trigger_mode: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -850,7 +848,7 @@ class CfnWorkflowProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d91f5cdb)
+            type_hints = cached_type_hints(_typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d91f5cdb)
             check_type(argname="argument definition_s3_location", value=definition_s3_location, expected_type=type_hints["definition_s3_location"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -882,13 +880,13 @@ class CfnWorkflowProps:
     @builtins.property
     def definition_s3_location(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkflow.S3LocationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.S3LocationProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-definitions3location
         '''
         result = self._values.get("definition_s3_location")
         assert result is not None, "Required property 'definition_s3_location' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkflow.S3LocationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.S3LocationProperty"], result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
@@ -910,22 +908,22 @@ class CfnWorkflowProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def logging_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.LoggingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.LoggingConfigurationProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-loggingconfiguration
         '''
         result = self._values.get("logging_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.LoggingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.LoggingConfigurationProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -938,12 +936,12 @@ class CfnWorkflowProps:
     @builtins.property
     def network_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.NetworkConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.NetworkConfigurationProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mwaaserverless-workflow.html#cfn-mwaaserverless-workflow-networkconfiguration
         '''
         result = self._values.get("network_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkflow.NetworkConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkflow.NetworkConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -985,13 +983,13 @@ def _typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b78
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    definition_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition_s3_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     trigger_mode: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -999,7 +997,7 @@ def _typecheckingstub__7e2bce4e70d0388a15f4045d87762a0a9bbddefe5c4cc8c92886c1b78
     pass
 
 def _typecheckingstub__efc54da51356e725bfba680e59b62e7e55f48ab6956daffaa508b6cab05c5e86(
-    resource: _IWorkflowRef_a598eb41,
+    resource: _aws_mwaaserverless_cdfd681b.IWorkflowRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1011,7 +1009,7 @@ def _typecheckingstub__5697aec59969556cfbcaceefca05dbf4c705565c3ec1073054085e4a2
     pass
 
 def _typecheckingstub__f57466d2bdf054afc7e3d49308403099c41f9ad23a2a007aa91db68f1d828655(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1023,7 +1021,7 @@ def _typecheckingstub__8d08c346e322e0ff67f18f1d4fda12317dc15cef6543ce133d019da52
     pass
 
 def _typecheckingstub__d9833b67c113a89f2316d0e981ed4884c44210bb5afe3d98b3f48c3dbd4c6636(
-    value: typing.Union[_IResolvable_da3f097b, CfnWorkflow.S3LocationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.S3LocationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1041,13 +1039,13 @@ def _typecheckingstub__3c0e967a0d20001fac7826a1236cef88937fe92efa3aea43c4aee0668
     pass
 
 def _typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d814594e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c616011f97b5b305e924c2f2daf971e2cd5a3d599eaa2a5175e319dd0350d98e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.LoggingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.LoggingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1059,7 +1057,7 @@ def _typecheckingstub__31f3fefe9f76e831f4847bf707c5a491dada758aeb33ba982ee044c4c
     pass
 
 def _typecheckingstub__e84aedb46d5aeced351a3acc6109aa72f2931744f9ad449eb7c33a1f3e2a6537(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWorkflow.NetworkConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkflow.NetworkConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1117,13 +1115,13 @@ def _typecheckingstub__8d814c110ae85b71696876c2542c53feea69d634875096fa14e3d8603
 
 def _typecheckingstub__36755512823c440877f151e4568051c22a8df773ab4409c547b6f6b7d91f5cdb(
     *,
-    definition_s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    definition_s3_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
     role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    logging_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    logging_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-    network_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkflow.NetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     trigger_mode: typing.Optional[builtins.str] = None,
 ) -> None:

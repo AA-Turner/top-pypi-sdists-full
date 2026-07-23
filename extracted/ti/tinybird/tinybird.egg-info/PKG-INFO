@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.12
+Version: 4.6.13
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -52,6 +52,12 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 Changelog
 ----------
 
+4.6.13
+********
+
+- `Fixed` `tb deploy` and `tb build` now reject pipes that declare a parameter without a valid name (e.g. a numeric-literal cast like ``{{Float32(1682892000.0)}}``), instead of creating an unusable parameter.
+- `Added` ``tb datasource append`` and ``tb datasource replace`` support the experimental ``--experimental=use_v1`` option for local CSV, NDJSON, and Parquet files. It submits the import through the v1 endpoint and prints the queued job ID; pass ``--wait`` to wait for completion.
+
 4.6.12
 ********
 
@@ -69,6 +75,7 @@ Changelog
 
 - `Removed` `tinybird.bi_stats_rt` from `tb logs` sources. The BI Connector `bi_stats` / `bi_stats_rt` service datasources are deprecated.
 
+
 4.6.9
 *******
 
@@ -77,6 +84,7 @@ Changelog
 4.6.8
 *******
 
+- `Changed` Upgraded Tornado to 6.5.5.
 - `Fixed` Tinybird Local CLI commands to respect Git branch local workspaces correctly.
 
 4.6.7

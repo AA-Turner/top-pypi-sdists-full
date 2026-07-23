@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(
@@ -39,7 +43,7 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 )
 class IIdentityPoolPrincipalTagRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPoolPrincipalTag.
@@ -59,7 +63,7 @@ class IIdentityPoolPrincipalTagRef(
 
 class _IIdentityPoolPrincipalTagRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPoolPrincipalTag.
 
@@ -84,7 +88,7 @@ typing.cast(typing.Any, IIdentityPoolPrincipalTagRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IIdentityPoolRef")
 class IIdentityPoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPool.
@@ -104,7 +108,7 @@ class IIdentityPoolRef(
 
 class _IIdentityPoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPool.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IIdentityPoolRef).__jsii_proxy_class__ = lambda : _IIden
 )
 class IIdentityPoolRoleAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPoolRoleAttachment.
@@ -153,7 +157,7 @@ class IIdentityPoolRoleAttachmentRef(
 
 class _IIdentityPoolRoleAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityPoolRoleAttachment.
 
@@ -182,7 +186,7 @@ typing.cast(typing.Any, IIdentityPoolRoleAttachmentRef).__jsii_proxy_class__ = l
 )
 class ILogDeliveryConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogDeliveryConfiguration.
@@ -202,7 +206,7 @@ class ILogDeliveryConfigurationRef(
 
 class _ILogDeliveryConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogDeliveryConfiguration.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, ILogDeliveryConfigurationRef).__jsii_proxy_class__ = lam
 )
 class IManagedLoginBrandingRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedLoginBranding.
@@ -249,7 +253,7 @@ class IManagedLoginBrandingRef(
 
 class _IManagedLoginBrandingRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ManagedLoginBranding.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IManagedLoginBrandingRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.ITermsRef")
 class ITermsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Terms.
@@ -294,7 +298,7 @@ class ITermsRef(
 
 class _ITermsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Terms.
 
@@ -319,7 +323,7 @@ typing.cast(typing.Any, ITermsRef).__jsii_proxy_class__ = lambda : _ITermsRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolClientRef")
 class IUserPoolClientRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolClient.
@@ -339,7 +343,7 @@ class IUserPoolClientRef(
 
 class _IUserPoolClientRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolClient.
 
@@ -364,7 +368,7 @@ typing.cast(typing.Any, IUserPoolClientRef).__jsii_proxy_class__ = lambda : _IUs
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolDomainRef")
 class IUserPoolDomainRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolDomain.
@@ -384,7 +388,7 @@ class IUserPoolDomainRef(
 
 class _IUserPoolDomainRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolDomain.
 
@@ -409,7 +413,7 @@ typing.cast(typing.Any, IUserPoolDomainRef).__jsii_proxy_class__ = lambda : _IUs
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolGroupRef")
 class IUserPoolGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolGroup.
@@ -429,7 +433,7 @@ class IUserPoolGroupRef(
 
 class _IUserPoolGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolGroup.
 
@@ -456,7 +460,7 @@ typing.cast(typing.Any, IUserPoolGroupRef).__jsii_proxy_class__ = lambda : _IUse
 )
 class IUserPoolIdentityProviderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolIdentityProvider.
@@ -476,7 +480,7 @@ class IUserPoolIdentityProviderRef(
 
 class _IUserPoolIdentityProviderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolIdentityProvider.
 
@@ -501,7 +505,7 @@ typing.cast(typing.Any, IUserPoolIdentityProviderRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolRef")
 class IUserPoolRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPool.
@@ -521,7 +525,7 @@ class IUserPoolRef(
 
 class _IUserPoolRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPool.
 
@@ -544,11 +548,107 @@ typing.cast(typing.Any, IUserPoolRef).__jsii_proxy_class__ = lambda : _IUserPool
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolRegionalConfigurationAttachmentRef"
+)
+class IUserPoolRegionalConfigurationAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolRegionalConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolRegionalConfigurationAttachmentRef")
+    def user_pool_regional_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolRegionalConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolRegionalConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserPoolRegionalConfigurationAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolRegionalConfigurationAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cognito.IUserPoolRegionalConfigurationAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolRegionalConfigurationAttachmentRef")
+    def user_pool_regional_configuration_attachment_ref(
+        self,
+    ) -> "UserPoolRegionalConfigurationAttachmentReference":
+        '''(experimental) A reference to a UserPoolRegionalConfigurationAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserPoolRegionalConfigurationAttachmentReference", jsii.get(self, "userPoolRegionalConfigurationAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserPoolRegionalConfigurationAttachmentRef).__jsii_proxy_class__ = lambda : _IUserPoolRegionalConfigurationAttachmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolReplicaRef")
+class IUserPoolReplicaRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolReplica.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolReplicaRef")
+    def user_pool_replica_ref(self) -> "UserPoolReplicaReference":
+        '''(experimental) A reference to a UserPoolReplica resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserPoolReplicaRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserPoolReplica.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cognito.IUserPoolReplicaRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolReplicaRef")
+    def user_pool_replica_ref(self) -> "UserPoolReplicaReference":
+        '''(experimental) A reference to a UserPoolReplica resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserPoolReplicaReference", jsii.get(self, "userPoolReplicaRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserPoolReplicaRef).__jsii_proxy_class__ = lambda : _IUserPoolReplicaRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolResourceServerRef"
 )
 class IUserPoolResourceServerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolResourceServer.
@@ -568,7 +668,7 @@ class IUserPoolResourceServerRef(
 
 class _IUserPoolResourceServerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolResourceServer.
 
@@ -595,7 +695,7 @@ typing.cast(typing.Any, IUserPoolResourceServerRef).__jsii_proxy_class__ = lambd
 )
 class IUserPoolRiskConfigurationAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolRiskConfigurationAttachment.
@@ -617,7 +717,7 @@ class IUserPoolRiskConfigurationAttachmentRef(
 
 class _IUserPoolRiskConfigurationAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolRiskConfigurationAttachment.
 
@@ -646,7 +746,7 @@ typing.cast(typing.Any, IUserPoolRiskConfigurationAttachmentRef).__jsii_proxy_cl
 )
 class IUserPoolUICustomizationAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUICustomizationAttachment.
@@ -668,7 +768,7 @@ class IUserPoolUICustomizationAttachmentRef(
 
 class _IUserPoolUICustomizationAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUICustomizationAttachment.
 
@@ -695,7 +795,7 @@ typing.cast(typing.Any, IUserPoolUICustomizationAttachmentRef).__jsii_proxy_clas
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cognito.IUserPoolUserRef")
 class IUserPoolUserRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUser.
@@ -715,7 +815,7 @@ class IUserPoolUserRef(
 
 class _IUserPoolUserRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUser.
 
@@ -742,7 +842,7 @@ typing.cast(typing.Any, IUserPoolUserRef).__jsii_proxy_class__ = lambda : _IUser
 )
 class IUserPoolUserToGroupAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUserToGroupAttachment.
@@ -764,7 +864,7 @@ class IUserPoolUserToGroupAttachmentRef(
 
 class _IUserPoolUserToGroupAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserPoolUserToGroupAttachment.
 
@@ -822,7 +922,7 @@ class IdentityPoolPrincipalTagReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cc5a043298fe466acf5a276ca3b197ad62c5bcb18683941cbbaa8c09e911e32)
+            type_hints = cached_type_hints(_typecheckingstub__6cc5a043298fe466acf5a276ca3b197ad62c5bcb18683941cbbaa8c09e911e32)
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
             check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -880,7 +980,7 @@ class IdentityPoolReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3218cf924075cf055c20b0abfab4803c9f0051b2030ff12c6e597bc58427dfb7)
+            type_hints = cached_type_hints(_typecheckingstub__3218cf924075cf055c20b0abfab4803c9f0051b2030ff12c6e597bc58427dfb7)
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "identity_pool_id": identity_pool_id,
@@ -929,7 +1029,7 @@ class IdentityPoolRoleAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34190b77eaab913a78d5fd3a05321ad0a4a80ef5dad716132f2829a4f41b7e84)
+            type_hints = cached_type_hints(_typecheckingstub__34190b77eaab913a78d5fd3a05321ad0a4a80ef5dad716132f2829a4f41b7e84)
             check_type(argname="argument identity_pool_role_attachment_id", value=identity_pool_role_attachment_id, expected_type=type_hints["identity_pool_role_attachment_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "identity_pool_role_attachment_id": identity_pool_role_attachment_id,
@@ -978,7 +1078,7 @@ class LogDeliveryConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f875a38af4eb1dc456934c1548d778b55e784e77c015e50066366dbd0c9fdf49)
+            type_hints = cached_type_hints(_typecheckingstub__f875a38af4eb1dc456934c1548d778b55e784e77c015e50066366dbd0c9fdf49)
             check_type(argname="argument log_delivery_configuration_id", value=log_delivery_configuration_id, expected_type=type_hints["log_delivery_configuration_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "log_delivery_configuration_id": log_delivery_configuration_id,
@@ -1037,7 +1137,7 @@ class ManagedLoginBrandingReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac1ad7162157086c02de85b312a0a8bf64727f6ae88085d5c5c83cc3e3a7cba6)
+            type_hints = cached_type_hints(_typecheckingstub__ac1ad7162157086c02de85b312a0a8bf64727f6ae88085d5c5c83cc3e3a7cba6)
             check_type(argname="argument managed_login_branding_id", value=managed_login_branding_id, expected_type=type_hints["managed_login_branding_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1097,7 +1197,7 @@ class TermsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6ddddddef6f9c7269efe22a766f1ea54ea3dc4aaa13214f7e0825ea9ad0b54c)
+            type_hints = cached_type_hints(_typecheckingstub__e6ddddddef6f9c7269efe22a766f1ea54ea3dc4aaa13214f7e0825ea9ad0b54c)
             check_type(argname="argument terms_id", value=terms_id, expected_type=type_hints["terms_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1157,7 +1257,7 @@ class UserPoolClientReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a613d0899cb76353a656d3984ed3afd3693b73b15de1734d391036c385914ab5)
+            type_hints = cached_type_hints(_typecheckingstub__a613d0899cb76353a656d3984ed3afd3693b73b15de1734d391036c385914ab5)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1217,7 +1317,7 @@ class UserPoolDomainReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e04d3660137d2f7a094f9306f113279cc5683cf64083351968c05af3ff23911f)
+            type_hints = cached_type_hints(_typecheckingstub__e04d3660137d2f7a094f9306f113279cc5683cf64083351968c05af3ff23911f)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1277,7 +1377,7 @@ class UserPoolGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c6ca4225c5a7c5b388611fc0b563c1763787a7fa970bdd53d66d8be5649e2d1)
+            type_hints = cached_type_hints(_typecheckingstub__4c6ca4225c5a7c5b388611fc0b563c1763787a7fa970bdd53d66d8be5649e2d1)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1342,7 +1442,7 @@ class UserPoolIdentityProviderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e38e75f1e049595e40dc4aee48f5d7f28836252b51b4773600008ee5bfea87e)
+            type_hints = cached_type_hints(_typecheckingstub__5e38e75f1e049595e40dc4aee48f5d7f28836252b51b4773600008ee5bfea87e)
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1407,7 +1507,7 @@ class UserPoolReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb2f639967e545264e9cd8ee88d1759d350388a6ebe4c5e79dbdf64e91462521)
+            type_hints = cached_type_hints(_typecheckingstub__eb2f639967e545264e9cd8ee88d1759d350388a6ebe4c5e79dbdf64e91462521)
             check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1442,6 +1542,120 @@ class UserPoolReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolRegionalConfigurationAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_pool_id": "userPoolId"},
+)
+class UserPoolRegionalConfigurationAttachmentReference:
+    def __init__(self, *, user_pool_id: builtins.str) -> None:
+        '''A reference to a UserPoolRegionalConfigurationAttachment resource.
+
+        :param user_pool_id: The UserPoolId of the UserPoolRegionalConfigurationAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cognito as interfaces_cognito
+            
+            user_pool_regional_configuration_attachment_reference = interfaces_cognito.UserPoolRegionalConfigurationAttachmentReference(
+                user_pool_id="userPoolId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f1b7c0a64df681dee532ba1038fdff5e592cc8eeb31bd58abb36388c24f2b12)
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The UserPoolId of the UserPoolRegionalConfigurationAttachment resource.'''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserPoolRegionalConfigurationAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolReplicaReference",
+    jsii_struct_bases=[],
+    name_mapping={"region_name": "regionName", "user_pool_id": "userPoolId"},
+)
+class UserPoolReplicaReference:
+    def __init__(
+        self,
+        *,
+        region_name: builtins.str,
+        user_pool_id: builtins.str,
+    ) -> None:
+        '''A reference to a UserPoolReplica resource.
+
+        :param region_name: The RegionName of the UserPoolReplica resource.
+        :param user_pool_id: The UserPoolId of the UserPoolReplica resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cognito as interfaces_cognito
+            
+            user_pool_replica_reference = interfaces_cognito.UserPoolReplicaReference(
+                region_name="regionName",
+                user_pool_id="userPoolId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be59c1b5377f33372bddd453e1ca226547e903fa95f8bf06b040b4b5423ba3a3)
+            check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "region_name": region_name,
+            "user_pool_id": user_pool_id,
+        }
+
+    @builtins.property
+    def region_name(self) -> builtins.str:
+        '''The RegionName of the UserPoolReplica resource.'''
+        result = self._values.get("region_name")
+        assert result is not None, "Required property 'region_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''The UserPoolId of the UserPoolReplica resource.'''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserPoolReplicaReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cognito.UserPoolResourceServerReference",
     jsii_struct_bases=[],
     name_mapping={"identifier": "identifier", "user_pool_id": "userPoolId"},
@@ -1467,7 +1681,7 @@ class UserPoolResourceServerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45d481ebf1e9de348fb61a77e52f94542b582a07364ac6ca57e3a32db6daf21b)
+            type_hints = cached_type_hints(_typecheckingstub__45d481ebf1e9de348fb61a77e52f94542b582a07364ac6ca57e3a32db6daf21b)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1527,7 +1741,7 @@ class UserPoolRiskConfigurationAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e89abfe80fc6ed500e877a7f0b753fff7e2ea69d20ea8301b0f5c95cc443ac3e)
+            type_hints = cached_type_hints(_typecheckingstub__e89abfe80fc6ed500e877a7f0b753fff7e2ea69d20ea8301b0f5c95cc443ac3e)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1587,7 +1801,7 @@ class UserPoolUICustomizationAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a0dc8ff8cccc49fdaec27f43141b983d0bbe2d7580800e65676265f6e19fbb6)
+            type_hints = cached_type_hints(_typecheckingstub__9a0dc8ff8cccc49fdaec27f43141b983d0bbe2d7580800e65676265f6e19fbb6)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1647,7 +1861,7 @@ class UserPoolUserReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de0ef1e81a5938dc2ae0b2761d944f9880191753b1175d2e69c1d604b5a3aa4e)
+            type_hints = cached_type_hints(_typecheckingstub__de0ef1e81a5938dc2ae0b2761d944f9880191753b1175d2e69c1d604b5a3aa4e)
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1719,7 +1933,7 @@ class UserPoolUserToGroupAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de98a26267d52b4593101085779f879caf7df79b9360db02490d4836383cb000)
+            type_hints = cached_type_hints(_typecheckingstub__de98a26267d52b4593101085779f879caf7df79b9360db02490d4836383cb000)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
@@ -1774,6 +1988,8 @@ __all__ = [
     "IUserPoolGroupRef",
     "IUserPoolIdentityProviderRef",
     "IUserPoolRef",
+    "IUserPoolRegionalConfigurationAttachmentRef",
+    "IUserPoolReplicaRef",
     "IUserPoolResourceServerRef",
     "IUserPoolRiskConfigurationAttachmentRef",
     "IUserPoolUICustomizationAttachmentRef",
@@ -1790,6 +2006,8 @@ __all__ = [
     "UserPoolGroupReference",
     "UserPoolIdentityProviderReference",
     "UserPoolReference",
+    "UserPoolRegionalConfigurationAttachmentReference",
+    "UserPoolReplicaReference",
     "UserPoolResourceServerReference",
     "UserPoolRiskConfigurationAttachmentReference",
     "UserPoolUICustomizationAttachmentReference",
@@ -1884,6 +2102,21 @@ def _typecheckingstub__eb2f639967e545264e9cd8ee88d1759d350388a6ebe4c5e79dbdf64e9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0f1b7c0a64df681dee532ba1038fdff5e592cc8eeb31bd58abb36388c24f2b12(
+    *,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be59c1b5377f33372bddd453e1ca226547e903fa95f8bf06b040b4b5423ba3a3(
+    *,
+    region_name: builtins.str,
+    user_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__45d481ebf1e9de348fb61a77e52f94542b582a07364ac6ca57e3a32db6daf21b(
     *,
     identifier: builtins.str,
@@ -1925,5 +2158,5 @@ def _typecheckingstub__de98a26267d52b4593101085779f879caf7df79b9360db02490d48363
     """Type checking stubs"""
     pass
 
-for cls in [IIdentityPoolPrincipalTagRef, IIdentityPoolRef, IIdentityPoolRoleAttachmentRef, ILogDeliveryConfigurationRef, IManagedLoginBrandingRef, ITermsRef, IUserPoolClientRef, IUserPoolDomainRef, IUserPoolGroupRef, IUserPoolIdentityProviderRef, IUserPoolRef, IUserPoolResourceServerRef, IUserPoolRiskConfigurationAttachmentRef, IUserPoolUICustomizationAttachmentRef, IUserPoolUserRef, IUserPoolUserToGroupAttachmentRef]:
+for cls in [IIdentityPoolPrincipalTagRef, IIdentityPoolRef, IIdentityPoolRoleAttachmentRef, ILogDeliveryConfigurationRef, IManagedLoginBrandingRef, ITermsRef, IUserPoolClientRef, IUserPoolDomainRef, IUserPoolGroupRef, IUserPoolIdentityProviderRef, IUserPoolRef, IUserPoolRegionalConfigurationAttachmentRef, IUserPoolReplicaRef, IUserPoolResourceServerRef, IUserPoolRiskConfigurationAttachmentRef, IUserPoolUICustomizationAttachmentRef, IUserPoolUserRef, IUserPoolUserToGroupAttachmentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

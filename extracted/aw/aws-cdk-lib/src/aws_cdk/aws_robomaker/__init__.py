@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,53 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_robomaker import (
-    FleetReference as _FleetReference_4138ef0f,
-    IFleetRef as _IFleetRef_0583e5dd,
-    IRobotApplicationRef as _IRobotApplicationRef_4ff8e56d,
-    IRobotApplicationVersionRef as _IRobotApplicationVersionRef_0def63df,
-    IRobotRef as _IRobotRef_1acaea37,
-    ISimulationApplicationRef as _ISimulationApplicationRef_b0735a82,
-    ISimulationApplicationVersionRef as _ISimulationApplicationVersionRef_aa56ccfe,
-    RobotApplicationReference as _RobotApplicationReference_4c0805f6,
-    RobotApplicationVersionReference as _RobotApplicationVersionReference_2f8b2a61,
-    RobotReference as _RobotReference_472e1f1f,
-    SimulationApplicationReference as _SimulationApplicationReference_461b3c69,
-    SimulationApplicationVersionReference as _SimulationApplicationVersionReference_c1423217,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_robomaker as _aws_robomaker_00266520
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_robomaker_00266520 = _LazyImport("aws_cdk.interfaces.aws_robomaker")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IFleetRef_0583e5dd, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.IFleetRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFleet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnFleet",
 ):
@@ -133,7 +118,7 @@ class CfnFleet(
         :param tags: The list of all tags added to the fleet.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cf67028db50fbc82ea8f4501fdb4ee36d1ed66bd90e1e13e635239c75a407a8)
+            type_hints = cached_type_hints(_typecheckingstub__4cf67028db50fbc82ea8f4501fdb4ee36d1ed66bd90e1e13e635239c75a407a8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFleetProps(name=name, tags=tags)
@@ -142,12 +127,15 @@ class CfnFleet(
 
     @jsii.member(jsii_name="arnForFleet")
     @builtins.classmethod
-    def arn_for_fleet(cls, resource: "_IFleetRef_0583e5dd") -> builtins.str:
+    def arn_for_fleet(
+        cls,
+        resource: "_aws_robomaker_00266520.IFleetRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85995bbaf57fbd76704a266bf43259e20547593f07e803c7f0c2e01783610079)
+            type_hints = cached_type_hints(_typecheckingstub__85995bbaf57fbd76704a266bf43259e20547593f07e803c7f0c2e01783610079)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFleet", [resource]))
 
@@ -159,18 +147,18 @@ class CfnFleet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50ee041ffab6d0b5197e721e763a07bb908c7bee9e9a98b54cd76b64f5093813)
+            type_hints = cached_type_hints(_typecheckingstub__50ee041ffab6d0b5197e721e763a07bb908c7bee9e9a98b54cd76b64f5093813)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFleet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79e824f817a2c25a6f542667057e9a4525e47750a2d9bc44f093375b07e8d178)
+            type_hints = cached_type_hints(_typecheckingstub__79e824f817a2c25a6f542667057e9a4525e47750a2d9bc44f093375b07e8d178)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -183,7 +171,7 @@ class CfnFleet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__195f1c8f4daafc0d71dbb26762ed99292b6f283831024397d9845964e6edd9c6)
+            type_hints = cached_type_hints(_typecheckingstub__195f1c8f4daafc0d71dbb26762ed99292b6f283831024397d9845964e6edd9c6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -214,15 +202,15 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> "_FleetReference_4138ef0f":
+    def fleet_ref(self) -> "_aws_robomaker_00266520.FleetReference":
         '''A reference to a Fleet resource.'''
-        return typing.cast("_FleetReference_4138ef0f", jsii.get(self, "fleetRef"))
+        return typing.cast("_aws_robomaker_00266520.FleetReference", jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -233,7 +221,7 @@ class CfnFleet(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb2b0f115fd155ec1867ebdfab524eabaa919c39920655bedef657815f3fe35b)
+            type_hints = cached_type_hints(_typecheckingstub__fb2b0f115fd155ec1867ebdfab524eabaa919c39920655bedef657815f3fe35b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -249,7 +237,7 @@ class CfnFleet(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4a9d74f73ceaf3ae033517a44602efdc6fd84668be6992907ba5276fd26df0c)
+            type_hints = cached_type_hints(_typecheckingstub__a4a9d74f73ceaf3ae033517a44602efdc6fd84668be6992907ba5276fd26df0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -288,7 +276,7 @@ class CfnFleetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5c8fc3b81304b565bf3da303dec523f47216f807e13ba1e0ddcc46ceb848df8)
+            type_hints = cached_type_hints(_typecheckingstub__f5c8fc3b81304b565bf3da303dec523f47216f807e13ba1e0ddcc46ceb848df8)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -327,9 +315,9 @@ class CfnFleetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRobotRef_1acaea37, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.IRobotRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRobot(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnRobot",
 ):
@@ -374,7 +362,7 @@ class CfnRobot(
         *,
         architecture: builtins.str,
         greengrass_group_id: builtins.str,
-        fleet: typing.Optional[typing.Union[builtins.str, "_IFleetRef_0583e5dd"]] = None,
+        fleet: typing.Optional[typing.Union[builtins.str, "_aws_robomaker_00266520.IFleetRef"]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -389,7 +377,7 @@ class CfnRobot(
         :param tags: A map that contains tag keys and tag values that are attached to the robot.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49131f852e25508f2191103f967b740a3a43d115f73e1b3a287cc2e4a396694f)
+            type_hints = cached_type_hints(_typecheckingstub__49131f852e25508f2191103f967b740a3a43d115f73e1b3a287cc2e4a396694f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRobotProps(
@@ -404,12 +392,15 @@ class CfnRobot(
 
     @jsii.member(jsii_name="arnForRobot")
     @builtins.classmethod
-    def arn_for_robot(cls, resource: "_IRobotRef_1acaea37") -> builtins.str:
+    def arn_for_robot(
+        cls,
+        resource: "_aws_robomaker_00266520.IRobotRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58b1dbc90ff64dde391dad26858628d34c29d9554b4b7aab135e23b6eb08bf98)
+            type_hints = cached_type_hints(_typecheckingstub__58b1dbc90ff64dde391dad26858628d34c29d9554b4b7aab135e23b6eb08bf98)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRobot", [resource]))
 
@@ -421,18 +412,18 @@ class CfnRobot(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bff5e42d284d283cacac67a94bbf95f9211e7bad26f902de8d69b1d0cfcf570d)
+            type_hints = cached_type_hints(_typecheckingstub__bff5e42d284d283cacac67a94bbf95f9211e7bad26f902de8d69b1d0cfcf570d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRobot", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__712f9da34bf6ddea1b6cd2b92a14c93de456aa09838fcb1df12120caab354dc4)
+            type_hints = cached_type_hints(_typecheckingstub__712f9da34bf6ddea1b6cd2b92a14c93de456aa09838fcb1df12120caab354dc4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -445,7 +436,7 @@ class CfnRobot(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__708276af184c2e226238ae52977a6357dc19766ae0a17f9abee37238a2200248)
+            type_hints = cached_type_hints(_typecheckingstub__708276af184c2e226238ae52977a6357dc19766ae0a17f9abee37238a2200248)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -476,15 +467,15 @@ class CfnRobot(
 
     @builtins.property
     @jsii.member(jsii_name="robotRef")
-    def robot_ref(self) -> "_RobotReference_472e1f1f":
+    def robot_ref(self) -> "_aws_robomaker_00266520.RobotReference":
         '''A reference to a Robot resource.'''
-        return typing.cast("_RobotReference_472e1f1f", jsii.get(self, "robotRef"))
+        return typing.cast("_aws_robomaker_00266520.RobotReference", jsii.get(self, "robotRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="architecture")
@@ -495,7 +486,7 @@ class CfnRobot(
     @architecture.setter
     def architecture(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f36dbab08fea8dace0765ee7ba8b7d3ff9ee4c48d947b5303f3631f8a0369b5e)
+            type_hints = cached_type_hints(_typecheckingstub__f36dbab08fea8dace0765ee7ba8b7d3ff9ee4c48d947b5303f3631f8a0369b5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "architecture", value) # pyright: ignore[reportArgumentType]
 
@@ -508,7 +499,7 @@ class CfnRobot(
     @greengrass_group_id.setter
     def greengrass_group_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50de460acfd3a8dbfb6259513c1df0e835e46e80422bd7d50197066f46adcf42)
+            type_hints = cached_type_hints(_typecheckingstub__50de460acfd3a8dbfb6259513c1df0e835e46e80422bd7d50197066f46adcf42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "greengrassGroupId", value) # pyright: ignore[reportArgumentType]
 
@@ -521,7 +512,7 @@ class CfnRobot(
     @fleet.setter
     def fleet(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8da9d8bd6e5845fb5ae85a5c0ecb127eb3120f33b979743f160cc5912ff26766)
+            type_hints = cached_type_hints(_typecheckingstub__8da9d8bd6e5845fb5ae85a5c0ecb127eb3120f33b979743f160cc5912ff26766)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fleet", value) # pyright: ignore[reportArgumentType]
 
@@ -534,7 +525,7 @@ class CfnRobot(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db28cc7abf10f25ceb48539af3bff17364e26eb389639b29457ab05b7d152425)
+            type_hints = cached_type_hints(_typecheckingstub__db28cc7abf10f25ceb48539af3bff17364e26eb389639b29457ab05b7d152425)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -550,14 +541,14 @@ class CfnRobot(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__197f65220e7c1b22bb2750ecd4cf89b82125f1abad27a9e9cc4881b988b6ba6d)
+            type_hints = cached_type_hints(_typecheckingstub__197f65220e7c1b22bb2750ecd4cf89b82125f1abad27a9e9cc4881b988b6ba6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _IRobotApplicationRef_4ff8e56d, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.IRobotApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRobotApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnRobotApplication",
 ):
@@ -601,11 +592,11 @@ class CfnRobotApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        robot_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRobotApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        robot_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRobotApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
         current_revision_id: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRobotApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRobotApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::RoboMaker::RobotApplication``.
@@ -620,7 +611,7 @@ class CfnRobotApplication(
         :param tags: A map that contains tag keys and tag values that are attached to the robot application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71fa9826def616b855a7d14f7c7a68432b3206eba76bd02b308db61a08332bc3)
+            type_hints = cached_type_hints(_typecheckingstub__71fa9826def616b855a7d14f7c7a68432b3206eba76bd02b308db61a08332bc3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRobotApplicationProps(
@@ -638,13 +629,13 @@ class CfnRobotApplication(
     @builtins.classmethod
     def arn_for_robot_application(
         cls,
-        resource: "_IRobotApplicationRef_4ff8e56d",
+        resource: "_aws_robomaker_00266520.IRobotApplicationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00abd3c3fd53009ed5d951312400d3bba65172a09f1f61489443dfe04a11a346)
+            type_hints = cached_type_hints(_typecheckingstub__00abd3c3fd53009ed5d951312400d3bba65172a09f1f61489443dfe04a11a346)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRobotApplication", [resource]))
 
@@ -656,18 +647,18 @@ class CfnRobotApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cba2eeec6e801d948580d8f3586f12df1bb58ac1438a6665dc711bc5bf6736c)
+            type_hints = cached_type_hints(_typecheckingstub__5cba2eeec6e801d948580d8f3586f12df1bb58ac1438a6665dc711bc5bf6736c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRobotApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42dcfe9a23f9087a5360cc6bd5cc1baa70c7249dcef1085237c5953641683f2b)
+            type_hints = cached_type_hints(_typecheckingstub__42dcfe9a23f9087a5360cc6bd5cc1baa70c7249dcef1085237c5953641683f2b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -680,7 +671,7 @@ class CfnRobotApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ffda1b22518fe7e5746795534fa3f401eb6e2cd22e88b8c529a08a6830ac889)
+            type_hints = cached_type_hints(_typecheckingstub__3ffda1b22518fe7e5746795534fa3f401eb6e2cd22e88b8c529a08a6830ac889)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -720,31 +711,33 @@ class CfnRobotApplication(
 
     @builtins.property
     @jsii.member(jsii_name="robotApplicationRef")
-    def robot_application_ref(self) -> "_RobotApplicationReference_4c0805f6":
+    def robot_application_ref(
+        self,
+    ) -> "_aws_robomaker_00266520.RobotApplicationReference":
         '''A reference to a RobotApplication resource.'''
-        return typing.cast("_RobotApplicationReference_4c0805f6", jsii.get(self, "robotApplicationRef"))
+        return typing.cast("_aws_robomaker_00266520.RobotApplicationReference", jsii.get(self, "robotApplicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="robotSoftwareSuite")
     def robot_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.RobotSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.RobotSoftwareSuiteProperty"]:
         '''The robot software suite used by the robot application.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.RobotSoftwareSuiteProperty"], jsii.get(self, "robotSoftwareSuite"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.RobotSoftwareSuiteProperty"], jsii.get(self, "robotSoftwareSuite"))
 
     @robot_software_suite.setter
     def robot_software_suite(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.RobotSoftwareSuiteProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.RobotSoftwareSuiteProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a0183b45e0172b50d6049b802258f5f54543ee36f6ff14d04a41472f312ff04)
+            type_hints = cached_type_hints(_typecheckingstub__3a0183b45e0172b50d6049b802258f5f54543ee36f6ff14d04a41472f312ff04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "robotSoftwareSuite", value) # pyright: ignore[reportArgumentType]
 
@@ -757,7 +750,7 @@ class CfnRobotApplication(
     @current_revision_id.setter
     def current_revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a68af59eeb167d0c020946ad9c700418dc6f280bb64690a231f2609770e55ce2)
+            type_hints = cached_type_hints(_typecheckingstub__a68af59eeb167d0c020946ad9c700418dc6f280bb64690a231f2609770e55ce2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -770,7 +763,7 @@ class CfnRobotApplication(
     @environment.setter
     def environment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8346429cd042f143075e82bff1b46a5acd3b5c22740614aae1093279051fdea9)
+            type_hints = cached_type_hints(_typecheckingstub__8346429cd042f143075e82bff1b46a5acd3b5c22740614aae1093279051fdea9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
 
@@ -783,7 +776,7 @@ class CfnRobotApplication(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69012b559357369e35caab49e8a89325e4bc8994f10edb7261ac37badc83f089)
+            type_hints = cached_type_hints(_typecheckingstub__69012b559357369e35caab49e8a89325e4bc8994f10edb7261ac37badc83f089)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -791,17 +784,17 @@ class CfnRobotApplication(
     @jsii.member(jsii_name="sources")
     def sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.SourceConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.SourceConfigProperty"]]]]:
         '''The sources of the robot application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.SourceConfigProperty"]]]], jsii.get(self, "sources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.SourceConfigProperty"]]]], jsii.get(self, "sources"))
 
     @sources.setter
     def sources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.SourceConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.SourceConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__921f41fab15ec19f628942a860f0c537326ffdf47bee9bc67baf283fbf524254)
+            type_hints = cached_type_hints(_typecheckingstub__921f41fab15ec19f628942a860f0c537326ffdf47bee9bc67baf283fbf524254)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
 
@@ -817,7 +810,7 @@ class CfnRobotApplication(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__edcc90e709ec9cc68d63a3735570140617851fcd19e7a37393d2056e644b8f64)
+            type_hints = cached_type_hints(_typecheckingstub__edcc90e709ec9cc68d63a3735570140617851fcd19e7a37393d2056e644b8f64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -855,7 +848,7 @@ class CfnRobotApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5f4a9729bdb2de5e225d5dd7073cee6d93bde41ad65d4c7658935ca7308a1d6)
+                type_hints = cached_type_hints(_typecheckingstub__d5f4a9729bdb2de5e225d5dd7073cee6d93bde41ad65d4c7658935ca7308a1d6)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -937,7 +930,7 @@ class CfnRobotApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4e42633c14584fa1496504e90fc71f70fc9e79eb18701f96962e855cd1caf4c0)
+                type_hints = cached_type_hints(_typecheckingstub__4e42633c14584fa1496504e90fc71f70fc9e79eb18701f96962e855cd1caf4c0)
                 check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
@@ -1005,11 +998,11 @@ class CfnRobotApplicationProps:
     def __init__(
         self,
         *,
-        robot_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRobotApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        robot_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRobotApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
         current_revision_id: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRobotApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRobotApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRobotApplication``.
@@ -1053,7 +1046,7 @@ class CfnRobotApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52a4130d82e25da60f30538ac27bda30b72380a78b4ec426daeb7a4e2863826c)
+            type_hints = cached_type_hints(_typecheckingstub__52a4130d82e25da60f30538ac27bda30b72380a78b4ec426daeb7a4e2863826c)
             check_type(argname="argument robot_software_suite", value=robot_software_suite, expected_type=type_hints["robot_software_suite"])
             check_type(argname="argument current_revision_id", value=current_revision_id, expected_type=type_hints["current_revision_id"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -1077,14 +1070,14 @@ class CfnRobotApplicationProps:
     @builtins.property
     def robot_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.RobotSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.RobotSoftwareSuiteProperty"]:
         '''The robot software suite used by the robot application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-robotapplication.html#cfn-robomaker-robotapplication-robotsoftwaresuite
         '''
         result = self._values.get("robot_software_suite")
         assert result is not None, "Required property 'robot_software_suite' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.RobotSoftwareSuiteProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.RobotSoftwareSuiteProperty"], result)
 
     @builtins.property
     def current_revision_id(self) -> typing.Optional[builtins.str]:
@@ -1116,13 +1109,13 @@ class CfnRobotApplicationProps:
     @builtins.property
     def sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.SourceConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.SourceConfigProperty"]]]]:
         '''The sources of the robot application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-robotapplication.html#cfn-robomaker-robotapplication-sources
         '''
         result = self._values.get("sources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRobotApplication.SourceConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRobotApplication.SourceConfigProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1145,9 +1138,9 @@ class CfnRobotApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRobotApplicationVersionRef_0def63df)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.IRobotApplicationVersionRef)
 class CfnRobotApplicationVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnRobotApplicationVersion",
 ):
@@ -1176,7 +1169,7 @@ class CfnRobotApplicationVersion(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application: typing.Union[builtins.str, "_IRobotApplicationRef_4ff8e56d"],
+        application: typing.Union[builtins.str, "_aws_robomaker_00266520.IRobotApplicationRef"],
         current_revision_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::RoboMaker::RobotApplicationVersion``.
@@ -1187,7 +1180,7 @@ class CfnRobotApplicationVersion(
         :param current_revision_id: The current revision id for the robot application. If you provide a value and it matches the latest revision ID, a new version will be created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcd53a9dcf33d743031271af0ba72420a6333fce186b7796423fce7cf2a11edd)
+            type_hints = cached_type_hints(_typecheckingstub__bcd53a9dcf33d743031271af0ba72420a6333fce186b7796423fce7cf2a11edd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRobotApplicationVersionProps(
@@ -1200,13 +1193,13 @@ class CfnRobotApplicationVersion(
     @builtins.classmethod
     def arn_for_robot_application_version(
         cls,
-        resource: "_IRobotApplicationVersionRef_0def63df",
+        resource: "_aws_robomaker_00266520.IRobotApplicationVersionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b945cf0829734dfef511a32f821ecb3a69d5a79d7f5fecd4e5a1712c272e5689)
+            type_hints = cached_type_hints(_typecheckingstub__b945cf0829734dfef511a32f821ecb3a69d5a79d7f5fecd4e5a1712c272e5689)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRobotApplicationVersion", [resource]))
 
@@ -1218,18 +1211,18 @@ class CfnRobotApplicationVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48253d2d63a5525f8110af5a6fbd6265cfeeacf73836bfddc4624827e17b4ea7)
+            type_hints = cached_type_hints(_typecheckingstub__48253d2d63a5525f8110af5a6fbd6265cfeeacf73836bfddc4624827e17b4ea7)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRobotApplicationVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f118e60d84017d23b3757c090962ce180837d00a2391556fe9327256ecdf94ed)
+            type_hints = cached_type_hints(_typecheckingstub__f118e60d84017d23b3757c090962ce180837d00a2391556fe9327256ecdf94ed)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1242,7 +1235,7 @@ class CfnRobotApplicationVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7da9089e8e01d3ff2ab5341d8a934fa39bd9fa51321b5b272c94e36ae7a45d5c)
+            type_hints = cached_type_hints(_typecheckingstub__7da9089e8e01d3ff2ab5341d8a934fa39bd9fa51321b5b272c94e36ae7a45d5c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1284,9 +1277,9 @@ class CfnRobotApplicationVersion(
     @jsii.member(jsii_name="robotApplicationVersionRef")
     def robot_application_version_ref(
         self,
-    ) -> "_RobotApplicationVersionReference_2f8b2a61":
+    ) -> "_aws_robomaker_00266520.RobotApplicationVersionReference":
         '''A reference to a RobotApplicationVersion resource.'''
-        return typing.cast("_RobotApplicationVersionReference_2f8b2a61", jsii.get(self, "robotApplicationVersionRef"))
+        return typing.cast("_aws_robomaker_00266520.RobotApplicationVersionReference", jsii.get(self, "robotApplicationVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="application")
@@ -1297,7 +1290,7 @@ class CfnRobotApplicationVersion(
     @application.setter
     def application(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d3b0a1f324aaccd7abc5e6810329e257f4a7cd3179c5afcaf2b8abd6f7990af)
+            type_hints = cached_type_hints(_typecheckingstub__2d3b0a1f324aaccd7abc5e6810329e257f4a7cd3179c5afcaf2b8abd6f7990af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
 
@@ -1310,7 +1303,7 @@ class CfnRobotApplicationVersion(
     @current_revision_id.setter
     def current_revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a12b8570cf31b8187dcb0dd326c52f7ca4075a70971d81e139f25383d48acad)
+            type_hints = cached_type_hints(_typecheckingstub__4a12b8570cf31b8187dcb0dd326c52f7ca4075a70971d81e139f25383d48acad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -1327,7 +1320,7 @@ class CfnRobotApplicationVersionProps:
     def __init__(
         self,
         *,
-        application: typing.Union[builtins.str, "_IRobotApplicationRef_4ff8e56d"],
+        application: typing.Union[builtins.str, "_aws_robomaker_00266520.IRobotApplicationRef"],
         current_revision_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnRobotApplicationVersion``.
@@ -1352,7 +1345,7 @@ class CfnRobotApplicationVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ac07a372688198f4d1e1276b33a860cf9f2a1a35ffcb9183bd7e8544e85528a)
+            type_hints = cached_type_hints(_typecheckingstub__1ac07a372688198f4d1e1276b33a860cf9f2a1a35ffcb9183bd7e8544e85528a)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument current_revision_id", value=current_revision_id, expected_type=type_hints["current_revision_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1364,14 +1357,14 @@ class CfnRobotApplicationVersionProps:
     @builtins.property
     def application(
         self,
-    ) -> typing.Union[builtins.str, "_IRobotApplicationRef_4ff8e56d"]:
+    ) -> typing.Union[builtins.str, "_aws_robomaker_00266520.IRobotApplicationRef"]:
         '''The application information for the robot application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-robotapplicationversion.html#cfn-robomaker-robotapplicationversion-application
         '''
         result = self._values.get("application")
         assert result is not None, "Required property 'application' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRobotApplicationRef_4ff8e56d"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_robomaker_00266520.IRobotApplicationRef"], result)
 
     @builtins.property
     def current_revision_id(self) -> typing.Optional[builtins.str]:
@@ -1413,7 +1406,7 @@ class CfnRobotProps:
         *,
         architecture: builtins.str,
         greengrass_group_id: builtins.str,
-        fleet: typing.Optional[typing.Union[builtins.str, "_IFleetRef_0583e5dd"]] = None,
+        fleet: typing.Optional[typing.Union[builtins.str, "_aws_robomaker_00266520.IFleetRef"]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -1447,7 +1440,7 @@ class CfnRobotProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb8dba61a5cbbdf07aaff4068a7feeb8d793259512cbf888a9f053970335df52)
+            type_hints = cached_type_hints(_typecheckingstub__fb8dba61a5cbbdf07aaff4068a7feeb8d793259512cbf888a9f053970335df52)
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
             check_type(argname="argument greengrass_group_id", value=greengrass_group_id, expected_type=type_hints["greengrass_group_id"])
             check_type(argname="argument fleet", value=fleet, expected_type=type_hints["fleet"])
@@ -1487,13 +1480,13 @@ class CfnRobotProps:
     @builtins.property
     def fleet(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IFleetRef_0583e5dd"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_robomaker_00266520.IFleetRef"]]:
         '''The Amazon Resource Name (ARN) of the fleet to which the robot will be registered.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-robot.html#cfn-robomaker-robot-fleet
         '''
         result = self._values.get("fleet")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IFleetRef_0583e5dd"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_robomaker_00266520.IFleetRef"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1525,9 +1518,9 @@ class CfnRobotProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISimulationApplicationRef_b0735a82, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.ISimulationApplicationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSimulationApplication(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnSimulationApplication",
 ):
@@ -1581,13 +1574,13 @@ class CfnSimulationApplication(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        robot_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
-        simulation_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.SimulationSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        robot_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        simulation_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.SimulationSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
         current_revision_id: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        rendering_engine: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.RenderingEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        rendering_engine: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.RenderingEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::RoboMaker::SimulationApplication``.
@@ -1604,7 +1597,7 @@ class CfnSimulationApplication(
         :param tags: A map that contains tag keys and tag values that are attached to the simulation application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__114d0219b7d523418f9fb7d4285a959f76159ce8240b820cfc0b5539281cab1b)
+            type_hints = cached_type_hints(_typecheckingstub__114d0219b7d523418f9fb7d4285a959f76159ce8240b820cfc0b5539281cab1b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSimulationApplicationProps(
@@ -1624,13 +1617,13 @@ class CfnSimulationApplication(
     @builtins.classmethod
     def arn_for_simulation_application(
         cls,
-        resource: "_ISimulationApplicationRef_b0735a82",
+        resource: "_aws_robomaker_00266520.ISimulationApplicationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6609d33dfa4ff0b6440015d29c6e885f7687d7fdb5380651df835077bf7137ab)
+            type_hints = cached_type_hints(_typecheckingstub__6609d33dfa4ff0b6440015d29c6e885f7687d7fdb5380651df835077bf7137ab)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSimulationApplication", [resource]))
 
@@ -1642,18 +1635,18 @@ class CfnSimulationApplication(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e372db1423955d2abc8a60d3c8662542f70686e9951dad641dc240fc2f2b184)
+            type_hints = cached_type_hints(_typecheckingstub__8e372db1423955d2abc8a60d3c8662542f70686e9951dad641dc240fc2f2b184)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSimulationApplication", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b07bcabc30b161a3b27df47d8e7cf734f9002a200932fd1c1777c3f3ef03939b)
+            type_hints = cached_type_hints(_typecheckingstub__b07bcabc30b161a3b27df47d8e7cf734f9002a200932fd1c1777c3f3ef03939b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1666,7 +1659,7 @@ class CfnSimulationApplication(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad67c7d83c9fcbd3cf4c7511d49a2bd7f2c52ed6ce1dc68063ded3b42c6bbb6b)
+            type_hints = cached_type_hints(_typecheckingstub__ad67c7d83c9fcbd3cf4c7511d49a2bd7f2c52ed6ce1dc68063ded3b42c6bbb6b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1706,31 +1699,33 @@ class CfnSimulationApplication(
 
     @builtins.property
     @jsii.member(jsii_name="simulationApplicationRef")
-    def simulation_application_ref(self) -> "_SimulationApplicationReference_461b3c69":
+    def simulation_application_ref(
+        self,
+    ) -> "_aws_robomaker_00266520.SimulationApplicationReference":
         '''A reference to a SimulationApplication resource.'''
-        return typing.cast("_SimulationApplicationReference_461b3c69", jsii.get(self, "simulationApplicationRef"))
+        return typing.cast("_aws_robomaker_00266520.SimulationApplicationReference", jsii.get(self, "simulationApplicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="robotSoftwareSuite")
     def robot_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RobotSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RobotSoftwareSuiteProperty"]:
         '''The robot software suite used by the simulation application.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RobotSoftwareSuiteProperty"], jsii.get(self, "robotSoftwareSuite"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RobotSoftwareSuiteProperty"], jsii.get(self, "robotSoftwareSuite"))
 
     @robot_software_suite.setter
     def robot_software_suite(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RobotSoftwareSuiteProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RobotSoftwareSuiteProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5eddba1cd6f8159da95d199756aece7189ac992724326ee1649fe22981dd1e0)
+            type_hints = cached_type_hints(_typecheckingstub__c5eddba1cd6f8159da95d199756aece7189ac992724326ee1649fe22981dd1e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "robotSoftwareSuite", value) # pyright: ignore[reportArgumentType]
 
@@ -1738,17 +1733,17 @@ class CfnSimulationApplication(
     @jsii.member(jsii_name="simulationSoftwareSuite")
     def simulation_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"]:
         '''The simulation software suite used by the simulation application.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"], jsii.get(self, "simulationSoftwareSuite"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"], jsii.get(self, "simulationSoftwareSuite"))
 
     @simulation_software_suite.setter
     def simulation_software_suite(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__003dd21a203873e85f6980fecd86a94b0531507d8242c4a61748ccddd022255b)
+            type_hints = cached_type_hints(_typecheckingstub__003dd21a203873e85f6980fecd86a94b0531507d8242c4a61748ccddd022255b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "simulationSoftwareSuite", value) # pyright: ignore[reportArgumentType]
 
@@ -1761,7 +1756,7 @@ class CfnSimulationApplication(
     @current_revision_id.setter
     def current_revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__068a8613a5e63c82ab19c78d5802a5b6611d12defd9ede2d2533997b03d365e9)
+            type_hints = cached_type_hints(_typecheckingstub__068a8613a5e63c82ab19c78d5802a5b6611d12defd9ede2d2533997b03d365e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -1774,7 +1769,7 @@ class CfnSimulationApplication(
     @environment.setter
     def environment(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69efbbc8b0b296d56da5d877f246f08f0fb859b0450a0b5284f1318fae1eca2c)
+            type_hints = cached_type_hints(_typecheckingstub__69efbbc8b0b296d56da5d877f246f08f0fb859b0450a0b5284f1318fae1eca2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
 
@@ -1787,7 +1782,7 @@ class CfnSimulationApplication(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c61e246fbb83f216937d12b47511a45dd9e3bbb9db8340e1bc7fc1b0134da507)
+            type_hints = cached_type_hints(_typecheckingstub__c61e246fbb83f216937d12b47511a45dd9e3bbb9db8340e1bc7fc1b0134da507)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1795,17 +1790,17 @@ class CfnSimulationApplication(
     @jsii.member(jsii_name="renderingEngine")
     def rendering_engine(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RenderingEngineProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RenderingEngineProperty"]]:
         '''The rendering engine for the simulation application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RenderingEngineProperty"]], jsii.get(self, "renderingEngine"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RenderingEngineProperty"]], jsii.get(self, "renderingEngine"))
 
     @rendering_engine.setter
     def rendering_engine(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RenderingEngineProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RenderingEngineProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c52139e81e980013fe63c79055c9c5a430c7b60d4f73dab46a912bb62fccda4f)
+            type_hints = cached_type_hints(_typecheckingstub__c52139e81e980013fe63c79055c9c5a430c7b60d4f73dab46a912bb62fccda4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "renderingEngine", value) # pyright: ignore[reportArgumentType]
 
@@ -1813,17 +1808,17 @@ class CfnSimulationApplication(
     @jsii.member(jsii_name="sources")
     def sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SourceConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SourceConfigProperty"]]]]:
         '''The sources of the simulation application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SourceConfigProperty"]]]], jsii.get(self, "sources"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SourceConfigProperty"]]]], jsii.get(self, "sources"))
 
     @sources.setter
     def sources(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SourceConfigProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SourceConfigProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__351059f5bb1169ead5062e07e9d73fd8ac37f0cbad54a1d4e8e137cf716e9fae)
+            type_hints = cached_type_hints(_typecheckingstub__351059f5bb1169ead5062e07e9d73fd8ac37f0cbad54a1d4e8e137cf716e9fae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
 
@@ -1839,7 +1834,7 @@ class CfnSimulationApplication(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf0913d8e33389ea9f4a231680314b73532bf04cbe505a502315b25accf25846)
+            type_hints = cached_type_hints(_typecheckingstub__bf0913d8e33389ea9f4a231680314b73532bf04cbe505a502315b25accf25846)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1870,7 +1865,7 @@ class CfnSimulationApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2863a3bc28feec06755c7b41ee081ad65e91ff48f9cf3a5d86d2f922abd3f95e)
+                type_hints = cached_type_hints(_typecheckingstub__2863a3bc28feec06755c7b41ee081ad65e91ff48f9cf3a5d86d2f922abd3f95e)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1943,7 +1938,7 @@ class CfnSimulationApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6c7cb9f4548e568c687370645ce34e3fd9ab505e3e7033e502d4e523d4d36e54)
+                type_hints = cached_type_hints(_typecheckingstub__6c7cb9f4548e568c687370645ce34e3fd9ab505e3e7033e502d4e523d4d36e54)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2020,7 +2015,7 @@ class CfnSimulationApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__42d44db48959e7b025183126f780f02ee10acdabda8e42593c0b8a1f0fe622a1)
+                type_hints = cached_type_hints(_typecheckingstub__42d44db48959e7b025183126f780f02ee10acdabda8e42593c0b8a1f0fe622a1)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2102,7 +2097,7 @@ class CfnSimulationApplication(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4112adca6d32fda1641015d764412ce99d316d904ecd3983541c923ad04c55b8)
+                type_hints = cached_type_hints(_typecheckingstub__4112adca6d32fda1641015d764412ce99d316d904ecd3983541c923ad04c55b8)
                 check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
@@ -2172,13 +2167,13 @@ class CfnSimulationApplicationProps:
     def __init__(
         self,
         *,
-        robot_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
-        simulation_software_suite: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.SimulationSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        robot_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.RobotSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
+        simulation_software_suite: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.SimulationSoftwareSuiteProperty", typing.Dict[builtins.str, typing.Any]]],
         current_revision_id: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        rendering_engine: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.RenderingEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimulationApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        rendering_engine: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.RenderingEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimulationApplication.SourceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSimulationApplication``.
@@ -2234,7 +2229,7 @@ class CfnSimulationApplicationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4fc5092e924ca6ac9045b6bf857cc7c5e8af28f105a1752b871bed705eac2ca)
+            type_hints = cached_type_hints(_typecheckingstub__a4fc5092e924ca6ac9045b6bf857cc7c5e8af28f105a1752b871bed705eac2ca)
             check_type(argname="argument robot_software_suite", value=robot_software_suite, expected_type=type_hints["robot_software_suite"])
             check_type(argname="argument simulation_software_suite", value=simulation_software_suite, expected_type=type_hints["simulation_software_suite"])
             check_type(argname="argument current_revision_id", value=current_revision_id, expected_type=type_hints["current_revision_id"])
@@ -2263,26 +2258,26 @@ class CfnSimulationApplicationProps:
     @builtins.property
     def robot_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RobotSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RobotSoftwareSuiteProperty"]:
         '''The robot software suite used by the simulation application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-simulationapplication.html#cfn-robomaker-simulationapplication-robotsoftwaresuite
         '''
         result = self._values.get("robot_software_suite")
         assert result is not None, "Required property 'robot_software_suite' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RobotSoftwareSuiteProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RobotSoftwareSuiteProperty"], result)
 
     @builtins.property
     def simulation_software_suite(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"]:
         '''The simulation software suite used by the simulation application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-simulationapplication.html#cfn-robomaker-simulationapplication-simulationsoftwaresuite
         '''
         result = self._values.get("simulation_software_suite")
         assert result is not None, "Required property 'simulation_software_suite' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SimulationSoftwareSuiteProperty"], result)
 
     @builtins.property
     def current_revision_id(self) -> typing.Optional[builtins.str]:
@@ -2314,24 +2309,24 @@ class CfnSimulationApplicationProps:
     @builtins.property
     def rendering_engine(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RenderingEngineProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RenderingEngineProperty"]]:
         '''The rendering engine for the simulation application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-simulationapplication.html#cfn-robomaker-simulationapplication-renderingengine
         '''
         result = self._values.get("rendering_engine")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.RenderingEngineProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.RenderingEngineProperty"]], result)
 
     @builtins.property
     def sources(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SourceConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SourceConfigProperty"]]]]:
         '''The sources of the simulation application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-simulationapplication.html#cfn-robomaker-simulationapplication-sources
         '''
         result = self._values.get("sources")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSimulationApplication.SourceConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimulationApplication.SourceConfigProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2354,9 +2349,9 @@ class CfnSimulationApplicationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISimulationApplicationVersionRef_aa56ccfe)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.ISimulationApplicationVersionRef)
 class CfnSimulationApplicationVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_robomaker.CfnSimulationApplicationVersion",
 ):
@@ -2385,7 +2380,7 @@ class CfnSimulationApplicationVersion(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application: typing.Union[builtins.str, "_ISimulationApplicationRef_b0735a82"],
+        application: typing.Union[builtins.str, "_aws_robomaker_00266520.ISimulationApplicationRef"],
         current_revision_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::RoboMaker::SimulationApplicationVersion``.
@@ -2396,7 +2391,7 @@ class CfnSimulationApplicationVersion(
         :param current_revision_id: The current revision id for the simulation application. If you provide a value and it matches the latest revision ID, a new version will be created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b488a5e64a5298aa8517c15f71537daeb5f5871632b79431660409e31044cdbc)
+            type_hints = cached_type_hints(_typecheckingstub__b488a5e64a5298aa8517c15f71537daeb5f5871632b79431660409e31044cdbc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSimulationApplicationVersionProps(
@@ -2409,13 +2404,13 @@ class CfnSimulationApplicationVersion(
     @builtins.classmethod
     def arn_for_simulation_application_version(
         cls,
-        resource: "_ISimulationApplicationVersionRef_aa56ccfe",
+        resource: "_aws_robomaker_00266520.ISimulationApplicationVersionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d3eebb00c06fbcbe2b15c030d1e70a0d37be485fe8c2420a60532d12fee5937)
+            type_hints = cached_type_hints(_typecheckingstub__0d3eebb00c06fbcbe2b15c030d1e70a0d37be485fe8c2420a60532d12fee5937)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSimulationApplicationVersion", [resource]))
 
@@ -2427,18 +2422,18 @@ class CfnSimulationApplicationVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55d1245ed64c2dc5d91db8d7a626a5a8be928e6498ccc618407cde42fb50b05d)
+            type_hints = cached_type_hints(_typecheckingstub__55d1245ed64c2dc5d91db8d7a626a5a8be928e6498ccc618407cde42fb50b05d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSimulationApplicationVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ead7db1870da4a55103971c097c2a0d658c0d64ba83064ca8e31b5e901ad912)
+            type_hints = cached_type_hints(_typecheckingstub__0ead7db1870da4a55103971c097c2a0d658c0d64ba83064ca8e31b5e901ad912)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2451,7 +2446,7 @@ class CfnSimulationApplicationVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd075a23d16770c89bb7c07707cebfaee1999ac239256aecc881a91f2c392efc)
+            type_hints = cached_type_hints(_typecheckingstub__bd075a23d16770c89bb7c07707cebfaee1999ac239256aecc881a91f2c392efc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2493,9 +2488,9 @@ class CfnSimulationApplicationVersion(
     @jsii.member(jsii_name="simulationApplicationVersionRef")
     def simulation_application_version_ref(
         self,
-    ) -> "_SimulationApplicationVersionReference_c1423217":
+    ) -> "_aws_robomaker_00266520.SimulationApplicationVersionReference":
         '''A reference to a SimulationApplicationVersion resource.'''
-        return typing.cast("_SimulationApplicationVersionReference_c1423217", jsii.get(self, "simulationApplicationVersionRef"))
+        return typing.cast("_aws_robomaker_00266520.SimulationApplicationVersionReference", jsii.get(self, "simulationApplicationVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="application")
@@ -2506,7 +2501,7 @@ class CfnSimulationApplicationVersion(
     @application.setter
     def application(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9b594cec8275a90b1fc93b7ade9da7c6565f24e659e6aed511135526226f540)
+            type_hints = cached_type_hints(_typecheckingstub__a9b594cec8275a90b1fc93b7ade9da7c6565f24e659e6aed511135526226f540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
 
@@ -2519,7 +2514,7 @@ class CfnSimulationApplicationVersion(
     @current_revision_id.setter
     def current_revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4436c869d1e97db1310a07c8709c1c39527703571128932c8cdb4b5bea7f3ec)
+            type_hints = cached_type_hints(_typecheckingstub__b4436c869d1e97db1310a07c8709c1c39527703571128932c8cdb4b5bea7f3ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -2536,7 +2531,7 @@ class CfnSimulationApplicationVersionProps:
     def __init__(
         self,
         *,
-        application: typing.Union[builtins.str, "_ISimulationApplicationRef_b0735a82"],
+        application: typing.Union[builtins.str, "_aws_robomaker_00266520.ISimulationApplicationRef"],
         current_revision_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnSimulationApplicationVersion``.
@@ -2561,7 +2556,7 @@ class CfnSimulationApplicationVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33d944589c147bd94eb24d591728491c11d414786b189bb1a955add8599bfacf)
+            type_hints = cached_type_hints(_typecheckingstub__33d944589c147bd94eb24d591728491c11d414786b189bb1a955add8599bfacf)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument current_revision_id", value=current_revision_id, expected_type=type_hints["current_revision_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2573,14 +2568,14 @@ class CfnSimulationApplicationVersionProps:
     @builtins.property
     def application(
         self,
-    ) -> typing.Union[builtins.str, "_ISimulationApplicationRef_b0735a82"]:
+    ) -> typing.Union[builtins.str, "_aws_robomaker_00266520.ISimulationApplicationRef"]:
         '''The application information for the simulation application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-robomaker-simulationapplicationversion.html#cfn-robomaker-simulationapplicationversion-application
         '''
         result = self._values.get("application")
         assert result is not None, "Required property 'application' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ISimulationApplicationRef_b0735a82"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_robomaker_00266520.ISimulationApplicationRef"], result)
 
     @builtins.property
     def current_revision_id(self) -> typing.Optional[builtins.str]:
@@ -2633,7 +2628,7 @@ def _typecheckingstub__4cf67028db50fbc82ea8f4501fdb4ee36d1ed66bd90e1e13e635239c7
     pass
 
 def _typecheckingstub__85995bbaf57fbd76704a266bf43259e20547593f07e803c7f0c2e01783610079(
-    resource: _IFleetRef_0583e5dd,
+    resource: _aws_robomaker_00266520.IFleetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2645,7 +2640,7 @@ def _typecheckingstub__50ee041ffab6d0b5197e721e763a07bb908c7bee9e9a98b54cd76b64f
     pass
 
 def _typecheckingstub__79e824f817a2c25a6f542667057e9a4525e47750a2d9bc44f093375b07e8d178(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2682,7 +2677,7 @@ def _typecheckingstub__49131f852e25508f2191103f967b740a3a43d115f73e1b3a287cc2e4a
     *,
     architecture: builtins.str,
     greengrass_group_id: builtins.str,
-    fleet: typing.Optional[typing.Union[builtins.str, _IFleetRef_0583e5dd]] = None,
+    fleet: typing.Optional[typing.Union[builtins.str, _aws_robomaker_00266520.IFleetRef]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -2690,7 +2685,7 @@ def _typecheckingstub__49131f852e25508f2191103f967b740a3a43d115f73e1b3a287cc2e4a
     pass
 
 def _typecheckingstub__58b1dbc90ff64dde391dad26858628d34c29d9554b4b7aab135e23b6eb08bf98(
-    resource: _IRobotRef_1acaea37,
+    resource: _aws_robomaker_00266520.IRobotRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2702,7 +2697,7 @@ def _typecheckingstub__bff5e42d284d283cacac67a94bbf95f9211e7bad26f902de8d69b1d0c
     pass
 
 def _typecheckingstub__712f9da34bf6ddea1b6cd2b92a14c93de456aa09838fcb1df12120caab354dc4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2747,18 +2742,18 @@ def _typecheckingstub__71fa9826def616b855a7d14f7c7a68432b3206eba76bd02b308db61a0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    robot_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRobotApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    robot_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRobotApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
     current_revision_id: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRobotApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRobotApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__00abd3c3fd53009ed5d951312400d3bba65172a09f1f61489443dfe04a11a346(
-    resource: _IRobotApplicationRef_4ff8e56d,
+    resource: _aws_robomaker_00266520.IRobotApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2770,7 +2765,7 @@ def _typecheckingstub__5cba2eeec6e801d948580d8f3586f12df1bb58ac1438a6665dc711bc5
     pass
 
 def _typecheckingstub__42dcfe9a23f9087a5360cc6bd5cc1baa70c7249dcef1085237c5953641683f2b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2782,7 +2777,7 @@ def _typecheckingstub__3ffda1b22518fe7e5746795534fa3f401eb6e2cd22e88b8c529a08a68
     pass
 
 def _typecheckingstub__3a0183b45e0172b50d6049b802258f5f54543ee36f6ff14d04a41472f312ff04(
-    value: typing.Union[_IResolvable_da3f097b, CfnRobotApplication.RobotSoftwareSuiteProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRobotApplication.RobotSoftwareSuiteProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2806,7 +2801,7 @@ def _typecheckingstub__69012b559357369e35caab49e8a89325e4bc8994f10edb7261ac37bad
     pass
 
 def _typecheckingstub__921f41fab15ec19f628942a860f0c537326ffdf47bee9bc67baf283fbf524254(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRobotApplication.SourceConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRobotApplication.SourceConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2836,11 +2831,11 @@ def _typecheckingstub__4e42633c14584fa1496504e90fc71f70fc9e79eb18701f96962e855cd
 
 def _typecheckingstub__52a4130d82e25da60f30538ac27bda30b72380a78b4ec426daeb7a4e2863826c(
     *,
-    robot_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRobotApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    robot_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRobotApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
     current_revision_id: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRobotApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRobotApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2850,14 +2845,14 @@ def _typecheckingstub__bcd53a9dcf33d743031271af0ba72420a6333fce186b7796423fce7cf
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application: typing.Union[builtins.str, _IRobotApplicationRef_4ff8e56d],
+    application: typing.Union[builtins.str, _aws_robomaker_00266520.IRobotApplicationRef],
     current_revision_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b945cf0829734dfef511a32f821ecb3a69d5a79d7f5fecd4e5a1712c272e5689(
-    resource: _IRobotApplicationVersionRef_0def63df,
+    resource: _aws_robomaker_00266520.IRobotApplicationVersionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2869,7 +2864,7 @@ def _typecheckingstub__48253d2d63a5525f8110af5a6fbd6265cfeeacf73836bfddc4624827e
     pass
 
 def _typecheckingstub__f118e60d84017d23b3757c090962ce180837d00a2391556fe9327256ecdf94ed(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2894,7 +2889,7 @@ def _typecheckingstub__4a12b8570cf31b8187dcb0dd326c52f7ca4075a70971d81e139f25383
 
 def _typecheckingstub__1ac07a372688198f4d1e1276b33a860cf9f2a1a35ffcb9183bd7e8544e85528a(
     *,
-    application: typing.Union[builtins.str, _IRobotApplicationRef_4ff8e56d],
+    application: typing.Union[builtins.str, _aws_robomaker_00266520.IRobotApplicationRef],
     current_revision_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2904,7 +2899,7 @@ def _typecheckingstub__fb8dba61a5cbbdf07aaff4068a7feeb8d793259512cbf888a9f053970
     *,
     architecture: builtins.str,
     greengrass_group_id: builtins.str,
-    fleet: typing.Optional[typing.Union[builtins.str, _IFleetRef_0583e5dd]] = None,
+    fleet: typing.Optional[typing.Union[builtins.str, _aws_robomaker_00266520.IFleetRef]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -2915,20 +2910,20 @@ def _typecheckingstub__114d0219b7d523418f9fb7d4285a959f76159ce8240b820cfc0b55392
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    robot_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
-    simulation_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.SimulationSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    robot_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    simulation_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.SimulationSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
     current_revision_id: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    rendering_engine: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.RenderingEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    rendering_engine: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.RenderingEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6609d33dfa4ff0b6440015d29c6e885f7687d7fdb5380651df835077bf7137ab(
-    resource: _ISimulationApplicationRef_b0735a82,
+    resource: _aws_robomaker_00266520.ISimulationApplicationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2940,7 +2935,7 @@ def _typecheckingstub__8e372db1423955d2abc8a60d3c8662542f70686e9951dad641dc240fc
     pass
 
 def _typecheckingstub__b07bcabc30b161a3b27df47d8e7cf734f9002a200932fd1c1777c3f3ef03939b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2952,13 +2947,13 @@ def _typecheckingstub__ad67c7d83c9fcbd3cf4c7511d49a2bd7f2c52ed6ce1dc68063ded3b42
     pass
 
 def _typecheckingstub__c5eddba1cd6f8159da95d199756aece7189ac992724326ee1649fe22981dd1e0(
-    value: typing.Union[_IResolvable_da3f097b, CfnSimulationApplication.RobotSoftwareSuiteProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSimulationApplication.RobotSoftwareSuiteProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__003dd21a203873e85f6980fecd86a94b0531507d8242c4a61748ccddd022255b(
-    value: typing.Union[_IResolvable_da3f097b, CfnSimulationApplication.SimulationSoftwareSuiteProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSimulationApplication.SimulationSoftwareSuiteProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2982,13 +2977,13 @@ def _typecheckingstub__c61e246fbb83f216937d12b47511a45dd9e3bbb9db8340e1bc7fc1b01
     pass
 
 def _typecheckingstub__c52139e81e980013fe63c79055c9c5a430c7b60d4f73dab46a912bb62fccda4f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSimulationApplication.RenderingEngineProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSimulationApplication.RenderingEngineProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__351059f5bb1169ead5062e07e9d73fd8ac37f0cbad54a1d4e8e137cf716e9fae(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSimulationApplication.SourceConfigProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSimulationApplication.SourceConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3034,13 +3029,13 @@ def _typecheckingstub__4112adca6d32fda1641015d764412ce99d316d904ecd3983541c923ad
 
 def _typecheckingstub__a4fc5092e924ca6ac9045b6bf857cc7c5e8af28f105a1752b871bed705eac2ca(
     *,
-    robot_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
-    simulation_software_suite: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.SimulationSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    robot_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.RobotSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
+    simulation_software_suite: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.SimulationSoftwareSuiteProperty, typing.Dict[builtins.str, typing.Any]]],
     current_revision_id: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    rendering_engine: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.RenderingEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimulationApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    rendering_engine: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.RenderingEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimulationApplication.SourceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3050,14 +3045,14 @@ def _typecheckingstub__b488a5e64a5298aa8517c15f71537daeb5f5871632b79431660409e31
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application: typing.Union[builtins.str, _ISimulationApplicationRef_b0735a82],
+    application: typing.Union[builtins.str, _aws_robomaker_00266520.ISimulationApplicationRef],
     current_revision_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0d3eebb00c06fbcbe2b15c030d1e70a0d37be485fe8c2420a60532d12fee5937(
-    resource: _ISimulationApplicationVersionRef_aa56ccfe,
+    resource: _aws_robomaker_00266520.ISimulationApplicationVersionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3069,7 +3064,7 @@ def _typecheckingstub__55d1245ed64c2dc5d91db8d7a626a5a8be928e6498ccc618407cde42f
     pass
 
 def _typecheckingstub__0ead7db1870da4a55103971c097c2a0d658c0d64ba83064ca8e31b5e901ad912(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3094,7 +3089,7 @@ def _typecheckingstub__b4436c869d1e97db1310a07c8709c1c39527703571128932c8cdb4b5b
 
 def _typecheckingstub__33d944589c147bd94eb24d591728491c11d414786b189bb1a955add8599bfacf(
     *,
-    application: typing.Union[builtins.str, _ISimulationApplicationRef_b0735a82],
+    application: typing.Union[builtins.str, _aws_robomaker_00266520.ISimulationApplicationRef],
     current_revision_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

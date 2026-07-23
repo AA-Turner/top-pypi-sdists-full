@@ -385,6 +385,8 @@ IdentityPool.from_identity_pool_id(self, "my-imported-identity-pool", "us-east-1
 IdentityPool.from_identity_pool_arn(self, "my-imported-identity-pool", "arn:aws:cognito-identity:us-east-1:123456789012:identitypool/us-east-1:dj2823ryiwuhef937")
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -398,48 +400,43 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IResource as _IResource_c80c4260, Resource as _Resource_45bc6135
-from ..aws_cognito import (
-    CfnIdentityPoolRoleAttachment as _CfnIdentityPoolRoleAttachment_6213757a,
-    IUserPool as _IUserPool_1f1029e2,
-    IUserPoolClient as _IUserPoolClient_75623ba4,
-)
-from ..aws_iam import IRole as _IRole_235f5d8e
-from ..interfaces.aws_cognito import (
-    IIdentityPoolRef as _IIdentityPoolRef_5cf45895,
-    IUserPoolClientRef as _IUserPoolClientRef_4466eeba,
-    IdentityPoolReference as _IdentityPoolReference_3ad34644,
-)
-from ..interfaces.aws_iam import (
-    IOIDCProviderRef as _IOIDCProviderRef_a866c7c8,
-    ISAMLProviderRef as _ISAMLProviderRef_6e369856,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cognito as _aws_cognito_4f282b4c
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.interfaces.aws_cognito as _aws_cognito_aa210b15
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cognito_4f282b4c = _LazyImport("aws_cdk.aws_cognito")
+    _aws_cognito_aa210b15 = _LazyImport("aws_cdk.interfaces.aws_cognito")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito_identitypool.IIdentityPool")
 class IIdentityPool(
-    _IResource_c80c4260,
-    _IIdentityPoolRef_5cf45895,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IIdentityPoolRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Cognito Identity Pool.'''
@@ -473,8 +470,8 @@ class IIdentityPool(
 
 
 class _IIdentityPoolProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IIdentityPoolRef_5cf45895), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IIdentityPoolRef), # type: ignore[misc]
 ):
     '''Represents a Cognito Identity Pool.'''
 
@@ -556,7 +553,7 @@ class _IUserPoolAuthenticationProviderProxy:
         :param identity_pool: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c814fdc426f731ac5e76cbccdb476b3226db8e3f5c19b9f57f6ed181043dd60)
+            type_hints = cached_type_hints(_typecheckingstub__5c814fdc426f731ac5e76cbccdb476b3226db8e3f5c19b9f57f6ed181043dd60)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument identity_pool", value=identity_pool, expected_type=type_hints["identity_pool"])
         options = UserPoolAuthenticationProviderBindOptions()
@@ -569,7 +566,7 @@ typing.cast(typing.Any, IUserPoolAuthenticationProvider).__jsii_proxy_class__ = 
 
 @jsii.implements(IIdentityPool)
 class IdentityPool(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito_identitypool.IdentityPool",
 ):
@@ -602,11 +599,11 @@ class IdentityPool(
         *,
         allow_classic_flow: typing.Optional[builtins.bool] = None,
         allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-        authenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
+        authenticated_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         authentication_providers: typing.Optional[typing.Union["IdentityPoolAuthenticationProviders", typing.Dict[builtins.str, typing.Any]]] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
         role_mappings: typing.Optional[typing.Sequence[typing.Union["IdentityPoolRoleMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unauthenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
+        unauthenticated_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -620,7 +617,7 @@ class IdentityPool(
         :param unauthenticated_role: The default Role to be assumed by unauthenticated users. Default: - A default unauthenticated Role will be added
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7508ece930af8922e09956e6b9166bbdbf4f94d0b43649c6d1c63f6bd90fc80)
+            type_hints = cached_type_hints(_typecheckingstub__a7508ece930af8922e09956e6b9166bbdbf4f94d0b43649c6d1c63f6bd90fc80)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IdentityPoolProps(
@@ -650,7 +647,7 @@ class IdentityPool(
         :param identity_pool_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3173746cd04dd07f081f1f960cd91b67ec8367052f383c0ed193eaf98bcf47c6)
+            type_hints = cached_type_hints(_typecheckingstub__3173746cd04dd07f081f1f960cd91b67ec8367052f383c0ed193eaf98bcf47c6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_pool_arn", value=identity_pool_arn, expected_type=type_hints["identity_pool_arn"])
@@ -671,7 +668,7 @@ class IdentityPool(
         :param identity_pool_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7094f2ba90c5fab8d158b4276f0bc0876fb3f0e3dd42cafa6fb6cb1e02a6893)
+            type_hints = cached_type_hints(_typecheckingstub__b7094f2ba90c5fab8d158b4276f0bc0876fb3f0e3dd42cafa6fb6cb1e02a6893)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
@@ -687,7 +684,7 @@ class IdentityPool(
         :param user_pool: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd6d23271053899a9cf9a7ec303ccebbcc3f4c4aa45de84fb3586658a176cb3a)
+            type_hints = cached_type_hints(_typecheckingstub__fd6d23271053899a9cf9a7ec303ccebbcc3f4c4aa45de84fb3586658a176cb3a)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
         return typing.cast(None, jsii.invoke(self, "addUserPoolAuthentication", [user_pool]))
 
@@ -699,9 +696,9 @@ class IdentityPool(
 
     @builtins.property
     @jsii.member(jsii_name="authenticatedRole")
-    def authenticated_role(self) -> "_IRole_235f5d8e":
+    def authenticated_role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''Default Role for authenticated users.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "authenticatedRole"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "authenticatedRole"))
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolArn")
@@ -732,21 +729,21 @@ class IdentityPool(
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolRef")
-    def identity_pool_ref(self) -> "_IdentityPoolReference_3ad34644":
+    def identity_pool_ref(self) -> "_aws_cognito_aa210b15.IdentityPoolReference":
         '''A reference to a IdentityPool resource.'''
-        return typing.cast("_IdentityPoolReference_3ad34644", jsii.get(self, "identityPoolRef"))
+        return typing.cast("_aws_cognito_aa210b15.IdentityPoolReference", jsii.get(self, "identityPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="roleAttachment")
-    def role_attachment(self) -> "_CfnIdentityPoolRoleAttachment_6213757a":
+    def role_attachment(self) -> "_aws_cognito_4f282b4c.CfnIdentityPoolRoleAttachment":
         '''Role Provider for the default Role for authenticated users.'''
-        return typing.cast("_CfnIdentityPoolRoleAttachment_6213757a", jsii.get(self, "roleAttachment"))
+        return typing.cast("_aws_cognito_4f282b4c.CfnIdentityPoolRoleAttachment", jsii.get(self, "roleAttachment"))
 
     @builtins.property
     @jsii.member(jsii_name="unauthenticatedRole")
-    def unauthenticated_role(self) -> "_IRole_235f5d8e":
+    def unauthenticated_role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''Default Role for unauthenticated users.'''
-        return typing.cast("_IRole_235f5d8e", jsii.get(self, "unauthenticatedRole"))
+        return typing.cast("_aws_iam_1f54b5e8.IRole", jsii.get(self, "unauthenticatedRole"))
 
 
 @jsii.data_type(
@@ -788,7 +785,7 @@ class IdentityPoolAmazonLoginProvider:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__469abe646a9b1de4f31f3b04632a02d728f0da52b1c7b2fb1c31b02e48ab80b9)
+            type_hints = cached_type_hints(_typecheckingstub__469abe646a9b1de4f31f3b04632a02d728f0da52b1c7b2fb1c31b02e48ab80b9)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_id": app_id,
@@ -852,7 +849,7 @@ class IdentityPoolAppleLoginProvider:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9b4447874c9fdd7fed07df178fcf069b944be0d670ec52b85e362202ed6ca80)
+            type_hints = cached_type_hints(_typecheckingstub__e9b4447874c9fdd7fed07df178fcf069b944be0d670ec52b85e362202ed6ca80)
             check_type(argname="argument services_id", value=services_id, expected_type=type_hints["services_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "services_id": services_id,
@@ -901,8 +898,8 @@ class IdentityPoolAuthenticationProviders:
         custom_provider: typing.Optional[builtins.str] = None,
         facebook: typing.Optional[typing.Union["IdentityPoolFacebookLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         google: typing.Optional[typing.Union["IdentityPoolGoogleLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
-        open_id_connect_providers: typing.Optional[typing.Sequence["_IOIDCProviderRef_a866c7c8"]] = None,
-        saml_providers: typing.Optional[typing.Sequence["_ISAMLProviderRef_6e369856"]] = None,
+        open_id_connect_providers: typing.Optional[typing.Sequence["_aws_iam_632e20f6.IOIDCProviderRef"]] = None,
+        saml_providers: typing.Optional[typing.Sequence["_aws_iam_632e20f6.ISAMLProviderRef"]] = None,
         twitter: typing.Optional[typing.Union["IdentityPoolTwitterLoginProvider", typing.Dict[builtins.str, typing.Any]]] = None,
         user_pools: typing.Optional[typing.Sequence["IUserPoolAuthenticationProvider"]] = None,
     ) -> None:
@@ -948,7 +945,7 @@ class IdentityPoolAuthenticationProviders:
         if isinstance(twitter, dict):
             twitter = IdentityPoolTwitterLoginProvider(**twitter)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5736f06974c68519c1ae6c3b7a96f6631b848c6e335b1b26878af4283639ee6)
+            type_hints = cached_type_hints(_typecheckingstub__e5736f06974c68519c1ae6c3b7a96f6631b848c6e335b1b26878af4283639ee6)
             check_type(argname="argument amazon", value=amazon, expected_type=type_hints["amazon"])
             check_type(argname="argument apple", value=apple, expected_type=type_hints["apple"])
             check_type(argname="argument custom_provider", value=custom_provider, expected_type=type_hints["custom_provider"])
@@ -1026,24 +1023,24 @@ class IdentityPoolAuthenticationProviders:
     @builtins.property
     def open_id_connect_providers(
         self,
-    ) -> typing.Optional[typing.List["_IOIDCProviderRef_a866c7c8"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_632e20f6.IOIDCProviderRef"]]:
         '''The OpenIdConnect Provider associated with this Identity Pool.
 
         :default: - no OpenIdConnectProvider
         '''
         result = self._values.get("open_id_connect_providers")
-        return typing.cast(typing.Optional[typing.List["_IOIDCProviderRef_a866c7c8"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_632e20f6.IOIDCProviderRef"]], result)
 
     @builtins.property
     def saml_providers(
         self,
-    ) -> typing.Optional[typing.List["_ISAMLProviderRef_6e369856"]]:
+    ) -> typing.Optional[typing.List["_aws_iam_632e20f6.ISAMLProviderRef"]]:
         '''The Security Assertion Markup Language provider associated with this Identity Pool.
 
         :default: - no SamlProvider
         '''
         result = self._values.get("saml_providers")
-        return typing.cast(typing.Optional[typing.List["_ISAMLProviderRef_6e369856"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_632e20f6.ISAMLProviderRef"]], result)
 
     @builtins.property
     def twitter(self) -> typing.Optional["IdentityPoolTwitterLoginProvider"]:
@@ -1116,7 +1113,7 @@ class IdentityPoolFacebookLoginProvider:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f268d6507a7ea842aa4eecfa40a33ff4b75964393a3608ad305361f40fbfa4)
+            type_hints = cached_type_hints(_typecheckingstub__79f268d6507a7ea842aa4eecfa40a33ff4b75964393a3608ad305361f40fbfa4)
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "app_id": app_id,
@@ -1180,7 +1177,7 @@ class IdentityPoolGoogleLoginProvider:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cf50453dd8eb6086b031602235511412f140c8a0fd75af98cf94efd203caf0c)
+            type_hints = cached_type_hints(_typecheckingstub__7cf50453dd8eb6086b031602235511412f140c8a0fd75af98cf94efd203caf0c)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_id": client_id,
@@ -1224,11 +1221,11 @@ class IdentityPoolProps:
         *,
         allow_classic_flow: typing.Optional[builtins.bool] = None,
         allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-        authenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
+        authenticated_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         authentication_providers: typing.Optional[typing.Union["IdentityPoolAuthenticationProviders", typing.Dict[builtins.str, typing.Any]]] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
         role_mappings: typing.Optional[typing.Sequence[typing.Union["IdentityPoolRoleMapping", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unauthenticated_role: typing.Optional["_IRole_235f5d8e"] = None,
+        unauthenticated_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
     ) -> None:
         '''Props for the Identity Pool construct.
 
@@ -1261,7 +1258,7 @@ class IdentityPoolProps:
         if isinstance(authentication_providers, dict):
             authentication_providers = IdentityPoolAuthenticationProviders(**authentication_providers)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af198fbf56ac885d5c6c92255ff0143c4ee67b99a01cce4cfb3113296d3d7265)
+            type_hints = cached_type_hints(_typecheckingstub__af198fbf56ac885d5c6c92255ff0143c4ee67b99a01cce4cfb3113296d3d7265)
             check_type(argname="argument allow_classic_flow", value=allow_classic_flow, expected_type=type_hints["allow_classic_flow"])
             check_type(argname="argument allow_unauthenticated_identities", value=allow_unauthenticated_identities, expected_type=type_hints["allow_unauthenticated_identities"])
             check_type(argname="argument authenticated_role", value=authenticated_role, expected_type=type_hints["authenticated_role"])
@@ -1304,13 +1301,13 @@ class IdentityPoolProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def authenticated_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def authenticated_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The default Role to be assumed by authenticated users.
 
         :default: - A default authenticated Role will be added
         '''
         result = self._values.get("authenticated_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
     def authentication_providers(
@@ -1342,13 +1339,13 @@ class IdentityPoolProps:
         return typing.cast(typing.Optional[typing.List["IdentityPoolRoleMapping"]], result)
 
     @builtins.property
-    def unauthenticated_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+    def unauthenticated_role(self) -> typing.Optional["_aws_iam_1f54b5e8.IRole"]:
         '''The default Role to be assumed by unauthenticated users.
 
         :default: - A default unauthenticated Role will be added
         '''
         result = self._values.get("unauthenticated_role")
-        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1416,7 +1413,7 @@ class IdentityPoolProviderUrl(
         :param value: The value of the Identity Pool Provider.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e21346602560f1cca6af9cafa3890159f40fe201ff2586fe35bff0fa41238584)
+            type_hints = cached_type_hints(_typecheckingstub__e21346602560f1cca6af9cafa3890159f40fe201ff2586fe35bff0fa41238584)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [type, value])
@@ -1429,7 +1426,7 @@ class IdentityPoolProviderUrl(
         :param url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d20114b4fee683d84de101e404d5d8ef6cfea15634e2d35c6cc734c6009b8bad)
+            type_hints = cached_type_hints(_typecheckingstub__d20114b4fee683d84de101e404d5d8ef6cfea15634e2d35c6cc734c6009b8bad)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         return typing.cast("IdentityPoolProviderUrl", jsii.sinvoke(cls, "custom", [url]))
 
@@ -1441,7 +1438,7 @@ class IdentityPoolProviderUrl(
         :param url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c92bcc9f8137a1d3e5beb43462992a38aaa0afc35af1ed27bb9a025f816fbda)
+            type_hints = cached_type_hints(_typecheckingstub__6c92bcc9f8137a1d3e5beb43462992a38aaa0afc35af1ed27bb9a025f816fbda)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         return typing.cast("IdentityPoolProviderUrl", jsii.sinvoke(cls, "openId", [url]))
 
@@ -1453,7 +1450,7 @@ class IdentityPoolProviderUrl(
         :param url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c7e07ca5a6f8dcc0f5236108ff2bb3698b65026b062307b86b3d67f3c6bda1f)
+            type_hints = cached_type_hints(_typecheckingstub__4c7e07ca5a6f8dcc0f5236108ff2bb3698b65026b062307b86b3d67f3c6bda1f)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         return typing.cast("IdentityPoolProviderUrl", jsii.sinvoke(cls, "saml", [url]))
 
@@ -1461,8 +1458,8 @@ class IdentityPoolProviderUrl(
     @builtins.classmethod
     def user_pool(
         cls,
-        user_pool: "_IUserPool_1f1029e2",
-        user_pool_client: "_IUserPoolClient_75623ba4",
+        user_pool: "_aws_cognito_4f282b4c.IUserPool",
+        user_pool_client: "_aws_cognito_4f282b4c.IUserPoolClient",
     ) -> "IdentityPoolProviderUrl":
         '''User Pool Provider Url.
 
@@ -1470,7 +1467,7 @@ class IdentityPoolProviderUrl(
         :param user_pool_client: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__121c7b058215a85a8a95870556fad2d21fc96c58ad014823e300286ace7fde64)
+            type_hints = cached_type_hints(_typecheckingstub__121c7b058215a85a8a95870556fad2d21fc96c58ad014823e300286ace7fde64)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument user_pool_client", value=user_pool_client, expected_type=type_hints["user_pool_client"])
         return typing.cast("IdentityPoolProviderUrl", jsii.sinvoke(cls, "userPool", [user_pool, user_pool_client]))
@@ -1578,7 +1575,7 @@ class IdentityPoolRoleMapping:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05374fa9238ffbe78c089d88ef40291976f7b4f0da96abe1bc7076a3dc7f654a)
+            type_hints = cached_type_hints(_typecheckingstub__05374fa9238ffbe78c089d88ef40291976f7b4f0da96abe1bc7076a3dc7f654a)
             check_type(argname="argument provider_url", value=provider_url, expected_type=type_hints["provider_url"])
             check_type(argname="argument mapping_key", value=mapping_key, expected_type=type_hints["mapping_key"])
             check_type(argname="argument resolve_ambiguous_roles", value=resolve_ambiguous_roles, expected_type=type_hints["resolve_ambiguous_roles"])
@@ -1702,7 +1699,7 @@ class IdentityPoolTwitterLoginProvider:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__786d99918d74ebff131cc6829f43e101b4ff2f81ae8498f6e87eeb4d19eeaab6)
+            type_hints = cached_type_hints(_typecheckingstub__786d99918d74ebff131cc6829f43e101b4ff2f81ae8498f6e87eeb4d19eeaab6)
             check_type(argname="argument consumer_key", value=consumer_key, expected_type=type_hints["consumer_key"])
             check_type(argname="argument consumer_secret", value=consumer_secret, expected_type=type_hints["consumer_secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1796,7 +1793,7 @@ class RoleMappingRule:
         *,
         claim: builtins.str,
         claim_value: builtins.str,
-        mapped_role: "_IRole_235f5d8e",
+        mapped_role: "_aws_iam_1f54b5e8.IRole",
         match_type: typing.Optional["RoleMappingMatchType"] = None,
     ) -> None:
         '''Represents an Identity Pool Role Attachment role mapping rule.
@@ -1827,7 +1824,7 @@ class RoleMappingRule:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a3e6602f3dd1fc95d5e6a85eb1c6cd033f9584c3a5e317879694442cae64080)
+            type_hints = cached_type_hints(_typecheckingstub__0a3e6602f3dd1fc95d5e6a85eb1c6cd033f9584c3a5e317879694442cae64080)
             check_type(argname="argument claim", value=claim, expected_type=type_hints["claim"])
             check_type(argname="argument claim_value", value=claim_value, expected_type=type_hints["claim_value"])
             check_type(argname="argument mapped_role", value=mapped_role, expected_type=type_hints["mapped_role"])
@@ -1855,11 +1852,11 @@ class RoleMappingRule:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def mapped_role(self) -> "_IRole_235f5d8e":
+    def mapped_role(self) -> "_aws_iam_1f54b5e8.IRole":
         '''The role to be assumed when the claim value is matched.'''
         result = self._values.get("mapped_role")
         assert result is not None, "Required property 'mapped_role' is missing"
-        return typing.cast("_IRole_235f5d8e", result)
+        return typing.cast("_aws_iam_1f54b5e8.IRole", result)
 
     @builtins.property
     def match_type(self) -> typing.Optional["RoleMappingMatchType"]:
@@ -1905,9 +1902,9 @@ class UserPoolAuthenticationProvider(
     def __init__(
         self,
         *,
-        user_pool: "_IUserPool_1f1029e2",
+        user_pool: "_aws_cognito_4f282b4c.IUserPool",
         disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-        user_pool_client: typing.Optional["_IUserPoolClientRef_4466eeba"] = None,
+        user_pool_client: typing.Optional["_aws_cognito_aa210b15.IUserPoolClientRef"] = None,
     ) -> None:
         '''
         :param user_pool: The User Pool of the Associated Identity Providers.
@@ -1934,7 +1931,7 @@ class UserPoolAuthenticationProvider(
         :param identity_pool: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba6eb139548890358ee0627f6ab76a68ed34453606a7c47e22b81e13d0d8b649)
+            type_hints = cached_type_hints(_typecheckingstub__ba6eb139548890358ee0627f6ab76a68ed34453606a7c47e22b81e13d0d8b649)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument identity_pool", value=identity_pool, expected_type=type_hints["identity_pool"])
         _options = UserPoolAuthenticationProviderBindOptions()
@@ -1980,7 +1977,7 @@ class UserPoolAuthenticationProviderBindConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e30a131979e49e3de120bda434e1aadc44c66a60ebb331ed0a7cb68845b2e58)
+            type_hints = cached_type_hints(_typecheckingstub__5e30a131979e49e3de120bda434e1aadc44c66a60ebb331ed0a7cb68845b2e58)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
             check_type(argname="argument server_side_token_check", value=server_side_token_check, expected_type=type_hints["server_side_token_check"])
@@ -2069,9 +2066,9 @@ class UserPoolAuthenticationProviderProps:
     def __init__(
         self,
         *,
-        user_pool: "_IUserPool_1f1029e2",
+        user_pool: "_aws_cognito_4f282b4c.IUserPool",
         disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-        user_pool_client: typing.Optional["_IUserPoolClientRef_4466eeba"] = None,
+        user_pool_client: typing.Optional["_aws_cognito_aa210b15.IUserPoolClientRef"] = None,
     ) -> None:
         '''Props for the User Pool Authentication Provider.
 
@@ -2092,7 +2089,7 @@ class UserPoolAuthenticationProviderProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96b0f5e74875a97abd1e74170f934c5a7746bf416d00b5b9a3a2b79560e66c96)
+            type_hints = cached_type_hints(_typecheckingstub__96b0f5e74875a97abd1e74170f934c5a7746bf416d00b5b9a3a2b79560e66c96)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument disable_server_side_token_check", value=disable_server_side_token_check, expected_type=type_hints["disable_server_side_token_check"])
             check_type(argname="argument user_pool_client", value=user_pool_client, expected_type=type_hints["user_pool_client"])
@@ -2105,11 +2102,11 @@ class UserPoolAuthenticationProviderProps:
             self._values["user_pool_client"] = user_pool_client
 
     @builtins.property
-    def user_pool(self) -> "_IUserPool_1f1029e2":
+    def user_pool(self) -> "_aws_cognito_4f282b4c.IUserPool":
         '''The User Pool of the Associated Identity Providers.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPool_1f1029e2", result)
+        return typing.cast("_aws_cognito_4f282b4c.IUserPool", result)
 
     @builtins.property
     def disable_server_side_token_check(self) -> typing.Optional[builtins.bool]:
@@ -2123,13 +2120,15 @@ class UserPoolAuthenticationProviderProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def user_pool_client(self) -> typing.Optional["_IUserPoolClientRef_4466eeba"]:
+    def user_pool_client(
+        self,
+    ) -> typing.Optional["_aws_cognito_aa210b15.IUserPoolClientRef"]:
         '''The User Pool Client for the provided User Pool.
 
         :default: - A default user pool client will be added to User Pool
         '''
         result = self._values.get("user_pool_client")
-        return typing.cast(typing.Optional["_IUserPoolClientRef_4466eeba"], result)
+        return typing.cast(typing.Optional["_aws_cognito_aa210b15.IUserPoolClientRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2180,11 +2179,11 @@ def _typecheckingstub__a7508ece930af8922e09956e6b9166bbdbf4f94d0b43649c6d1c63f6b
     *,
     allow_classic_flow: typing.Optional[builtins.bool] = None,
     allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-    authenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+    authenticated_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     authentication_providers: typing.Optional[typing.Union[IdentityPoolAuthenticationProviders, typing.Dict[builtins.str, typing.Any]]] = None,
     identity_pool_name: typing.Optional[builtins.str] = None,
     role_mappings: typing.Optional[typing.Sequence[typing.Union[IdentityPoolRoleMapping, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unauthenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+    unauthenticated_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2232,8 +2231,8 @@ def _typecheckingstub__e5736f06974c68519c1ae6c3b7a96f6631b848c6e335b1b26878af428
     custom_provider: typing.Optional[builtins.str] = None,
     facebook: typing.Optional[typing.Union[IdentityPoolFacebookLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     google: typing.Optional[typing.Union[IdentityPoolGoogleLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
-    open_id_connect_providers: typing.Optional[typing.Sequence[_IOIDCProviderRef_a866c7c8]] = None,
-    saml_providers: typing.Optional[typing.Sequence[_ISAMLProviderRef_6e369856]] = None,
+    open_id_connect_providers: typing.Optional[typing.Sequence[_aws_iam_632e20f6.IOIDCProviderRef]] = None,
+    saml_providers: typing.Optional[typing.Sequence[_aws_iam_632e20f6.ISAMLProviderRef]] = None,
     twitter: typing.Optional[typing.Union[IdentityPoolTwitterLoginProvider, typing.Dict[builtins.str, typing.Any]]] = None,
     user_pools: typing.Optional[typing.Sequence[IUserPoolAuthenticationProvider]] = None,
 ) -> None:
@@ -2258,11 +2257,11 @@ def _typecheckingstub__af198fbf56ac885d5c6c92255ff0143c4ee67b99a01cce4cfb3113296
     *,
     allow_classic_flow: typing.Optional[builtins.bool] = None,
     allow_unauthenticated_identities: typing.Optional[builtins.bool] = None,
-    authenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+    authenticated_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     authentication_providers: typing.Optional[typing.Union[IdentityPoolAuthenticationProviders, typing.Dict[builtins.str, typing.Any]]] = None,
     identity_pool_name: typing.Optional[builtins.str] = None,
     role_mappings: typing.Optional[typing.Sequence[typing.Union[IdentityPoolRoleMapping, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unauthenticated_role: typing.Optional[_IRole_235f5d8e] = None,
+    unauthenticated_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2293,8 +2292,8 @@ def _typecheckingstub__4c7e07ca5a6f8dcc0f5236108ff2bb3698b65026b062307b86b3d67f3
     pass
 
 def _typecheckingstub__121c7b058215a85a8a95870556fad2d21fc96c58ad014823e300286ace7fde64(
-    user_pool: _IUserPool_1f1029e2,
-    user_pool_client: _IUserPoolClient_75623ba4,
+    user_pool: _aws_cognito_4f282b4c.IUserPool,
+    user_pool_client: _aws_cognito_4f282b4c.IUserPoolClient,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2322,7 +2321,7 @@ def _typecheckingstub__0a3e6602f3dd1fc95d5e6a85eb1c6cd033f9584c3a5e317879694442c
     *,
     claim: builtins.str,
     claim_value: builtins.str,
-    mapped_role: _IRole_235f5d8e,
+    mapped_role: _aws_iam_1f54b5e8.IRole,
     match_type: typing.Optional[RoleMappingMatchType] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2346,9 +2345,9 @@ def _typecheckingstub__5e30a131979e49e3de120bda434e1aadc44c66a60ebb331ed0a7cb688
 
 def _typecheckingstub__96b0f5e74875a97abd1e74170f934c5a7746bf416d00b5b9a3a2b79560e66c96(
     *,
-    user_pool: _IUserPool_1f1029e2,
+    user_pool: _aws_cognito_4f282b4c.IUserPool,
     disable_server_side_token_check: typing.Optional[builtins.bool] = None,
-    user_pool_client: typing.Optional[_IUserPoolClientRef_4466eeba] = None,
+    user_pool_client: typing.Optional[_aws_cognito_aa210b15.IUserPoolClientRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass

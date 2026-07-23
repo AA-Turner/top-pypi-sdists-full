@@ -32,7 +32,9 @@ from airbyte_ops_mcp.motherduck_diagnostics.text_processing import (
     apply_query_text_treatment,
     compute_query_hash,
     detect_query_subtype,
+    extract_database_name,
     extract_metadata,
+    parse_source_id_from_database_name,
 )
 
 logger = logging.getLogger(__name__)
@@ -414,6 +416,10 @@ def _process_query_row(
     query_metadata = extract_metadata(raw_text) if raw_text else None
     query_hash = compute_query_hash(raw_text) if raw_text else None
     query_subtype = detect_query_subtype(raw_text) if raw_text else "UNKNOWN"
+    database_name = extract_database_name(raw_text) if raw_text else None
+    source_id = (
+        parse_source_id_from_database_name(database_name) if database_name else None
+    )
 
     query_text: str | None = None
     if include_text and raw_text:
@@ -455,6 +461,8 @@ def _process_query_row(
         connection_id=str(row["CONNECTION_ID"])
         if row.get("CONNECTION_ID") is not None
         else None,
+        database_name=database_name,
+        source_id=source_id,
     )
 
 
@@ -602,6 +610,10 @@ def _process_connection_row(
     client_query_hash = compute_query_hash(raw_query) if raw_query else None
     client_query_metadata = extract_metadata(raw_query) if raw_query else None
     client_query_subtype = detect_query_subtype(raw_query) if raw_query else None
+    database_name = extract_database_name(raw_query) if raw_query else None
+    source_id = (
+        parse_source_id_from_database_name(database_name) if database_name else None
+    )
 
     client_query: str | None = None
     if include_text and raw_query:
@@ -638,4 +650,6 @@ def _process_connection_row(
             if row.get("server_query_progress") is not None
             else None
         ),
+        database_name=database_name,
+        source_id=source_id,
     )

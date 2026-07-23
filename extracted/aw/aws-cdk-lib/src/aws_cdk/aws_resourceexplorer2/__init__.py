@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,47 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_resourceexplorer2 import (
-    DefaultViewAssociationReference as _DefaultViewAssociationReference_765cdca1,
-    IDefaultViewAssociationRef as _IDefaultViewAssociationRef_7fa0f774,
-    IIndexRef as _IIndexRef_4a727770,
-    IViewRef as _IViewRef_bd4cee83,
-    IndexReference as _IndexReference_71f896b9,
-    ViewReference as _ViewReference_09ee265f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_resourceexplorer2 as _aws_resourceexplorer2_4c3edc04
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_resourceexplorer2_4c3edc04 = _LazyImport("aws_cdk.interfaces.aws_resourceexplorer2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDefaultViewAssociationRef_7fa0f774)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_resourceexplorer2_4c3edc04.IDefaultViewAssociationRef)
 class CfnDefaultViewAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnDefaultViewAssociation",
 ):
@@ -115,7 +106,7 @@ class CfnDefaultViewAssociation(
         :param view_arn: The ARN of the view to set as the default for the AWS Region and AWS account in which you call this operation. The specified view must already exist in the specified Region.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63112644362183375393f464fd83dd8b1bd993c1724b0718d649f4624fa4242b)
+            type_hints = cached_type_hints(_typecheckingstub__63112644362183375393f464fd83dd8b1bd993c1724b0718d649f4624fa4242b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDefaultViewAssociationProps(view_arn=view_arn)
@@ -130,18 +121,18 @@ class CfnDefaultViewAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3be3579930575f6ac8db82a0ef8f34e458011be582117b4fef2811bc26548a73)
+            type_hints = cached_type_hints(_typecheckingstub__3be3579930575f6ac8db82a0ef8f34e458011be582117b4fef2811bc26548a73)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDefaultViewAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cef124cf4de616cdbfaa59c7b45ccb3cf247ebacf5072b55cc719a3b6e6d1499)
+            type_hints = cached_type_hints(_typecheckingstub__cef124cf4de616cdbfaa59c7b45ccb3cf247ebacf5072b55cc719a3b6e6d1499)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -154,7 +145,7 @@ class CfnDefaultViewAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd920c7487b699e37154cd1ba3a752af6eb4789ed12a7c8762c530b9f1440b9a)
+            type_hints = cached_type_hints(_typecheckingstub__fd920c7487b699e37154cd1ba3a752af6eb4789ed12a7c8762c530b9f1440b9a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -191,9 +182,9 @@ class CfnDefaultViewAssociation(
     @jsii.member(jsii_name="defaultViewAssociationRef")
     def default_view_association_ref(
         self,
-    ) -> "_DefaultViewAssociationReference_765cdca1":
+    ) -> "_aws_resourceexplorer2_4c3edc04.DefaultViewAssociationReference":
         '''A reference to a DefaultViewAssociation resource.'''
-        return typing.cast("_DefaultViewAssociationReference_765cdca1", jsii.get(self, "defaultViewAssociationRef"))
+        return typing.cast("_aws_resourceexplorer2_4c3edc04.DefaultViewAssociationReference", jsii.get(self, "defaultViewAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="viewArn")
@@ -204,7 +195,7 @@ class CfnDefaultViewAssociation(
     @view_arn.setter
     def view_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d34137c13dccff8aec091fe498d52117edd5707c82c68e72ee608bacd180f14)
+            type_hints = cached_type_hints(_typecheckingstub__2d34137c13dccff8aec091fe498d52117edd5707c82c68e72ee608bacd180f14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "viewArn", value) # pyright: ignore[reportArgumentType]
 
@@ -234,7 +225,7 @@ class CfnDefaultViewAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42)
+            type_hints = cached_type_hints(_typecheckingstub__f2ff822be1f978fdc7b240f4ff3072e84a4b31cfb5ccb5f4c3f0c27293713d42)
             check_type(argname="argument view_arn", value=view_arn, expected_type=type_hints["view_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "view_arn": view_arn,
@@ -264,9 +255,9 @@ class CfnDefaultViewAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIndexRef_4a727770, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_resourceexplorer2_4c3edc04.IIndexRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnIndex(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnIndex",
 ):
@@ -316,7 +307,7 @@ class CfnIndex(
         :param tags: The specified tags are attached to only the index created in this AWS Region . The tags don't attach to any of the resources listed in the index.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__accccd442e137b2533911bfe6a9c63d90b98a01337a2c8e9c58697e0848fb88e)
+            type_hints = cached_type_hints(_typecheckingstub__accccd442e137b2533911bfe6a9c63d90b98a01337a2c8e9c58697e0848fb88e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIndexProps(type=type, tags=tags)
@@ -325,12 +316,15 @@ class CfnIndex(
 
     @jsii.member(jsii_name="arnForIndex")
     @builtins.classmethod
-    def arn_for_index(cls, resource: "_IIndexRef_4a727770") -> builtins.str:
+    def arn_for_index(
+        cls,
+        resource: "_aws_resourceexplorer2_4c3edc04.IIndexRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ee3c944df815a57d0c4c86976931da67d5b87a991ea53fb79fc453c3e9de86e)
+            type_hints = cached_type_hints(_typecheckingstub__3ee3c944df815a57d0c4c86976931da67d5b87a991ea53fb79fc453c3e9de86e)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIndex", [resource]))
 
@@ -342,18 +336,18 @@ class CfnIndex(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4d18be3f8a2f6b6b59764014b97dc7f63d313ece3293b25269f87004d1d3495)
+            type_hints = cached_type_hints(_typecheckingstub__f4d18be3f8a2f6b6b59764014b97dc7f63d313ece3293b25269f87004d1d3495)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIndex", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9868b671e46d1bbfcbe098b2349183185ded8e3b83f1d5b803364752d2cc285a)
+            type_hints = cached_type_hints(_typecheckingstub__9868b671e46d1bbfcbe098b2349183185ded8e3b83f1d5b803364752d2cc285a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -366,7 +360,7 @@ class CfnIndex(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b638862b412603d6dd583664fa4630195d0701c2ccda99715eb025e6f3466ae)
+            type_hints = cached_type_hints(_typecheckingstub__5b638862b412603d6dd583664fa4630195d0701c2ccda99715eb025e6f3466ae)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -410,15 +404,15 @@ class CfnIndex(
 
     @builtins.property
     @jsii.member(jsii_name="indexRef")
-    def index_ref(self) -> "_IndexReference_71f896b9":
+    def index_ref(self) -> "_aws_resourceexplorer2_4c3edc04.IndexReference":
         '''A reference to a Index resource.'''
-        return typing.cast("_IndexReference_71f896b9", jsii.get(self, "indexRef"))
+        return typing.cast("_aws_resourceexplorer2_4c3edc04.IndexReference", jsii.get(self, "indexRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -429,7 +423,7 @@ class CfnIndex(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee8250a3f3491b042dbc508f663480728f7a2654be50c8b46f65888be7b7086e)
+            type_hints = cached_type_hints(_typecheckingstub__ee8250a3f3491b042dbc508f663480728f7a2654be50c8b46f65888be7b7086e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -445,7 +439,7 @@ class CfnIndex(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf3e59046bbed69cac69bb9d9a3fcb94f8253aa6c2753a213e4e0970930dbf4)
+            type_hints = cached_type_hints(_typecheckingstub__8cf3e59046bbed69cac69bb9d9a3fcb94f8253aa6c2753a213e4e0970930dbf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -486,7 +480,7 @@ class CfnIndexProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628)
+            type_hints = cached_type_hints(_typecheckingstub__07785dc50db019a4bae6a0b2472b82a77afbee3276a6e6212049584d8dce9628)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -530,9 +524,9 @@ class CfnIndexProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IViewRef_bd4cee83, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_resourceexplorer2_4c3edc04.IViewRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnView(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnView",
 ):
@@ -571,8 +565,8 @@ class CfnView(
         id: builtins.str,
         *,
         view_name: builtins.str,
-        filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnView.FiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        included_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnView.IncludedPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnView.FiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        included_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnView.IncludedPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scope: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -587,7 +581,7 @@ class CfnView(
         :param tags: Tag key and value pairs that are attached to the view.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f124943049ede771902c48eecbb29bb165c5c4c2d774e691c255a756964e18a)
+            type_hints = cached_type_hints(_typecheckingstub__7f124943049ede771902c48eecbb29bb165c5c4c2d774e691c255a756964e18a)
             check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnViewProps(
@@ -602,12 +596,15 @@ class CfnView(
 
     @jsii.member(jsii_name="arnForView")
     @builtins.classmethod
-    def arn_for_view(cls, resource: "_IViewRef_bd4cee83") -> builtins.str:
+    def arn_for_view(
+        cls,
+        resource: "_aws_resourceexplorer2_4c3edc04.IViewRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad1393ed148ff2f5b6ac9145f2a18e8c29f82d6e855941354ce1a348f68a85c1)
+            type_hints = cached_type_hints(_typecheckingstub__ad1393ed148ff2f5b6ac9145f2a18e8c29f82d6e855941354ce1a348f68a85c1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForView", [resource]))
 
@@ -619,18 +616,18 @@ class CfnView(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e53331de9f61bbf0fcf4a946415d04e710121595257857f1cddd61d382103dea)
+            type_hints = cached_type_hints(_typecheckingstub__e53331de9f61bbf0fcf4a946415d04e710121595257857f1cddd61d382103dea)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnView", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f690df80d2c072a8fce4e6d89c310169f5b269e2ad04155ed5955fe3df76fa9)
+            type_hints = cached_type_hints(_typecheckingstub__9f690df80d2c072a8fce4e6d89c310169f5b269e2ad04155ed5955fe3df76fa9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -643,7 +640,7 @@ class CfnView(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69c823ae1d0498dc7396a55c7efdfcce450fd73eb89e8abb06b9dddc537607b6)
+            type_hints = cached_type_hints(_typecheckingstub__69c823ae1d0498dc7396a55c7efdfcce450fd73eb89e8abb06b9dddc537607b6)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -676,15 +673,15 @@ class CfnView(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="viewRef")
-    def view_ref(self) -> "_ViewReference_09ee265f":
+    def view_ref(self) -> "_aws_resourceexplorer2_4c3edc04.ViewReference":
         '''A reference to a View resource.'''
-        return typing.cast("_ViewReference_09ee265f", jsii.get(self, "viewRef"))
+        return typing.cast("_aws_resourceexplorer2_4c3edc04.ViewReference", jsii.get(self, "viewRef"))
 
     @builtins.property
     @jsii.member(jsii_name="viewName")
@@ -695,7 +692,7 @@ class CfnView(
     @view_name.setter
     def view_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34b0928f3062cee9252036904eb9ab259165c1538d4a06b7a8dd389f9c54c008)
+            type_hints = cached_type_hints(_typecheckingstub__34b0928f3062cee9252036904eb9ab259165c1538d4a06b7a8dd389f9c54c008)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "viewName", value) # pyright: ignore[reportArgumentType]
 
@@ -703,17 +700,17 @@ class CfnView(
     @jsii.member(jsii_name="filters")
     def filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnView.FiltersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.FiltersProperty"]]:
         '''An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnView.FiltersProperty"]], jsii.get(self, "filters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.FiltersProperty"]], jsii.get(self, "filters"))
 
     @filters.setter
     def filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnView.FiltersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.FiltersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5fb01321040e194a5b4764d6eb89a25f4149cfd8bf5c274c004d722fdfc3ac9)
+            type_hints = cached_type_hints(_typecheckingstub__f5fb01321040e194a5b4764d6eb89a25f4149cfd8bf5c274c004d722fdfc3ac9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "filters", value) # pyright: ignore[reportArgumentType]
 
@@ -721,17 +718,17 @@ class CfnView(
     @jsii.member(jsii_name="includedProperties")
     def included_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnView.IncludedPropertyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.IncludedPropertyProperty"]]]]:
         '''A list of fields that provide additional information about the view.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnView.IncludedPropertyProperty"]]]], jsii.get(self, "includedProperties"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.IncludedPropertyProperty"]]]], jsii.get(self, "includedProperties"))
 
     @included_properties.setter
     def included_properties(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnView.IncludedPropertyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.IncludedPropertyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61a4f8894d1b066b915e6771816801795e9d3e2fe0de81b028355665ff6ec0bf)
+            type_hints = cached_type_hints(_typecheckingstub__61a4f8894d1b066b915e6771816801795e9d3e2fe0de81b028355665ff6ec0bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "includedProperties", value) # pyright: ignore[reportArgumentType]
 
@@ -744,7 +741,7 @@ class CfnView(
     @scope.setter
     def scope(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce03d0317ddc3e528365ec97587f9be02a8e6694ea00dc083c89cfc737d8c78)
+            type_hints = cached_type_hints(_typecheckingstub__6ce03d0317ddc3e528365ec97587f9be02a8e6694ea00dc083c89cfc737d8c78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
 
@@ -760,7 +757,7 @@ class CfnView(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba074542162150148d90cb3cc2f181855f03e4ed820e7ceba4ad32404363e0a8)
+            type_hints = cached_type_hints(_typecheckingstub__ba074542162150148d90cb3cc2f181855f03e4ed820e7ceba4ad32404363e0a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -788,7 +785,7 @@ class CfnView(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf41fccad0321607e35d5e689530c4ced25681bfd4c6eead0799e7be5371e21f)
+                type_hints = cached_type_hints(_typecheckingstub__cf41fccad0321607e35d5e689530c4ced25681bfd4c6eead0799e7be5371e21f)
                 check_type(argname="argument filter_string", value=filter_string, expected_type=type_hints["filter_string"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "filter_string": filter_string,
@@ -839,7 +836,7 @@ class CfnView(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b2008d74d735dee7e077ba99ee91afcce783365dbdad581b46682239d77c928)
+                type_hints = cached_type_hints(_typecheckingstub__0b2008d74d735dee7e077ba99ee91afcce783365dbdad581b46682239d77c928)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
@@ -891,7 +888,7 @@ class CfnView(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd724c6b685500a7e2e21d499880a01c7a397039f097a6228c73a6e017923915)
+                type_hints = cached_type_hints(_typecheckingstub__bd724c6b685500a7e2e21d499880a01c7a397039f097a6228c73a6e017923915)
                 check_type(argname="argument filter_string", value=filter_string, expected_type=type_hints["filter_string"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "filter_string": filter_string,
@@ -940,8 +937,8 @@ class CfnViewProps:
         self,
         *,
         view_name: builtins.str,
-        filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnView.FiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        included_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnView.IncludedPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnView.FiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        included_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnView.IncludedPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scope: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -979,7 +976,7 @@ class CfnViewProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d)
+            type_hints = cached_type_hints(_typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d)
             check_type(argname="argument view_name", value=view_name, expected_type=type_hints["view_name"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             check_type(argname="argument included_properties", value=included_properties, expected_type=type_hints["included_properties"])
@@ -1010,7 +1007,7 @@ class CfnViewProps:
     @builtins.property
     def filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnView.FiltersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.FiltersProperty"]]:
         '''An array of strings that include search keywords, prefixes, and operators that filter the results that are returned for queries made using this view.
 
         When you use this view in a `Search <https://docs.aws.amazon.com/resource-explorer/latest/apireference/API_Search.html>`_ operation, the filter string is combined with the search's ``QueryString`` parameter using a logical ``AND`` operator.
@@ -1023,18 +1020,18 @@ class CfnViewProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-filters
         '''
         result = self._values.get("filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnView.FiltersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.FiltersProperty"]], result)
 
     @builtins.property
     def included_properties(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnView.IncludedPropertyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.IncludedPropertyProperty"]]]]:
         '''A list of fields that provide additional information about the view.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resourceexplorer2-view.html#cfn-resourceexplorer2-view-includedproperties
         '''
         result = self._values.get("included_properties")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnView.IncludedPropertyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnView.IncludedPropertyProperty"]]]], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
@@ -1095,7 +1092,7 @@ def _typecheckingstub__3be3579930575f6ac8db82a0ef8f34e458011be582117b4fef2811bc2
     pass
 
 def _typecheckingstub__cef124cf4de616cdbfaa59c7b45ccb3cf247ebacf5072b55cc719a3b6e6d1499(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1130,7 +1127,7 @@ def _typecheckingstub__accccd442e137b2533911bfe6a9c63d90b98a01337a2c8e9c58697e08
     pass
 
 def _typecheckingstub__3ee3c944df815a57d0c4c86976931da67d5b87a991ea53fb79fc453c3e9de86e(
-    resource: _IIndexRef_4a727770,
+    resource: _aws_resourceexplorer2_4c3edc04.IIndexRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1142,7 +1139,7 @@ def _typecheckingstub__f4d18be3f8a2f6b6b59764014b97dc7f63d313ece3293b25269f87004
     pass
 
 def _typecheckingstub__9868b671e46d1bbfcbe098b2349183185ded8e3b83f1d5b803364752d2cc285a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1178,8 +1175,8 @@ def _typecheckingstub__7f124943049ede771902c48eecbb29bb165c5c4c2d774e691c255a756
     id: builtins.str,
     *,
     view_name: builtins.str,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    included_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scope: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -1187,7 +1184,7 @@ def _typecheckingstub__7f124943049ede771902c48eecbb29bb165c5c4c2d774e691c255a756
     pass
 
 def _typecheckingstub__ad1393ed148ff2f5b6ac9145f2a18e8c29f82d6e855941354ce1a348f68a85c1(
-    resource: _IViewRef_bd4cee83,
+    resource: _aws_resourceexplorer2_4c3edc04.IViewRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1199,7 +1196,7 @@ def _typecheckingstub__e53331de9f61bbf0fcf4a946415d04e710121595257857f1cddd61d38
     pass
 
 def _typecheckingstub__9f690df80d2c072a8fce4e6d89c310169f5b269e2ad04155ed5955fe3df76fa9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1217,13 +1214,13 @@ def _typecheckingstub__34b0928f3062cee9252036904eb9ab259165c1538d4a06b7a8dd389f9
     pass
 
 def _typecheckingstub__f5fb01321040e194a5b4764d6eb89a25f4149cfd8bf5c274c004d722fdfc3ac9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnView.FiltersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnView.FiltersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61a4f8894d1b066b915e6771816801795e9d3e2fe0de81b028355665ff6ec0bf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnView.IncludedPropertyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnView.IncludedPropertyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1264,8 +1261,8 @@ def _typecheckingstub__bd724c6b685500a7e2e21d499880a01c7a397039f097a6228c73a6e01
 def _typecheckingstub__64d2ab4fc7971aa574280f08b92f4a9047a7bd1d73b33d97e446ef83034b5e8d(
     *,
     view_name: builtins.str,
-    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    included_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnView.FiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    included_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnView.IncludedPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scope: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

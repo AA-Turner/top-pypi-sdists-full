@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.51.5
+Version: 4.51.6
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -66,7 +66,7 @@ Requires-Dist: setuptools~=70.2; python_version < "3.10"
 Requires-Dist: setuptools>=83.0.0; python_version >= "3.10"
 Requires-Dist: wheel>=0.47.0
 Requires-Dist: attrs>=26.1.0
-Requires-Dist: certifi>=2026.6.17
+Requires-Dist: certifi>=2026.7.22
 Requires-Dist: exceptiongroup>=1.3.1
 Requires-Dist: websockets~=15.0.1; python_version < "3.10"
 Requires-Dist: websockets>=16.1.1; python_version >= "3.10"
@@ -168,9 +168,10 @@ Requires-Dist: pip-system-certs>=4.0; platform_system == "Windows" and extra == 
 Provides-Extra: proxy
 Requires-Dist: proxy.py==2.4.3; extra == "proxy"
 Provides-Extra: playwright
-Requires-Dist: playwright>=1.60.0; extra == "playwright"
+Requires-Dist: playwright>=1.60.0; python_version < "3.10" and extra == "playwright"
+Requires-Dist: playwright>=1.61.0; python_version >= "3.10" and extra == "playwright"
 Requires-Dist: greenlet>=3.2.5; python_version < "3.10" and extra == "playwright"
-Requires-Dist: greenlet>=3.5.3; python_version >= "3.10" and extra == "playwright"
+Requires-Dist: greenlet>=3.5.4; python_version >= "3.10" and extra == "playwright"
 Provides-Extra: pyautogui
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system != "Linux" and extra == "pyautogui"
 Dynamic: author

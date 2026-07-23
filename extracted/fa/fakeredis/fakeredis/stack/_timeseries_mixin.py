@@ -1,12 +1,27 @@
+import sys
 import time
 from typing import List, Union, Optional, Any, Set, Dict, cast
 
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
-from fakeredis._commands import command, Key, CommandItem, Int, Float, Timestamp
+from fakeredis._commands import command, Key, CommandItem, Int, Float
 from fakeredis._helpers import SimpleString, OK, SimpleError, casematch
 from fakeredis.commands_mixins._mixin_base import CommandsMixinBase
 from fakeredis.model import TimeSeries, TimeSeriesRule, AGGREGATORS
+
+
+class Timestamp(Int):
+    """Argument converter for timestamps"""
+
+    @classmethod
+    def decode(cls, value: bytes, decode_error: Optional[str] = None) -> int:
+        if value == b"*":
+            return int(time.time() * 1000)
+        if value == b"-":
+            return -1
+        if value == b"+":
+            return sys.maxsize
+        return super().decode(value, decode_error=msgs.INVALID_EXPIRE_MSG)
 
 
 class TimeSeriesCommandsMixin(CommandsMixinBase):  # TimeSeries commands
@@ -325,12 +340,18 @@ class TimeSeriesCommandsMixin(CommandsMixinBase):  # TimeSeries commands
                 align = from_ts
             else:
                 align = int(align)
-        if aggregator is not None and aggregator not in AGGREGATORS:
-            raise SimpleError(msgs.TIMESERIES_BAD_AGGREGATION_TYPE)
         if aggregator is None:
             res = ts.range(from_ts, to_ts, value_min, value_max, count, filter_ts, reverse)
-        else:
-            res = ts.aggregate(
+            return [[x[0], x[1]] for x in res]
+
+        # Since redis 8.8, multiple comma-separated aggregators can be given in a single command.
+        aggregators: List[bytes] = aggregator.lower().split(b",")
+        if any(agg not in AGGREGATORS for agg in aggregators):
+            raise SimpleError(msgs.TIMESERIES_BAD_AGGREGATION_TYPE)
+        if len(aggregators) > 1 and (self.version < (8, 8) or self.server_type != "redis"):
+            raise SimpleError(msgs.TIMESERIES_BAD_AGGREGATION_TYPE)
+        aggregated = [
+            ts.aggregate(
                 from_ts,
                 to_ts,
                 latest,
@@ -339,14 +360,18 @@ class TimeSeriesCommandsMixin(CommandsMixinBase):  # TimeSeries commands
                 count,
                 filter_ts,
                 align,
-                aggregator,
+                agg,
                 bucket_duration,
                 bucket_timestamp,
                 empty,
                 reverse,
             )
-
-        result: List[List[Union[int, float]]] = [[x[0], x[1]] for x in res]
+            for agg in aggregators
+        ]
+        # Each bucket row is (timestamp, value-per-aggregator...); all aggregators share the same buckets.
+        result: List[List[Union[int, float]]] = [
+            [row[0]] + [aggregated[j][i][1] for j in range(len(aggregators))] for i, row in enumerate(aggregated[0])
+        ]
         return result
 
     @command(

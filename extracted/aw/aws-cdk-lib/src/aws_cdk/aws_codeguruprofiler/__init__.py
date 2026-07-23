@@ -36,6 +36,8 @@ profiling_group = codeguruprofiler.ProfilingGroup(self, "MyProfilingGroup",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -49,49 +51,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    PermissionsOptions as _PermissionsOptions_0351e60e,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
-from ..interfaces.aws_codeguruprofiler import (
-    IProfilingGroupRef as _IProfilingGroupRef_d3751e1f,
-    ProfilingGroupReference as _ProfilingGroupReference_a5c29bea,
-)
-from ..interfaces.aws_lambda import IFunctionRef as _IFunctionRef_2601eb33
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.interfaces.aws_codeguruprofiler as _aws_codeguruprofiler_97b0ccce
+    import aws_cdk.interfaces.aws_lambda as _aws_lambda_aaab8031
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_codeguruprofiler_97b0ccce = _LazyImport("aws_cdk.interfaces.aws_codeguruprofiler")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_lambda_aaab8031 = _LazyImport("aws_cdk.interfaces.aws_lambda")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IProfilingGroupRef_d3751e1f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeguruprofiler_97b0ccce.IProfilingGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnProfilingGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup",
 ):
@@ -134,11 +127,11 @@ class CfnProfilingGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        profiling_group_name: typing.Union[builtins.str, "_IFunctionRef_2601eb33"],
+        profiling_group_name: typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"],
         agent_permissions: typing.Any = None,
-        anomaly_detection_notification_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        anomaly_detection_notification_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         compute_platform: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CodeGuruProfiler::ProfilingGroup``.
 
@@ -151,7 +144,7 @@ class CfnProfilingGroup(
         :param tags: A list of tags to add to the created profiling group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b239b8bf)
+            type_hints = cached_type_hints(_typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b239b8bf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProfilingGroupProps(
@@ -168,13 +161,13 @@ class CfnProfilingGroup(
     @builtins.classmethod
     def arn_for_profiling_group(
         cls,
-        resource: "_IProfilingGroupRef_d3751e1f",
+        resource: "_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33cdde94c1cd0c010a899a6ce8d733ddb8b92255e3e6a09b83f83acee4766303)
+            type_hints = cached_type_hints(_typecheckingstub__33cdde94c1cd0c010a899a6ce8d733ddb8b92255e3e6a09b83f83acee4766303)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProfilingGroup", [resource]))
 
@@ -185,7 +178,7 @@ class CfnProfilingGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IProfilingGroupRef_d3751e1f":
+    ) -> "_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef":
         '''Creates a new IProfilingGroupRef from an ARN.
 
         :param scope: -
@@ -193,11 +186,11 @@ class CfnProfilingGroup(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ac4260087f147037940fcb12c380a6fc4400820d9cf220da02e1ddbef07d729)
+            type_hints = cached_type_hints(_typecheckingstub__6ac4260087f147037940fcb12c380a6fc4400820d9cf220da02e1ddbef07d729)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IProfilingGroupRef_d3751e1f", jsii.sinvoke(cls, "fromProfilingGroupArn", [scope, id, arn]))
+        return typing.cast("_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef", jsii.sinvoke(cls, "fromProfilingGroupArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromProfilingGroupName")
     @builtins.classmethod
@@ -206,7 +199,7 @@ class CfnProfilingGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         profiling_group_name: builtins.str,
-    ) -> "_IProfilingGroupRef_d3751e1f":
+    ) -> "_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef":
         '''Creates a new IProfilingGroupRef from a profilingGroupName.
 
         :param scope: -
@@ -214,11 +207,11 @@ class CfnProfilingGroup(
         :param profiling_group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__552edc8b399fb365e317214fcadc79fac39ae04b205363192ae2b40558614940)
+            type_hints = cached_type_hints(_typecheckingstub__552edc8b399fb365e317214fcadc79fac39ae04b205363192ae2b40558614940)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument profiling_group_name", value=profiling_group_name, expected_type=type_hints["profiling_group_name"])
-        return typing.cast("_IProfilingGroupRef_d3751e1f", jsii.sinvoke(cls, "fromProfilingGroupName", [scope, id, profiling_group_name]))
+        return typing.cast("_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef", jsii.sinvoke(cls, "fromProfilingGroupName", [scope, id, profiling_group_name]))
 
     @jsii.member(jsii_name="isCfnProfilingGroup")
     @builtins.classmethod
@@ -228,18 +221,18 @@ class CfnProfilingGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b6d89b63de3411ba4b7a03c5c67f302d3ff123b88300036a667e79f67a553ef)
+            type_hints = cached_type_hints(_typecheckingstub__2b6d89b63de3411ba4b7a03c5c67f302d3ff123b88300036a667e79f67a553ef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProfilingGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24a556687187f3fa5c9bf014559a3a117b65e51abfce2431cb066434dd4eaa44)
+            type_hints = cached_type_hints(_typecheckingstub__24a556687187f3fa5c9bf014559a3a117b65e51abfce2431cb066434dd4eaa44)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -252,7 +245,7 @@ class CfnProfilingGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fafc590c253689aa6dbe3ece2a14715971b41a0287ac3abea2185200d7448965)
+            type_hints = cached_type_hints(_typecheckingstub__fafc590c253689aa6dbe3ece2a14715971b41a0287ac3abea2185200d7448965)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -283,15 +276,17 @@ class CfnProfilingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="profilingGroupRef")
-    def profiling_group_ref(self) -> "_ProfilingGroupReference_a5c29bea":
+    def profiling_group_ref(
+        self,
+    ) -> "_aws_codeguruprofiler_97b0ccce.ProfilingGroupReference":
         '''A reference to a ProfilingGroup resource.'''
-        return typing.cast("_ProfilingGroupReference_a5c29bea", jsii.get(self, "profilingGroupRef"))
+        return typing.cast("_aws_codeguruprofiler_97b0ccce.ProfilingGroupReference", jsii.get(self, "profilingGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="agentPermissions")
@@ -302,7 +297,7 @@ class CfnProfilingGroup(
     @agent_permissions.setter
     def agent_permissions(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
+            type_hints = cached_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "agentPermissions", value) # pyright: ignore[reportArgumentType]
 
@@ -315,7 +310,7 @@ class CfnProfilingGroup(
     @profiling_group_name.setter
     def profiling_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
+            type_hints = cached_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -323,17 +318,17 @@ class CfnProfilingGroup(
     @jsii.member(jsii_name="anomalyDetectionNotificationConfiguration")
     def anomaly_detection_notification_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProfilingGroup.ChannelProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProfilingGroup.ChannelProperty"]]]]:
         '''Adds anomaly notifications for a profiling group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProfilingGroup.ChannelProperty"]]]], jsii.get(self, "anomalyDetectionNotificationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProfilingGroup.ChannelProperty"]]]], jsii.get(self, "anomalyDetectionNotificationConfiguration"))
 
     @anomaly_detection_notification_configuration.setter
     def anomaly_detection_notification_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProfilingGroup.ChannelProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProfilingGroup.ChannelProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6)
+            type_hints = cached_type_hints(_typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "anomalyDetectionNotificationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -346,20 +341,23 @@ class CfnProfilingGroup(
     @compute_platform.setter
     def compute_platform(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb7972df8)
+            type_hints = cached_type_hints(_typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb7972df8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to add to the created profiling group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7)
+            type_hints = cached_type_hints(_typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -388,7 +386,7 @@ class CfnProfilingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__811cebbf9ff71c6cdc0a3e6f6073b243f3749069770de9b6715845db6a859300)
+                type_hints = cached_type_hints(_typecheckingstub__811cebbf9ff71c6cdc0a3e6f6073b243f3749069770de9b6715845db6a859300)
                 check_type(argname="argument principals", value=principals, expected_type=type_hints["principals"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "principals": principals,
@@ -451,7 +449,7 @@ class CfnProfilingGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b77617e3)
+                type_hints = cached_type_hints(_typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b77617e3)
                 check_type(argname="argument channel_uri", value=channel_uri, expected_type=type_hints["channel_uri"])
                 check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -506,11 +504,11 @@ class CfnProfilingGroupProps:
     def __init__(
         self,
         *,
-        profiling_group_name: typing.Union[builtins.str, "_IFunctionRef_2601eb33"],
+        profiling_group_name: typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"],
         agent_permissions: typing.Any = None,
-        anomaly_detection_notification_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        anomaly_detection_notification_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnProfilingGroup.ChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         compute_platform: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProfilingGroup``.
 
@@ -551,7 +549,7 @@ class CfnProfilingGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0311e48a474ca90384078ca3a0759f5a58ab45163d3da706301f20c5207756e)
+            type_hints = cached_type_hints(_typecheckingstub__b0311e48a474ca90384078ca3a0759f5a58ab45163d3da706301f20c5207756e)
             check_type(argname="argument profiling_group_name", value=profiling_group_name, expected_type=type_hints["profiling_group_name"])
             check_type(argname="argument agent_permissions", value=agent_permissions, expected_type=type_hints["agent_permissions"])
             check_type(argname="argument anomaly_detection_notification_configuration", value=anomaly_detection_notification_configuration, expected_type=type_hints["anomaly_detection_notification_configuration"])
@@ -572,14 +570,14 @@ class CfnProfilingGroupProps:
     @builtins.property
     def profiling_group_name(
         self,
-    ) -> typing.Union[builtins.str, "_IFunctionRef_2601eb33"]:
+    ) -> typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"]:
         '''The name of the profiling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html#cfn-codeguruprofiler-profilinggroup-profilinggroupname
         '''
         result = self._values.get("profiling_group_name")
         assert result is not None, "Required property 'profiling_group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IFunctionRef_2601eb33"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_lambda_aaab8031.IFunctionRef"], result)
 
     @builtins.property
     def agent_permissions(self) -> typing.Any:
@@ -599,13 +597,13 @@ class CfnProfilingGroupProps:
     @builtins.property
     def anomaly_detection_notification_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProfilingGroup.ChannelProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProfilingGroup.ChannelProperty"]]]]:
         '''Adds anomaly notifications for a profiling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html#cfn-codeguruprofiler-profilinggroup-anomalydetectionnotificationconfiguration
         '''
         result = self._values.get("anomaly_detection_notification_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProfilingGroup.ChannelProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnProfilingGroup.ChannelProperty"]]]], result)
 
     @builtins.property
     def compute_platform(self) -> typing.Optional[builtins.str]:
@@ -619,13 +617,13 @@ class CfnProfilingGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to add to the created profiling group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeguruprofiler-profilinggroup.html#cfn-codeguruprofiler-profilinggroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -660,8 +658,8 @@ class ComputePlatform(enum.Enum):
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codeguruprofiler.IProfilingGroup")
 class IProfilingGroup(
-    _IResource_c80c4260,
-    _IProfilingGroupRef_d3751e1f,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_codeguruprofiler_97b0ccce.IProfilingGroupRef,
     typing_extensions.Protocol,
 ):
     '''IResource represents a Profiling Group.'''
@@ -685,7 +683,10 @@ class IProfilingGroup(
         ...
 
     @jsii.member(jsii_name="grantPublish")
-    def grant_publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_publish(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to publish profiling information to the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -698,7 +699,10 @@ class IProfilingGroup(
         ...
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to read profiling information from the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -712,8 +716,8 @@ class IProfilingGroup(
 
 
 class _IProfilingGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IProfilingGroupRef_d3751e1f), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef), # type: ignore[misc]
 ):
     '''IResource represents a Profiling Group.'''
 
@@ -738,7 +742,10 @@ class _IProfilingGroupProxy(
         return typing.cast(builtins.str, jsii.get(self, "profilingGroupName"))
 
     @jsii.member(jsii_name="grantPublish")
-    def grant_publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_publish(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to publish profiling information to the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -749,12 +756,15 @@ class _IProfilingGroupProxy(
         :param grantee: Principal to grant publish rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eef65bccc91bd6f83597064fade053f490648802b0350f9227188dc1487b758)
+            type_hints = cached_type_hints(_typecheckingstub__8eef65bccc91bd6f83597064fade053f490648802b0350f9227188dc1487b758)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPublish", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPublish", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to read profiling information from the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -765,9 +775,9 @@ class _IProfilingGroupProxy(
         :param grantee: Principal to grant read rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fad88677a83439824b5289f835fd0b41a038abaadbb21252ece4a01a245e1033)
+            type_hints = cached_type_hints(_typecheckingstub__fad88677a83439824b5289f835fd0b41a038abaadbb21252ece4a01a245e1033)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IProfilingGroup).__jsii_proxy_class__ = lambda : _IProfilingGroupProxy
@@ -775,7 +785,7 @@ typing.cast(typing.Any, IProfilingGroup).__jsii_proxy_class__ = lambda : _IProfi
 
 @jsii.implements(IProfilingGroup)
 class ProfilingGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_codeguruprofiler.ProfilingGroup",
 ):
@@ -809,7 +819,7 @@ class ProfilingGroup(
         :param profiling_group_name: A name for the profiling group. Default: - automatically generated name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__455d9f8e0fda8271257c6c1025ea87ea065d36bfefe7d63f702c45b526cc1976)
+            type_hints = cached_type_hints(_typecheckingstub__455d9f8e0fda8271257c6c1025ea87ea065d36bfefe7d63f702c45b526cc1976)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ProfilingGroupProps(
@@ -834,7 +844,7 @@ class ProfilingGroup(
         :param profiling_group_arn: Profiling Group ARN.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b91b6e9dff0c314a77924dad57869cdc71781e124518a42fbbb57612c6f29d4b)
+            type_hints = cached_type_hints(_typecheckingstub__b91b6e9dff0c314a77924dad57869cdc71781e124518a42fbbb57612c6f29d4b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument profiling_group_arn", value=profiling_group_arn, expected_type=type_hints["profiling_group_arn"])
@@ -855,14 +865,17 @@ class ProfilingGroup(
         :param profiling_group_name: Profiling Group Name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__833a9e7894a97394ac1565daa3d417cd81e363776254c84ac034b459e478c491)
+            type_hints = cached_type_hints(_typecheckingstub__833a9e7894a97394ac1565daa3d417cd81e363776254c84ac034b459e478c491)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument profiling_group_name", value=profiling_group_name, expected_type=type_hints["profiling_group_name"])
         return typing.cast("IProfilingGroup", jsii.sinvoke(cls, "fromProfilingGroupName", [scope, id, profiling_group_name]))
 
     @jsii.member(jsii_name="grantPublish")
-    def grant_publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_publish(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to publish profiling information to the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -877,12 +890,15 @@ class ProfilingGroup(
         :param grantee: Principal to grant publish rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18fa54053affb91d59e1ada2098754620fc3f0b31a3be3a82e08a29b665655f4)
+            type_hints = cached_type_hints(_typecheckingstub__18fa54053affb91d59e1ada2098754620fc3f0b31a3be3a82e08a29b665655f4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantPublish", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantPublish", [grantee]))
 
     @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to read profiling information from the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -897,9 +913,9 @@ class ProfilingGroup(
         :param grantee: Principal to grant read rights to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f78934894)
+            type_hints = cached_type_hints(_typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f78934894)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -927,9 +943,11 @@ class ProfilingGroup(
 
     @builtins.property
     @jsii.member(jsii_name="profilingGroupRef")
-    def profiling_group_ref(self) -> "_ProfilingGroupReference_a5c29bea":
+    def profiling_group_ref(
+        self,
+    ) -> "_aws_codeguruprofiler_97b0ccce.ProfilingGroupReference":
         '''A reference to a ProfilingGroup resource.'''
-        return typing.cast("_ProfilingGroupReference_a5c29bea", jsii.get(self, "profilingGroupRef"))
+        return typing.cast("_aws_codeguruprofiler_97b0ccce.ProfilingGroupReference", jsii.get(self, "profilingGroupRef"))
 
 
 class ProfilingGroupGrants(
@@ -956,25 +974,25 @@ class ProfilingGroupGrants(
     @builtins.classmethod
     def from_profiling_group(
         cls,
-        resource: "_IProfilingGroupRef_d3751e1f",
+        resource: "_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef",
     ) -> "ProfilingGroupGrants":
         '''Creates grants for ProfilingGroupGrants.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c95659130416fb11cb6d16d8ed9700f8c4eb6298d863edbf774aac06ca65c37c)
+            type_hints = cached_type_hints(_typecheckingstub__c95659130416fb11cb6d16d8ed9700f8c4eb6298d863edbf774aac06ca65c37c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("ProfilingGroupGrants", jsii.sinvoke(cls, "fromProfilingGroup", [resource]))
 
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         actions: typing.Sequence[builtins.str],
         *,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the given identity custom permissions.
 
         :param grantee: -
@@ -982,15 +1000,18 @@ class ProfilingGroupGrants(
         :param resource_arns: The ARNs of the resources to grant permissions on. Default: - The ARN of the resource associated with the grant is used.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b84655559)
+            type_hints = cached_type_hints(_typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b84655559)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-        options = _PermissionsOptions_0351e60e(resource_arns=resource_arns)
+        options = _aws_cdk_0cae9daa.PermissionsOptions(resource_arns=resource_arns)
 
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, actions, options]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, actions, options]))
 
     @jsii.member(jsii_name="publish")
-    def publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def publish(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to publish profiling information to the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -1001,12 +1022,15 @@ class ProfilingGroupGrants(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84faa10ac4b879eed68cc88226aa4150a75595303e65a335004ef44deb792ec4)
+            type_hints = cached_type_hints(_typecheckingstub__84faa10ac4b879eed68cc88226aa4150a75595303e65a335004ef44deb792ec4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "publish", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "publish", [grantee]))
 
     @jsii.member(jsii_name="read")
-    def read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def read(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant access to read profiling information from the Profiling Group to the given identity.
 
         This will grant the following permissions:
@@ -1017,14 +1041,14 @@ class ProfilingGroupGrants(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5135170b12b36d33fac8d6241e577f634c42e25a7dadcf7c9b54eb2d4a62b33c)
+            type_hints = cached_type_hints(_typecheckingstub__5135170b12b36d33fac8d6241e577f634c42e25a7dadcf7c9b54eb2d4a62b33c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "read", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "read", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IProfilingGroupRef_d3751e1f":
-        return typing.cast("_IProfilingGroupRef_d3751e1f", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef":
+        return typing.cast("_aws_codeguruprofiler_97b0ccce.IProfilingGroupRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -1056,7 +1080,7 @@ class ProfilingGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4843108164af294aabe875088a5b93297a7983cba8b4e8af4a9bcae0fb6659c)
+            type_hints = cached_type_hints(_typecheckingstub__b4843108164af294aabe875088a5b93297a7983cba8b4e8af4a9bcae0fb6659c)
             check_type(argname="argument compute_platform", value=compute_platform, expected_type=type_hints["compute_platform"])
             check_type(argname="argument profiling_group_name", value=profiling_group_name, expected_type=type_hints["profiling_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1111,17 +1135,17 @@ def _typecheckingstub__c9aa0abb6bab44bc6d99509172735702ee5d874bf3f43241d8a04bc9b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    profiling_group_name: typing.Union[builtins.str, _IFunctionRef_2601eb33],
+    profiling_group_name: typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef],
     agent_permissions: typing.Any = None,
-    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     compute_platform: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__33cdde94c1cd0c010a899a6ce8d733ddb8b92255e3e6a09b83f83acee4766303(
-    resource: _IProfilingGroupRef_d3751e1f,
+    resource: _aws_codeguruprofiler_97b0ccce.IProfilingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1149,7 +1173,7 @@ def _typecheckingstub__2b6d89b63de3411ba4b7a03c5c67f302d3ff123b88300036a667e79f6
     pass
 
 def _typecheckingstub__24a556687187f3fa5c9bf014559a3a117b65e51abfce2431cb066434dd4eaa44(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1173,7 +1197,7 @@ def _typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df
     pass
 
 def _typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProfilingGroup.ChannelProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnProfilingGroup.ChannelProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1185,7 +1209,7 @@ def _typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb
     pass
 
 def _typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1207,23 +1231,23 @@ def _typecheckingstub__897f8a8de60bab360ab0a19378aece0020e93e34fe48060c6e6eca85b
 
 def _typecheckingstub__b0311e48a474ca90384078ca3a0759f5a58ab45163d3da706301f20c5207756e(
     *,
-    profiling_group_name: typing.Union[builtins.str, _IFunctionRef_2601eb33],
+    profiling_group_name: typing.Union[builtins.str, _aws_lambda_aaab8031.IFunctionRef],
     agent_permissions: typing.Any = None,
-    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    anomaly_detection_notification_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProfilingGroup.ChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     compute_platform: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8eef65bccc91bd6f83597064fade053f490648802b0350f9227188dc1487b758(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fad88677a83439824b5289f835fd0b41a038abaadbb21252ece4a01a245e1033(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1255,25 +1279,25 @@ def _typecheckingstub__833a9e7894a97394ac1565daa3d417cd81e363776254c84ac034b459e
     pass
 
 def _typecheckingstub__18fa54053affb91d59e1ada2098754620fc3f0b31a3be3a82e08a29b665655f4(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__23cf99a24a4b56d46b427eae23b846bdf8f4365553fa7bd0efc8267f78934894(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c95659130416fb11cb6d16d8ed9700f8c4eb6298d863edbf774aac06ca65c37c(
-    resource: _IProfilingGroupRef_d3751e1f,
+    resource: _aws_codeguruprofiler_97b0ccce.IProfilingGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b84655559(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     actions: typing.Sequence[builtins.str],
     *,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1282,13 +1306,13 @@ def _typecheckingstub__1e9964767bbf3ce93882adafba54d69dc27f0c3f9cb3a91b4d4c862b8
     pass
 
 def _typecheckingstub__84faa10ac4b879eed68cc88226aa4150a75595303e65a335004ef44deb792ec4(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5135170b12b36d33fac8d6241e577f634c42e25a7dadcf7c9b54eb2d4a62b33c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass

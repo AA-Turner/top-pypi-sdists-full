@@ -1,0 +1,2 @@
+import{Yn as e}from"./promotionUtils-DzZo8o5W.js";import{c as t}from"./i18n-BgGg1YlY.js";var n=[{text:t(`nightly.badge.label`),label:t(`g.nightly`),variant:`warning`,tooltip:t(`nightly.badge.tooltip`)}];e().registerExtension({name:`Comfy.Nightly.Badges`,topbarBadges:n});
+//# sourceMappingURL=nightlyBadges-5ZP4llk9.js.map

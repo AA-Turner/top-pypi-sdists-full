@@ -10,10 +10,10 @@ from typing import (
     ForwardRef,
     Generic,
     Literal,
-    Optional,
+    TypeGuard,
     TypeVar,
-    Union,
     cast,
+    get_args,
     get_origin,
     overload,
 )
@@ -21,15 +21,15 @@ from uuid import UUID
 
 from typing_extensions import (
     Never,
-    TypeGuard,
     assert_never,
     evaluate_forward_ref,
-    get_args,
     is_typeddict,
 )
 
 from ._custom_types import CustomType as CustomTypeMeta
-from ._impl import (
+from ._meta import Annotations, ResolverContext
+from ._special_forms import is_typealiastype, is_union_type, unwrap_special_forms
+from ._type_info import (
     NOT_SET,
     AnyType,
     ArrayType,
@@ -42,7 +42,6 @@ from ._impl import (
     DateTimeType,
     DateType,
     DecimalType,
-    DefaultValue,
     DictionaryType,
     DiscriminatedUnionType,
     EntityField,
@@ -61,9 +60,8 @@ from ._impl import (
     TypedDictType,
     UnionType,
     UUIDType,
+    _NotSet,
 )
-from ._meta import Annotations, ResolverContext
-from ._secial_forms import is_typealiastype, is_union_type, unwrap_special_forms
 from ._type_utils import get_type_hints  # type: ignore[attr-defined]
 from ._utils import _MergeStack, _Stack, get_attributes_doc, to_camelcase
 from .metadata import (
@@ -104,12 +102,12 @@ _T = TypeVar('_T')
 class _TypeResolver:
     resolver_context: _Stack[ResolverContext]
     annotations: _MergeStack[Annotations]
-    custom_type_resolver: Optional[Callable[[Any], Optional[CustomTypeMeta[Any, Any]]]]
+    custom_type_resolver: Callable[[Any], CustomTypeMeta[Any, Any] | None] | None
 
     def __init__(
         self,
         globals: dict[str, Any],
-        custom_type_resolver: Optional[Callable[[Any], Optional[CustomTypeMeta[Any, Any]]]] = None,
+        custom_type_resolver: Callable[[Any], CustomTypeMeta[Any, Any] | None] | None = None,
     ):
         self.resolver_context = _Stack(ResolverContext(globals=globals))
         self.custom_type_resolver = custom_type_resolver
@@ -291,7 +289,7 @@ class _TypeResolver:
 
         raise RuntimeError(f'Unknown type {t!r}')
 
-    def _match_simple_types(self, t: Any) -> Optional[BaseType]:
+    def _match_simple_types(self, t: Any) -> BaseType | None:
         if not isinstance(t, type):
             return None
 
@@ -313,7 +311,7 @@ class _TypeResolver:
         if simple := simple_type_mapping.get(t):
             return simple(custom_encoder=custom_encoder, json_schema_extensions=json_schema_extensions)
 
-        number_type_mapping: Mapping[type, type[Union[IntegerType, FloatType]]] = {
+        number_type_mapping: Mapping[type, type[IntegerType | FloatType]] = {
             int: IntegerType,
             float: FloatType,
         }
@@ -389,7 +387,7 @@ class _TypeResolver:
             )
 
         for struct_field in struct_flatten_fields:
-            struct_type = cast(Union[EntityType, TypedDictType], struct_field.field_type)
+            struct_type = cast(EntityType | TypedDictType, struct_field.field_type)
             for nested_field in struct_type.fields:
                 if nested_field.dict_key in regular_field_keys:
                     raise RuntimeError(
@@ -419,8 +417,8 @@ class _TypeResolver:
         self,
         t: Any,
         name: str,
-        custom_encoder: Optional[CustomEncoder[Any, Any]],
-    ) -> Union[EntityType, TypedDictType]:
+        custom_encoder: CustomEncoder[Any, Any] | None,
+    ) -> EntityType | TypedDictType:
         # PEP-484: Replace all unfilled type parameters with Any
         if get_origin(t) is None and getattr(t, '__parameters__', None):
             t = t[(Any,) * len(t.__parameters__)]
@@ -456,9 +454,7 @@ class _TypeResolver:
                     flatten = field_annotations.get(_Flatten)
 
                     is_discriminator_field = field.name == discriminator_field
-                    required = (
-                        not (field.default != NOT_SET or field.default_factory != NOT_SET) or is_discriminator_field
-                    )
+                    required = (field.default is NOT_SET and field.default_factory is NOT_SET) or is_discriminator_field
 
                     default = field.default
                     if (
@@ -467,7 +463,7 @@ class _TypeResolver:
                         and none_as_default_for_optional
                         and none_as_default_for_optional.use
                     ):
-                        default = DefaultValue.some(None)
+                        default = None
                         required = False
 
                     is_flattened = flatten is not None
@@ -501,7 +497,9 @@ class _TypeResolver:
                     name=name,
                     fields=fields,
                     omit_none=cls_annotations.get(NoneFormat) is OmitNone,
-                    doc=t.__doc__,
+                    # use origin: on parameterized generics `t.__doc__` returns the
+                    # `typing._GenericAlias` docstring (recent CPython patch releases, e.g. 3.13.14)
+                    doc=origin.__doc__,
                     custom_encoder=custom_encoder,
                     used_keys=used_keys,
                     json_schema_extensions=json_schema_extensions,
@@ -513,7 +511,7 @@ class _TypeResolver:
                 fields=fields,
                 omit_none=cls_annotations.get(NoneFormat) is OmitNone,
                 is_frozen=_is_frozen_dataclass(origin, fields[0]) if fields else False,
-                doc=_get_dataclass_doc(t),
+                doc=_get_dataclass_doc(origin),
                 custom_encoder=custom_encoder,
                 used_keys=used_keys,
                 json_schema_extensions=json_schema_extensions,
@@ -522,8 +520,8 @@ class _TypeResolver:
 
 def describe_type(
     t: Any,
-    meta: Optional[ResolverContext] = None,
-    custom_type_resolver: Optional[Callable[[Any], Optional[CustomTypeMeta[Any, Any]]]] = None,
+    meta: ResolverContext | None = None,
+    custom_type_resolver: Callable[[Any], CustomTypeMeta[Any, Any] | None] | None = None,
 ) -> BaseType:
     return _TypeResolver(_get_globals(t), custom_type_resolver).resolve(t)
 
@@ -531,9 +529,9 @@ def describe_type(
 @dataclasses.dataclass
 class _Field(Generic[_T]):
     name: str
-    type: Union[type[_T], str, Any]
-    default: Union[DefaultValue[_T], DefaultValue[None]] = NOT_SET
-    default_factory: Union[DefaultValue[Callable[[], _T]], DefaultValue[None]] = NOT_SET
+    type: type[_T] | str | Any
+    default: _T | None | _NotSet = NOT_SET
+    default_factory: Callable[[], _T] | _NotSet = NOT_SET
 
 
 def _get_entity_fields(t: Any) -> Sequence[_Field[Any]]:
@@ -542,10 +540,8 @@ def _get_entity_fields(t: Any) -> Sequence[_Field[Any]]:
             _Field(
                 name=f.name,
                 type=f.type,
-                default=(DefaultValue.some(f.default) if f.default is not dataclasses.MISSING else NOT_SET),
-                default_factory=(
-                    DefaultValue.some(f.default_factory) if f.default_factory is not dataclasses.MISSING else NOT_SET
-                ),
+                default=(f.default if f.default is not dataclasses.MISSING else NOT_SET),
+                default_factory=(f.default_factory if f.default_factory is not dataclasses.MISSING else NOT_SET),
             )
             for f in dataclasses.fields(t)
         ]
@@ -554,7 +550,7 @@ def _get_entity_fields(t: Any) -> Sequence[_Field[Any]]:
             _Field(
                 name=field_name,
                 type=field_type,
-                default=NOT_SET if _is_required_in_typeddict(t, field_name) else DefaultValue.some(None),
+                default=NOT_SET if _is_required_in_typeddict(t, field_name) else None,
                 default_factory=NOT_SET,
             )
             for field_name, field_type in t.__annotations__.items()
@@ -566,14 +562,14 @@ def _get_entity_fields(t: Any) -> Sequence[_Field[Any]]:
                 name=f.name,
                 type=f.type,
                 default=(
-                    DefaultValue.some(f.default)
+                    f.default
                     if (
                         f.default is not attr.NOTHING and not isinstance(f.default, attr.Factory)  # type: ignore[arg-type]
                     )
                     else NOT_SET
                 ),
                 default_factory=(
-                    DefaultValue.some(f.default.factory)  # pyright: ignore
+                    f.default.factory  # pyright: ignore
                     if isinstance(f.default, attr.Factory)  # type: ignore[arg-type]
                     else NOT_SET
                 ),
@@ -589,14 +585,14 @@ def _find_metadata(annotations: Iterable[Any], type_: type[_T], default: _T) -> 
 
 
 @overload
-def _find_metadata(annotations: Iterable[Any], type_: type[_T], default: None = None) -> Optional[_T]: ...
+def _find_metadata(annotations: Iterable[Any], type_: type[_T], default: None = None) -> _T | None: ...
 
 
-def _find_metadata(annotations: Iterable[Any], type_: type[_T], default: Optional[_T] = None) -> Optional[_T]:
+def _find_metadata(annotations: Iterable[Any], type_: type[_T], default: _T | None = None) -> _T | None:
     return next((ann for ann in annotations if isinstance(ann, type_)), default)
 
 
-def _apply_format(f: Optional[FieldFormat], value: str) -> str:
+def _apply_format(f: FieldFormat | None, value: str) -> str:
     if not f or f.format is Format.no_format:
         return value
     if f.format is Format.camel_case:
@@ -604,7 +600,7 @@ def _apply_format(f: Optional[FieldFormat], value: str) -> str:
     assert_never(f.format)
 
 
-_NAME_CACHE = {}
+_NAME_CACHE: dict[str, int] = {}
 
 
 @cache
@@ -684,7 +680,7 @@ def _is_required_in_typeddict(t: Any, key: str) -> bool:
     raise RuntimeError(f'Expected TypedDict, got "{t!r}"')
 
 
-def _get_dataclass_doc(cls: Any) -> Optional[str]:
+def _get_dataclass_doc(cls: Any) -> str | None:
     """Dataclass has automatically generated docstring, which is not very useful."""
     doc: str = cls.__doc__
     if doc is None or doc.startswith(f'{cls.__name__}('):
@@ -702,7 +698,7 @@ def _is_frozen_dataclass(cls: Any, field: EntityField) -> bool:
         return False
 
 
-def _is_supported_literal_args(args: Sequence[Any]) -> TypeGuard[list[Union[str, int, Enum]]]:
+def _is_supported_literal_args(args: Sequence[Any]) -> TypeGuard[list[str | int | Enum]]:
     return all(isinstance(arg, (str, int, Enum)) for arg in args)
 
 

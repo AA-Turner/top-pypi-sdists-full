@@ -70,6 +70,10 @@ from airbyte_ops_webapp.state import mock_only_enabled
 # tool itself imposes no maximum.
 _RECENT_QUERY_LIMIT = 999
 _HASH_PREFIX_LEN = 8
+# Error messages can be arbitrarily long; the table cell shows a truncated
+# preview (full text remains in the detail modal) so one row can't blow out the
+# table width. The column also has a CSS `max_width` cap as a second guard.
+_ERROR_MESSAGE_PREVIEW_LEN = 80
 
 # Detail-modal query-text treatment: redact string literals and truncate. This
 # is the only query text allowed to reach the browser.
@@ -111,8 +115,16 @@ class RecentQueryDisplayRow(BaseModel):
     status_display: str
     error_type: str
     error_message: str
+    error_message_display: str
     detail: str
     query_text_treated: str
+    # Owning Sonar source, parsed from the query's `iceberg_scan` S3 path. The
+    # raw fields feed the detail modal; the `*_display` forms render `—` when
+    # absent so an empty value reads as "not applicable", not a blank cell.
+    database_name: str
+    database_name_display: str
+    source_id: str
+    source_id_display: str
 
 
 class ConnectionDisplayRow(BaseModel):
@@ -122,6 +134,7 @@ class ConnectionDisplayRow(BaseModel):
     client_user_agent: str
     server_transaction_stage: str
     server_query_elapsed_time: str
+    database_name_display: str = "—"
 
 
 class ComputeUsageChartRow(BaseModel):
@@ -362,7 +375,30 @@ def _query_row(record: MotherDuckQueryRecord) -> QueryRow:
         "error_type": record.error_type or "",
         "error_message": record.error_message or "",
         "query_text_treated": record.query_text or "",
+        "database_name": record.database_name or "",
+        "source_id": record.source_id or "",
     }
+
+
+# Placeholder rendered for an absent (blank) safe identifier, so an empty cell
+# reads as "not applicable" rather than looking like missing data.
+_EMPTY_DISPLAY = "—"
+
+
+def _or_placeholder(value: str) -> str:
+    """Return `value`, or the em-dash placeholder when it is blank."""
+    return value or _EMPTY_DISPLAY
+
+
+def _truncate_display(value: str, max_len: int) -> str:
+    """Return `value` truncated to `max_len` characters with a trailing `…`.
+
+    Values at or under `max_len` are returned unchanged. Used for table cells
+    (e.g. the Error column) whose full text lives in the detail modal.
+    """
+    if len(value) <= max_len:
+        return value
+    return value[:max_len].rstrip() + "…"
 
 
 def _mask_connection_id(connection_id: str) -> str:
@@ -381,6 +417,7 @@ def _connection_row(info: MotherDuckConnectionInfo) -> ConnectionDisplayRow:
         server_query_elapsed_time=(
             info.server_query_elapsed_time or info.server_transaction_elapsed_time or ""
         ),
+        database_name_display=_or_placeholder(info.database_name or ""),
     )
 
 
@@ -460,8 +497,15 @@ def _display_row(row: QueryRow) -> RecentQueryDisplayRow:
         status_display="✅ Succeeded" if row["succeeded"] else "❌ Failed",
         error_type=row["error_type"] or "—",
         error_message=row["error_message"],
+        error_message_display=_truncate_display(
+            row["error_message"], _ERROR_MESSAGE_PREVIEW_LEN
+        ),
         detail="🔍",
         query_text_treated=row["query_text_treated"],
+        database_name=row["database_name"],
+        database_name_display=_or_placeholder(row["database_name"]),
+        source_id=row["source_id"],
+        source_id_display=_or_placeholder(row["source_id"]),
     )
 
 
@@ -722,7 +766,16 @@ def load_active_connection_rows() -> ActiveConnectionsData:
     """Load live server connections for the Active Connections tab."""
     if mock_only_enabled():
         return ActiveConnectionsData(
-            rows=[ConnectionDisplayRow(**row) for row in SAMPLE_ACTIVE_CONNECTIONS]
+            rows=[
+                ConnectionDisplayRow(
+                    client_connection_id=row["client_connection_id"],
+                    client_user_agent=row["client_user_agent"],
+                    server_transaction_stage=row["server_transaction_stage"],
+                    server_query_elapsed_time=row["server_query_elapsed_time"],
+                    database_name_display=_or_placeholder(row["database_name"]),
+                )
+                for row in SAMPLE_ACTIVE_CONNECTIONS
+            ]
         )
 
     try:

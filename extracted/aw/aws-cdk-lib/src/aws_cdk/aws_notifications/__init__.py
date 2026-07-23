@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,56 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_notifications import (
-    ChannelAssociationReference as _ChannelAssociationReference_72294042,
-    EventRuleReference as _EventRuleReference_7519f795,
-    IChannelAssociationRef as _IChannelAssociationRef_f253c84c,
-    IEventRuleRef as _IEventRuleRef_2a7b3cf1,
-    IManagedNotificationAccountContactAssociationRef as _IManagedNotificationAccountContactAssociationRef_8c4c0998,
-    IManagedNotificationAdditionalChannelAssociationRef as _IManagedNotificationAdditionalChannelAssociationRef_b1ea4951,
-    INotificationConfigurationRef as _INotificationConfigurationRef_52a9226d,
-    INotificationHubRef as _INotificationHubRef_463bb6d4,
-    IOrganizationalUnitAssociationRef as _IOrganizationalUnitAssociationRef_aab78d4f,
-    ManagedNotificationAccountContactAssociationReference as _ManagedNotificationAccountContactAssociationReference_e7cb9818,
-    ManagedNotificationAdditionalChannelAssociationReference as _ManagedNotificationAdditionalChannelAssociationReference_929878f3,
-    NotificationConfigurationReference as _NotificationConfigurationReference_ab5ea829,
-    NotificationHubReference as _NotificationHubReference_8c4cd07b,
-    OrganizationalUnitAssociationReference as _OrganizationalUnitAssociationReference_7b321074,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_notifications as _aws_notifications_f026ff33
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_notifications_f026ff33 = _LazyImport("aws_cdk.interfaces.aws_notifications")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelAssociationRef_f253c84c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.IChannelAssociationRef)
 class CfnChannelAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnChannelAssociation",
 ):
@@ -137,7 +119,7 @@ class CfnChannelAssociation(
         :param notification_configuration_arn: The ARN of the ``NotificationConfiguration`` associated with the ``Channel`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886da6ba7f)
+            type_hints = cached_type_hints(_typecheckingstub__96bfb9a9cbe4c6b38cb964bde4e63ccdb746cc48ac8dd61661a318886da6ba7f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelAssociationProps(
@@ -154,18 +136,18 @@ class CfnChannelAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d621959c24b3197b8ee401ef6943b14353e1a7b94c3ae4ed6f8ed72937f60021)
+            type_hints = cached_type_hints(_typecheckingstub__d621959c24b3197b8ee401ef6943b14353e1a7b94c3ae4ed6f8ed72937f60021)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0ffcf7c83a3beb5a9feedb6bf40d486b1aa9bad41565ae2a782129cc7450e94)
+            type_hints = cached_type_hints(_typecheckingstub__a0ffcf7c83a3beb5a9feedb6bf40d486b1aa9bad41565ae2a782129cc7450e94)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -178,7 +160,7 @@ class CfnChannelAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad26b3aa74c912ac52ae9f4bfb186ae1996d8ffa2fff5b28d9a9dcb2f5ceffbf)
+            type_hints = cached_type_hints(_typecheckingstub__ad26b3aa74c912ac52ae9f4bfb186ae1996d8ffa2fff5b28d9a9dcb2f5ceffbf)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -200,9 +182,11 @@ class CfnChannelAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="channelAssociationRef")
-    def channel_association_ref(self) -> "_ChannelAssociationReference_72294042":
+    def channel_association_ref(
+        self,
+    ) -> "_aws_notifications_f026ff33.ChannelAssociationReference":
         '''A reference to a ChannelAssociation resource.'''
-        return typing.cast("_ChannelAssociationReference_72294042", jsii.get(self, "channelAssociationRef"))
+        return typing.cast("_aws_notifications_f026ff33.ChannelAssociationReference", jsii.get(self, "channelAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="arn")
@@ -213,7 +197,7 @@ class CfnChannelAssociation(
     @arn.setter
     def arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02aa05d5cab2ed92674dea9fe8bfd20781091f494e9c3e3da3e1cedb24710ade)
+            type_hints = cached_type_hints(_typecheckingstub__02aa05d5cab2ed92674dea9fe8bfd20781091f494e9c3e3da3e1cedb24710ade)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "arn", value) # pyright: ignore[reportArgumentType]
 
@@ -226,7 +210,7 @@ class CfnChannelAssociation(
     @notification_configuration_arn.setter
     def notification_configuration_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b2d69598efa0d97ebfbcf163b7e00dfefacab9bb759efc23a009243fcbc29fc)
+            type_hints = cached_type_hints(_typecheckingstub__6b2d69598efa0d97ebfbcf163b7e00dfefacab9bb759efc23a009243fcbc29fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -266,7 +250,7 @@ class CfnChannelAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3df32ecb43a8f1e94c1f975e24a79631c45fd6739c1d7bea0e44c5c169b5137c)
+            type_hints = cached_type_hints(_typecheckingstub__3df32ecb43a8f1e94c1f975e24a79631c45fd6739c1d7bea0e44c5c169b5137c)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -306,9 +290,9 @@ class CfnChannelAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEventRuleRef_2a7b3cf1)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.IEventRuleRef)
 class CfnEventRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnEventRule",
 ):
@@ -357,7 +341,7 @@ class CfnEventRule(
         :param event_pattern: An additional event pattern used to further filter the events this ``EventRule`` receives. For more information, see `Amazon EventBridge event patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns.html>`_ in the *Amazon EventBridge User Guide.*
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec202e2ad7890be955535389c490f73db69e1ae4c0e2b9af79f33a0bb4e4dd47)
+            type_hints = cached_type_hints(_typecheckingstub__ec202e2ad7890be955535389c490f73db69e1ae4c0e2b9af79f33a0bb4e4dd47)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEventRuleProps(
@@ -372,12 +356,15 @@ class CfnEventRule(
 
     @jsii.member(jsii_name="arnForEventRule")
     @builtins.classmethod
-    def arn_for_event_rule(cls, resource: "_IEventRuleRef_2a7b3cf1") -> builtins.str:
+    def arn_for_event_rule(
+        cls,
+        resource: "_aws_notifications_f026ff33.IEventRuleRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1c85cd911fafeebce60e0eaf3204899ea9837ab8a933a65d031abc11018c42c)
+            type_hints = cached_type_hints(_typecheckingstub__c1c85cd911fafeebce60e0eaf3204899ea9837ab8a933a65d031abc11018c42c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventRule", [resource]))
 
@@ -389,18 +376,18 @@ class CfnEventRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__876e43b05b416fe386996d1e8a2baf6c805296a074ff2a2c9793b1cd4a0c24f1)
+            type_hints = cached_type_hints(_typecheckingstub__876e43b05b416fe386996d1e8a2baf6c805296a074ff2a2c9793b1cd4a0c24f1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c5fa74e0d9c81586c85ebd06110e66abfa6f3eca8a5c7b89fcce4d070b434dd)
+            type_hints = cached_type_hints(_typecheckingstub__7c5fa74e0d9c81586c85ebd06110e66abfa6f3eca8a5c7b89fcce4d070b434dd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -413,7 +400,7 @@ class CfnEventRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed227bd8ca507740b963532ef2c249c436e3f1a0953bcfbfccc5dd84abff63b2)
+            type_hints = cached_type_hints(_typecheckingstub__ed227bd8ca507740b963532ef2c249c436e3f1a0953bcfbfccc5dd84abff63b2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -458,11 +445,11 @@ class CfnEventRule(
 
     @builtins.property
     @jsii.member(jsii_name="attrStatusSummaryByRegion")
-    def attr_status_summary_by_region(self) -> "_IResolvable_da3f097b":
+    def attr_status_summary_by_region(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: StatusSummaryByRegion
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStatusSummaryByRegion"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStatusSummaryByRegion"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -476,9 +463,9 @@ class CfnEventRule(
 
     @builtins.property
     @jsii.member(jsii_name="eventRuleRef")
-    def event_rule_ref(self) -> "_EventRuleReference_7519f795":
+    def event_rule_ref(self) -> "_aws_notifications_f026ff33.EventRuleReference":
         '''A reference to a EventRule resource.'''
-        return typing.cast("_EventRuleReference_7519f795", jsii.get(self, "eventRuleRef"))
+        return typing.cast("_aws_notifications_f026ff33.EventRuleReference", jsii.get(self, "eventRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventType")
@@ -489,7 +476,7 @@ class CfnEventRule(
     @event_type.setter
     def event_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81d1b153a0905b2c5814e482bb87c0a8b11d3eff5d9c870657097be4c79e4804)
+            type_hints = cached_type_hints(_typecheckingstub__81d1b153a0905b2c5814e482bb87c0a8b11d3eff5d9c870657097be4c79e4804)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventType", value) # pyright: ignore[reportArgumentType]
 
@@ -502,7 +489,7 @@ class CfnEventRule(
     @notification_configuration_arn.setter
     def notification_configuration_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f6731a75b69e9828e94cd56f13e2484ab994f7e17e1fb8ce1e0518eb23853cf)
+            type_hints = cached_type_hints(_typecheckingstub__6f6731a75b69e9828e94cd56f13e2484ab994f7e17e1fb8ce1e0518eb23853cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -515,7 +502,7 @@ class CfnEventRule(
     @regions.setter
     def regions(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89531f65574302c5ac9ea674da6b36a9b39096ba5050cb8e7e2a0da2b5d03e67)
+            type_hints = cached_type_hints(_typecheckingstub__89531f65574302c5ac9ea674da6b36a9b39096ba5050cb8e7e2a0da2b5d03e67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
 
@@ -528,7 +515,7 @@ class CfnEventRule(
     @source.setter
     def source(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5f84ae06950218222a75646d0393c6dc744540c903f93356dc4cc8b58b9454b)
+            type_hints = cached_type_hints(_typecheckingstub__d5f84ae06950218222a75646d0393c6dc744540c903f93356dc4cc8b58b9454b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
 
@@ -541,7 +528,7 @@ class CfnEventRule(
     @event_pattern.setter
     def event_pattern(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9ba9ceb13f4bbb20d1fdcbc4db9f3bbd193000353fb7d213848faaf0dacf8d)
+            type_hints = cached_type_hints(_typecheckingstub__9c9ba9ceb13f4bbb20d1fdcbc4db9f3bbd193000353fb7d213848faaf0dacf8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
 
@@ -572,7 +559,7 @@ class CfnEventRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0862e7de7e4f6b1de2036652d175c4ef1949f04dadc360833e7e4899191d6fea)
+                type_hints = cached_type_hints(_typecheckingstub__0862e7de7e4f6b1de2036652d175c4ef1949f04dadc360833e7e4899191d6fea)
                 check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -681,7 +668,7 @@ class CfnEventRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb)
+            type_hints = cached_type_hints(_typecheckingstub__9518b7cf584ffb7ba5a4fb79f7584397ea33a005b8aebaa07c3bc5e5dc33bddb)
             check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
             check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
@@ -763,9 +750,9 @@ class CfnEventRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IManagedNotificationAccountContactAssociationRef_8c4c0998)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.IManagedNotificationAccountContactAssociationRef)
 class CfnManagedNotificationAccountContactAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAccountContactAssociation",
 ):
@@ -805,7 +792,7 @@ class CfnManagedNotificationAccountContactAssociation(
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationConfiguration`` to be associated with the ``Channel`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96181d9832ab883e4a967003ef3b840ed10f8d410e4b8ceaf721368c4c5a02c5)
+            type_hints = cached_type_hints(_typecheckingstub__96181d9832ab883e4a967003ef3b840ed10f8d410e4b8ceaf721368c4c5a02c5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnManagedNotificationAccountContactAssociationProps(
@@ -826,18 +813,18 @@ class CfnManagedNotificationAccountContactAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9e960b2569101c2fac06d0b32ad02a577935f39b2c645b032a4f37e53939e0)
+            type_hints = cached_type_hints(_typecheckingstub__cc9e960b2569101c2fac06d0b32ad02a577935f39b2c645b032a4f37e53939e0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedNotificationAccountContactAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e73fa971227b1056e5bdcd4163fefc79baa11c9eed51c86f5d29a3bad3f50bf)
+            type_hints = cached_type_hints(_typecheckingstub__1e73fa971227b1056e5bdcd4163fefc79baa11c9eed51c86f5d29a3bad3f50bf)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -850,7 +837,7 @@ class CfnManagedNotificationAccountContactAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de22b92704255b6e9b389d8f1530aceab75300d39a63f9c91fd889e615c93935)
+            type_hints = cached_type_hints(_typecheckingstub__de22b92704255b6e9b389d8f1530aceab75300d39a63f9c91fd889e615c93935)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -874,9 +861,9 @@ class CfnManagedNotificationAccountContactAssociation(
     @jsii.member(jsii_name="managedNotificationAccountContactAssociationRef")
     def managed_notification_account_contact_association_ref(
         self,
-    ) -> "_ManagedNotificationAccountContactAssociationReference_e7cb9818":
+    ) -> "_aws_notifications_f026ff33.ManagedNotificationAccountContactAssociationReference":
         '''A reference to a ManagedNotificationAccountContactAssociation resource.'''
-        return typing.cast("_ManagedNotificationAccountContactAssociationReference_e7cb9818", jsii.get(self, "managedNotificationAccountContactAssociationRef"))
+        return typing.cast("_aws_notifications_f026ff33.ManagedNotificationAccountContactAssociationReference", jsii.get(self, "managedNotificationAccountContactAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="contactIdentifier")
@@ -887,7 +874,7 @@ class CfnManagedNotificationAccountContactAssociation(
     @contact_identifier.setter
     def contact_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f2864c82adf8222b71008a7a43d8ab7d77f3e9d371a6bd3a63ef3451fafcb60)
+            type_hints = cached_type_hints(_typecheckingstub__7f2864c82adf8222b71008a7a43d8ab7d77f3e9d371a6bd3a63ef3451fafcb60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contactIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -900,7 +887,7 @@ class CfnManagedNotificationAccountContactAssociation(
     @managed_notification_configuration_arn.setter
     def managed_notification_configuration_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__723689b4f7e0ee73e180c6e8b0a172092e4905133e6f8e7994d8a793b8c63e79)
+            type_hints = cached_type_hints(_typecheckingstub__723689b4f7e0ee73e180c6e8b0a172092e4905133e6f8e7994d8a793b8c63e79)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -940,7 +927,7 @@ class CfnManagedNotificationAccountContactAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc)
+            type_hints = cached_type_hints(_typecheckingstub__4ba701ff30108b1aeca6e33e95e36c02bce0446db03324798ed5b79a966800cc)
             check_type(argname="argument contact_identifier", value=contact_identifier, expected_type=type_hints["contact_identifier"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -982,9 +969,9 @@ class CfnManagedNotificationAccountContactAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IManagedNotificationAdditionalChannelAssociationRef_b1ea4951)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.IManagedNotificationAdditionalChannelAssociationRef)
 class CfnManagedNotificationAdditionalChannelAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnManagedNotificationAdditionalChannelAssociation",
 ):
@@ -1024,7 +1011,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         :param managed_notification_configuration_arn: The ARN of the ``ManagedNotificationAdditionalChannelAssociation`` associated with the ``Channel`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ca734986c83660130935052d366897b8c8be9a3097eeb3e4d8a8e55d157be14)
+            type_hints = cached_type_hints(_typecheckingstub__1ca734986c83660130935052d366897b8c8be9a3097eeb3e4d8a8e55d157be14)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnManagedNotificationAdditionalChannelAssociationProps(
@@ -1045,18 +1032,18 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9b3081569b34481c3342f3ac9585f4f79fed1f73196e7c70f17b62a75f1541f)
+            type_hints = cached_type_hints(_typecheckingstub__e9b3081569b34481c3342f3ac9585f4f79fed1f73196e7c70f17b62a75f1541f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedNotificationAdditionalChannelAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e28e0910e1ca8649c67a2f410907337d1630631c5619cb29f1f8aea6b44f1ae)
+            type_hints = cached_type_hints(_typecheckingstub__4e28e0910e1ca8649c67a2f410907337d1630631c5619cb29f1f8aea6b44f1ae)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1069,7 +1056,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2506d928b82af9fe5027dc3a3d36bec7429236e90e696056589e09d98371bdf)
+            type_hints = cached_type_hints(_typecheckingstub__a2506d928b82af9fe5027dc3a3d36bec7429236e90e696056589e09d98371bdf)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1093,9 +1080,9 @@ class CfnManagedNotificationAdditionalChannelAssociation(
     @jsii.member(jsii_name="managedNotificationAdditionalChannelAssociationRef")
     def managed_notification_additional_channel_association_ref(
         self,
-    ) -> "_ManagedNotificationAdditionalChannelAssociationReference_929878f3":
+    ) -> "_aws_notifications_f026ff33.ManagedNotificationAdditionalChannelAssociationReference":
         '''A reference to a ManagedNotificationAdditionalChannelAssociation resource.'''
-        return typing.cast("_ManagedNotificationAdditionalChannelAssociationReference_929878f3", jsii.get(self, "managedNotificationAdditionalChannelAssociationRef"))
+        return typing.cast("_aws_notifications_f026ff33.ManagedNotificationAdditionalChannelAssociationReference", jsii.get(self, "managedNotificationAdditionalChannelAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelArn")
@@ -1106,7 +1093,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
     @channel_arn.setter
     def channel_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae2aafbc82a652d2ce3c5194be413585028b15cdada72b53c5ecf469375ef2a9)
+            type_hints = cached_type_hints(_typecheckingstub__ae2aafbc82a652d2ce3c5194be413585028b15cdada72b53c5ecf469375ef2a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1119,7 +1106,7 @@ class CfnManagedNotificationAdditionalChannelAssociation(
     @managed_notification_configuration_arn.setter
     def managed_notification_configuration_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3420dbc2928b8b5bd017053f781f8eb1c6893c1b43a27f7854a5dbeb64b60445)
+            type_hints = cached_type_hints(_typecheckingstub__3420dbc2928b8b5bd017053f781f8eb1c6893c1b43a27f7854a5dbeb64b60445)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedNotificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1159,7 +1146,7 @@ class CfnManagedNotificationAdditionalChannelAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9)
+            type_hints = cached_type_hints(_typecheckingstub__63600091503bee10f7ba2c01f3247b370b8b2bca175e1cc3db1e6800e18fedd9)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument managed_notification_configuration_arn", value=managed_notification_configuration_arn, expected_type=type_hints["managed_notification_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1199,9 +1186,9 @@ class CfnManagedNotificationAdditionalChannelAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _INotificationConfigurationRef_52a9226d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.INotificationConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnNotificationConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationConfiguration",
 ):
@@ -1239,7 +1226,7 @@ class CfnNotificationConfiguration(
         description: builtins.str,
         name: builtins.str,
         aggregation_duration: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Notifications::NotificationConfiguration``.
 
@@ -1251,7 +1238,7 @@ class CfnNotificationConfiguration(
         :param tags: A map of tags assigned to a ``NotificationConfiguration`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5a1cf31f790937b5967ad78a42e8a6c98b04b21643bfcdd379cabb7f43b17f1)
+            type_hints = cached_type_hints(_typecheckingstub__e5a1cf31f790937b5967ad78a42e8a6c98b04b21643bfcdd379cabb7f43b17f1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNotificationConfigurationProps(
@@ -1267,13 +1254,13 @@ class CfnNotificationConfiguration(
     @builtins.classmethod
     def arn_for_notification_configuration(
         cls,
-        resource: "_INotificationConfigurationRef_52a9226d",
+        resource: "_aws_notifications_f026ff33.INotificationConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12fcc600bb6d698b1177b4ab6b9265ffccc4c77e1396850195df3ea6113db7d4)
+            type_hints = cached_type_hints(_typecheckingstub__12fcc600bb6d698b1177b4ab6b9265ffccc4c77e1396850195df3ea6113db7d4)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNotificationConfiguration", [resource]))
 
@@ -1285,18 +1272,18 @@ class CfnNotificationConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2df47dbfae59747b61c2262f58a20136ac6b72df77bb8535fcba09e9bf65f2b5)
+            type_hints = cached_type_hints(_typecheckingstub__2df47dbfae59747b61c2262f58a20136ac6b72df77bb8535fcba09e9bf65f2b5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99c4c6bcfdad64190a4b003dd211cb1c28e0aed4b082d0cef3b986b4d46b4d0d)
+            type_hints = cached_type_hints(_typecheckingstub__99c4c6bcfdad64190a4b003dd211cb1c28e0aed4b082d0cef3b986b4d46b4d0d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1309,7 +1296,7 @@ class CfnNotificationConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed80b7239a03619bfe17128260c1ef875a0004bef6f44982a06bac0ca7dd24dd)
+            type_hints = cached_type_hints(_typecheckingstub__ed80b7239a03619bfe17128260c1ef875a0004bef6f44982a06bac0ca7dd24dd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1348,9 +1335,9 @@ class CfnNotificationConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1366,9 +1353,9 @@ class CfnNotificationConfiguration(
     @jsii.member(jsii_name="notificationConfigurationRef")
     def notification_configuration_ref(
         self,
-    ) -> "_NotificationConfigurationReference_ab5ea829":
+    ) -> "_aws_notifications_f026ff33.NotificationConfigurationReference":
         '''A reference to a NotificationConfiguration resource.'''
-        return typing.cast("_NotificationConfigurationReference_ab5ea829", jsii.get(self, "notificationConfigurationRef"))
+        return typing.cast("_aws_notifications_f026ff33.NotificationConfigurationReference", jsii.get(self, "notificationConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1379,7 +1366,7 @@ class CfnNotificationConfiguration(
     @description.setter
     def description(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b56129db1bc5e2b088f2e953b3a5cadd65fbae6a6d2e9bff79548baba4e1c65)
+            type_hints = cached_type_hints(_typecheckingstub__3b56129db1bc5e2b088f2e953b3a5cadd65fbae6a6d2e9bff79548baba4e1c65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1392,7 +1379,7 @@ class CfnNotificationConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71e66aa92e41cd8989cfdac8332aacd83371fe96d00b1cfb8e4f8f6c74bdeefc)
+            type_hints = cached_type_hints(_typecheckingstub__71e66aa92e41cd8989cfdac8332aacd83371fe96d00b1cfb8e4f8f6c74bdeefc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1405,20 +1392,23 @@ class CfnNotificationConfiguration(
     @aggregation_duration.setter
     def aggregation_duration(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce9aa4a245c055d6b2e72d9ea7585d89b52c50836000693cef5f09365372734c)
+            type_hints = cached_type_hints(_typecheckingstub__ce9aa4a245c055d6b2e72d9ea7585d89b52c50836000693cef5f09365372734c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aggregationDuration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of tags assigned to a ``NotificationConfiguration`` .'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d80fd02377dda29814fae801cf32c8200e2aa5b9ff4b7440916ad6d4efbeb00b)
+            type_hints = cached_type_hints(_typecheckingstub__d80fd02377dda29814fae801cf32c8200e2aa5b9ff4b7440916ad6d4efbeb00b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1440,7 +1430,7 @@ class CfnNotificationConfigurationProps:
         description: builtins.str,
         name: builtins.str,
         aggregation_duration: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnNotificationConfiguration``.
 
@@ -1472,7 +1462,7 @@ class CfnNotificationConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478)
+            type_hints = cached_type_hints(_typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb112ae478)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument aggregation_duration", value=aggregation_duration, expected_type=type_hints["aggregation_duration"])
@@ -1526,13 +1516,13 @@ class CfnNotificationConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A map of tags assigned to a ``NotificationConfiguration`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notifications-notificationconfiguration.html#cfn-notifications-notificationconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1546,9 +1536,9 @@ class CfnNotificationConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _INotificationHubRef_463bb6d4)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.INotificationHubRef)
 class CfnNotificationHub(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnNotificationHub",
 ):
@@ -1585,7 +1575,7 @@ class CfnNotificationHub(
         :param region: The ``NotificationHub`` Region.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68d72929c95357a15821df7d24b28076913c2c16ae8caa651de92ab7110ee545)
+            type_hints = cached_type_hints(_typecheckingstub__68d72929c95357a15821df7d24b28076913c2c16ae8caa651de92ab7110ee545)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNotificationHubProps(region=region)
@@ -1600,18 +1590,18 @@ class CfnNotificationHub(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f114133b9f963dd4338ad37d19258ad52e61b805d22a73dc09a8c54922aba31)
+            type_hints = cached_type_hints(_typecheckingstub__1f114133b9f963dd4338ad37d19258ad52e61b805d22a73dc09a8c54922aba31)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationHub", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__567dd116772fd10bcdaf956ec536dc5810b4f3cc3f16ccd9a9d86db8519bb2ad)
+            type_hints = cached_type_hints(_typecheckingstub__567dd116772fd10bcdaf956ec536dc5810b4f3cc3f16ccd9a9d86db8519bb2ad)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1624,7 +1614,7 @@ class CfnNotificationHub(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cdcacace93e52a000661ec6fb6dc815044c226939c4984a920cbeabbad2c65d)
+            type_hints = cached_type_hints(_typecheckingstub__8cdcacace93e52a000661ec6fb6dc815044c226939c4984a920cbeabbad2c65d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1645,11 +1635,11 @@ class CfnNotificationHub(
 
     @builtins.property
     @jsii.member(jsii_name="attrNotificationHubStatusSummary")
-    def attr_notification_hub_status_summary(self) -> "_IResolvable_da3f097b":
+    def attr_notification_hub_status_summary(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: NotificationHubStatusSummary
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrNotificationHubStatusSummary"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrNotificationHubStatusSummary"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1663,9 +1653,11 @@ class CfnNotificationHub(
 
     @builtins.property
     @jsii.member(jsii_name="notificationHubRef")
-    def notification_hub_ref(self) -> "_NotificationHubReference_8c4cd07b":
+    def notification_hub_ref(
+        self,
+    ) -> "_aws_notifications_f026ff33.NotificationHubReference":
         '''A reference to a NotificationHub resource.'''
-        return typing.cast("_NotificationHubReference_8c4cd07b", jsii.get(self, "notificationHubRef"))
+        return typing.cast("_aws_notifications_f026ff33.NotificationHubReference", jsii.get(self, "notificationHubRef"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -1676,7 +1668,7 @@ class CfnNotificationHub(
     @region.setter
     def region(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__865411d5534fe323b415ed4cf0f3a74893e03d33d1ae33e8d515a71e49d41f82)
+            type_hints = cached_type_hints(_typecheckingstub__865411d5534fe323b415ed4cf0f3a74893e03d33d1ae33e8d515a71e49d41f82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
@@ -1715,7 +1707,7 @@ class CfnNotificationHub(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8aa8a0cc3749f69e28b77cefd47fc05557b9a1869a97350b92cdcb9f3438b543)
+                type_hints = cached_type_hints(_typecheckingstub__8aa8a0cc3749f69e28b77cefd47fc05557b9a1869a97350b92cdcb9f3438b543)
                 check_type(argname="argument notification_hub_status", value=notification_hub_status, expected_type=type_hints["notification_hub_status"])
                 check_type(argname="argument notification_hub_status_reason", value=notification_hub_status_reason, expected_type=type_hints["notification_hub_status_reason"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1780,7 +1772,7 @@ class CfnNotificationHubProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630)
+            type_hints = cached_type_hints(_typecheckingstub__920924baa84f6463cdd237bcaa739a631a79dad627c4370064c68f1de8c3c630)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "region": region,
@@ -1808,9 +1800,9 @@ class CfnNotificationHubProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationalUnitAssociationRef_aab78d4f)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_notifications_f026ff33.IOrganizationalUnitAssociationRef)
 class CfnOrganizationalUnitAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_notifications.CfnOrganizationalUnitAssociation",
 ):
@@ -1848,7 +1840,7 @@ class CfnOrganizationalUnitAssociation(
         :param organizational_unit_id: The ID of the organizational unit.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2140e5015b013b82a8e1ec6df08aecb46b39731d8f2e3afa2f7ab43c33e9347)
+            type_hints = cached_type_hints(_typecheckingstub__f2140e5015b013b82a8e1ec6df08aecb46b39731d8f2e3afa2f7ab43c33e9347)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationalUnitAssociationProps(
@@ -1866,18 +1858,18 @@ class CfnOrganizationalUnitAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c142749f689f50aaa058a6afbe12ac79089afe89b944bfec33273d4f7ed4d2b)
+            type_hints = cached_type_hints(_typecheckingstub__4c142749f689f50aaa058a6afbe12ac79089afe89b944bfec33273d4f7ed4d2b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationalUnitAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32ca6229dad95a8be79f99c5522be4bfc11e7ad1f5550355664397c46b783edc)
+            type_hints = cached_type_hints(_typecheckingstub__32ca6229dad95a8be79f99c5522be4bfc11e7ad1f5550355664397c46b783edc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1890,7 +1882,7 @@ class CfnOrganizationalUnitAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__918b0328ce46ea3bb722b34929a6e2f20ad7c7cec3b9b04f389c7b770a7fb943)
+            type_hints = cached_type_hints(_typecheckingstub__918b0328ce46ea3bb722b34929a6e2f20ad7c7cec3b9b04f389c7b770a7fb943)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1914,9 +1906,9 @@ class CfnOrganizationalUnitAssociation(
     @jsii.member(jsii_name="organizationalUnitAssociationRef")
     def organizational_unit_association_ref(
         self,
-    ) -> "_OrganizationalUnitAssociationReference_7b321074":
+    ) -> "_aws_notifications_f026ff33.OrganizationalUnitAssociationReference":
         '''A reference to a OrganizationalUnitAssociation resource.'''
-        return typing.cast("_OrganizationalUnitAssociationReference_7b321074", jsii.get(self, "organizationalUnitAssociationRef"))
+        return typing.cast("_aws_notifications_f026ff33.OrganizationalUnitAssociationReference", jsii.get(self, "organizationalUnitAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationConfigurationArn")
@@ -1927,7 +1919,7 @@ class CfnOrganizationalUnitAssociation(
     @notification_configuration_arn.setter
     def notification_configuration_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1050c8c0e02257c3a533fa23fa3a54a2ebd6b98c600866de92f1c1ca55e7680)
+            type_hints = cached_type_hints(_typecheckingstub__f1050c8c0e02257c3a533fa23fa3a54a2ebd6b98c600866de92f1c1ca55e7680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationConfigurationArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1940,7 +1932,7 @@ class CfnOrganizationalUnitAssociation(
     @organizational_unit_id.setter
     def organizational_unit_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcef0a4f0c9aa956b05de5c689fc8d5dcbac4d3d2eb89e00f7e33d9d59e20f68)
+            type_hints = cached_type_hints(_typecheckingstub__fcef0a4f0c9aa956b05de5c689fc8d5dcbac4d3d2eb89e00f7e33d9d59e20f68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "organizationalUnitId", value) # pyright: ignore[reportArgumentType]
 
@@ -1980,7 +1972,7 @@ class CfnOrganizationalUnitAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98)
+            type_hints = cached_type_hints(_typecheckingstub__ed76c0102562b65b59e77b5029771fa9c9a0ff702c51abaa9355a1ae95122a98)
             check_type(argname="argument notification_configuration_arn", value=notification_configuration_arn, expected_type=type_hints["notification_configuration_arn"])
             check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2058,7 +2050,7 @@ def _typecheckingstub__d621959c24b3197b8ee401ef6943b14353e1a7b94c3ae4ed6f8ed7293
     pass
 
 def _typecheckingstub__a0ffcf7c83a3beb5a9feedb6bf40d486b1aa9bad41565ae2a782129cc7450e94(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2103,7 +2095,7 @@ def _typecheckingstub__ec202e2ad7890be955535389c490f73db69e1ae4c0e2b9af79f33a0bb
     pass
 
 def _typecheckingstub__c1c85cd911fafeebce60e0eaf3204899ea9837ab8a933a65d031abc11018c42c(
-    resource: _IEventRuleRef_2a7b3cf1,
+    resource: _aws_notifications_f026ff33.IEventRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2115,7 +2107,7 @@ def _typecheckingstub__876e43b05b416fe386996d1e8a2baf6c805296a074ff2a2c9793b1cd4
     pass
 
 def _typecheckingstub__7c5fa74e0d9c81586c85ebd06110e66abfa6f3eca8a5c7b89fcce4d070b434dd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2192,7 +2184,7 @@ def _typecheckingstub__cc9e960b2569101c2fac06d0b32ad02a577935f39b2c645b032a4f37e
     pass
 
 def _typecheckingstub__1e73fa971227b1056e5bdcd4163fefc79baa11c9eed51c86f5d29a3bad3f50bf(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2240,7 +2232,7 @@ def _typecheckingstub__e9b3081569b34481c3342f3ac9585f4f79fed1f73196e7c70f17b62a7
     pass
 
 def _typecheckingstub__4e28e0910e1ca8649c67a2f410907337d1630631c5619cb29f1f8aea6b44f1ae(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2278,13 +2270,13 @@ def _typecheckingstub__e5a1cf31f790937b5967ad78a42e8a6c98b04b21643bfcdd379cabb7f
     description: builtins.str,
     name: builtins.str,
     aggregation_duration: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12fcc600bb6d698b1177b4ab6b9265ffccc4c77e1396850195df3ea6113db7d4(
-    resource: _INotificationConfigurationRef_52a9226d,
+    resource: _aws_notifications_f026ff33.INotificationConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2296,7 +2288,7 @@ def _typecheckingstub__2df47dbfae59747b61c2262f58a20136ac6b72df77bb8535fcba09e9b
     pass
 
 def _typecheckingstub__99c4c6bcfdad64190a4b003dd211cb1c28e0aed4b082d0cef3b986b4d46b4d0d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2326,7 +2318,7 @@ def _typecheckingstub__ce9aa4a245c055d6b2e72d9ea7585d89b52c50836000693cef5f09365
     pass
 
 def _typecheckingstub__d80fd02377dda29814fae801cf32c8200e2aa5b9ff4b7440916ad6d4efbeb00b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2336,7 +2328,7 @@ def _typecheckingstub__2533f954a13ead8ba0e86dbad3d4401450ff85451a17c80b370344cb1
     description: builtins.str,
     name: builtins.str,
     aggregation_duration: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2357,7 +2349,7 @@ def _typecheckingstub__1f114133b9f963dd4338ad37d19258ad52e61b805d22a73dc09a8c549
     pass
 
 def _typecheckingstub__567dd116772fd10bcdaf956ec536dc5810b4f3cc3f16ccd9a9d86db8519bb2ad(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2406,7 +2398,7 @@ def _typecheckingstub__4c142749f689f50aaa058a6afbe12ac79089afe89b944bfec33273d4f
     pass
 
 def _typecheckingstub__32ca6229dad95a8be79f99c5522be4bfc11e7ad1f5550355664397c46b783edc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

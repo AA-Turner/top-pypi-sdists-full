@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DRTAccessReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c545dfa10e119e09d934a80388431e03d628ebfb7dfdf25de1ed7a8f359bdab)
+            type_hints = cached_type_hints(_typecheckingstub__3c545dfa10e119e09d934a80388431e03d628ebfb7dfdf25de1ed7a8f359bdab)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -86,7 +90,7 @@ class DRTAccessReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_shield.IDRTAccessRef")
 class IDRTAccessRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DRTAccess.
@@ -106,7 +110,7 @@ class IDRTAccessRef(
 
 class _IDRTAccessRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DRTAccess.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IDRTAccessRef).__jsii_proxy_class__ = lambda : _IDRTAcce
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_shield.IProactiveEngagementRef")
 class IProactiveEngagementRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ProactiveEngagement.
@@ -151,7 +155,7 @@ class IProactiveEngagementRef(
 
 class _IProactiveEngagementRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ProactiveEngagement.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, IProactiveEngagementRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_shield.IProtectionGroupRef")
 class IProtectionGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ProtectionGroup.
@@ -196,7 +200,7 @@ class IProtectionGroupRef(
 
 class _IProtectionGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ProtectionGroup.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, IProtectionGroupRef).__jsii_proxy_class__ = lambda : _IP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_shield.IProtectionRef")
 class IProtectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Protection.
@@ -241,7 +245,7 @@ class IProtectionRef(
 
 class _IProtectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Protection.
 
@@ -287,7 +291,7 @@ class ProactiveEngagementReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21e3ebb891870591f9b9a601404eeba0bbdae86deea6f634e8d5139eb6919bdc)
+            type_hints = cached_type_hints(_typecheckingstub__21e3ebb891870591f9b9a601404eeba0bbdae86deea6f634e8d5139eb6919bdc)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -336,7 +340,7 @@ class ProtectionGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0d2f6c7867abd13c5b07ca40981bf4bb9d2ab2accfc1c0453d6e5c36ac42f95)
+            type_hints = cached_type_hints(_typecheckingstub__b0d2f6c7867abd13c5b07ca40981bf4bb9d2ab2accfc1c0453d6e5c36ac42f95)
             check_type(argname="argument protection_group_arn", value=protection_group_arn, expected_type=type_hints["protection_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "protection_group_arn": protection_group_arn,
@@ -385,7 +389,7 @@ class ProtectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d82aa4373a567c70356037dfc648acbb0ce1642fc9816eaea93efcf0413edc32)
+            type_hints = cached_type_hints(_typecheckingstub__d82aa4373a567c70356037dfc648acbb0ce1642fc9816eaea93efcf0413edc32)
             check_type(argname="argument protection_arn", value=protection_arn, expected_type=type_hints["protection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "protection_arn": protection_arn,

@@ -11,6 +11,7 @@ import pickle
 import sqlite3
 import time
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
@@ -18,6 +19,7 @@ import pytest
 
 from codex_plugin_scanner.cli import _resolve_legacy_args, main
 from codex_plugin_scanner.guard import local_trust_contract as local_trust_contract_module
+from codex_plugin_scanner.guard import local_trust_controller as local_trust_controller_module
 from codex_plugin_scanner.guard import policy_integrity as policy_integrity_module
 from codex_plugin_scanner.guard import store as guard_store_module
 from codex_plugin_scanner.guard import store_policy_integrity_runtime as policy_integrity_runtime_module
@@ -155,8 +157,8 @@ def _enable_macos_native_policy_integrity(
     )
     monkeypatch.setattr(
         SystemKeyringSecretStore,
-        "_get_secret_without_macos_ui",
-        lambda self, secret_id: fake_keyring.get_password(self.service_name, secret_id),
+        "_get_macos_secret_in_isolated_process",
+        lambda self, secret_id, *, timeout_seconds: fake_keyring.get_password(self.service_name, secret_id),
     )
     return fake_keyring
 
@@ -3196,8 +3198,14 @@ def test_trust_cli_doctor_redacts_secret_like_assignments_in_json_output(
     home_dir = tmp_path / "home"
     original_trust_payload = trust_dispatch_module._trust_status_payload
 
-    def fake_trust_payload(store: GuardStore, *, command: str, backend: str) -> dict[str, object]:
-        payload = original_trust_payload(store, command=command, backend=backend)
+    def fake_trust_payload(
+        store: GuardStore | None,
+        *,
+        guard_home: Path | None = None,
+        command: str,
+        backend: str,
+    ) -> dict[str, object]:
+        payload = original_trust_payload(store, guard_home=guard_home, command=command, backend=backend)
         payload["summary"] = (
             "Guard saw MY_SECRET_TOKEN=super-secret-value and "
             "guard-oauth-local-credentials:8126370c0eb65a02 while checking trust."
@@ -3331,6 +3339,18 @@ def test_trust_cli_explain_reports_protected_local_rule(
     store = GuardStore(home_dir)
     setup = store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
     assert setup["mode"] == "protected"
+    store.upsert_runtime_state(
+        session_id="trust-explain",
+        daemon_host="127.0.0.1",
+        daemon_port=5474,
+        started_at="2026-06-19T12:00:00Z",
+        last_heartbeat_at=datetime.now(timezone.utc).isoformat(),
+    )
+    monkeypatch.setattr(
+        local_trust_controller_module,
+        "load_guard_daemon_url",
+        lambda guard_home: "http://127.0.0.1:5474",
+    )
     store.upsert_policy(_decision(artifact_id="codex:project:local-rule"), "2026-06-19T12:01:00Z")
     decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule")["decision_id"])
 
@@ -3356,6 +3376,18 @@ def test_trust_cli_explain_human_output_uses_trust_renderer(
     _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
     store = GuardStore(home_dir)
     store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
+    store.upsert_runtime_state(
+        session_id="trust-explain-human",
+        daemon_host="127.0.0.1",
+        daemon_port=5474,
+        started_at="2026-06-19T12:00:00Z",
+        last_heartbeat_at=datetime.now(timezone.utc).isoformat(),
+    )
+    monkeypatch.setattr(
+        local_trust_controller_module,
+        "load_guard_daemon_url",
+        lambda guard_home: "http://127.0.0.1:5474",
+    )
     store.upsert_policy(_decision(artifact_id="codex:project:local-rule-human"), "2026-06-19T12:01:00Z")
     decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule-human")["decision_id"])
 

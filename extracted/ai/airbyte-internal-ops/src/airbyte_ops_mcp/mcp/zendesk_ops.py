@@ -146,10 +146,6 @@ class ZendeskInternalNoteResponse(BaseModel):
         default=False,
         description="Always `False`: the note is a private, agent-only comment.",
     )
-    tags: list[str] = Field(
-        default_factory=list,
-        description="The ticket's full tag list after the update.",
-    )
 
 
 class ZendeskTagsResponse(BaseModel):
@@ -329,33 +325,29 @@ def post_zendesk_internal_comment(
         int,
         Field(description="The numeric Zendesk ticket ID to comment on."),
     ],
-    body: Annotated[
+    html_body: Annotated[
         str,
         Field(
             description=(
-                "The internal note text. Posted as a private (non-public) "
-                "comment visible only to agents \u2014 NOT to the ticket "
-                "requester/end user."
+                "The internal note as an HTML fragment. Posted as a private "
+                "(non-public) comment visible only to agents \u2014 NOT to the "
+                "ticket requester/end user. Provide HTML: use `<br>`/`<p>` for "
+                "line breaks, `<strong>` for bold, and `<a href>` for links. "
+                "Literal `<`, `>`, and `&` must be HTML-escaped; Zendesk "
+                "sanitizes to a limited HTML subset, so keep markup basic."
             )
         ),
     ],
-    add_tags: Annotated[
-        list[str] | None,
-        Field(
-            description=(
-                "Optional tags to add to the ticket in the same call. Tags are "
-                "appended (existing tags are preserved, never clobbered)."
-            ),
-        ),
-    ] = None,
 ) -> ZendeskInternalNoteResponse:
-    """Post an internal (private) note to a Zendesk ticket by its numeric ID.
+    """Post an internal (private) HTML note to a Zendesk ticket by its numeric ID.
 
     The comment is added with `public=False`, so it is an internal agent note
     and is **not** visible to the ticket requester/end user. Use it to record
-    triage findings, cross-references, or context for other agents. Pass
-    `add_tags` to also append tags to the ticket in the same call (existing
-    tags are preserved).
+    triage findings, cross-references, or context for other agents. The note
+    is sent as HTML (`html_body`), so bold text and links render as intended.
+
+    This tool only posts the note; it does not modify tags. To route/tag a
+    ticket, call `add_zendesk_ticket_tags` separately.
 
     The numeric `ticket_id` must already be known; this tool does not search
     for tickets. Credentials are read from the server environment
@@ -363,7 +355,7 @@ def post_zendesk_internal_comment(
     never accepts or logs them.
     """
     try:
-        result: dict[str, Any] = add_internal_note(ticket_id, body, add_tags=add_tags)
+        result: dict[str, Any] = add_internal_note(ticket_id, html_body)
     except ZendeskAPIError as exc:
         return ZendeskInternalNoteResponse(
             success=False,
@@ -374,13 +366,11 @@ def post_zendesk_internal_comment(
     updated_ticket = _as_dict(result.get("ticket"))
     resolved_id = updated_ticket.get("id", ticket_id)
     comment_id = _created_comment_id(_as_dict(result.get("audit")))
-    tags = [tag for tag in updated_ticket.get("tags", []) or [] if isinstance(tag, str)]
     return ZendeskInternalNoteResponse(
         success=True,
         message=f"Posted internal note to Zendesk ticket {resolved_id}.",
         ticket_id=resolved_id,
         comment_id=comment_id,
-        tags=tags,
     )
 
 
@@ -406,9 +396,11 @@ def add_zendesk_ticket_tags(
 ) -> ZendeskTagsResponse:
     """Add tags to a Zendesk ticket by its numeric ID.
 
-    Tags are Zendesk's label mechanism. This appends the supplied tags via the
-    additive tags endpoint, so the ticket's existing tags are preserved and
-    never overwritten. Adding a tag that is already present is a no-op.
+    Tags are Zendesk's label mechanism. This reads the ticket's current tags
+    and writes back the union (existing + supplied) via a ticket update, so
+    the ticket's existing tags — and any tagger-backed custom fields — are
+    preserved and never dropped. Adding a tag that is already present is a
+    no-op.
 
     The numeric `ticket_id` must already be known; this tool does not search
     for tickets. Credentials are read from the server environment

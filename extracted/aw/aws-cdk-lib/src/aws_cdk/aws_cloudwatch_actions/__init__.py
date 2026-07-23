@@ -61,6 +61,8 @@ alarm.add_alarm_action(
 
 See `aws-cdk-lib/aws-cloudwatch` for more information.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -74,44 +76,40 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from ..aws_applicationautoscaling import (
-    StepScalingAction as _StepScalingAction_d79ca2c9
-)
-from ..aws_autoscaling import StepScalingAction as _StepScalingAction_24d17483
-from ..aws_cloudwatch import (
-    AlarmActionConfig as _AlarmActionConfig_f831c655,
-    IAlarm as _IAlarm_ff3eabc0,
-    IAlarmAction as _IAlarmAction_922c5aa8,
-)
-from ..aws_lambda import (
-    IAlias as _IAlias_c8fe45f4,
-    IFunction as _IFunction_6adb0ab8,
-    IVersion as _IVersion_faf7234e,
-)
-from ..aws_sns import ITopic as _ITopic_9eca4852
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_applicationautoscaling as _aws_applicationautoscaling_2d911ee5
+    import aws_cdk.aws_autoscaling as _aws_autoscaling_6cbf8045
+    import aws_cdk.aws_cloudwatch as _aws_cloudwatch_386c5543
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_sns as _aws_sns_07ffc8ab
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_applicationautoscaling_2d911ee5 = _LazyImport("aws_cdk.aws_applicationautoscaling")
+    _aws_autoscaling_6cbf8045 = _LazyImport("aws_cdk.aws_autoscaling")
+    _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_sns_07ffc8ab = _LazyImport("aws_cdk.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class ApplicationScalingAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.ApplicationScalingAction",
@@ -132,12 +130,15 @@ class ApplicationScalingAction(
         application_scaling_action = cloudwatch_actions.ApplicationScalingAction(step_scaling_action)
     '''
 
-    def __init__(self, step_scaling_action: "_StepScalingAction_d79ca2c9") -> None:
+    def __init__(
+        self,
+        step_scaling_action: "_aws_applicationautoscaling_2d911ee5.StepScalingAction",
+    ) -> None:
         '''
         :param step_scaling_action: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b916236e2043981349e2841d1ec98b11cee63ab17d5362ab2a6d58f02a514d7d)
+            type_hints = cached_type_hints(_typecheckingstub__b916236e2043981349e2841d1ec98b11cee63ab17d5362ab2a6d58f02a514d7d)
             check_type(argname="argument step_scaling_action", value=step_scaling_action, expected_type=type_hints["step_scaling_action"])
         jsii.create(self.__class__, self, [step_scaling_action])
 
@@ -145,21 +146,21 @@ class ApplicationScalingAction(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an ApplicationScaling StepScalingAction as an alarm action.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74bb72262ab3b2a9141f8b8f1171cf0d9a0ba7d5f865b123acffaec5bfef51fd)
+            type_hints = cached_type_hints(_typecheckingstub__74bb72262ab3b2a9141f8b8f1171cf0d9a0ba7d5f865b123acffaec5bfef51fd)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class AutoScalingAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.AutoScalingAction",
@@ -180,12 +181,15 @@ class AutoScalingAction(
         auto_scaling_action = cloudwatch_actions.AutoScalingAction(step_scaling_action)
     '''
 
-    def __init__(self, step_scaling_action: "_StepScalingAction_24d17483") -> None:
+    def __init__(
+        self,
+        step_scaling_action: "_aws_autoscaling_6cbf8045.StepScalingAction",
+    ) -> None:
         '''
         :param step_scaling_action: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96afe5a98488b1418c68f6530257948e9ea29d3656df0b68c83d1defaf09dd60)
+            type_hints = cached_type_hints(_typecheckingstub__96afe5a98488b1418c68f6530257948e9ea29d3656df0b68c83d1defaf09dd60)
             check_type(argname="argument step_scaling_action", value=step_scaling_action, expected_type=type_hints["step_scaling_action"])
         jsii.create(self.__class__, self, [step_scaling_action])
 
@@ -193,21 +197,21 @@ class AutoScalingAction(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an AutoScaling StepScalingAction as an alarm action.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cd3adde7a8331a2b783351a5b794ad83f7245f085799ed1b7e3d9deedcd8d03)
+            type_hints = cached_type_hints(_typecheckingstub__4cd3adde7a8331a2b783351a5b794ad83f7245f085799ed1b7e3d9deedcd8d03)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class Ec2Action(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.Ec2Action",
@@ -231,7 +235,7 @@ class Ec2Action(
         :param instance_action: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aeaedd2203e210d309c17277a5c904dcbc459891e662493aaf75e344e40174f4)
+            type_hints = cached_type_hints(_typecheckingstub__aeaedd2203e210d309c17277a5c904dcbc459891e662493aaf75e344e40174f4)
             check_type(argname="argument instance_action", value=instance_action, expected_type=type_hints["instance_action"])
         jsii.create(self.__class__, self, [instance_action])
 
@@ -239,18 +243,18 @@ class Ec2Action(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an EC2 action as an alarm action.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__617684dcf0b429d0176779c30669a734e5e356a2d0dbb98bf321e897c2cbdcd3)
+            type_hints = cached_type_hints(_typecheckingstub__617684dcf0b429d0176779c30669a734e5e356a2d0dbb98bf321e897c2cbdcd3)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cloudwatch_actions.Ec2InstanceAction")
@@ -279,7 +283,7 @@ class Ec2InstanceAction(enum.Enum):
     '''Reboot the instance.'''
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class LambdaAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.LambdaAction",
@@ -312,7 +316,7 @@ class LambdaAction(
 
     def __init__(
         self,
-        lambda_function: typing.Union["_IFunction_6adb0ab8", "_IVersion_faf7234e", "_IAlias_c8fe45f4"],
+        lambda_function: typing.Union["_aws_lambda_b8f2f472.IFunction", "_aws_lambda_b8f2f472.IVersion", "_aws_lambda_b8f2f472.IAlias"],
         *,
         use_unique_permission_id: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -321,7 +325,7 @@ class LambdaAction(
         :param use_unique_permission_id: Whether to generate unique Lambda Permission id. Use this parameter to resolve id collision in case of multiple alarms triggering the same action Default: - false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2693adec8362e537633b2584509df8d0d77cb381732395de1707d1edfe2c3c9e)
+            type_hints = cached_type_hints(_typecheckingstub__2693adec8362e537633b2584509df8d0d77cb381732395de1707d1edfe2c3c9e)
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
         props = LambdaActionProps(use_unique_permission_id=use_unique_permission_id)
 
@@ -331,8 +335,8 @@ class LambdaAction(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use a Lambda action as an alarm action.
 
         :param scope: -
@@ -341,10 +345,10 @@ class LambdaAction(
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2856bb69373ffd5b6a7628782cc0fb8ab9fd20450269ca5c709a08e9bfac50d5)
+            type_hints = cached_type_hints(_typecheckingstub__2856bb69373ffd5b6a7628782cc0fb8ab9fd20450269ca5c709a08e9bfac50d5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [scope, alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [scope, alarm]))
 
 
 @jsii.data_type(
@@ -375,7 +379,7 @@ class LambdaActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2be134df5b4b042a1cf75cbb9e29a273c25a1bdf15dc683b2cbba3452447846a)
+            type_hints = cached_type_hints(_typecheckingstub__2be134df5b4b042a1cf75cbb9e29a273c25a1bdf15dc683b2cbba3452447846a)
             check_type(argname="argument use_unique_permission_id", value=use_unique_permission_id, expected_type=type_hints["use_unique_permission_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if use_unique_permission_id is not None:
@@ -458,7 +462,7 @@ class OpsItemSeverity(enum.Enum):
     '''Set the severity to low.'''
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class SnsAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.SnsAction",
@@ -477,12 +481,12 @@ class SnsAction(
         alarm.add_alarm_action(cw_actions.SnsAction(topic))
     '''
 
-    def __init__(self, topic: "_ITopic_9eca4852") -> None:
+    def __init__(self, topic: "_aws_sns_07ffc8ab.ITopic") -> None:
         '''
         :param topic: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d45c9fa069d1e0b882f975c29c8eb30315e60025b85741889c42ee16c1f229ca)
+            type_hints = cached_type_hints(_typecheckingstub__d45c9fa069d1e0b882f975c29c8eb30315e60025b85741889c42ee16c1f229ca)
             check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
         jsii.create(self.__class__, self, [topic])
 
@@ -490,21 +494,21 @@ class SnsAction(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an SNS topic as an alarm action.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02204ab9dd4d2adf853c731232a8cb824c41fb62dc79eae79e4e69b7e0e748eb)
+            type_hints = cached_type_hints(_typecheckingstub__02204ab9dd4d2adf853c731232a8cb824c41fb62dc79eae79e4e69b7e0e748eb)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class SsmAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.SsmAction",
@@ -532,7 +536,7 @@ class SsmAction(
         :param category: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec3a9c97b1f6b9b5d3d6db7a3eb09cb5990e4d0201ddb6c37b8ccf6864b794a1)
+            type_hints = cached_type_hints(_typecheckingstub__ec3a9c97b1f6b9b5d3d6db7a3eb09cb5990e4d0201ddb6c37b8ccf6864b794a1)
             check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
             check_type(argname="argument category", value=category, expected_type=type_hints["category"])
         jsii.create(self.__class__, self, [severity, category])
@@ -541,21 +545,21 @@ class SsmAction(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an SSM OpsItem action as an alarm action.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01d8a7f674b7236375000e24e89aa7de87b7b73e1540d7b7a75318b36ba526fa)
+            type_hints = cached_type_hints(_typecheckingstub__01d8a7f674b7236375000e24e89aa7de87b7b73e1540d7b7a75318b36ba526fa)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
-@jsii.implements(_IAlarmAction_922c5aa8)
+@jsii.implements(_aws_cloudwatch_386c5543.IAlarmAction)
 class SsmIncidentAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch_actions.SsmIncidentAction",
@@ -578,7 +582,7 @@ class SsmIncidentAction(
         :param response_plan_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be00ac2bf80144c7f66d1276bfef345e7613075b15116cbf4a62b8fa42044c98)
+            type_hints = cached_type_hints(_typecheckingstub__be00ac2bf80144c7f66d1276bfef345e7613075b15116cbf4a62b8fa42044c98)
             check_type(argname="argument response_plan_name", value=response_plan_name, expected_type=type_hints["response_plan_name"])
         jsii.create(self.__class__, self, [response_plan_name])
 
@@ -586,18 +590,18 @@ class SsmIncidentAction(
     def bind(
         self,
         _scope: "_constructs_77d1e7e8.Construct",
-        _alarm: "_IAlarm_ff3eabc0",
-    ) -> "_AlarmActionConfig_f831c655":
+        _alarm: "_aws_cloudwatch_386c5543.IAlarm",
+    ) -> "_aws_cloudwatch_386c5543.AlarmActionConfig":
         '''Returns an alarm action configuration to use an SSM Incident as an alarm action based on an Incident Manager Response Plan.
 
         :param _scope: -
         :param _alarm: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27baa9de2ba955e7124c3e624eb53ed6f9be430c6d188be64d2ef483e56fabf5)
+            type_hints = cached_type_hints(_typecheckingstub__27baa9de2ba955e7124c3e624eb53ed6f9be430c6d188be64d2ef483e56fabf5)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_aws_cloudwatch_386c5543.AlarmActionConfig", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 __all__ = [
@@ -617,27 +621,27 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__b916236e2043981349e2841d1ec98b11cee63ab17d5362ab2a6d58f02a514d7d(
-    step_scaling_action: _StepScalingAction_d79ca2c9,
+    step_scaling_action: _aws_applicationautoscaling_2d911ee5.StepScalingAction,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__74bb72262ab3b2a9141f8b8f1171cf0d9a0ba7d5f865b123acffaec5bfef51fd(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__96afe5a98488b1418c68f6530257948e9ea29d3656df0b68c83d1defaf09dd60(
-    step_scaling_action: _StepScalingAction_24d17483,
+    step_scaling_action: _aws_autoscaling_6cbf8045.StepScalingAction,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4cd3adde7a8331a2b783351a5b794ad83f7245f085799ed1b7e3d9deedcd8d03(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -650,13 +654,13 @@ def _typecheckingstub__aeaedd2203e210d309c17277a5c904dcbc459891e662493aaf75e344e
 
 def _typecheckingstub__617684dcf0b429d0176779c30669a734e5e356a2d0dbb98bf321e897c2cbdcd3(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2693adec8362e537633b2584509df8d0d77cb381732395de1707d1edfe2c3c9e(
-    lambda_function: typing.Union[_IFunction_6adb0ab8, _IVersion_faf7234e, _IAlias_c8fe45f4],
+    lambda_function: typing.Union[_aws_lambda_b8f2f472.IFunction, _aws_lambda_b8f2f472.IVersion, _aws_lambda_b8f2f472.IAlias],
     *,
     use_unique_permission_id: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -665,7 +669,7 @@ def _typecheckingstub__2693adec8362e537633b2584509df8d0d77cb381732395de1707d1edf
 
 def _typecheckingstub__2856bb69373ffd5b6a7628782cc0fb8ab9fd20450269ca5c709a08e9bfac50d5(
     scope: _constructs_77d1e7e8.Construct,
-    alarm: _IAlarm_ff3eabc0,
+    alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -678,14 +682,14 @@ def _typecheckingstub__2be134df5b4b042a1cf75cbb9e29a273c25a1bdf15dc683b2cbba3452
     pass
 
 def _typecheckingstub__d45c9fa069d1e0b882f975c29c8eb30315e60025b85741889c42ee16c1f229ca(
-    topic: _ITopic_9eca4852,
+    topic: _aws_sns_07ffc8ab.ITopic,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__02204ab9dd4d2adf853c731232a8cb824c41fb62dc79eae79e4e69b7e0e748eb(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -699,7 +703,7 @@ def _typecheckingstub__ec3a9c97b1f6b9b5d3d6db7a3eb09cb5990e4d0201ddb6c37b8ccf686
 
 def _typecheckingstub__01d8a7f674b7236375000e24e89aa7de87b7b73e1540d7b7a75318b36ba526fa(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -712,7 +716,7 @@ def _typecheckingstub__be00ac2bf80144c7f66d1276bfef345e7613075b15116cbf4a62b8fa4
 
 def _typecheckingstub__27baa9de2ba955e7124c3e624eb53ed6f9be430c6d188be64d2ef483e56fabf5(
     _scope: _constructs_77d1e7e8.Construct,
-    _alarm: _IAlarm_ff3eabc0,
+    _alarm: _aws_cloudwatch_386c5543.IAlarm,
 ) -> None:
     """Type checking stubs"""
     pass

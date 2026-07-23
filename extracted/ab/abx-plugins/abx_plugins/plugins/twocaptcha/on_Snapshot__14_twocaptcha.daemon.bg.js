@@ -81,6 +81,7 @@ async function getCaptchaState(page) {
   return page.evaluate(() => {
     const solved = new Set();
     let detected = false;
+    const solverErrors = [];
     const selectors = [
       'textarea[name="g-recaptcha-response"]',
       "textarea#g-recaptcha-response",
@@ -116,10 +117,19 @@ async function getCaptchaState(page) {
           detected = true;
           const value = typeof el.value === "string" ? el.value.trim() : "";
           if (value.length > 20) {
-            solved.add(`${selector}:${value.slice(0, 128)}`);
+            solved.add(value.slice(0, 128));
           }
         }
       } catch (error) {}
+    }
+
+    for (const solver of document.querySelectorAll(
+      '.captcha-solver[data-state="error"]'
+    )) {
+      const message = solver
+        .querySelector(".captcha-solver-info")
+        ?.textContent?.trim();
+      solverErrors.push(message || "unknown 2Captcha extension error");
     }
 
     try {
@@ -130,12 +140,16 @@ async function getCaptchaState(page) {
         detected = true;
         const response = grecaptcha.getResponse();
         if (typeof response === "string" && response.trim().length > 20) {
-          solved.add(`grecaptcha:${response.trim().slice(0, 128)}`);
+          solved.add(response.trim().slice(0, 128));
         }
       }
     } catch (error) {}
 
-    return { detected, solved: solved.size };
+    return {
+      detected,
+      solved: solved.size,
+      error: solverErrors.length ? solverErrors.join("; ") : null,
+    };
   });
 }
 
@@ -210,8 +224,16 @@ async function main() {
     }
 
     while (running) {
+      let state = null;
       try {
-        const state = await getCaptchaState(page);
+        state = await getCaptchaState(page);
+      } catch (error) {
+        if (!running) break;
+      }
+      if (state?.error) {
+        throw new Error(`2Captcha extension failed: ${state.error}`);
+      }
+      if (state) {
         solvedCaptchas = Math.max(solvedCaptchas, state.solved);
         if (solvedCaptchas > 0) {
           emitProgress(formatCaptchaCount(solvedCaptchas));
@@ -220,8 +242,6 @@ async function main() {
         } else {
           emitProgress("0 captchas detected");
         }
-      } catch (error) {
-        if (!running) break;
       }
       await sleep(pollIntervalMs);
     }

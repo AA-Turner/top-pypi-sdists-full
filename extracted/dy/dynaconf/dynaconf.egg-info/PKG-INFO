@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dynaconf
-Version: 3.3.2
+Version: 3.3.3
 Summary: The dynamic configurator for your Python Project
 Author-email: Bruno Rocha <rochacbruno@gmail.com>
 License: MIT

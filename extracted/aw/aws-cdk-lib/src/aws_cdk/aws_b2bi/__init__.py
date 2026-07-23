@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,50 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_b2bi import (
-    CapabilityReference as _CapabilityReference_5db14ab5,
-    ICapabilityRef as _ICapabilityRef_a9e3b056,
-    IPartnershipRef as _IPartnershipRef_05c55884,
-    IProfileRef as _IProfileRef_a1a5e2cf,
-    ITransformerRef as _ITransformerRef_17b6e3da,
-    PartnershipReference as _PartnershipReference_a6dcc67d,
-    ProfileReference as _ProfileReference_dcb52ee8,
-    TransformerReference as _TransformerReference_087331d5,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_b2bi as _aws_b2bi_e173e736
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_b2bi_e173e736 = _LazyImport("aws_cdk.interfaces.aws_b2bi")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _ICapabilityRef_a9e3b056, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_b2bi_e173e736.ICapabilityRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCapability(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_b2bi.CfnCapability",
 ):
@@ -153,11 +141,11 @@ class CfnCapability(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         type: builtins.str,
-        instructions_documents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instructions_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::B2BI::Capability``.
 
@@ -170,7 +158,7 @@ class CfnCapability(
         :param tags: Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type. You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e2c877d8f658a8bd5b2b87fa89276114a47d5d48d6051351c42b159c7c68d05)
+            type_hints = cached_type_hints(_typecheckingstub__0e2c877d8f658a8bd5b2b87fa89276114a47d5d48d6051351c42b159c7c68d05)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCapabilityProps(
@@ -185,12 +173,15 @@ class CfnCapability(
 
     @jsii.member(jsii_name="arnForCapability")
     @builtins.classmethod
-    def arn_for_capability(cls, resource: "_ICapabilityRef_a9e3b056") -> builtins.str:
+    def arn_for_capability(
+        cls,
+        resource: "_aws_b2bi_e173e736.ICapabilityRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bcc4a343b2fef67007379dbe7d4f17b8cba46535cf982ff85c33bfdd5bfc97b)
+            type_hints = cached_type_hints(_typecheckingstub__8bcc4a343b2fef67007379dbe7d4f17b8cba46535cf982ff85c33bfdd5bfc97b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCapability", [resource]))
 
@@ -202,18 +193,18 @@ class CfnCapability(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c6c25c1662d39e742555c1b4117bfeb9a4f0adda160dd46d298975d3d9a190c)
+            type_hints = cached_type_hints(_typecheckingstub__0c6c25c1662d39e742555c1b4117bfeb9a4f0adda160dd46d298975d3d9a190c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCapability", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69250f68db11c0c5d1b5dc6e2fd42eb03c44b04345584670f06ca66a9283eb35)
+            type_hints = cached_type_hints(_typecheckingstub__69250f68db11c0c5d1b5dc6e2fd42eb03c44b04345584670f06ca66a9283eb35)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -226,7 +217,7 @@ class CfnCapability(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7a0734db8cefbd4089ea9d0b9242a32f9ce5d439e96d8bf60ea3bf4754e3a55)
+            type_hints = cached_type_hints(_typecheckingstub__e7a0734db8cefbd4089ea9d0b9242a32f9ce5d439e96d8bf60ea3bf4754e3a55)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -274,15 +265,15 @@ class CfnCapability(
 
     @builtins.property
     @jsii.member(jsii_name="capabilityRef")
-    def capability_ref(self) -> "_CapabilityReference_5db14ab5":
+    def capability_ref(self) -> "_aws_b2bi_e173e736.CapabilityReference":
         '''A reference to a Capability resource.'''
-        return typing.cast("_CapabilityReference_5db14ab5", jsii.get(self, "capabilityRef"))
+        return typing.cast("_aws_b2bi_e173e736.CapabilityReference", jsii.get(self, "capabilityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -298,17 +289,17 @@ class CfnCapability(
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.CapabilityConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.CapabilityConfigurationProperty"]:
         '''Specifies a structure that contains the details for a capability.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.CapabilityConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.CapabilityConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCapability.CapabilityConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.CapabilityConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e6a4e9debdcf2674a26e8ca0b9f4a771680d6f10a5d05a55ab8bc8c5063b78a)
+            type_hints = cached_type_hints(_typecheckingstub__3e6a4e9debdcf2674a26e8ca0b9f4a771680d6f10a5d05a55ab8bc8c5063b78a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -321,7 +312,7 @@ class CfnCapability(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__149152bfddb988a9aebbfe4cc00f98c6da302293c4bccdb6a2521efdcc265cad)
+            type_hints = cached_type_hints(_typecheckingstub__149152bfddb988a9aebbfe4cc00f98c6da302293c4bccdb6a2521efdcc265cad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -334,7 +325,7 @@ class CfnCapability(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0ac989543b8899d87e7022c05ecf79b8ac846fbb7cbefb25e6bf8a03d5b52da)
+            type_hints = cached_type_hints(_typecheckingstub__c0ac989543b8899d87e7022c05ecf79b8ac846fbb7cbefb25e6bf8a03d5b52da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -342,30 +333,33 @@ class CfnCapability(
     @jsii.member(jsii_name="instructionsDocuments")
     def instructions_documents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]]]]:
         '''Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]]]], jsii.get(self, "instructionsDocuments"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]]]], jsii.get(self, "instructionsDocuments"))
 
     @instructions_documents.setter
     def instructions_documents(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__933e64c6fb43bdf92fe13796dc8381041bc9d46c8db437f72d8df9acf46d8ef9)
+            type_hints = cached_type_hints(_typecheckingstub__933e64c6fb43bdf92fe13796dc8381041bc9d46c8db437f72d8df9acf46d8ef9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instructionsDocuments", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9706dcfa23b620c2db12e1df4414f3a9f0b63bdbd7e3a8ac3944f66549703153)
+            type_hints = cached_type_hints(_typecheckingstub__9706dcfa23b620c2db12e1df4414f3a9f0b63bdbd7e3a8ac3944f66549703153)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -378,7 +372,7 @@ class CfnCapability(
         def __init__(
             self,
             *,
-            edi: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.EdiConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            edi: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.EdiConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A capability object.
 
@@ -419,7 +413,7 @@ class CfnCapability(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b39bfeb55ed086d5de5f443fd847773c175cdd988755a308ee0889c0b428322e)
+                type_hints = cached_type_hints(_typecheckingstub__b39bfeb55ed086d5de5f443fd847773c175cdd988755a308ee0889c0b428322e)
                 check_type(argname="argument edi", value=edi, expected_type=type_hints["edi"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "edi": edi,
@@ -428,14 +422,14 @@ class CfnCapability(
         @builtins.property
         def edi(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.EdiConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.EdiConfigurationProperty"]:
             '''An EDI (electronic data interchange) configuration object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-capability-capabilityconfiguration.html#cfn-b2bi-capability-capabilityconfiguration-edi
             '''
             result = self._values.get("edi")
             assert result is not None, "Required property 'edi' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.EdiConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.EdiConfigurationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -463,10 +457,10 @@ class CfnCapability(
         def __init__(
             self,
             *,
-            input_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
-            output_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            input_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            output_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
             transformer_id: builtins.str,
-            type: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            type: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]],
             capability_direction: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies the details for the EDI (electronic data interchange) transformation.
@@ -508,7 +502,7 @@ class CfnCapability(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6057bec99d8a1adeb15f82ebd6a5c206f528d80ccf6eaebcc8e44d83d415ec72)
+                type_hints = cached_type_hints(_typecheckingstub__6057bec99d8a1adeb15f82ebd6a5c206f528d80ccf6eaebcc8e44d83d415ec72)
                 check_type(argname="argument input_location", value=input_location, expected_type=type_hints["input_location"])
                 check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
                 check_type(argname="argument transformer_id", value=transformer_id, expected_type=type_hints["transformer_id"])
@@ -526,26 +520,26 @@ class CfnCapability(
         @builtins.property
         def input_location(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]:
             '''Contains the Amazon S3 bucket and prefix for the location of the input file, which is contained in an ``S3Location`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-capability-ediconfiguration.html#cfn-b2bi-capability-ediconfiguration-inputlocation
             '''
             result = self._values.get("input_location")
             assert result is not None, "Required property 'input_location' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"], result)
 
         @builtins.property
         def output_location(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]:
             '''Contains the Amazon S3 bucket and prefix for the location of the output file, which is contained in an ``S3Location`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-capability-ediconfiguration.html#cfn-b2bi-capability-ediconfiguration-outputlocation
             '''
             result = self._values.get("output_location")
             assert result is not None, "Required property 'output_location' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"], result)
 
         @builtins.property
         def transformer_id(self) -> builtins.str:
@@ -560,7 +554,7 @@ class CfnCapability(
         @builtins.property
         def type(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.EdiTypeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.EdiTypeProperty"]:
             '''Returns the type of the capability.
 
             Currently, only ``edi`` is supported.
@@ -569,7 +563,7 @@ class CfnCapability(
             '''
             result = self._values.get("type")
             assert result is not None, "Required property 'type' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.EdiTypeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.EdiTypeProperty"], result)
 
         @builtins.property
         def capability_direction(self) -> typing.Optional[builtins.str]:
@@ -600,7 +594,7 @@ class CfnCapability(
         def __init__(
             self,
             *,
-            x12_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            x12_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param x12_details: 
@@ -622,7 +616,7 @@ class CfnCapability(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a9ca50562e4e831dbcf7fdb06d87922ec9144632d5572bc4430820884ab15edb)
+                type_hints = cached_type_hints(_typecheckingstub__a9ca50562e4e831dbcf7fdb06d87922ec9144632d5572bc4430820884ab15edb)
                 check_type(argname="argument x12_details", value=x12_details, expected_type=type_hints["x12_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "x12_details": x12_details,
@@ -631,13 +625,13 @@ class CfnCapability(
         @builtins.property
         def x12_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.X12DetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.X12DetailsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-capability-editype.html#cfn-b2bi-capability-editype-x12details
             '''
             result = self._values.get("x12_details")
             assert result is not None, "Required property 'x12_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.X12DetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.X12DetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -684,7 +678,7 @@ class CfnCapability(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aca06398ec10ba74b5ba2cf86fa1032b9983a30858a85eb04ecadf48a95e5056)
+                type_hints = cached_type_hints(_typecheckingstub__aca06398ec10ba74b5ba2cf86fa1032b9983a30858a85eb04ecadf48a95e5056)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -759,7 +753,7 @@ class CfnCapability(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7a92fd26779dc45009be0b9ca0aefb7b988fae928b06b6b46f41995a7bd338e7)
+                type_hints = cached_type_hints(_typecheckingstub__7a92fd26779dc45009be0b9ca0aefb7b988fae928b06b6b46f41995a7bd338e7)
                 check_type(argname="argument transaction_set", value=transaction_set, expected_type=type_hints["transaction_set"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -815,11 +809,11 @@ class CfnCapabilityProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.CapabilityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         type: builtins.str,
-        instructions_documents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        instructions_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCapability``.
 
@@ -877,7 +871,7 @@ class CfnCapabilityProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb)
+            type_hints = cached_type_hints(_typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -896,14 +890,14 @@ class CfnCapabilityProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCapability.CapabilityConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.CapabilityConfigurationProperty"]:
         '''Specifies a structure that contains the details for a capability.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCapability.CapabilityConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.CapabilityConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -930,7 +924,7 @@ class CfnCapabilityProps:
     @builtins.property
     def instructions_documents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]]]]:
         '''Specifies one or more locations in Amazon S3, each specifying an EDI document that can be used with this capability.
 
         Each item contains the name of the bucket and the key, to identify the document's location.
@@ -938,10 +932,10 @@ class CfnCapabilityProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-instructionsdocuments
         '''
         result = self._values.get("instructions_documents")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCapability.S3LocationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.S3LocationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Specifies the key-value pairs assigned to ARNs that you can use to group and search for resources by type.
 
         You can attach this metadata to resources (capabilities, partnerships, and so on) for any purpose.
@@ -949,7 +943,7 @@ class CfnCapabilityProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-capability.html#cfn-b2bi-capability-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -963,9 +957,9 @@ class CfnCapabilityProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPartnershipRef_05c55884, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_b2bi_e173e736.IPartnershipRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPartnership(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_b2bi.CfnPartnership",
 ):
@@ -1055,9 +1049,9 @@ class CfnPartnership(
         email: builtins.str,
         name: builtins.str,
         profile_id: builtins.str,
-        capability_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.CapabilityOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capability_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.CapabilityOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         phone: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::B2BI::Partnership``.
 
@@ -1072,7 +1066,7 @@ class CfnPartnership(
         :param tags: A key-value pair for a specific partnership. Tags are metadata that you can use to search for and group capabilities for various purposes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__187ce4b824b0d27162e457adfee9761451ebc9ba1fbb31b215de741e20aea463)
+            type_hints = cached_type_hints(_typecheckingstub__187ce4b824b0d27162e457adfee9761451ebc9ba1fbb31b215de741e20aea463)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPartnershipProps(
@@ -1089,12 +1083,15 @@ class CfnPartnership(
 
     @jsii.member(jsii_name="arnForPartnership")
     @builtins.classmethod
-    def arn_for_partnership(cls, resource: "_IPartnershipRef_05c55884") -> builtins.str:
+    def arn_for_partnership(
+        cls,
+        resource: "_aws_b2bi_e173e736.IPartnershipRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__398ccb3e1e18bbd3a8b4c230d176f5c735b4006baca0ffe05ee37dd48a2c7c92)
+            type_hints = cached_type_hints(_typecheckingstub__398ccb3e1e18bbd3a8b4c230d176f5c735b4006baca0ffe05ee37dd48a2c7c92)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPartnership", [resource]))
 
@@ -1106,18 +1103,18 @@ class CfnPartnership(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5d5cfc7858e8ced04690bb6e8052b055ca761b557d01b1b38865c8c72b1275d)
+            type_hints = cached_type_hints(_typecheckingstub__f5d5cfc7858e8ced04690bb6e8052b055ca761b557d01b1b38865c8c72b1275d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPartnership", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d250a045aef9262deb5ac9bdfc02b08a37a777ba8e105b1406ebfad2ee8edc9)
+            type_hints = cached_type_hints(_typecheckingstub__3d250a045aef9262deb5ac9bdfc02b08a37a777ba8e105b1406ebfad2ee8edc9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1130,7 +1127,7 @@ class CfnPartnership(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97e66f59482a5e62e1d52e1f96109cae79dc6c60b4b84b9ac971718f61abed32)
+            type_hints = cached_type_hints(_typecheckingstub__97e66f59482a5e62e1d52e1f96109cae79dc6c60b4b84b9ac971718f61abed32)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1187,9 +1184,9 @@ class CfnPartnership(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1203,9 +1200,9 @@ class CfnPartnership(
 
     @builtins.property
     @jsii.member(jsii_name="partnershipRef")
-    def partnership_ref(self) -> "_PartnershipReference_a6dcc67d":
+    def partnership_ref(self) -> "_aws_b2bi_e173e736.PartnershipReference":
         '''A reference to a Partnership resource.'''
-        return typing.cast("_PartnershipReference_a6dcc67d", jsii.get(self, "partnershipRef"))
+        return typing.cast("_aws_b2bi_e173e736.PartnershipReference", jsii.get(self, "partnershipRef"))
 
     @builtins.property
     @jsii.member(jsii_name="capabilities")
@@ -1216,7 +1213,7 @@ class CfnPartnership(
     @capabilities.setter
     def capabilities(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0980f94d13e92ad52bd4f6a10906045804439d25bf3126b627f3a97eb79eb594)
+            type_hints = cached_type_hints(_typecheckingstub__0980f94d13e92ad52bd4f6a10906045804439d25bf3126b627f3a97eb79eb594)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capabilities", value) # pyright: ignore[reportArgumentType]
 
@@ -1229,7 +1226,7 @@ class CfnPartnership(
     @email.setter
     def email(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2873a98dfd303be4e91fec1a674c6ab1a7382e5563610406e047403b795f1a06)
+            type_hints = cached_type_hints(_typecheckingstub__2873a98dfd303be4e91fec1a674c6ab1a7382e5563610406e047403b795f1a06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
 
@@ -1242,7 +1239,7 @@ class CfnPartnership(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2391403bfc3a496d7ff98fb633ece3257a09478e6bed5d4c1c2ec23cd35687c)
+            type_hints = cached_type_hints(_typecheckingstub__d2391403bfc3a496d7ff98fb633ece3257a09478e6bed5d4c1c2ec23cd35687c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1255,7 +1252,7 @@ class CfnPartnership(
     @profile_id.setter
     def profile_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__126b2c043f2647e2a052eca52ec8432ea60287721a3e645fe4dd65583feb42de)
+            type_hints = cached_type_hints(_typecheckingstub__126b2c043f2647e2a052eca52ec8432ea60287721a3e645fe4dd65583feb42de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "profileId", value) # pyright: ignore[reportArgumentType]
 
@@ -1263,17 +1260,17 @@ class CfnPartnership(
     @jsii.member(jsii_name="capabilityOptions")
     def capability_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.CapabilityOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.CapabilityOptionsProperty"]]:
         '''Contains the details for an Outbound EDI capability.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.CapabilityOptionsProperty"]], jsii.get(self, "capabilityOptions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.CapabilityOptionsProperty"]], jsii.get(self, "capabilityOptions"))
 
     @capability_options.setter
     def capability_options(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.CapabilityOptionsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.CapabilityOptionsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d35bf90164602b28a7873c9bbcf2cebf61f26952d369e2a905926b650b1a22e9)
+            type_hints = cached_type_hints(_typecheckingstub__d35bf90164602b28a7873c9bbcf2cebf61f26952d369e2a905926b650b1a22e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capabilityOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -1286,20 +1283,23 @@ class CfnPartnership(
     @phone.setter
     def phone(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5555f48f20bc825c44c857244fae3207c272ec76cbe060a463105d2c86113010)
+            type_hints = cached_type_hints(_typecheckingstub__5555f48f20bc825c44c857244fae3207c272ec76cbe060a463105d2c86113010)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "phone", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific partnership.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc0c0a6e8431d11899a318046b450bc4efc00486d9f20286940067c7fa335411)
+            type_hints = cached_type_hints(_typecheckingstub__fc0c0a6e8431d11899a318046b450bc4efc00486d9f20286940067c7fa335411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1312,8 +1312,8 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            inbound_edi: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            outbound_edi: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.OutboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            inbound_edi: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            outbound_edi: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.OutboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the details for an Outbound EDI capability.
 
@@ -1378,7 +1378,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f9f54c2b)
+                type_hints = cached_type_hints(_typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f9f54c2b)
                 check_type(argname="argument inbound_edi", value=inbound_edi, expected_type=type_hints["inbound_edi"])
                 check_type(argname="argument outbound_edi", value=outbound_edi, expected_type=type_hints["outbound_edi"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1390,24 +1390,24 @@ class CfnPartnership(
         @builtins.property
         def inbound_edi(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.InboundEdiOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.InboundEdiOptionsProperty"]]:
             '''A structure that contains the inbound EDI options for the capability.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-capabilityoptions.html#cfn-b2bi-partnership-capabilityoptions-inboundedi
             '''
             result = self._values.get("inbound_edi")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.InboundEdiOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.InboundEdiOptionsProperty"]], result)
 
         @builtins.property
         def outbound_edi(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.OutboundEdiOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.OutboundEdiOptionsProperty"]]:
             '''A structure that contains the outbound EDI options.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-capabilityoptions.html#cfn-b2bi-partnership-capabilityoptions-outboundedi
             '''
             result = self._values.get("outbound_edi")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.OutboundEdiOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.OutboundEdiOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1429,7 +1429,7 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            x12: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            x12: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12InboundEdiOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains options for processing inbound EDI files.
 
@@ -1456,7 +1456,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6c324487b61389216d4c37a2c38661a9fd27a782f0b1d30b4da2197c02472ca)
+                type_hints = cached_type_hints(_typecheckingstub__b6c324487b61389216d4c37a2c38661a9fd27a782f0b1d30b4da2197c02472ca)
                 check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if x12 is not None:
@@ -1465,13 +1465,13 @@ class CfnPartnership(
         @builtins.property
         def x12(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12InboundEdiOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12InboundEdiOptionsProperty"]]:
             '''A structure that contains X12-specific options for processing inbound X12 EDI files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-inboundedioptions.html#cfn-b2bi-partnership-inboundedioptions-x12
             '''
             result = self._values.get("x12")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12InboundEdiOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12InboundEdiOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1493,7 +1493,7 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            x12: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12EnvelopeProperty", typing.Dict[builtins.str, typing.Any]]],
+            x12: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12EnvelopeProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A container for outbound EDI options.
 
@@ -1547,7 +1547,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32687b2a777cf504a9e11c6386b8aa7795645f807660aecf3f5bdddf1b953268)
+                type_hints = cached_type_hints(_typecheckingstub__32687b2a777cf504a9e11c6386b8aa7795645f807660aecf3f5bdddf1b953268)
                 check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "x12": x12,
@@ -1556,14 +1556,14 @@ class CfnPartnership(
         @builtins.property
         def x12(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12EnvelopeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12EnvelopeProperty"]:
             '''A structure that contains an X12 envelope structure.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-outboundedioptions.html#cfn-b2bi-partnership-outboundedioptions-x12
             '''
             result = self._values.get("x12")
             assert result is not None, "Required property 'x12' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12EnvelopeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12EnvelopeProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1617,7 +1617,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e655ba69d2815891585dad9698c9aca0d8f46825094f69219bf726ac7cc3dfb3)
+                type_hints = cached_type_hints(_typecheckingstub__e655ba69d2815891585dad9698c9aca0d8f46825094f69219bf726ac7cc3dfb3)
                 check_type(argname="argument line_length", value=line_length, expected_type=type_hints["line_length"])
                 check_type(argname="argument line_terminator", value=line_terminator, expected_type=type_hints["line_terminator"])
                 check_type(argname="argument wrap_by", value=wrap_by, expected_type=type_hints["wrap_by"])
@@ -1719,7 +1719,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cd25022ffe4e73fd8bbd9369b880ae7c91c4a3b0583614cce2974320e88eaa3a)
+                type_hints = cached_type_hints(_typecheckingstub__cd25022ffe4e73fd8bbd9369b880ae7c91c4a3b0583614cce2974320e88eaa3a)
                 check_type(argname="argument functional_acknowledgment", value=functional_acknowledgment, expected_type=type_hints["functional_acknowledgment"])
                 check_type(argname="argument technical_acknowledgment", value=technical_acknowledgment, expected_type=type_hints["technical_acknowledgment"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1805,7 +1805,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30e0c21f8439a660cced0c707b2b1ab5d0199f9710dc5113cb9fcde22546bef9)
+                type_hints = cached_type_hints(_typecheckingstub__30e0c21f8439a660cced0c707b2b1ab5d0199f9710dc5113cb9fcde22546bef9)
                 check_type(argname="argument starting_functional_group_control_number", value=starting_functional_group_control_number, expected_type=type_hints["starting_functional_group_control_number"])
                 check_type(argname="argument starting_interchange_control_number", value=starting_interchange_control_number, expected_type=type_hints["starting_interchange_control_number"])
                 check_type(argname="argument starting_transaction_set_control_number", value=starting_transaction_set_control_number, expected_type=type_hints["starting_transaction_set_control_number"])
@@ -1906,7 +1906,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1c64e6cc29ab2abf7a0ebb687d8309174a673c2096776d261df47c9bb5f6044b)
+                type_hints = cached_type_hints(_typecheckingstub__1c64e6cc29ab2abf7a0ebb687d8309174a673c2096776d261df47c9bb5f6044b)
                 check_type(argname="argument component_separator", value=component_separator, expected_type=type_hints["component_separator"])
                 check_type(argname="argument data_element_separator", value=data_element_separator, expected_type=type_hints["data_element_separator"])
                 check_type(argname="argument segment_terminator", value=segment_terminator, expected_type=type_hints["segment_terminator"])
@@ -1971,8 +1971,8 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            common: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12OutboundEdiHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            wrap_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.WrapOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            common: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12OutboundEdiHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wrap_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.WrapOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A wrapper structure for an X12 definition object.
 
@@ -2031,7 +2031,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30e9a528379ffdff1b0693f52a617de66a178b919d5d3ddc1c68309cc0a86afc)
+                type_hints = cached_type_hints(_typecheckingstub__30e9a528379ffdff1b0693f52a617de66a178b919d5d3ddc1c68309cc0a86afc)
                 check_type(argname="argument common", value=common, expected_type=type_hints["common"])
                 check_type(argname="argument wrap_options", value=wrap_options, expected_type=type_hints["wrap_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2043,23 +2043,23 @@ class CfnPartnership(
         @builtins.property
         def common(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12OutboundEdiHeadersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12OutboundEdiHeadersProperty"]]:
             '''A container for the X12 outbound EDI headers.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12envelope.html#cfn-b2bi-partnership-x12envelope-common
             '''
             result = self._values.get("common")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12OutboundEdiHeadersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12OutboundEdiHeadersProperty"]], result)
 
         @builtins.property
         def wrap_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.WrapOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.WrapOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12envelope.html#cfn-b2bi-partnership-x12envelope-wrapoptions
             '''
             result = self._values.get("wrap_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.WrapOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.WrapOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2113,7 +2113,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b107041a5b51efd672a9b2f3b5bb8ce2f8376a1dc4cddc6a58a089e0fc49b53)
+                type_hints = cached_type_hints(_typecheckingstub__0b107041a5b51efd672a9b2f3b5bb8ce2f8376a1dc4cddc6a58a089e0fc49b53)
                 check_type(argname="argument application_receiver_code", value=application_receiver_code, expected_type=type_hints["application_receiver_code"])
                 check_type(argname="argument application_sender_code", value=application_sender_code, expected_type=type_hints["application_sender_code"])
                 check_type(argname="argument responsible_agency_code", value=responsible_agency_code, expected_type=type_hints["responsible_agency_code"])
@@ -2172,7 +2172,7 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            acknowledgment_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12AcknowledgmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            acknowledgment_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12AcknowledgmentOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains options specific to processing inbound X12 EDI files.
 
@@ -2195,7 +2195,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__25951703b6b17888b8fded1f4b04ca4482b7f065fc950fd49d36619cde5b1ad6)
+                type_hints = cached_type_hints(_typecheckingstub__25951703b6b17888b8fded1f4b04ca4482b7f065fc950fd49d36619cde5b1ad6)
                 check_type(argname="argument acknowledgment_options", value=acknowledgment_options, expected_type=type_hints["acknowledgment_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if acknowledgment_options is not None:
@@ -2204,7 +2204,7 @@ class CfnPartnership(
         @builtins.property
         def acknowledgment_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12AcknowledgmentOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12AcknowledgmentOptionsProperty"]]:
             '''Specifies acknowledgment options for inbound X12 EDI files.
 
             These options control how functional and technical acknowledgments are handled.
@@ -2212,7 +2212,7 @@ class CfnPartnership(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12inboundedioptions.html#cfn-b2bi-partnership-x12inboundedioptions-acknowledgmentoptions
             '''
             result = self._values.get("acknowledgment_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12AcknowledgmentOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12AcknowledgmentOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2282,7 +2282,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2cd06c107bbc9de62cfdd484dd7527f5641c4d03e973675f4638b3441dcb2630)
+                type_hints = cached_type_hints(_typecheckingstub__2cd06c107bbc9de62cfdd484dd7527f5641c4d03e973675f4638b3441dcb2630)
                 check_type(argname="argument acknowledgment_requested_code", value=acknowledgment_requested_code, expected_type=type_hints["acknowledgment_requested_code"])
                 check_type(argname="argument receiver_id", value=receiver_id, expected_type=type_hints["receiver_id"])
                 check_type(argname="argument receiver_id_qualifier", value=receiver_id_qualifier, expected_type=type_hints["receiver_id_qualifier"])
@@ -2417,12 +2417,12 @@ class CfnPartnership(
         def __init__(
             self,
             *,
-            control_numbers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12ControlNumbersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            delimiters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12DelimitersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            functional_group_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12FunctionalGroupHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            control_numbers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12ControlNumbersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            delimiters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12DelimitersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            functional_group_headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12FunctionalGroupHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             gs05_time_format: typing.Optional[builtins.str] = None,
-            interchange_control_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.X12InterchangeControlHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            validate_edi: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            interchange_control_headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.X12InterchangeControlHeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validate_edi: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''A structure containing the details for an outbound EDI object.
 
@@ -2472,7 +2472,7 @@ class CfnPartnership(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40dc153d1c)
+                type_hints = cached_type_hints(_typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40dc153d1c)
                 check_type(argname="argument control_numbers", value=control_numbers, expected_type=type_hints["control_numbers"])
                 check_type(argname="argument delimiters", value=delimiters, expected_type=type_hints["delimiters"])
                 check_type(argname="argument functional_group_headers", value=functional_group_headers, expected_type=type_hints["functional_group_headers"])
@@ -2496,7 +2496,7 @@ class CfnPartnership(
         @builtins.property
         def control_numbers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12ControlNumbersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12ControlNumbersProperty"]]:
             '''Specifies control number configuration for outbound X12 EDI headers.
 
             These settings determine the starting values for interchange, functional group, and transaction set control numbers.
@@ -2504,29 +2504,29 @@ class CfnPartnership(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-controlnumbers
             '''
             result = self._values.get("control_numbers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12ControlNumbersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12ControlNumbersProperty"]], result)
 
         @builtins.property
         def delimiters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12DelimitersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12DelimitersProperty"]]:
             '''The delimiters, for example semicolon ( ``;`` ), that separates sections of the headers for the X12 object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-delimiters
             '''
             result = self._values.get("delimiters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12DelimitersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12DelimitersProperty"]], result)
 
         @builtins.property
         def functional_group_headers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12FunctionalGroupHeadersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12FunctionalGroupHeadersProperty"]]:
             '''The functional group headers for the X12 object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-functionalgroupheaders
             '''
             result = self._values.get("functional_group_headers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12FunctionalGroupHeadersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12FunctionalGroupHeadersProperty"]], result)
 
         @builtins.property
         def gs05_time_format(self) -> typing.Optional[builtins.str]:
@@ -2553,18 +2553,18 @@ class CfnPartnership(
         @builtins.property
         def interchange_control_headers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12InterchangeControlHeadersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12InterchangeControlHeadersProperty"]]:
             '''In X12 EDI messages, delimiters are used to mark the end of segments or elements, and are defined in the interchange control header.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-interchangecontrolheaders
             '''
             result = self._values.get("interchange_control_headers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.X12InterchangeControlHeadersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.X12InterchangeControlHeadersProperty"]], result)
 
         @builtins.property
         def validate_edi(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether or not to validate the EDI for this X12 object: ``TRUE`` or ``FALSE`` .
 
             When enabled, this performs both standard EDI validation and applies any configured custom validation rules including element length constraints, code list validations, and element requirement checks. Validation results are returned in the response validation messages.
@@ -2572,7 +2572,7 @@ class CfnPartnership(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-partnership-x12outboundediheaders.html#cfn-b2bi-partnership-x12outboundediheaders-validateedi
             '''
             result = self._values.get("validate_edi")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2607,9 +2607,9 @@ class CfnPartnershipProps:
         email: builtins.str,
         name: builtins.str,
         profile_id: builtins.str,
-        capability_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPartnership.CapabilityOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        capability_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPartnership.CapabilityOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         phone: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPartnership``.
 
@@ -2693,7 +2693,7 @@ class CfnPartnershipProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243)
+            type_hints = cached_type_hints(_typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959105a243)
             check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2757,13 +2757,13 @@ class CfnPartnershipProps:
     @builtins.property
     def capability_options(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.CapabilityOptionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.CapabilityOptionsProperty"]]:
         '''Contains the details for an Outbound EDI capability.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-capabilityoptions
         '''
         result = self._values.get("capability_options")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPartnership.CapabilityOptionsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPartnership.CapabilityOptionsProperty"]], result)
 
     @builtins.property
     def phone(self) -> typing.Optional[builtins.str]:
@@ -2775,7 +2775,7 @@ class CfnPartnershipProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific partnership.
 
         Tags are metadata that you can use to search for and group capabilities for various purposes.
@@ -2783,7 +2783,7 @@ class CfnPartnershipProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-partnership.html#cfn-b2bi-partnership-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2797,9 +2797,9 @@ class CfnPartnershipProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IProfileRef_a1a5e2cf, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_b2bi_e173e736.IProfileRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_b2bi.CfnProfile",
 ):
@@ -2843,7 +2843,7 @@ class CfnProfile(
         name: builtins.str,
         phone: builtins.str,
         email: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::B2BI::Profile``.
 
@@ -2857,7 +2857,7 @@ class CfnProfile(
         :param tags: A key-value pair for a specific profile. Tags are metadata that you can use to search for and group capabilities for various purposes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e54fea50428e19dd273372ef5650a89d4610c6422804677c9be788a76aadf8a)
+            type_hints = cached_type_hints(_typecheckingstub__6e54fea50428e19dd273372ef5650a89d4610c6422804677c9be788a76aadf8a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProfileProps(
@@ -2873,12 +2873,15 @@ class CfnProfile(
 
     @jsii.member(jsii_name="arnForProfile")
     @builtins.classmethod
-    def arn_for_profile(cls, resource: "_IProfileRef_a1a5e2cf") -> builtins.str:
+    def arn_for_profile(
+        cls,
+        resource: "_aws_b2bi_e173e736.IProfileRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8922df630e011cc3b27789507237cfb6c7eefd5eed23c92e926403cb3dfc0f5)
+            type_hints = cached_type_hints(_typecheckingstub__c8922df630e011cc3b27789507237cfb6c7eefd5eed23c92e926403cb3dfc0f5)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProfile", [resource]))
 
@@ -2890,18 +2893,18 @@ class CfnProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8df0b383736b5c6b94acda23de670de97e6e5d114aa805e21eecea2c267215f1)
+            type_hints = cached_type_hints(_typecheckingstub__8df0b383736b5c6b94acda23de670de97e6e5d114aa805e21eecea2c267215f1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5271088abc585a3db11af1eacb47274605ad9acc14f75da9da9239d3a3697541)
+            type_hints = cached_type_hints(_typecheckingstub__5271088abc585a3db11af1eacb47274605ad9acc14f75da9da9239d3a3697541)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2914,7 +2917,7 @@ class CfnProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a829f83cb367edec2f2e051795937696b3dcb1d1ab356574e9c6ad4badf3ce17)
+            type_hints = cached_type_hints(_typecheckingstub__a829f83cb367edec2f2e051795937696b3dcb1d1ab356574e9c6ad4badf3ce17)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2970,9 +2973,9 @@ class CfnProfile(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2986,9 +2989,9 @@ class CfnProfile(
 
     @builtins.property
     @jsii.member(jsii_name="profileRef")
-    def profile_ref(self) -> "_ProfileReference_dcb52ee8":
+    def profile_ref(self) -> "_aws_b2bi_e173e736.ProfileReference":
         '''A reference to a Profile resource.'''
-        return typing.cast("_ProfileReference_dcb52ee8", jsii.get(self, "profileRef"))
+        return typing.cast("_aws_b2bi_e173e736.ProfileReference", jsii.get(self, "profileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="businessName")
@@ -2999,7 +3002,7 @@ class CfnProfile(
     @business_name.setter
     def business_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__504646617c098f5bad7128cc7a515f70f2c86e5d34b43f63aa27a2ad543b4e01)
+            type_hints = cached_type_hints(_typecheckingstub__504646617c098f5bad7128cc7a515f70f2c86e5d34b43f63aa27a2ad543b4e01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "businessName", value) # pyright: ignore[reportArgumentType]
 
@@ -3012,7 +3015,7 @@ class CfnProfile(
     @logging.setter
     def logging(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__127f59e663824bfd0cc39ab3ed6020d41d54a2b30e31fc71b46ce48e510ff366)
+            type_hints = cached_type_hints(_typecheckingstub__127f59e663824bfd0cc39ab3ed6020d41d54a2b30e31fc71b46ce48e510ff366)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logging", value) # pyright: ignore[reportArgumentType]
 
@@ -3025,7 +3028,7 @@ class CfnProfile(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__978cb41c2583c736d786df05be25dfaaa254556b513af9850f95c4f5f7999380)
+            type_hints = cached_type_hints(_typecheckingstub__978cb41c2583c736d786df05be25dfaaa254556b513af9850f95c4f5f7999380)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3038,7 +3041,7 @@ class CfnProfile(
     @phone.setter
     def phone(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aa6ce25bb49d6882927fd231d1e147e27ba9905d54248c88718171a9e0fdd5e)
+            type_hints = cached_type_hints(_typecheckingstub__5aa6ce25bb49d6882927fd231d1e147e27ba9905d54248c88718171a9e0fdd5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "phone", value) # pyright: ignore[reportArgumentType]
 
@@ -3050,20 +3053,23 @@ class CfnProfile(
     @email.setter
     def email(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0936f8c78a965c88641d39b7a6e2d4e7ad2bd7f48de6870270d842ba0ccdc34)
+            type_hints = cached_type_hints(_typecheckingstub__e0936f8c78a965c88641d39b7a6e2d4e7ad2bd7f48de6870270d842ba0ccdc34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific profile.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b70ada00d6d35989093b4f1b185f6deaa1f9c1404a82bc792e6f4dc53684b45)
+            type_hints = cached_type_hints(_typecheckingstub__8b70ada00d6d35989093b4f1b185f6deaa1f9c1404a82bc792e6f4dc53684b45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3089,7 +3095,7 @@ class CfnProfileProps:
         name: builtins.str,
         phone: builtins.str,
         email: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProfile``.
 
@@ -3125,7 +3131,7 @@ class CfnProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4)
+            type_hints = cached_type_hints(_typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f4d322e4)
             check_type(argname="argument business_name", value=business_name, expected_type=type_hints["business_name"])
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3192,7 +3198,7 @@ class CfnProfileProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific profile.
 
         Tags are metadata that you can use to search for and group capabilities for various purposes.
@@ -3200,7 +3206,7 @@ class CfnProfileProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-profile.html#cfn-b2bi-profile-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3214,9 +3220,9 @@ class CfnProfileProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITransformerRef_17b6e3da, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_b2bi_e173e736.ITransformerRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTransformer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_b2bi.CfnTransformer",
 ):
@@ -3361,15 +3367,15 @@ class CfnTransformer(
         *,
         name: builtins.str,
         status: builtins.str,
-        edi_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        edi_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         file_format: typing.Optional[builtins.str] = None,
-        input_conversion: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.InputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.MappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_conversion: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.InputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mapping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.MappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         mapping_template: typing.Optional[builtins.str] = None,
-        output_conversion: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.OutputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_conversion: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.OutputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sample_document: typing.Optional[builtins.str] = None,
-        sample_documents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.SampleDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sample_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.SampleDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::B2BI::Transformer``.
 
@@ -3388,7 +3394,7 @@ class CfnTransformer(
         :param tags: A key-value pair for a specific transformer. Tags are metadata that you can use to search for and group capabilities for various purposes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb0d6d0f8083b8bc38eb61c54d65c6e72d668ba067f31569d0213bf7dafff2c9)
+            type_hints = cached_type_hints(_typecheckingstub__fb0d6d0f8083b8bc38eb61c54d65c6e72d668ba067f31569d0213bf7dafff2c9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTransformerProps(
@@ -3409,12 +3415,15 @@ class CfnTransformer(
 
     @jsii.member(jsii_name="arnForTransformer")
     @builtins.classmethod
-    def arn_for_transformer(cls, resource: "_ITransformerRef_17b6e3da") -> builtins.str:
+    def arn_for_transformer(
+        cls,
+        resource: "_aws_b2bi_e173e736.ITransformerRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92f752500638eb567622e8779c86622588a63cad00a53ca24b32e826fc78285f)
+            type_hints = cached_type_hints(_typecheckingstub__92f752500638eb567622e8779c86622588a63cad00a53ca24b32e826fc78285f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTransformer", [resource]))
 
@@ -3426,18 +3435,18 @@ class CfnTransformer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d978174afcd54f04263000a856e361415c8dcf4f962c6110bc292fce8d05da8c)
+            type_hints = cached_type_hints(_typecheckingstub__d978174afcd54f04263000a856e361415c8dcf4f962c6110bc292fce8d05da8c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTransformer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd0b05118fb2d551f3054a5c85d10fe283c5ca2b9e830ef5a31a1eb7e66fce63)
+            type_hints = cached_type_hints(_typecheckingstub__cd0b05118fb2d551f3054a5c85d10fe283c5ca2b9e830ef5a31a1eb7e66fce63)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3450,7 +3459,7 @@ class CfnTransformer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8de580bfd50f433c0cd75e13649e7f911981404484637058415a594dac3eea03)
+            type_hints = cached_type_hints(_typecheckingstub__8de580bfd50f433c0cd75e13649e7f911981404484637058415a594dac3eea03)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3500,9 +3509,9 @@ class CfnTransformer(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3516,9 +3525,9 @@ class CfnTransformer(
 
     @builtins.property
     @jsii.member(jsii_name="transformerRef")
-    def transformer_ref(self) -> "_TransformerReference_087331d5":
+    def transformer_ref(self) -> "_aws_b2bi_e173e736.TransformerReference":
         '''A reference to a Transformer resource.'''
-        return typing.cast("_TransformerReference_087331d5", jsii.get(self, "transformerRef"))
+        return typing.cast("_aws_b2bi_e173e736.TransformerReference", jsii.get(self, "transformerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3529,7 +3538,7 @@ class CfnTransformer(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1302a1da7c175d27a541e2b1a5f25f80a4dac4f0a966ee8cddf6d1014ea81395)
+            type_hints = cached_type_hints(_typecheckingstub__1302a1da7c175d27a541e2b1a5f25f80a4dac4f0a966ee8cddf6d1014ea81395)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3542,7 +3551,7 @@ class CfnTransformer(
     @status.setter
     def status(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa8b2ecdc80ffc3d3b7ddf2cc4493b19df8fa02a3f0dbcf2ea74744b53c3b54c)
+            type_hints = cached_type_hints(_typecheckingstub__fa8b2ecdc80ffc3d3b7ddf2cc4493b19df8fa02a3f0dbcf2ea74744b53c3b54c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -3550,21 +3559,21 @@ class CfnTransformer(
     @jsii.member(jsii_name="ediType")
     def edi_type(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.EdiTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.EdiTypeProperty"]]:
         '''
         :deprecated: this property has been deprecated
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.EdiTypeProperty"]], jsii.get(self, "ediType"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.EdiTypeProperty"]], jsii.get(self, "ediType"))
 
     @edi_type.setter
     def edi_type(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.EdiTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.EdiTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e29c7d30dfbbc72fddf07313c1a9cb2eb14ed42c55e23bc13564603f6928f89c)
+            type_hints = cached_type_hints(_typecheckingstub__e29c7d30dfbbc72fddf07313c1a9cb2eb14ed42c55e23bc13564603f6928f89c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ediType", value) # pyright: ignore[reportArgumentType]
 
@@ -3581,7 +3590,7 @@ class CfnTransformer(
     @file_format.setter
     def file_format(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2fb21eeda84a5b3d95ee7d5d0e82a546522729b7fd5930fd6ed068055475615)
+            type_hints = cached_type_hints(_typecheckingstub__f2fb21eeda84a5b3d95ee7d5d0e82a546522729b7fd5930fd6ed068055475615)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileFormat", value) # pyright: ignore[reportArgumentType]
 
@@ -3589,17 +3598,17 @@ class CfnTransformer(
     @jsii.member(jsii_name="inputConversion")
     def input_conversion(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.InputConversionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.InputConversionProperty"]]:
         '''Returns a structure that contains the format options for the transformation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.InputConversionProperty"]], jsii.get(self, "inputConversion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.InputConversionProperty"]], jsii.get(self, "inputConversion"))
 
     @input_conversion.setter
     def input_conversion(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.InputConversionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.InputConversionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__056cb33326d8ab962996a430d43268cf524779e42269f6fd11778cc6ada79b5f)
+            type_hints = cached_type_hints(_typecheckingstub__056cb33326d8ab962996a430d43268cf524779e42269f6fd11778cc6ada79b5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputConversion", value) # pyright: ignore[reportArgumentType]
 
@@ -3607,17 +3616,17 @@ class CfnTransformer(
     @jsii.member(jsii_name="mapping")
     def mapping(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.MappingProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.MappingProperty"]]:
         '''Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.MappingProperty"]], jsii.get(self, "mapping"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.MappingProperty"]], jsii.get(self, "mapping"))
 
     @mapping.setter
     def mapping(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.MappingProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.MappingProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e387342b420c26f3bab05e439e7cdb6476c7ca408b9af77f2e83cd5901615494)
+            type_hints = cached_type_hints(_typecheckingstub__e387342b420c26f3bab05e439e7cdb6476c7ca408b9af77f2e83cd5901615494)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mapping", value) # pyright: ignore[reportArgumentType]
 
@@ -3635,7 +3644,7 @@ class CfnTransformer(
     @mapping_template.setter
     def mapping_template(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__685af615cb66c99ad9251a37e75e2851545a2603e7b07280b617d52d744fdf10)
+            type_hints = cached_type_hints(_typecheckingstub__685af615cb66c99ad9251a37e75e2851545a2603e7b07280b617d52d744fdf10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mappingTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -3643,17 +3652,17 @@ class CfnTransformer(
     @jsii.member(jsii_name="outputConversion")
     def output_conversion(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.OutputConversionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.OutputConversionProperty"]]:
         '''Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.OutputConversionProperty"]], jsii.get(self, "outputConversion"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.OutputConversionProperty"]], jsii.get(self, "outputConversion"))
 
     @output_conversion.setter
     def output_conversion(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.OutputConversionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.OutputConversionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7557543c524bd85a7f46e69222077c401410694a495823c77e5acfd9862974c8)
+            type_hints = cached_type_hints(_typecheckingstub__7557543c524bd85a7f46e69222077c401410694a495823c77e5acfd9862974c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputConversion", value) # pyright: ignore[reportArgumentType]
 
@@ -3671,7 +3680,7 @@ class CfnTransformer(
     @sample_document.setter
     def sample_document(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c2214b3717f190a30ff1cc1b45298208906824b8d93bfb181ad552ca17e7a7d)
+            type_hints = cached_type_hints(_typecheckingstub__3c2214b3717f190a30ff1cc1b45298208906824b8d93bfb181ad552ca17e7a7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sampleDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -3679,30 +3688,33 @@ class CfnTransformer(
     @jsii.member(jsii_name="sampleDocuments")
     def sample_documents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentsProperty"]]:
         '''Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentsProperty"]], jsii.get(self, "sampleDocuments"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentsProperty"]], jsii.get(self, "sampleDocuments"))
 
     @sample_documents.setter
     def sample_documents(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57efa3bbcc026952ce89a7f735c98632dc48e0c850f121c3bdc93c2fe4983d66)
+            type_hints = cached_type_hints(_typecheckingstub__57efa3bbcc026952ce89a7f735c98632dc48e0c850f121c3bdc93c2fe4983d66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sampleDocuments", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific transformer.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4ec179f77fa2da856518d97a9b83e88d0c96784ca483f80c070b398e5655b89)
+            type_hints = cached_type_hints(_typecheckingstub__d4ec179f77fa2da856518d97a9b83e88d0c96784ca483f80c070b398e5655b89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3715,7 +3727,7 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            x12: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            x12: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains advanced options for EDI processing.
 
@@ -3761,7 +3773,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bb01391868543c9042ef70dbd21634249f177cb7ac9ad6ddf2b2583c136e529b)
+                type_hints = cached_type_hints(_typecheckingstub__bb01391868543c9042ef70dbd21634249f177cb7ac9ad6ddf2b2583c136e529b)
                 check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if x12 is not None:
@@ -3770,13 +3782,13 @@ class CfnTransformer(
         @builtins.property
         def x12(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12AdvancedOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12AdvancedOptionsProperty"]]:
             '''A structure that contains X12-specific advanced options, such as split options for processing X12 EDI files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-advancedoptions.html#cfn-b2bi-transformer-advancedoptions-x12
             '''
             result = self._values.get("x12")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12AdvancedOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12AdvancedOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3798,7 +3810,7 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            x12_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            x12_details: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''
             :param x12_details: 
@@ -3820,7 +3832,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0a90856b523d4a63e08c58604f08df0cd4ca6647b6d8b2bf4c0c6238831a179a)
+                type_hints = cached_type_hints(_typecheckingstub__0a90856b523d4a63e08c58604f08df0cd4ca6647b6d8b2bf4c0c6238831a179a)
                 check_type(argname="argument x12_details", value=x12_details, expected_type=type_hints["x12_details"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "x12_details": x12_details,
@@ -3829,13 +3841,13 @@ class CfnTransformer(
         @builtins.property
         def x12_details(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12DetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12DetailsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-editype.html#cfn-b2bi-transformer-editype-x12details
             '''
             result = self._values.get("x12_details")
             assert result is not None, "Required property 'x12_details' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12DetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12DetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3857,7 +3869,7 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            x12: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+            x12: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12DetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A structure that contains the X12 transaction set and version.
 
@@ -3880,7 +3892,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4fd1bb8229a0f694482eb19adf96ad49a74295bc6d7acb9ae073773371f3b26e)
+                type_hints = cached_type_hints(_typecheckingstub__4fd1bb8229a0f694482eb19adf96ad49a74295bc6d7acb9ae073773371f3b26e)
                 check_type(argname="argument x12", value=x12, expected_type=type_hints["x12"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "x12": x12,
@@ -3889,13 +3901,13 @@ class CfnTransformer(
         @builtins.property
         def x12(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12DetailsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12DetailsProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-formatoptions.html#cfn-b2bi-transformer-formatoptions-x12
             '''
             result = self._values.get("x12")
             assert result is not None, "Required property 'x12' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12DetailsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12DetailsProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3922,8 +3934,8 @@ class CfnTransformer(
             self,
             *,
             from_format: builtins.str,
-            advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            format_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            format_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the input formatting options for an inbound transformer (takes an X12-formatted EDI document as input and converts it to JSON or XML.
 
@@ -3980,7 +3992,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__26660093b7b88e1d4689618f27b43e1e286cfcdb3adbc4c515c4b29513332a12)
+                type_hints = cached_type_hints(_typecheckingstub__26660093b7b88e1d4689618f27b43e1e286cfcdb3adbc4c515c4b29513332a12)
                 check_type(argname="argument from_format", value=from_format, expected_type=type_hints["from_format"])
                 check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
                 check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
@@ -4005,7 +4017,7 @@ class CfnTransformer(
         @builtins.property
         def advanced_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.AdvancedOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.AdvancedOptionsProperty"]]:
             '''Specifies advanced options for the input conversion process.
 
             These options provide additional control over how EDI files are processed during transformation.
@@ -4013,18 +4025,18 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-advancedoptions
             '''
             result = self._values.get("advanced_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.AdvancedOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.AdvancedOptionsProperty"]], result)
 
         @builtins.property
         def format_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.FormatOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.FormatOptionsProperty"]]:
             '''A structure that contains the formatting options for an inbound transformer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-inputconversion.html#cfn-b2bi-transformer-inputconversion-formatoptions
             '''
             result = self._values.get("format_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.FormatOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.FormatOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4073,7 +4085,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0ab01eed6892d54284d211380c1147d43f8287b1d284d94cfbe020e4733c0c53)
+                type_hints = cached_type_hints(_typecheckingstub__0ab01eed6892d54284d211380c1147d43f8287b1d284d94cfbe020e4733c0c53)
                 check_type(argname="argument template_language", value=template_language, expected_type=type_hints["template_language"])
                 check_type(argname="argument template", value=template, expected_type=type_hints["template"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4126,8 +4138,8 @@ class CfnTransformer(
             self,
             *,
             to_format: builtins.str,
-            advanced_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            format_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            advanced_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.AdvancedOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            format_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the formatting options for an outbound transformer (takes JSON or XML as input and converts it to an EDI document (currently only X12 format is supported).
 
@@ -4184,7 +4196,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dba363199b2c0b97d3ba296b1d26754261d2515646da5bce6b98f57eff2c1d59)
+                type_hints = cached_type_hints(_typecheckingstub__dba363199b2c0b97d3ba296b1d26754261d2515646da5bce6b98f57eff2c1d59)
                 check_type(argname="argument to_format", value=to_format, expected_type=type_hints["to_format"])
                 check_type(argname="argument advanced_options", value=advanced_options, expected_type=type_hints["advanced_options"])
                 check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
@@ -4209,23 +4221,23 @@ class CfnTransformer(
         @builtins.property
         def advanced_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.AdvancedOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.AdvancedOptionsProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html#cfn-b2bi-transformer-outputconversion-advancedoptions
             '''
             result = self._values.get("advanced_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.AdvancedOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.AdvancedOptionsProperty"]], result)
 
         @builtins.property
         def format_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.FormatOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.FormatOptionsProperty"]]:
             '''A structure that contains the X12 transaction set and version for the transformer output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-outputconversion.html#cfn-b2bi-transformer-outputconversion-formatoptions
             '''
             result = self._values.get("format_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.FormatOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.FormatOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4270,7 +4282,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a55402dd251ebf996fa89475f3a74890134f31b512e9f6a30126f32b8dc1195)
+                type_hints = cached_type_hints(_typecheckingstub__4a55402dd251ebf996fa89475f3a74890134f31b512e9f6a30126f32b8dc1195)
                 check_type(argname="argument input", value=input, expected_type=type_hints["input"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4318,7 +4330,7 @@ class CfnTransformer(
             self,
             *,
             bucket_name: builtins.str,
-            keys: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.SampleDocumentKeysProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            keys: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.SampleDocumentKeysProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Describes a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
 
@@ -4343,7 +4355,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6b7e60975e30fa176cbce1116829b7ea73143bc6b12e63afdd39fa252357221)
+                type_hints = cached_type_hints(_typecheckingstub__f6b7e60975e30fa176cbce1116829b7ea73143bc6b12e63afdd39fa252357221)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4364,14 +4376,14 @@ class CfnTransformer(
         @builtins.property
         def keys(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentKeysProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentKeysProperty"]]]:
             '''Contains an array of the Amazon S3 keys used to identify the location for your sample documents.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-sampledocuments.html#cfn-b2bi-transformer-sampledocuments-keys
             '''
             result = self._values.get("keys")
             assert result is not None, "Required property 'keys' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentKeysProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentKeysProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4396,8 +4408,8 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            split_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12SplitOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            validation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12ValidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            split_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12SplitOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            validation_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12ValidationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains advanced options specific to X12 EDI processing, such as splitting large X12 files into smaller units.
 
@@ -4440,7 +4452,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c)
+                type_hints = cached_type_hints(_typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c)
                 check_type(argname="argument split_options", value=split_options, expected_type=type_hints["split_options"])
                 check_type(argname="argument validation_options", value=validation_options, expected_type=type_hints["validation_options"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4452,7 +4464,7 @@ class CfnTransformer(
         @builtins.property
         def split_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12SplitOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12SplitOptionsProperty"]]:
             '''Specifies options for splitting X12 EDI files.
 
             These options control how large X12 files are divided into smaller, more manageable units.
@@ -4460,12 +4472,12 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html#cfn-b2bi-transformer-x12advancedoptions-splitoptions
             '''
             result = self._values.get("split_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12SplitOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12SplitOptionsProperty"]], result)
 
         @builtins.property
         def validation_options(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ValidationOptionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ValidationOptionsProperty"]]:
             '''Specifies validation options for X12 EDI processing.
 
             These options control how validation rules are applied during EDI document processing, including custom validation rules for element length constraints, code list validations, and element requirement checks.
@@ -4473,7 +4485,7 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12advancedoptions.html#cfn-b2bi-transformer-x12advancedoptions-validationoptions
             '''
             result = self._values.get("validation_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ValidationOptionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ValidationOptionsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4527,7 +4539,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c48f4b592271b72cef344b116f613ef8b316e53a42f875bfedd39b7997f45efe)
+                type_hints = cached_type_hints(_typecheckingstub__c48f4b592271b72cef344b116f613ef8b316e53a42f875bfedd39b7997f45efe)
                 check_type(argname="argument element_id", value=element_id, expected_type=type_hints["element_id"])
                 check_type(argname="argument codes_to_add", value=codes_to_add, expected_type=type_hints["codes_to_add"])
                 check_type(argname="argument codes_to_remove", value=codes_to_remove, expected_type=type_hints["codes_to_remove"])
@@ -4621,7 +4633,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6c52ecd7c7c399e4bebfaf5bf8793e65928fdad0c0133ff1ce55c05683b44ac7)
+                type_hints = cached_type_hints(_typecheckingstub__6c52ecd7c7c399e4bebfaf5bf8793e65928fdad0c0133ff1ce55c05683b44ac7)
                 check_type(argname="argument transaction_set", value=transaction_set, expected_type=type_hints["transaction_set"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4702,7 +4714,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__72c63a128e248c7d4c6f89fa17885156ba472036c367fb1554413409d5bd58db)
+                type_hints = cached_type_hints(_typecheckingstub__72c63a128e248c7d4c6f89fa17885156ba472036c367fb1554413409d5bd58db)
                 check_type(argname="argument element_id", value=element_id, expected_type=type_hints["element_id"])
                 check_type(argname="argument max_length", value=max_length, expected_type=type_hints["max_length"])
                 check_type(argname="argument min_length", value=min_length, expected_type=type_hints["min_length"])
@@ -4796,7 +4808,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba1e9be09bdff1beaa9be9fc2d4d3415f08bedf6d9c3ec96e9401508b7263a35)
+                type_hints = cached_type_hints(_typecheckingstub__ba1e9be09bdff1beaa9be9fc2d4d3415f08bedf6d9c3ec96e9401508b7263a35)
                 check_type(argname="argument element_position", value=element_position, expected_type=type_hints["element_position"])
                 check_type(argname="argument requirement", value=requirement, expected_type=type_hints["requirement"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4866,7 +4878,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0646dede)
+                type_hints = cached_type_hints(_typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0646dede)
                 check_type(argname="argument split_by", value=split_by, expected_type=type_hints["split_by"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if split_by is not None:
@@ -4903,7 +4915,7 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            validation_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12ValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            validation_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12ValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains configuration options for X12 EDI validation.
 
@@ -4942,7 +4954,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3b2db2001546ea5c18521043ed2c413bd208851812e5b62f93dea507652b0a20)
+                type_hints = cached_type_hints(_typecheckingstub__3b2db2001546ea5c18521043ed2c413bd208851812e5b62f93dea507652b0a20)
                 check_type(argname="argument validation_rules", value=validation_rules, expected_type=type_hints["validation_rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if validation_rules is not None:
@@ -4951,7 +4963,7 @@ class CfnTransformer(
         @builtins.property
         def validation_rules(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ValidationRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ValidationRuleProperty"]]]]:
             '''Specifies a list of validation rules to apply during EDI document processing.
 
             These rules can include code list modifications, element length constraints, and element requirement changes.
@@ -4959,7 +4971,7 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationoptions.html#cfn-b2bi-transformer-x12validationoptions-validationrules
             '''
             result = self._values.get("validation_rules")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ValidationRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ValidationRuleProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4985,9 +4997,9 @@ class CfnTransformer(
         def __init__(
             self,
             *,
-            code_list_validation_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12CodeListValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            element_length_validation_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12ElementLengthValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            element_requirement_validation_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.X12ElementRequirementValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            code_list_validation_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12CodeListValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            element_length_validation_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12ElementLengthValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            element_requirement_validation_rule: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.X12ElementRequirementValidationRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents a single validation rule that can be applied during X12 EDI processing.
 
@@ -5026,7 +5038,7 @@ class CfnTransformer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db78808abaa6a)
+                type_hints = cached_type_hints(_typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db78808abaa6a)
                 check_type(argname="argument code_list_validation_rule", value=code_list_validation_rule, expected_type=type_hints["code_list_validation_rule"])
                 check_type(argname="argument element_length_validation_rule", value=element_length_validation_rule, expected_type=type_hints["element_length_validation_rule"])
                 check_type(argname="argument element_requirement_validation_rule", value=element_requirement_validation_rule, expected_type=type_hints["element_requirement_validation_rule"])
@@ -5041,7 +5053,7 @@ class CfnTransformer(
         @builtins.property
         def code_list_validation_rule(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12CodeListValidationRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12CodeListValidationRuleProperty"]]:
             '''Specifies a code list validation rule that modifies the allowed code values for a specific X12 element.
 
             This rule enables you to customize which codes are considered valid for an element, allowing for trading partner-specific code requirements.
@@ -5049,12 +5061,12 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-codelistvalidationrule
             '''
             result = self._values.get("code_list_validation_rule")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12CodeListValidationRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12CodeListValidationRuleProperty"]], result)
 
         @builtins.property
         def element_length_validation_rule(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ElementLengthValidationRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ElementLengthValidationRuleProperty"]]:
             '''Specifies an element length validation rule that defines custom length constraints for a specific X12 element.
 
             This rule allows you to enforce minimum and maximum length requirements that may differ from the standard X12 specification.
@@ -5062,12 +5074,12 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-elementlengthvalidationrule
             '''
             result = self._values.get("element_length_validation_rule")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ElementLengthValidationRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ElementLengthValidationRuleProperty"]], result)
 
         @builtins.property
         def element_requirement_validation_rule(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ElementRequirementValidationRuleProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ElementRequirementValidationRuleProperty"]]:
             '''Specifies an element requirement validation rule that modifies whether a specific X12 element is required or optional within a segment.
 
             This rule provides flexibility to accommodate different trading partner requirements for element presence.
@@ -5075,7 +5087,7 @@ class CfnTransformer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-b2bi-transformer-x12validationrule.html#cfn-b2bi-transformer-x12validationrule-elementrequirementvalidationrule
             '''
             result = self._values.get("element_requirement_validation_rule")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.X12ElementRequirementValidationRuleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.X12ElementRequirementValidationRuleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5112,15 +5124,15 @@ class CfnTransformerProps:
         *,
         name: builtins.str,
         status: builtins.str,
-        edi_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        edi_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.EdiTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         file_format: typing.Optional[builtins.str] = None,
-        input_conversion: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.InputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.MappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_conversion: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.InputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mapping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.MappingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         mapping_template: typing.Optional[builtins.str] = None,
-        output_conversion: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.OutputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_conversion: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.OutputConversionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sample_document: typing.Optional[builtins.str] = None,
-        sample_documents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTransformer.SampleDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sample_documents: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTransformer.SampleDocumentsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTransformer``.
 
@@ -5256,7 +5268,7 @@ class CfnTransformerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21)
+            type_hints = cached_type_hints(_typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd2954e7cc21)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument edi_type", value=edi_type, expected_type=type_hints["edi_type"])
@@ -5316,7 +5328,7 @@ class CfnTransformerProps:
     @builtins.property
     def edi_type(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.EdiTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.EdiTypeProperty"]]:
         '''
         :deprecated: this property has been deprecated
 
@@ -5324,7 +5336,7 @@ class CfnTransformerProps:
         :stability: deprecated
         '''
         result = self._values.get("edi_type")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.EdiTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.EdiTypeProperty"]], result)
 
     @builtins.property
     def file_format(self) -> typing.Optional[builtins.str]:
@@ -5340,24 +5352,24 @@ class CfnTransformerProps:
     @builtins.property
     def input_conversion(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.InputConversionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.InputConversionProperty"]]:
         '''Returns a structure that contains the format options for the transformation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-inputconversion
         '''
         result = self._values.get("input_conversion")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.InputConversionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.InputConversionProperty"]], result)
 
     @builtins.property
     def mapping(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.MappingProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.MappingProperty"]]:
         '''Returns the structure that contains the mapping template and its language (either XSLT or JSONATA).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-mapping
         '''
         result = self._values.get("mapping")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.MappingProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.MappingProperty"]], result)
 
     @builtins.property
     def mapping_template(self) -> typing.Optional[builtins.str]:
@@ -5376,13 +5388,13 @@ class CfnTransformerProps:
     @builtins.property
     def output_conversion(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.OutputConversionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.OutputConversionProperty"]]:
         '''Returns the ``OutputConversion`` object, which contains the format options for the outbound transformation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-outputconversion
         '''
         result = self._values.get("output_conversion")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.OutputConversionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.OutputConversionProperty"]], result)
 
     @builtins.property
     def sample_document(self) -> typing.Optional[builtins.str]:
@@ -5401,16 +5413,16 @@ class CfnTransformerProps:
     @builtins.property
     def sample_documents(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentsProperty"]]:
         '''Returns a structure that contains the Amazon S3 bucket and an array of the corresponding keys used to identify the location for your sample documents.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-sampledocuments
         '''
         result = self._values.get("sample_documents")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTransformer.SampleDocumentsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTransformer.SampleDocumentsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A key-value pair for a specific transformer.
 
         Tags are metadata that you can use to search for and group capabilities for various purposes.
@@ -5418,7 +5430,7 @@ class CfnTransformerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-b2bi-transformer.html#cfn-b2bi-transformer-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5449,17 +5461,17 @@ def _typecheckingstub__0e2c877d8f658a8bd5b2b87fa89276114a47d5d48d6051351c42b159c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     type: builtins.str,
-    instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instructions_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8bcc4a343b2fef67007379dbe7d4f17b8cba46535cf982ff85c33bfdd5bfc97b(
-    resource: _ICapabilityRef_a9e3b056,
+    resource: _aws_b2bi_e173e736.ICapabilityRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5471,7 +5483,7 @@ def _typecheckingstub__0c6c25c1662d39e742555c1b4117bfeb9a4f0adda160dd46d298975d3
     pass
 
 def _typecheckingstub__69250f68db11c0c5d1b5dc6e2fd42eb03c44b04345584670f06ca66a9283eb35(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5483,7 +5495,7 @@ def _typecheckingstub__e7a0734db8cefbd4089ea9d0b9242a32f9ce5d439e96d8bf60ea3bf47
     pass
 
 def _typecheckingstub__3e6a4e9debdcf2674a26e8ca0b9f4a771680d6f10a5d05a55ab8bc8c5063b78a(
-    value: typing.Union[_IResolvable_da3f097b, CfnCapability.CapabilityConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCapability.CapabilityConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5501,30 +5513,30 @@ def _typecheckingstub__c0ac989543b8899d87e7022c05ecf79b8ac846fbb7cbefb25e6bf8a03
     pass
 
 def _typecheckingstub__933e64c6fb43bdf92fe13796dc8381041bc9d46c8db437f72d8df9acf46d8ef9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCapability.S3LocationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCapability.S3LocationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9706dcfa23b620c2db12e1df4414f3a9f0b63bdbd7e3a8ac3944f66549703153(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b39bfeb55ed086d5de5f443fd847773c175cdd988755a308ee0889c0b428322e(
     *,
-    edi: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.EdiConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    edi: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.EdiConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6057bec99d8a1adeb15f82ebd6a5c206f528d80ccf6eaebcc8e44d83d415ec72(
     *,
-    input_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
-    output_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    input_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    output_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
     transformer_id: builtins.str,
-    type: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]],
     capability_direction: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5532,7 +5544,7 @@ def _typecheckingstub__6057bec99d8a1adeb15f82ebd6a5c206f528d80ccf6eaebcc8e44d83d
 
 def _typecheckingstub__a9ca50562e4e831dbcf7fdb06d87922ec9144632d5572bc4430820884ab15edb(
     *,
-    x12_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    x12_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5555,11 +5567,11 @@ def _typecheckingstub__7a92fd26779dc45009be0b9ca0aefb7b988fae928b06b6b46f41995a7
 
 def _typecheckingstub__83b1800b6ac31ea75ae49999ff7054acf5205e3155bfc92964d45204eac123bb(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.CapabilityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     type: builtins.str,
-    instructions_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instructions_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5572,15 +5584,15 @@ def _typecheckingstub__187ce4b824b0d27162e457adfee9761451ebc9ba1fbb31b215de741e2
     email: builtins.str,
     name: builtins.str,
     profile_id: builtins.str,
-    capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capability_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     phone: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__398ccb3e1e18bbd3a8b4c230d176f5c735b4006baca0ffe05ee37dd48a2c7c92(
-    resource: _IPartnershipRef_05c55884,
+    resource: _aws_b2bi_e173e736.IPartnershipRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5592,7 +5604,7 @@ def _typecheckingstub__f5d5cfc7858e8ced04690bb6e8052b055ca761b557d01b1b38865c8c7
     pass
 
 def _typecheckingstub__3d250a045aef9262deb5ac9bdfc02b08a37a777ba8e105b1406ebfad2ee8edc9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5628,7 +5640,7 @@ def _typecheckingstub__126b2c043f2647e2a052eca52ec8432ea60287721a3e645fe4dd65583
     pass
 
 def _typecheckingstub__d35bf90164602b28a7873c9bbcf2cebf61f26952d369e2a905926b650b1a22e9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPartnership.CapabilityOptionsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPartnership.CapabilityOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5640,29 +5652,29 @@ def _typecheckingstub__5555f48f20bc825c44c857244fae3207c272ec76cbe060a463105d2c8
     pass
 
 def _typecheckingstub__fc0c0a6e8431d11899a318046b450bc4efc00486d9f20286940067c7fa335411(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__489c8d62d1ea0d603790b535b3f02b6d30eee2c7a02cd1b1d2a497a7f9f54c2b(
     *,
-    inbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outbound_edi: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.OutboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inbound_edi: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outbound_edi: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.OutboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b6c324487b61389216d4c37a2c38661a9fd27a782f0b1d30b4da2197c02472ca(
     *,
-    x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    x12: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12InboundEdiOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__32687b2a777cf504a9e11c6386b8aa7795645f807660aecf3f5bdddf1b953268(
     *,
-    x12: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12EnvelopeProperty, typing.Dict[builtins.str, typing.Any]]],
+    x12: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12EnvelopeProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5704,8 +5716,8 @@ def _typecheckingstub__1c64e6cc29ab2abf7a0ebb687d8309174a673c2096776d261df47c9bb
 
 def _typecheckingstub__30e9a528379ffdff1b0693f52a617de66a178b919d5d3ddc1c68309cc0a86afc(
     *,
-    common: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12OutboundEdiHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    wrap_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.WrapOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    common: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12OutboundEdiHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wrap_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.WrapOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5721,7 +5733,7 @@ def _typecheckingstub__0b107041a5b51efd672a9b2f3b5bb8ce2f8376a1dc4cddc6a58a089e0
 
 def _typecheckingstub__25951703b6b17888b8fded1f4b04ca4482b7f065fc950fd49d36619cde5b1ad6(
     *,
-    acknowledgment_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12AcknowledgmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    acknowledgment_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12AcknowledgmentOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5741,12 +5753,12 @@ def _typecheckingstub__2cd06c107bbc9de62cfdd484dd7527f5641c4d03e973675f4638b3441
 
 def _typecheckingstub__8e80431a1b65f39f118b4a0b397a523502dcc49a5197848bd82eff40dc153d1c(
     *,
-    control_numbers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12ControlNumbersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    delimiters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12DelimitersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    functional_group_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12FunctionalGroupHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    control_numbers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12ControlNumbersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    delimiters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12DelimitersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    functional_group_headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12FunctionalGroupHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     gs05_time_format: typing.Optional[builtins.str] = None,
-    interchange_control_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.X12InterchangeControlHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    validate_edi: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    interchange_control_headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.X12InterchangeControlHeadersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validate_edi: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5757,9 +5769,9 @@ def _typecheckingstub__18d814bec885d4c9defe3c391c4892f53df8f0ca2dd0011baaccd4959
     email: builtins.str,
     name: builtins.str,
     profile_id: builtins.str,
-    capability_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    capability_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPartnership.CapabilityOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     phone: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5773,13 +5785,13 @@ def _typecheckingstub__6e54fea50428e19dd273372ef5650a89d4610c6422804677c9be788a7
     name: builtins.str,
     phone: builtins.str,
     email: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c8922df630e011cc3b27789507237cfb6c7eefd5eed23c92e926403cb3dfc0f5(
-    resource: _IProfileRef_a1a5e2cf,
+    resource: _aws_b2bi_e173e736.IProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5791,7 +5803,7 @@ def _typecheckingstub__8df0b383736b5c6b94acda23de670de97e6e5d114aa805e21eecea2c2
     pass
 
 def _typecheckingstub__5271088abc585a3db11af1eacb47274605ad9acc14f75da9da9239d3a3697541(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5833,7 +5845,7 @@ def _typecheckingstub__e0936f8c78a965c88641d39b7a6e2d4e7ad2bd7f48de6870270d842ba
     pass
 
 def _typecheckingstub__8b70ada00d6d35989093b4f1b185f6deaa1f9c1404a82bc792e6f4dc53684b45(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5845,7 +5857,7 @@ def _typecheckingstub__85c233c5836835af7c38d9812c75649ec2fc027fa20a2af7be215694f
     name: builtins.str,
     phone: builtins.str,
     email: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5856,21 +5868,21 @@ def _typecheckingstub__fb0d6d0f8083b8bc38eb61c54d65c6e72d668ba067f31569d0213bf7d
     *,
     name: builtins.str,
     status: builtins.str,
-    edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    edi_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     file_format: typing.Optional[builtins.str] = None,
-    input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_conversion: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mapping_template: typing.Optional[builtins.str] = None,
-    output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_conversion: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sample_document: typing.Optional[builtins.str] = None,
-    sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sample_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__92f752500638eb567622e8779c86622588a63cad00a53ca24b32e826fc78285f(
-    resource: _ITransformerRef_17b6e3da,
+    resource: _aws_b2bi_e173e736.ITransformerRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5882,7 +5894,7 @@ def _typecheckingstub__d978174afcd54f04263000a856e361415c8dcf4f962c6110bc292fce8
     pass
 
 def _typecheckingstub__cd0b05118fb2d551f3054a5c85d10fe283c5ca2b9e830ef5a31a1eb7e66fce63(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5906,7 +5918,7 @@ def _typecheckingstub__fa8b2ecdc80ffc3d3b7ddf2cc4493b19df8fa02a3f0dbcf2ea74744b5
     pass
 
 def _typecheckingstub__e29c7d30dfbbc72fddf07313c1a9cb2eb14ed42c55e23bc13564603f6928f89c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.EdiTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformer.EdiTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5918,13 +5930,13 @@ def _typecheckingstub__f2fb21eeda84a5b3d95ee7d5d0e82a546522729b7fd5930fd6ed06805
     pass
 
 def _typecheckingstub__056cb33326d8ab962996a430d43268cf524779e42269f6fd11778cc6ada79b5f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.InputConversionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformer.InputConversionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e387342b420c26f3bab05e439e7cdb6476c7ca408b9af77f2e83cd5901615494(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.MappingProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformer.MappingProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5936,7 +5948,7 @@ def _typecheckingstub__685af615cb66c99ad9251a37e75e2851545a2603e7b07280b617d52d7
     pass
 
 def _typecheckingstub__7557543c524bd85a7f46e69222077c401410694a495823c77e5acfd9862974c8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.OutputConversionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformer.OutputConversionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5948,34 +5960,34 @@ def _typecheckingstub__3c2214b3717f190a30ff1cc1b45298208906824b8d93bfb181ad552ca
     pass
 
 def _typecheckingstub__57efa3bbcc026952ce89a7f735c98632dc48e0c850f121c3bdc93c2fe4983d66(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTransformer.SampleDocumentsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTransformer.SampleDocumentsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d4ec179f77fa2da856518d97a9b83e88d0c96784ca483f80c070b398e5655b89(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bb01391868543c9042ef70dbd21634249f177cb7ac9ad6ddf2b2583c136e529b(
     *,
-    x12: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    x12: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0a90856b523d4a63e08c58604f08df0cd4ca6647b6d8b2bf4c0c6238831a179a(
     *,
-    x12_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    x12_details: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4fd1bb8229a0f694482eb19adf96ad49a74295bc6d7acb9ae073773371f3b26e(
     *,
-    x12: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    x12: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12DetailsProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5983,8 +5995,8 @@ def _typecheckingstub__4fd1bb8229a0f694482eb19adf96ad49a74295bc6d7acb9ae07377337
 def _typecheckingstub__26660093b7b88e1d4689618f27b43e1e286cfcdb3adbc4c515c4b29513332a12(
     *,
     from_format: builtins.str,
-    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    format_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6000,8 +6012,8 @@ def _typecheckingstub__0ab01eed6892d54284d211380c1147d43f8287b1d284d94cfbe020e47
 def _typecheckingstub__dba363199b2c0b97d3ba296b1d26754261d2515646da5bce6b98f57eff2c1d59(
     *,
     to_format: builtins.str,
-    advanced_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    advanced_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.AdvancedOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    format_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6017,15 +6029,15 @@ def _typecheckingstub__4a55402dd251ebf996fa89475f3a74890134f31b512e9f6a30126f32b
 def _typecheckingstub__f6b7e60975e30fa176cbce1116829b7ea73143bc6b12e63afdd39fa252357221(
     *,
     bucket_name: builtins.str,
-    keys: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentKeysProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    keys: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.SampleDocumentKeysProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0d6cdec7bccb6d811748cbb3f28ec5b4408f4496a924455516c3f90fd268b81c(
     *,
-    split_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12SplitOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    validation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ValidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    split_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12SplitOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    validation_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12ValidationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6073,16 +6085,16 @@ def _typecheckingstub__8eda5d523e00df1c59382ff9b447e68e4b9960ae993e8a6bceb3337c0
 
 def _typecheckingstub__3b2db2001546ea5c18521043ed2c413bd208851812e5b62f93dea507652b0a20(
     *,
-    validation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    validation_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12ValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b7a900e7e6c6c112b85cca6ec6d959dce99dd4b93c53e0342e0db78808abaa6a(
     *,
-    code_list_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12CodeListValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    element_length_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementLengthValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    element_requirement_validation_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.X12ElementRequirementValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    code_list_validation_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12CodeListValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    element_length_validation_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12ElementLengthValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    element_requirement_validation_rule: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.X12ElementRequirementValidationRuleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6091,15 +6103,15 @@ def _typecheckingstub__69e342f03b6075725a81423ccb4db79ba04bb935c9a3fd129f49fd295
     *,
     name: builtins.str,
     status: builtins.str,
-    edi_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    edi_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.EdiTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     file_format: typing.Optional[builtins.str] = None,
-    input_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_conversion: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.InputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mapping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.MappingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mapping_template: typing.Optional[builtins.str] = None,
-    output_conversion: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_conversion: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.OutputConversionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sample_document: typing.Optional[builtins.str] = None,
-    sample_documents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sample_documents: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTransformer.SampleDocumentsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

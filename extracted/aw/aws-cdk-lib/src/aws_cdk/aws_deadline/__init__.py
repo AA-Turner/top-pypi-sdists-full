@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,64 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_deadline import (
-    FarmReference as _FarmReference_8cd16459,
-    FleetReference as _FleetReference_47de59d9,
-    IFarmRef as _IFarmRef_21a39bdf,
-    IFleetRef as _IFleetRef_7c29970e,
-    ILicenseEndpointRef as _ILicenseEndpointRef_6214b46a,
-    ILimitRef as _ILimitRef_e1123f12,
-    IMeteredProductRef as _IMeteredProductRef_9ac23750,
-    IMonitorRef as _IMonitorRef_af35d2ec,
-    IQueueEnvironmentRef as _IQueueEnvironmentRef_f24a8344,
-    IQueueFleetAssociationRef as _IQueueFleetAssociationRef_9b9c74cf,
-    IQueueLimitAssociationRef as _IQueueLimitAssociationRef_9d6777b6,
-    IQueueRef as _IQueueRef_00ca677f,
-    IStorageProfileRef as _IStorageProfileRef_e09d36f2,
-    LicenseEndpointReference as _LicenseEndpointReference_98798f08,
-    LimitReference as _LimitReference_af2940e5,
-    MeteredProductReference as _MeteredProductReference_a77c5423,
-    MonitorReference as _MonitorReference_53b151fe,
-    QueueEnvironmentReference as _QueueEnvironmentReference_ed60dec7,
-    QueueFleetAssociationReference as _QueueFleetAssociationReference_953e1b0e,
-    QueueLimitAssociationReference as _QueueLimitAssociationReference_aeea1939,
-    QueueReference as _QueueReference_c081843e,
-    StorageProfileReference as _StorageProfileReference_4e288a9f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_deadline as _aws_deadline_b02a7487
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_deadline_b02a7487 = _LazyImport("aws_cdk.interfaces.aws_deadline")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IFarmRef_21a39bdf, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IFarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFarm(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnFarm",
 ):
@@ -147,7 +121,7 @@ class CfnFarm(
         cost_scale_factor: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Farm``.
 
@@ -160,7 +134,7 @@ class CfnFarm(
         :param tags: The tags to add to your farm. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cfafb7690986cd3ddb4ba2de814f300f2faab0827e01a86f2f528af27544d1)
+            type_hints = cached_type_hints(_typecheckingstub__c8cfafb7690986cd3ddb4ba2de814f300f2faab0827e01a86f2f528af27544d1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFarmProps(
@@ -175,12 +149,12 @@ class CfnFarm(
 
     @jsii.member(jsii_name="arnForFarm")
     @builtins.classmethod
-    def arn_for_farm(cls, resource: "_IFarmRef_21a39bdf") -> builtins.str:
+    def arn_for_farm(cls, resource: "_aws_deadline_b02a7487.IFarmRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6798bafbe4fbee09c44c9bd3ad9e001cecc3ae9d5006b942f13bf08cda9fc8dd)
+            type_hints = cached_type_hints(_typecheckingstub__6798bafbe4fbee09c44c9bd3ad9e001cecc3ae9d5006b942f13bf08cda9fc8dd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFarm", [resource]))
 
@@ -192,18 +166,18 @@ class CfnFarm(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee256500801970980c207be2e20d31e327cf613ba506f32de6f737d5cfb8532)
+            type_hints = cached_type_hints(_typecheckingstub__6ee256500801970980c207be2e20d31e327cf613ba506f32de6f737d5cfb8532)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFarm", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f6b1d970d70d840fd22a69886b9553ac48f2e83d63e421ea979261b3bddf1d0)
+            type_hints = cached_type_hints(_typecheckingstub__4f6b1d970d70d840fd22a69886b9553ac48f2e83d63e421ea979261b3bddf1d0)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -216,7 +190,7 @@ class CfnFarm(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46eb3e8dead939804597fc70dfb9f5b385b7dfeedc4caf4b49813000440c7a7e)
+            type_hints = cached_type_hints(_typecheckingstub__46eb3e8dead939804597fc70dfb9f5b385b7dfeedc4caf4b49813000440c7a7e)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -246,9 +220,9 @@ class CfnFarm(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -262,9 +236,9 @@ class CfnFarm(
 
     @builtins.property
     @jsii.member(jsii_name="farmRef")
-    def farm_ref(self) -> "_FarmReference_8cd16459":
+    def farm_ref(self) -> "_aws_deadline_b02a7487.FarmReference":
         '''A reference to a Farm resource.'''
-        return typing.cast("_FarmReference_8cd16459", jsii.get(self, "farmRef"))
+        return typing.cast("_aws_deadline_b02a7487.FarmReference", jsii.get(self, "farmRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -275,7 +249,7 @@ class CfnFarm(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e3487107fca3fbd8f0f2e3e65063da63a41a523cd6d5ffd0aef63e8ec4c680c)
+            type_hints = cached_type_hints(_typecheckingstub__7e3487107fca3fbd8f0f2e3e65063da63a41a523cd6d5ffd0aef63e8ec4c680c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -287,7 +261,7 @@ class CfnFarm(
     @cost_scale_factor.setter
     def cost_scale_factor(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__483c2d48f77fab886719507154111caa635654c8e3afd289a37eadc0a9e52ac0)
+            type_hints = cached_type_hints(_typecheckingstub__483c2d48f77fab886719507154111caa635654c8e3afd289a37eadc0a9e52ac0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "costScaleFactor", value) # pyright: ignore[reportArgumentType]
 
@@ -300,7 +274,7 @@ class CfnFarm(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__225609e046f467aa1cff6857451a01a60bf944d05094eaea191c40155a7b5ee4)
+            type_hints = cached_type_hints(_typecheckingstub__225609e046f467aa1cff6857451a01a60bf944d05094eaea191c40155a7b5ee4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -313,20 +287,23 @@ class CfnFarm(
     @kms_key_arn.setter
     def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bd09d08fc701cc061b023ad6a5d72db4516ff09e295b470365e390436475464)
+            type_hints = cached_type_hints(_typecheckingstub__1bd09d08fc701cc061b023ad6a5d72db4516ff09e295b470365e390436475464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your farm.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e0688a8dc8cdc7f618bc0975895ced63b43e9c85cd1b97a6a84272f1b38fefe)
+            type_hints = cached_type_hints(_typecheckingstub__0e0688a8dc8cdc7f618bc0975895ced63b43e9c85cd1b97a6a84272f1b38fefe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -350,7 +327,7 @@ class CfnFarmProps:
         cost_scale_factor: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFarm``.
 
@@ -384,7 +361,7 @@ class CfnFarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85eb8ab8e233d51550c535a34f621e657ea5dfc47e9b977b5a9b73c3be4b9b4f)
+            type_hints = cached_type_hints(_typecheckingstub__85eb8ab8e233d51550c535a34f621e657ea5dfc47e9b977b5a9b73c3be4b9b4f)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument cost_scale_factor", value=cost_scale_factor, expected_type=type_hints["cost_scale_factor"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -451,7 +428,7 @@ class CfnFarmProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your farm.
 
         Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -459,7 +436,7 @@ class CfnFarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-farm.html#cfn-deadline-farm-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -473,9 +450,9 @@ class CfnFarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFleetRef_7c29970e, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IFleetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnFleet(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnFleet",
 ):
@@ -654,15 +631,15 @@ class CfnFleet(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         display_name: builtins.str,
         farm_id: builtins.str,
         max_worker_count: jsii.Number,
         role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        host_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.HostConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        host_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.HostConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         min_worker_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Fleet``.
 
@@ -679,7 +656,7 @@ class CfnFleet(
         :param tags: The tags to add to your fleet. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b982dfa2ac88548efd13c63c65f7144bf79a74dd670eebe5a13537f1fa38090a)
+            type_hints = cached_type_hints(_typecheckingstub__b982dfa2ac88548efd13c63c65f7144bf79a74dd670eebe5a13537f1fa38090a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFleetProps(
@@ -698,12 +675,15 @@ class CfnFleet(
 
     @jsii.member(jsii_name="arnForFleet")
     @builtins.classmethod
-    def arn_for_fleet(cls, resource: "_IFleetRef_7c29970e") -> builtins.str:
+    def arn_for_fleet(
+        cls,
+        resource: "_aws_deadline_b02a7487.IFleetRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e5a869a388623237c964a690fcf41f8f17f05f4fb03b112a17f4dee1feff8a7)
+            type_hints = cached_type_hints(_typecheckingstub__0e5a869a388623237c964a690fcf41f8f17f05f4fb03b112a17f4dee1feff8a7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFleet", [resource]))
 
@@ -715,18 +695,18 @@ class CfnFleet(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7806a60a45b754051274341f8ce662f62919548a5f56d5143f5e47ba5f4a2606)
+            type_hints = cached_type_hints(_typecheckingstub__7806a60a45b754051274341f8ce662f62919548a5f56d5143f5e47ba5f4a2606)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFleet", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c7467a1be46332c11edfbc2f2073b67842b79e2b6dc68d7fa0312c8a5b8c595)
+            type_hints = cached_type_hints(_typecheckingstub__1c7467a1be46332c11edfbc2f2073b67842b79e2b6dc68d7fa0312c8a5b8c595)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -739,7 +719,7 @@ class CfnFleet(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__624f83add0edac45b93d9318e64f5196dd2045c50f094e69787beb05aa8c11d7)
+            type_hints = cached_type_hints(_typecheckingstub__624f83add0edac45b93d9318e64f5196dd2045c50f094e69787beb05aa8c11d7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -760,11 +740,11 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="attrCapabilities")
-    def attr_capabilities(self) -> "_IResolvable_da3f097b":
+    def attr_capabilities(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: Capabilities
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCapabilities"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCapabilities"))
 
     @builtins.property
     @jsii.member(jsii_name="attrFleetId")
@@ -804,9 +784,9 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -820,25 +800,25 @@ class CfnFleet(
 
     @builtins.property
     @jsii.member(jsii_name="fleetRef")
-    def fleet_ref(self) -> "_FleetReference_47de59d9":
+    def fleet_ref(self) -> "_aws_deadline_b02a7487.FleetReference":
         '''A reference to a Fleet resource.'''
-        return typing.cast("_FleetReference_47de59d9", jsii.get(self, "fleetRef"))
+        return typing.cast("_aws_deadline_b02a7487.FleetReference", jsii.get(self, "fleetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetConfigurationProperty"]:
         '''The configuration details for the fleet.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetConfigurationProperty"], jsii.get(self, "configuration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetConfigurationProperty"], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e2fe844317b39494e7f7a1851d6e5842bc0627b2cc937a6709042cb43a27a3f)
+            type_hints = cached_type_hints(_typecheckingstub__9e2fe844317b39494e7f7a1851d6e5842bc0627b2cc937a6709042cb43a27a3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -851,7 +831,7 @@ class CfnFleet(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d501705678e5cc3f1a305c922a22f7ba207d560bdb5761b3ce0e042852101fa)
+            type_hints = cached_type_hints(_typecheckingstub__8d501705678e5cc3f1a305c922a22f7ba207d560bdb5761b3ce0e042852101fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -864,7 +844,7 @@ class CfnFleet(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30ce1167517d9e9a39c50fdbd55b565e28d3f5dca61d4b795926951043d1cc2d)
+            type_hints = cached_type_hints(_typecheckingstub__30ce1167517d9e9a39c50fdbd55b565e28d3f5dca61d4b795926951043d1cc2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -877,7 +857,7 @@ class CfnFleet(
     @max_worker_count.setter
     def max_worker_count(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__435144cf5095e3c8ecf5073fcb2ee802817fde90c7c30f2fa7b579407c82a89a)
+            type_hints = cached_type_hints(_typecheckingstub__435144cf5095e3c8ecf5073fcb2ee802817fde90c7c30f2fa7b579407c82a89a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxWorkerCount", value) # pyright: ignore[reportArgumentType]
 
@@ -890,7 +870,7 @@ class CfnFleet(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__471ed3a4e000dd618e2be0578e42aa2e8288223309b77395023cba44dff3a738)
+            type_hints = cached_type_hints(_typecheckingstub__471ed3a4e000dd618e2be0578e42aa2e8288223309b77395023cba44dff3a738)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -903,7 +883,7 @@ class CfnFleet(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__084da5a242d843b332de24a8c53af7e8830cd00d0dca22235f0c3d665732570b)
+            type_hints = cached_type_hints(_typecheckingstub__084da5a242d843b332de24a8c53af7e8830cd00d0dca22235f0c3d665732570b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -911,17 +891,17 @@ class CfnFleet(
     @jsii.member(jsii_name="hostConfiguration")
     def host_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.HostConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.HostConfigurationProperty"]]:
         '''Provides a script that runs as a worker is starting up that you can use to provide additional configuration for workers in your fleet.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.HostConfigurationProperty"]], jsii.get(self, "hostConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.HostConfigurationProperty"]], jsii.get(self, "hostConfiguration"))
 
     @host_configuration.setter
     def host_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.HostConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.HostConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cb78c2488fd0676b6c07d92f69a0cf51c19a186b0a6d2f13bbc62aec7608cfe)
+            type_hints = cached_type_hints(_typecheckingstub__5cb78c2488fd0676b6c07d92f69a0cf51c19a186b0a6d2f13bbc62aec7608cfe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -934,20 +914,23 @@ class CfnFleet(
     @min_worker_count.setter
     def min_worker_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e98aa63695c4cd93c0aae20c0cd7e90226c1100540a8732e0be19b9d6cc5e094)
+            type_hints = cached_type_hints(_typecheckingstub__e98aa63695c4cd93c0aae20c0cd7e90226c1100540a8732e0be19b9d6cc5e094)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minWorkerCount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your fleet.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9ddff2a0e8eb5e8397bf64d0158ac4f8fba30ee673a959c2d550657e6f0248)
+            type_hints = cached_type_hints(_typecheckingstub__9c9ddff2a0e8eb5e8397bf64d0158ac4f8fba30ee673a959c2d550657e6f0248)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -960,8 +943,8 @@ class CfnFleet(
         def __init__(
             self,
             *,
-            selections: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.AcceleratorSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.AcceleratorCountRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            selections: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.AcceleratorSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            count: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.AcceleratorCountRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Provides information about the GPU accelerators used for jobs processed by a fleet.
 
@@ -1004,7 +987,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8521be2862d68a89d6ed0657d975b7b035f5921c08c4e707e47a6d67e5feb805)
+                type_hints = cached_type_hints(_typecheckingstub__8521be2862d68a89d6ed0657d975b7b035f5921c08c4e707e47a6d67e5feb805)
                 check_type(argname="argument selections", value=selections, expected_type=type_hints["selections"])
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1016,7 +999,7 @@ class CfnFleet(
         @builtins.property
         def selections(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorSelectionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorSelectionProperty"]]]:
             '''A list of accelerator capabilities requested for this fleet.
 
             Only Amazon Elastic Compute Cloud instances that provide these capabilities will be used. For example, if you specify both L4 and T4 chips, AWS Deadline Cloud will use Amazon EC2 instances that have either the L4 or the T4 chip installed.
@@ -1030,12 +1013,12 @@ class CfnFleet(
             '''
             result = self._values.get("selections")
             assert result is not None, "Required property 'selections' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorSelectionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorSelectionProperty"]]], result)
 
         @builtins.property
         def count(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCountRangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCountRangeProperty"]]:
             '''The number of GPU accelerators specified for worker hosts in this fleet.
 
             .. epigraph::
@@ -1045,7 +1028,7 @@ class CfnFleet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-acceleratorcapabilities.html#cfn-deadline-fleet-acceleratorcapabilities-count
             '''
             result = self._values.get("count")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCountRangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCountRangeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1092,7 +1075,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f4d7e76219e8cce8e44e215b08cd1fef54b62ca3d48dbbc0bc8b3e6040db253e)
+                type_hints = cached_type_hints(_typecheckingstub__f4d7e76219e8cce8e44e215b08cd1fef54b62ca3d48dbbc0bc8b3e6040db253e)
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1165,7 +1148,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b2b0737e85d3743e0f3220af4b712f14bd4956008f2c4ab7d1b391c37229b79c)
+                type_hints = cached_type_hints(_typecheckingstub__b2b0737e85d3743e0f3220af4b712f14bd4956008f2c4ab7d1b391c37229b79c)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1263,7 +1246,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6e87ae0b2cf7001539dfe803c414d6da11bd37d8db4fe33e1b4847d22cccfd0e)
+                type_hints = cached_type_hints(_typecheckingstub__6e87ae0b2cf7001539dfe803c414d6da11bd37d8db4fe33e1b4847d22cccfd0e)
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1340,7 +1323,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c1cfe3f05aba39c56c382361943715334bf46778423ea2363fb7d33e8e5c32b)
+                type_hints = cached_type_hints(_typecheckingstub__8c1cfe3f05aba39c56c382361943715334bf46778423ea2363fb7d33e8e5c32b)
                 check_type(argname="argument scale_out_workers_per_minute", value=scale_out_workers_per_minute, expected_type=type_hints["scale_out_workers_per_minute"])
                 check_type(argname="argument standby_worker_count", value=standby_worker_count, expected_type=type_hints["standby_worker_count"])
                 check_type(argname="argument worker_idle_duration_seconds", value=worker_idle_duration_seconds, expected_type=type_hints["worker_idle_duration_seconds"])
@@ -1403,8 +1386,8 @@ class CfnFleet(
             self,
             *,
             mode: builtins.str,
-            worker_capabilities: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.CustomerManagedWorkerCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
-            auto_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.CustomerManagedAutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            worker_capabilities: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.CustomerManagedWorkerCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            auto_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.CustomerManagedAutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             storage_profile_id: typing.Optional[builtins.str] = None,
             tag_propagation_mode: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1481,7 +1464,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b3e3881d)
+                type_hints = cached_type_hints(_typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b3e3881d)
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
                 check_type(argname="argument worker_capabilities", value=worker_capabilities, expected_type=type_hints["worker_capabilities"])
                 check_type(argname="argument auto_scaling_configuration", value=auto_scaling_configuration, expected_type=type_hints["auto_scaling_configuration"])
@@ -1511,24 +1494,24 @@ class CfnFleet(
         @builtins.property
         def worker_capabilities(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedWorkerCapabilitiesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedWorkerCapabilitiesProperty"]:
             '''The worker capabilities for the customer managed fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedfleetconfiguration.html#cfn-deadline-fleet-customermanagedfleetconfiguration-workercapabilities
             '''
             result = self._values.get("worker_capabilities")
             assert result is not None, "Required property 'worker_capabilities' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedWorkerCapabilitiesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedWorkerCapabilitiesProperty"], result)
 
         @builtins.property
         def auto_scaling_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedfleetconfiguration.html#cfn-deadline-fleet-customermanagedfleetconfiguration-autoscalingconfiguration
             '''
             result = self._values.get("auto_scaling_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedAutoScalingConfigurationProperty"]], result)
 
         @builtins.property
         def storage_profile_id(self) -> typing.Optional[builtins.str]:
@@ -1579,14 +1562,14 @@ class CfnFleet(
             self,
             *,
             cpu_architecture_type: builtins.str,
-            memory_mib: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.MemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]],
+            memory_mib: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.MemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]],
             os_family: builtins.str,
-            v_cpu_count: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.VCpuCountRangeProperty", typing.Dict[builtins.str, typing.Any]]],
-            accelerator_count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.AcceleratorCountRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            accelerator_total_memory_mib: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.AcceleratorTotalMemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            v_cpu_count: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.VCpuCountRangeProperty", typing.Dict[builtins.str, typing.Any]]],
+            accelerator_count: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.AcceleratorCountRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            accelerator_total_memory_mib: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.AcceleratorTotalMemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             accelerator_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            custom_amounts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            custom_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_amounts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The worker capabilities for a customer managed workflow.
 
@@ -1653,7 +1636,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bbfd53a4095156c6675556d0bc3d17d02d807749147c8ab86039c9614cf19652)
+                type_hints = cached_type_hints(_typecheckingstub__bbfd53a4095156c6675556d0bc3d17d02d807749147c8ab86039c9614cf19652)
                 check_type(argname="argument cpu_architecture_type", value=cpu_architecture_type, expected_type=type_hints["cpu_architecture_type"])
                 check_type(argname="argument memory_mib", value=memory_mib, expected_type=type_hints["memory_mib"])
                 check_type(argname="argument os_family", value=os_family, expected_type=type_hints["os_family"])
@@ -1693,14 +1676,14 @@ class CfnFleet(
         @builtins.property
         def memory_mib(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.MemoryMiBRangeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.MemoryMiBRangeProperty"]:
             '''The memory (MiB).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-memorymib
             '''
             result = self._values.get("memory_mib")
             assert result is not None, "Required property 'memory_mib' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.MemoryMiBRangeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.MemoryMiBRangeProperty"], result)
 
         @builtins.property
         def os_family(self) -> builtins.str:
@@ -1715,36 +1698,36 @@ class CfnFleet(
         @builtins.property
         def v_cpu_count(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.VCpuCountRangeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VCpuCountRangeProperty"]:
             '''The vCPU count for the customer manged worker capabilities.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-vcpucount
             '''
             result = self._values.get("v_cpu_count")
             assert result is not None, "Required property 'v_cpu_count' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.VCpuCountRangeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VCpuCountRangeProperty"], result)
 
         @builtins.property
         def accelerator_count(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCountRangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCountRangeProperty"]]:
             '''The range of the accelerator.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-acceleratorcount
             '''
             result = self._values.get("accelerator_count")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCountRangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCountRangeProperty"]], result)
 
         @builtins.property
         def accelerator_total_memory_mib(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorTotalMemoryMiBRangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorTotalMemoryMiBRangeProperty"]]:
             '''The total memory (MiB) for the customer managed worker capabilities.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-acceleratortotalmemorymib
             '''
             result = self._values.get("accelerator_total_memory_mib")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorTotalMemoryMiBRangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorTotalMemoryMiBRangeProperty"]], result)
 
         @builtins.property
         def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1758,24 +1741,24 @@ class CfnFleet(
         @builtins.property
         def custom_amounts(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
             '''Custom requirement ranges for customer managed worker capabilities.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-customamounts
             '''
             result = self._values.get("custom_amounts")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
 
         @builtins.property
         def custom_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
             '''Custom attributes for the customer manged worker capabilities.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-customermanagedworkercapabilities.html#cfn-deadline-fleet-customermanagedworkercapabilities-customattributes
             '''
             result = self._values.get("custom_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1827,7 +1810,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f6b6ee298f17f76c41b442fe1d743f9b23991d0b29f18a1db1e7c2c2c5cd63be)
+                type_hints = cached_type_hints(_typecheckingstub__f6b6ee298f17f76c41b442fe1d743f9b23991d0b29f18a1db1e7c2c2c5cd63be)
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument size_gib", value=size_gib, expected_type=type_hints["size_gib"])
                 check_type(argname="argument throughput_mib", value=throughput_mib, expected_type=type_hints["throughput_mib"])
@@ -1920,7 +1903,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d0e16e93d244596337be30bf6e8c34bdd5a05f8101356c781ea0ee01c9288890)
+                type_hints = cached_type_hints(_typecheckingstub__d0e16e93d244596337be30bf6e8c34bdd5a05f8101356c781ea0ee01c9288890)
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
@@ -2003,7 +1986,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3aecc2f9273876f0a639b5d6f1630dcfd8aca136d3caeaeb82918997f059f3e4)
+                type_hints = cached_type_hints(_typecheckingstub__3aecc2f9273876f0a639b5d6f1630dcfd8aca136d3caeaeb82918997f059f3e4)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2051,8 +2034,8 @@ class CfnFleet(
         def __init__(
             self,
             *,
-            amounts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            amounts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The amounts and attributes of fleets.
 
@@ -2083,7 +2066,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__740fdb4badd1a242b2d3b374ef6944877551e5f0eb2de2239a830f3c2028b7b1)
+                type_hints = cached_type_hints(_typecheckingstub__740fdb4badd1a242b2d3b374ef6944877551e5f0eb2de2239a830f3c2028b7b1)
                 check_type(argname="argument amounts", value=amounts, expected_type=type_hints["amounts"])
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2095,24 +2078,24 @@ class CfnFleet(
         @builtins.property
         def amounts(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
             '''Amount capabilities of the fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-fleetcapabilities.html#cfn-deadline-fleet-fleetcapabilities-amounts
             '''
             result = self._values.get("amounts")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
 
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
             '''Attribute capabilities of the fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-fleetcapabilities.html#cfn-deadline-fleet-fleetcapabilities-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2137,8 +2120,8 @@ class CfnFleet(
         def __init__(
             self,
             *,
-            customer_managed: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.CustomerManagedFleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            service_managed_ec2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            customer_managed: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.CustomerManagedFleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_managed_ec2: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ServiceManagedEc2FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Fleet configuration details.
 
@@ -2289,7 +2272,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3ef3ed1850d4005d38d3a6c912a28b59698026461815dad08ff096a4c327a89c)
+                type_hints = cached_type_hints(_typecheckingstub__3ef3ed1850d4005d38d3a6c912a28b59698026461815dad08ff096a4c327a89c)
                 check_type(argname="argument customer_managed", value=customer_managed, expected_type=type_hints["customer_managed"])
                 check_type(argname="argument service_managed_ec2", value=service_managed_ec2, expected_type=type_hints["service_managed_ec2"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2301,24 +2284,24 @@ class CfnFleet(
         @builtins.property
         def customer_managed(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedFleetConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedFleetConfigurationProperty"]]:
             '''The customer managed fleets within a fleet configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-fleetconfiguration.html#cfn-deadline-fleet-fleetconfiguration-customermanaged
             '''
             result = self._values.get("customer_managed")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.CustomerManagedFleetConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.CustomerManagedFleetConfigurationProperty"]], result)
 
         @builtins.property
         def service_managed_ec2(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2FleetConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2FleetConfigurationProperty"]]:
             '''The service managed Amazon EC2 instances for a fleet configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-fleetconfiguration.html#cfn-deadline-fleet-fleetconfiguration-servicemanagedec2
             '''
             result = self._values.get("service_managed_ec2")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2FleetConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2FleetConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2370,7 +2353,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6971feb07454886d39f9f5ddb100459001b23544ed3498597d6b4a0ce4b41965)
+                type_hints = cached_type_hints(_typecheckingstub__6971feb07454886d39f9f5ddb100459001b23544ed3498597d6b4a0ce4b41965)
                 check_type(argname="argument script_body", value=script_body, expected_type=type_hints["script_body"])
                 check_type(argname="argument script_timeout_seconds", value=script_timeout_seconds, expected_type=type_hints["script_timeout_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2459,7 +2442,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e0c49c5364d9d5abab3267eb2a6afca69f203020da3e42493624297dd2a5bf0f)
+                type_hints = cached_type_hints(_typecheckingstub__e0c49c5364d9d5abab3267eb2a6afca69f203020da3e42493624297dd2a5bf0f)
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2546,7 +2529,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__237d2daa93e1b42c238b68b44d692ee0a00060e89e7633a8a4a03d971c95aca4)
+                type_hints = cached_type_hints(_typecheckingstub__237d2daa93e1b42c238b68b44d692ee0a00060e89e7633a8a4a03d971c95aca4)
                 check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument last_used_ttl_hours", value=last_used_ttl_hours, expected_type=type_hints["last_used_ttl_hours"])
@@ -2662,7 +2645,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8dae673d40)
+                type_hints = cached_type_hints(_typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8dae673d40)
                 check_type(argname="argument scale_out_workers_per_minute", value=scale_out_workers_per_minute, expected_type=type_hints["scale_out_workers_per_minute"])
                 check_type(argname="argument standby_worker_count", value=standby_worker_count, expected_type=type_hints["standby_worker_count"])
                 check_type(argname="argument worker_idle_duration_seconds", value=worker_idle_duration_seconds, expected_type=type_hints["worker_idle_duration_seconds"])
@@ -2725,12 +2708,12 @@ class CfnFleet(
         def __init__(
             self,
             *,
-            instance_capabilities: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
-            instance_market_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
-            auto_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            persistent_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.PersistentVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            instance_capabilities: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            instance_market_options: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            auto_scaling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            persistent_volume_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.PersistentVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             storage_profile_id: typing.Optional[builtins.str] = None,
-            vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration details for a service managed EC2 fleet.
 
@@ -2829,7 +2812,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39)
+                type_hints = cached_type_hints(_typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39)
                 check_type(argname="argument instance_capabilities", value=instance_capabilities, expected_type=type_hints["instance_capabilities"])
                 check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
                 check_type(argname="argument auto_scaling_configuration", value=auto_scaling_configuration, expected_type=type_hints["auto_scaling_configuration"])
@@ -2852,46 +2835,46 @@ class CfnFleet(
         @builtins.property
         def instance_capabilities(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty"]:
             '''The instance capabilities for the service managed EC2 fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-instancecapabilities
             '''
             result = self._values.get("instance_capabilities")
             assert result is not None, "Required property 'instance_capabilities' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty"], result)
 
         @builtins.property
         def instance_market_options(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"]:
             '''The instance market options for the service managed EC2 fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-instancemarketoptions
             '''
             result = self._values.get("instance_market_options")
             assert result is not None, "Required property 'instance_market_options' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"], result)
 
         @builtins.property
         def auto_scaling_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-autoscalingconfiguration
             '''
             result = self._values.get("auto_scaling_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]], result)
 
         @builtins.property
         def persistent_volume_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PersistentVolumeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.PersistentVolumeConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-persistentvolumeconfiguration
             '''
             result = self._values.get("persistent_volume_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PersistentVolumeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.PersistentVolumeConfigurationProperty"]], result)
 
         @builtins.property
         def storage_profile_id(self) -> typing.Optional[builtins.str]:
@@ -2905,13 +2888,13 @@ class CfnFleet(
         @builtins.property
         def vpc_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.VpcConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VpcConfigurationProperty"]]:
             '''The VPC configuration for the service managed EC2 fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.VpcConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2945,15 +2928,15 @@ class CfnFleet(
             self,
             *,
             cpu_architecture_type: builtins.str,
-            memory_mib: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.MemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]],
+            memory_mib: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.MemoryMiBRangeProperty", typing.Dict[builtins.str, typing.Any]]],
             os_family: builtins.str,
-            v_cpu_count: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.VCpuCountRangeProperty", typing.Dict[builtins.str, typing.Any]]],
-            accelerator_capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.AcceleratorCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            v_cpu_count: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.VCpuCountRangeProperty", typing.Dict[builtins.str, typing.Any]]],
+            accelerator_capabilities: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.AcceleratorCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            custom_amounts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            custom_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_amounts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAmountCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetAttributeCapabilityProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             excluded_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-            root_ebs_volume: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.Ec2EbsVolumeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            root_ebs_volume: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.Ec2EbsVolumeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The Amazon EC2 instance capabilities.
 
@@ -3031,7 +3014,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b6bce0a6fe3858a9b9eaa850b95b27731a62d9ef26b45c40b5684d6586ed6996)
+                type_hints = cached_type_hints(_typecheckingstub__b6bce0a6fe3858a9b9eaa850b95b27731a62d9ef26b45c40b5684d6586ed6996)
                 check_type(argname="argument cpu_architecture_type", value=cpu_architecture_type, expected_type=type_hints["cpu_architecture_type"])
                 check_type(argname="argument memory_mib", value=memory_mib, expected_type=type_hints["memory_mib"])
                 check_type(argname="argument os_family", value=os_family, expected_type=type_hints["os_family"])
@@ -3074,14 +3057,14 @@ class CfnFleet(
         @builtins.property
         def memory_mib(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.MemoryMiBRangeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.MemoryMiBRangeProperty"]:
             '''The memory, as MiB, for the Amazon EC2 instance type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-memorymib
             '''
             result = self._values.get("memory_mib")
             assert result is not None, "Required property 'memory_mib' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.MemoryMiBRangeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.MemoryMiBRangeProperty"], result)
 
         @builtins.property
         def os_family(self) -> builtins.str:
@@ -3096,25 +3079,25 @@ class CfnFleet(
         @builtins.property
         def v_cpu_count(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.VCpuCountRangeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VCpuCountRangeProperty"]:
             '''The amount of vCPU to require for instances in this fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-vcpucount
             '''
             result = self._values.get("v_cpu_count")
             assert result is not None, "Required property 'v_cpu_count' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.VCpuCountRangeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.VCpuCountRangeProperty"], result)
 
         @builtins.property
         def accelerator_capabilities(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCapabilitiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCapabilitiesProperty"]]:
             '''Describes the GPU accelerator capabilities required for worker host instances in this fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-acceleratorcapabilities
             '''
             result = self._values.get("accelerator_capabilities")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.AcceleratorCapabilitiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.AcceleratorCapabilitiesProperty"]], result)
 
         @builtins.property
         def allowed_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3128,24 +3111,24 @@ class CfnFleet(
         @builtins.property
         def custom_amounts(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]]:
             '''The custom capability amounts to require for instances in this fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-customamounts
             '''
             result = self._values.get("custom_amounts")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAmountCapabilityProperty"]]]], result)
 
         @builtins.property
         def custom_attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]]:
             '''The custom capability attributes to require for instances in this fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-customattributes
             '''
             result = self._values.get("custom_attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetAttributeCapabilityProperty"]]]], result)
 
         @builtins.property
         def excluded_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3159,13 +3142,13 @@ class CfnFleet(
         @builtins.property
         def root_ebs_volume(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.Ec2EbsVolumeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.Ec2EbsVolumeProperty"]]:
             '''The root EBS volume.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2instancecapabilities.html#cfn-deadline-fleet-servicemanagedec2instancecapabilities-rootebsvolume
             '''
             result = self._values.get("root_ebs_volume")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.Ec2EbsVolumeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.Ec2EbsVolumeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3203,7 +3186,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a8d3a0c18616b5264bff8fa8db0009f71df98b828f0e17e83fea3cc24b4a9443)
+                type_hints = cached_type_hints(_typecheckingstub__a8d3a0c18616b5264bff8fa8db0009f71df98b828f0e17e83fea3cc24b4a9443)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "type": type,
@@ -3264,7 +3247,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fcd8ae2a83778ec7a6d7445fcea241d1ce2694a66c1ccc07c23cdd1c8d829c4d)
+                type_hints = cached_type_hints(_typecheckingstub__fcd8ae2a83778ec7a6d7445fcea241d1ce2694a66c1ccc07c23cdd1c8d829c4d)
                 check_type(argname="argument min", value=min, expected_type=type_hints["min"])
                 check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3332,7 +3315,7 @@ class CfnFleet(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__54c02580b19d5690de8f0571b8939331063fdba5295262f67c0ffacd47b723f1)
+                type_hints = cached_type_hints(_typecheckingstub__54c02580b19d5690de8f0571b8939331063fdba5295262f67c0ffacd47b723f1)
                 check_type(argname="argument resource_configuration_arns", value=resource_configuration_arns, expected_type=type_hints["resource_configuration_arns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if resource_configuration_arns is not None:
@@ -3380,15 +3363,15 @@ class CfnFleetProps:
     def __init__(
         self,
         *,
-        configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.FleetConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         display_name: builtins.str,
         farm_id: builtins.str,
         max_worker_count: jsii.Number,
         role_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        host_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.HostConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        host_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFleet.HostConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         min_worker_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFleet``.
 
@@ -3567,7 +3550,7 @@ class CfnFleetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1472efddb89af74b2ae4dc1156d30448332099bec47f03ae56886a44d2d7c7a)
+            type_hints = cached_type_hints(_typecheckingstub__a1472efddb89af74b2ae4dc1156d30448332099bec47f03ae56886a44d2d7c7a)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
@@ -3596,14 +3579,14 @@ class CfnFleetProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetConfigurationProperty"]:
         '''The configuration details for the fleet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-fleet.html#cfn-deadline-fleet-configuration
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFleet.FleetConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.FleetConfigurationProperty"], result)
 
     @builtins.property
     def display_name(self) -> builtins.str:
@@ -3667,7 +3650,7 @@ class CfnFleetProps:
     @builtins.property
     def host_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.HostConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.HostConfigurationProperty"]]:
         '''Provides a script that runs as a worker is starting up that you can use to provide additional configuration for workers in your fleet.
 
         To remove a script from a fleet, use the `UpdateFleet <https://docs.aws.amazon.com/deadline-cloud/latest/APIReference/API_UpdateFleet.html>`_ operation with the ``hostConfiguration`` ``scriptBody`` parameter set to an empty string ("").
@@ -3675,7 +3658,7 @@ class CfnFleetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-fleet.html#cfn-deadline-fleet-hostconfiguration
         '''
         result = self._values.get("host_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.HostConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFleet.HostConfigurationProperty"]], result)
 
     @builtins.property
     def min_worker_count(self) -> typing.Optional[jsii.Number]:
@@ -3689,7 +3672,7 @@ class CfnFleetProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your fleet.
 
         Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -3697,7 +3680,7 @@ class CfnFleetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-fleet.html#cfn-deadline-fleet-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3711,9 +3694,9 @@ class CfnFleetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILicenseEndpointRef_6214b46a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.ILicenseEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLicenseEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnLicenseEndpoint",
 ):
@@ -3751,7 +3734,7 @@ class CfnLicenseEndpoint(
         security_group_ids: typing.Sequence[builtins.str],
         subnet_ids: typing.Sequence[builtins.str],
         vpc_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::LicenseEndpoint``.
 
@@ -3763,7 +3746,7 @@ class CfnLicenseEndpoint(
         :param tags: The tags to add to your license endpoint. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2263281bf0506f61e2d06a34042a34c3aa49572fcab3143d4b6c4bc81a62b9a3)
+            type_hints = cached_type_hints(_typecheckingstub__2263281bf0506f61e2d06a34042a34c3aa49572fcab3143d4b6c4bc81a62b9a3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLicenseEndpointProps(
@@ -3779,13 +3762,13 @@ class CfnLicenseEndpoint(
     @builtins.classmethod
     def arn_for_license_endpoint(
         cls,
-        resource: "_ILicenseEndpointRef_6214b46a",
+        resource: "_aws_deadline_b02a7487.ILicenseEndpointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86f495f121c989ce633484634ae5e5893aac8b00980fdf684f9d142fe9b01acf)
+            type_hints = cached_type_hints(_typecheckingstub__86f495f121c989ce633484634ae5e5893aac8b00980fdf684f9d142fe9b01acf)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLicenseEndpoint", [resource]))
 
@@ -3797,18 +3780,18 @@ class CfnLicenseEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c55303a9745d5fc973745f82b67995797a056a975584226995a614fd007099f)
+            type_hints = cached_type_hints(_typecheckingstub__4c55303a9745d5fc973745f82b67995797a056a975584226995a614fd007099f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLicenseEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9aa87cad0472c90e08c8aa1a9c72cc53c01e0cf980555f0f3b357ef4148f041)
+            type_hints = cached_type_hints(_typecheckingstub__b9aa87cad0472c90e08c8aa1a9c72cc53c01e0cf980555f0f3b357ef4148f041)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3821,7 +3804,7 @@ class CfnLicenseEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de6d4dde55dbb1dabd0b1e8734965495af6d2632c3444c0d7c5478f9682cd4a4)
+            type_hints = cached_type_hints(_typecheckingstub__de6d4dde55dbb1dabd0b1e8734965495af6d2632c3444c0d7c5478f9682cd4a4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3878,9 +3861,9 @@ class CfnLicenseEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3894,9 +3877,9 @@ class CfnLicenseEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="licenseEndpointRef")
-    def license_endpoint_ref(self) -> "_LicenseEndpointReference_98798f08":
+    def license_endpoint_ref(self) -> "_aws_deadline_b02a7487.LicenseEndpointReference":
         '''A reference to a LicenseEndpoint resource.'''
-        return typing.cast("_LicenseEndpointReference_98798f08", jsii.get(self, "licenseEndpointRef"))
+        return typing.cast("_aws_deadline_b02a7487.LicenseEndpointReference", jsii.get(self, "licenseEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
@@ -3907,7 +3890,7 @@ class CfnLicenseEndpoint(
     @security_group_ids.setter
     def security_group_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b00e03274c83f79c32752b72b984299a4efe64919097bbbdec40f67b386b22)
+            type_hints = cached_type_hints(_typecheckingstub__15b00e03274c83f79c32752b72b984299a4efe64919097bbbdec40f67b386b22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3920,7 +3903,7 @@ class CfnLicenseEndpoint(
     @subnet_ids.setter
     def subnet_ids(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e81d93007bb20eb36480796e83aad3e6a0742393a78a71a87a71f081d070227a)
+            type_hints = cached_type_hints(_typecheckingstub__e81d93007bb20eb36480796e83aad3e6a0742393a78a71a87a71f081d070227a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
 
@@ -3933,20 +3916,23 @@ class CfnLicenseEndpoint(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fe095c981d830b60af0a60f921ac267a1eba38300aa520b18fa3678230ddaf7)
+            type_hints = cached_type_hints(_typecheckingstub__4fe095c981d830b60af0a60f921ac267a1eba38300aa520b18fa3678230ddaf7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your license endpoint.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__328d44ddd074858e36e2c2a2c68ed8b77068feeb72199a2b74d4b41ff444c616)
+            type_hints = cached_type_hints(_typecheckingstub__328d44ddd074858e36e2c2a2c68ed8b77068feeb72199a2b74d4b41ff444c616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3968,7 +3954,7 @@ class CfnLicenseEndpointProps:
         security_group_ids: typing.Sequence[builtins.str],
         subnet_ids: typing.Sequence[builtins.str],
         vpc_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLicenseEndpoint``.
 
@@ -4000,7 +3986,7 @@ class CfnLicenseEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a9c98d4186629e7162fde16ad1be09ade6a940c8cf979c87af77955e3a39f02)
+            type_hints = cached_type_hints(_typecheckingstub__7a9c98d4186629e7162fde16ad1be09ade6a940c8cf979c87af77955e3a39f02)
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
@@ -4044,7 +4030,7 @@ class CfnLicenseEndpointProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your license endpoint.
 
         Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -4052,7 +4038,7 @@ class CfnLicenseEndpointProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-licenseendpoint.html#cfn-deadline-licenseendpoint-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4066,9 +4052,9 @@ class CfnLicenseEndpointProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILimitRef_e1123f12)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.ILimitRef)
 class CfnLimit(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnLimit",
 ):
@@ -4121,7 +4107,7 @@ class CfnLimit(
         :param description: A description of the limit. A clear description helps you identify the purpose of the limit. .. epigraph:: This field can store any content. Escape or encode this content before displaying it on a webpage or any other system that might interpret the content of this field. Default: - ""
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a2d36b6bd2c6b4526ddd666cdb501efdf5ffcc5bb8ceefea12e0b2b03771db)
+            type_hints = cached_type_hints(_typecheckingstub__95a2d36b6bd2c6b4526ddd666cdb501efdf5ffcc5bb8ceefea12e0b2b03771db)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLimitProps(
@@ -4142,18 +4128,18 @@ class CfnLimit(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c15238b3803d51330c75247e2d6b1d1aa1bc6fedfa044ed9617e7cbf0204a89)
+            type_hints = cached_type_hints(_typecheckingstub__3c15238b3803d51330c75247e2d6b1d1aa1bc6fedfa044ed9617e7cbf0204a89)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLimit", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83b7d3f7848e22e6703b3dee913451d9b15c46f08fe2a7b74b935640f721d335)
+            type_hints = cached_type_hints(_typecheckingstub__83b7d3f7848e22e6703b3dee913451d9b15c46f08fe2a7b74b935640f721d335)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4166,7 +4152,7 @@ class CfnLimit(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2b5807c8c27d5bd8286a9475a427521d61b900937d67184c5db692856bf7f09)
+            type_hints = cached_type_hints(_typecheckingstub__a2b5807c8c27d5bd8286a9475a427521d61b900937d67184c5db692856bf7f09)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4208,9 +4194,9 @@ class CfnLimit(
 
     @builtins.property
     @jsii.member(jsii_name="limitRef")
-    def limit_ref(self) -> "_LimitReference_af2940e5":
+    def limit_ref(self) -> "_aws_deadline_b02a7487.LimitReference":
         '''A reference to a Limit resource.'''
-        return typing.cast("_LimitReference_af2940e5", jsii.get(self, "limitRef"))
+        return typing.cast("_aws_deadline_b02a7487.LimitReference", jsii.get(self, "limitRef"))
 
     @builtins.property
     @jsii.member(jsii_name="amountRequirementName")
@@ -4221,7 +4207,7 @@ class CfnLimit(
     @amount_requirement_name.setter
     def amount_requirement_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28aff12a88e4878af62a4facf3ba960c0989b8e072de10a3a9a7109a99ffb156)
+            type_hints = cached_type_hints(_typecheckingstub__28aff12a88e4878af62a4facf3ba960c0989b8e072de10a3a9a7109a99ffb156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "amountRequirementName", value) # pyright: ignore[reportArgumentType]
 
@@ -4234,7 +4220,7 @@ class CfnLimit(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b34d01cf916eae1174982512038db6386277599954f595da403eefd285383489)
+            type_hints = cached_type_hints(_typecheckingstub__b34d01cf916eae1174982512038db6386277599954f595da403eefd285383489)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -4247,7 +4233,7 @@ class CfnLimit(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12a4bb4f4b8f310c2fdfebb62cb19dff797b3c697b3d7cad8fb909c2a4295253)
+            type_hints = cached_type_hints(_typecheckingstub__12a4bb4f4b8f310c2fdfebb62cb19dff797b3c697b3d7cad8fb909c2a4295253)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -4260,7 +4246,7 @@ class CfnLimit(
     @max_count.setter
     def max_count(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f77e580a09313f12612831bf7da9ccf6b581b5d578a3c742ae117491d077fbde)
+            type_hints = cached_type_hints(_typecheckingstub__f77e580a09313f12612831bf7da9ccf6b581b5d578a3c742ae117491d077fbde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxCount", value) # pyright: ignore[reportArgumentType]
 
@@ -4276,7 +4262,7 @@ class CfnLimit(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbf2d43f89d2f23cb2d43ac25f868a67c740d12d602cbee498c4f96ef06792a9)
+            type_hints = cached_type_hints(_typecheckingstub__dbf2d43f89d2f23cb2d43ac25f868a67c740d12d602cbee498c4f96ef06792a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -4330,7 +4316,7 @@ class CfnLimitProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14084853add855b7c5ddee255b1050f58be9e132b41ff835081046502cdc22b8)
+            type_hints = cached_type_hints(_typecheckingstub__14084853add855b7c5ddee255b1050f58be9e132b41ff835081046502cdc22b8)
             check_type(argname="argument amount_requirement_name", value=amount_requirement_name, expected_type=type_hints["amount_requirement_name"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
@@ -4420,9 +4406,9 @@ class CfnLimitProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMeteredProductRef_9ac23750)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IMeteredProductRef)
 class CfnMeteredProduct(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnMeteredProduct",
 ):
@@ -4460,7 +4446,7 @@ class CfnMeteredProduct(
         :param product_id: The product ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1349660e6447c1e6551d1ce7cde2c5dc6adbf1fb1fdceb9f214b066a5a6b4ebe)
+            type_hints = cached_type_hints(_typecheckingstub__1349660e6447c1e6551d1ce7cde2c5dc6adbf1fb1fdceb9f214b066a5a6b4ebe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMeteredProductProps(
@@ -4473,13 +4459,13 @@ class CfnMeteredProduct(
     @builtins.classmethod
     def arn_for_metered_product(
         cls,
-        resource: "_IMeteredProductRef_9ac23750",
+        resource: "_aws_deadline_b02a7487.IMeteredProductRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63eeb510633682c1bc212666148ac6f177b35f8f2fc4704f704b7d5970167414)
+            type_hints = cached_type_hints(_typecheckingstub__63eeb510633682c1bc212666148ac6f177b35f8f2fc4704f704b7d5970167414)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMeteredProduct", [resource]))
 
@@ -4491,18 +4477,18 @@ class CfnMeteredProduct(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbefe8d8ad8880b6ed1a04494b18aba021e9485a4c70331a054aa0fc43f41cd4)
+            type_hints = cached_type_hints(_typecheckingstub__dbefe8d8ad8880b6ed1a04494b18aba021e9485a4c70331a054aa0fc43f41cd4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMeteredProduct", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5d2d01a238f229eb758201d336be8ca9e707d08020ad2910986c804ac3c7809)
+            type_hints = cached_type_hints(_typecheckingstub__e5d2d01a238f229eb758201d336be8ca9e707d08020ad2910986c804ac3c7809)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4515,7 +4501,7 @@ class CfnMeteredProduct(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ed6d8167aeed2952e867a5d1c33ef70cf0763f5978f31bbc292859ff9bb97a0)
+            type_hints = cached_type_hints(_typecheckingstub__4ed6d8167aeed2952e867a5d1c33ef70cf0763f5978f31bbc292859ff9bb97a0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4573,9 +4559,9 @@ class CfnMeteredProduct(
 
     @builtins.property
     @jsii.member(jsii_name="meteredProductRef")
-    def metered_product_ref(self) -> "_MeteredProductReference_a77c5423":
+    def metered_product_ref(self) -> "_aws_deadline_b02a7487.MeteredProductReference":
         '''A reference to a MeteredProduct resource.'''
-        return typing.cast("_MeteredProductReference_a77c5423", jsii.get(self, "meteredProductRef"))
+        return typing.cast("_aws_deadline_b02a7487.MeteredProductReference", jsii.get(self, "meteredProductRef"))
 
     @builtins.property
     @jsii.member(jsii_name="licenseEndpointId")
@@ -4586,7 +4572,7 @@ class CfnMeteredProduct(
     @license_endpoint_id.setter
     def license_endpoint_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2392ecb737206631d7a319a666b254d855fea916d5e5430c1cb1bbe9c43d20de)
+            type_hints = cached_type_hints(_typecheckingstub__2392ecb737206631d7a319a666b254d855fea916d5e5430c1cb1bbe9c43d20de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "licenseEndpointId", value) # pyright: ignore[reportArgumentType]
 
@@ -4599,7 +4585,7 @@ class CfnMeteredProduct(
     @product_id.setter
     def product_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7b3217dc50a692aa63ba3c945affcba562e3dca3ad6c9440d62b98f397be2ac)
+            type_hints = cached_type_hints(_typecheckingstub__b7b3217dc50a692aa63ba3c945affcba562e3dca3ad6c9440d62b98f397be2ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
 
@@ -4639,7 +4625,7 @@ class CfnMeteredProductProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64de1639a953ff86a7b38c87a1ecf80a18f6b715e19b894e265cf51c1b6d4920)
+            type_hints = cached_type_hints(_typecheckingstub__64de1639a953ff86a7b38c87a1ecf80a18f6b715e19b894e265cf51c1b6d4920)
             check_type(argname="argument license_endpoint_id", value=license_endpoint_id, expected_type=type_hints["license_endpoint_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4678,9 +4664,9 @@ class CfnMeteredProductProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMonitorRef_af35d2ec, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IMonitorRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMonitor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnMonitor",
 ):
@@ -4724,7 +4710,7 @@ class CfnMonitor(
         role_arn: builtins.str,
         subdomain: builtins.str,
         identity_center_region: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Monitor``.
 
@@ -4738,7 +4724,7 @@ class CfnMonitor(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959eb7658ab)
+            type_hints = cached_type_hints(_typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959eb7658ab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMonitorProps(
@@ -4754,12 +4740,15 @@ class CfnMonitor(
 
     @jsii.member(jsii_name="arnForMonitor")
     @builtins.classmethod
-    def arn_for_monitor(cls, resource: "_IMonitorRef_af35d2ec") -> builtins.str:
+    def arn_for_monitor(
+        cls,
+        resource: "_aws_deadline_b02a7487.IMonitorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0b91e4233624bd76c06fc42cd34136003830b63504b54c6b997d0308082766d)
+            type_hints = cached_type_hints(_typecheckingstub__c0b91e4233624bd76c06fc42cd34136003830b63504b54c6b997d0308082766d)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMonitor", [resource]))
 
@@ -4771,18 +4760,18 @@ class CfnMonitor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07a7b8fc562a560ba9840b8cc08fc45052dafb751c0ba81b2fc317475ce10ba8)
+            type_hints = cached_type_hints(_typecheckingstub__07a7b8fc562a560ba9840b8cc08fc45052dafb751c0ba81b2fc317475ce10ba8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMonitor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__034755889d5bcfdc70af9b9b4f8a99b600dbe0a5e6f4d141826a5eca63ae16e1)
+            type_hints = cached_type_hints(_typecheckingstub__034755889d5bcfdc70af9b9b4f8a99b600dbe0a5e6f4d141826a5eca63ae16e1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4795,7 +4784,7 @@ class CfnMonitor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f07f717829caa15f757a8f8a5dccc219a06a002224f211b95e98b2c80fb9470)
+            type_hints = cached_type_hints(_typecheckingstub__6f07f717829caa15f757a8f8a5dccc219a06a002224f211b95e98b2c80fb9470)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4845,9 +4834,9 @@ class CfnMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4861,9 +4850,9 @@ class CfnMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="monitorRef")
-    def monitor_ref(self) -> "_MonitorReference_53b151fe":
+    def monitor_ref(self) -> "_aws_deadline_b02a7487.MonitorReference":
         '''A reference to a Monitor resource.'''
-        return typing.cast("_MonitorReference_53b151fe", jsii.get(self, "monitorRef"))
+        return typing.cast("_aws_deadline_b02a7487.MonitorReference", jsii.get(self, "monitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -4874,7 +4863,7 @@ class CfnMonitor(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd05a5ff2a07e5a75374ecc156ae00d0a6e91d279c624096810f85c9256018d7)
+            type_hints = cached_type_hints(_typecheckingstub__cd05a5ff2a07e5a75374ecc156ae00d0a6e91d279c624096810f85c9256018d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -4887,7 +4876,7 @@ class CfnMonitor(
     @identity_center_instance_arn.setter
     def identity_center_instance_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c053887b44a69dae4a5252bf5ed30d5c0860a420abef5a4311391458def3adb4)
+            type_hints = cached_type_hints(_typecheckingstub__c053887b44a69dae4a5252bf5ed30d5c0860a420abef5a4311391458def3adb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityCenterInstanceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4900,7 +4889,7 @@ class CfnMonitor(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe63f6c222a13b138ae1c490c190488357f30099efa2e4d1b187453abaa01669)
+            type_hints = cached_type_hints(_typecheckingstub__fe63f6c222a13b138ae1c490c190488357f30099efa2e4d1b187453abaa01669)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4913,7 +4902,7 @@ class CfnMonitor(
     @subdomain.setter
     def subdomain(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92a6ea9073f47adeb866001ba027d5701cc6d06e3e3b1842bc227c77014cbf45)
+            type_hints = cached_type_hints(_typecheckingstub__92a6ea9073f47adeb866001ba027d5701cc6d06e3e3b1842bc227c77014cbf45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subdomain", value) # pyright: ignore[reportArgumentType]
 
@@ -4926,20 +4915,23 @@ class CfnMonitor(
     @identity_center_region.setter
     def identity_center_region(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a4086b2adbb852e92f05a0e8269f5772c3582c2a7eca92c19dbaaa29a80dec1)
+            type_hints = cached_type_hints(_typecheckingstub__1a4086b2adbb852e92f05a0e8269f5772c3582c2a7eca92c19dbaaa29a80dec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityCenterRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac)
+            type_hints = cached_type_hints(_typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4965,7 +4957,7 @@ class CfnMonitorProps:
         role_arn: builtins.str,
         subdomain: builtins.str,
         identity_center_region: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMonitor``.
 
@@ -5001,7 +4993,7 @@ class CfnMonitorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__491e65cd80e97b2076199940d899980b250e96b9da8d5783d92f236ae1c6e7f4)
+            type_hints = cached_type_hints(_typecheckingstub__491e65cd80e97b2076199940d899980b250e96b9da8d5783d92f236ae1c6e7f4)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -5079,13 +5071,13 @@ class CfnMonitorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-monitor.html#cfn-deadline-monitor-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5099,9 +5091,9 @@ class CfnMonitorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueRef_00ca677f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IQueueRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnQueue(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnQueue",
 ):
@@ -5187,12 +5179,12 @@ class CfnQueue(
         allowed_storage_profile_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         default_budget_action: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        job_attachment_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobAttachmentSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        job_run_as_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_attachment_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.JobAttachmentSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_run_as_user: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        scheduling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scheduling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::Queue``.
 
@@ -5211,7 +5203,7 @@ class CfnQueue(
         :param tags: The tags to add to your queue. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c8ed104ef6a730c7b90ba82ab4ab0b37d213e5444e12df63d7d60b1e23323e6)
+            type_hints = cached_type_hints(_typecheckingstub__7c8ed104ef6a730c7b90ba82ab4ab0b37d213e5444e12df63d7d60b1e23323e6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueProps(
@@ -5232,12 +5224,15 @@ class CfnQueue(
 
     @jsii.member(jsii_name="arnForQueue")
     @builtins.classmethod
-    def arn_for_queue(cls, resource: "_IQueueRef_00ca677f") -> builtins.str:
+    def arn_for_queue(
+        cls,
+        resource: "_aws_deadline_b02a7487.IQueueRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf15d986f33e840db48386d4d767c7de5401c3c6bbdb0a4c2b754aa21135149)
+            type_hints = cached_type_hints(_typecheckingstub__abf15d986f33e840db48386d4d767c7de5401c3c6bbdb0a4c2b754aa21135149)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForQueue", [resource]))
 
@@ -5249,18 +5244,18 @@ class CfnQueue(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96a060d1452f2401d1cc8e049bf0f5bde7deecb1b862116037fb259cbb64c6ca)
+            type_hints = cached_type_hints(_typecheckingstub__96a060d1452f2401d1cc8e049bf0f5bde7deecb1b862116037fb259cbb64c6ca)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueue", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50a951ea75684c1a0e1477adfe4d54001bbe626c602cd5380b6445649ddc198e)
+            type_hints = cached_type_hints(_typecheckingstub__50a951ea75684c1a0e1477adfe4d54001bbe626c602cd5380b6445649ddc198e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5273,7 +5268,7 @@ class CfnQueue(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12f2ec2b01e12cf5d244b5ae5c7b25018631c87603b7819e99ad82f931094696)
+            type_hints = cached_type_hints(_typecheckingstub__12f2ec2b01e12cf5d244b5ae5c7b25018631c87603b7819e99ad82f931094696)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5303,9 +5298,9 @@ class CfnQueue(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5319,9 +5314,9 @@ class CfnQueue(
 
     @builtins.property
     @jsii.member(jsii_name="queueRef")
-    def queue_ref(self) -> "_QueueReference_c081843e":
+    def queue_ref(self) -> "_aws_deadline_b02a7487.QueueReference":
         '''A reference to a Queue resource.'''
-        return typing.cast("_QueueReference_c081843e", jsii.get(self, "queueRef"))
+        return typing.cast("_aws_deadline_b02a7487.QueueReference", jsii.get(self, "queueRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -5332,7 +5327,7 @@ class CfnQueue(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abb08cf6c0a4af9928a3c56fba912abab7cd2c3c4760117e91af2d94f15d5f6e)
+            type_hints = cached_type_hints(_typecheckingstub__abb08cf6c0a4af9928a3c56fba912abab7cd2c3c4760117e91af2d94f15d5f6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -5345,7 +5340,7 @@ class CfnQueue(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef4d1848bd17d1a655bb4cb1236551eab481ebefcdbbd4e5ae7acc710720145)
+            type_hints = cached_type_hints(_typecheckingstub__fef4d1848bd17d1a655bb4cb1236551eab481ebefcdbbd4e5ae7acc710720145)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -5361,7 +5356,7 @@ class CfnQueue(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__261c15a318630458194b6ce3058afe2cbf9e193004fd4e7287059f40d08582f2)
+            type_hints = cached_type_hints(_typecheckingstub__261c15a318630458194b6ce3058afe2cbf9e193004fd4e7287059f40d08582f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowedStorageProfileIds", value) # pyright: ignore[reportArgumentType]
 
@@ -5374,7 +5369,7 @@ class CfnQueue(
     @default_budget_action.setter
     def default_budget_action(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ed3fcb26efc70612b9ed8cbcccb35da23ffe53b337b83ec742c863a4da84b6d)
+            type_hints = cached_type_hints(_typecheckingstub__8ed3fcb26efc70612b9ed8cbcccb35da23ffe53b337b83ec742c863a4da84b6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultBudgetAction", value) # pyright: ignore[reportArgumentType]
 
@@ -5387,7 +5382,7 @@ class CfnQueue(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2559bfc8e75a5a3fe6743bfc64664fbf4a6fc6cb24717a6669ce9a31c288f44)
+            type_hints = cached_type_hints(_typecheckingstub__b2559bfc8e75a5a3fe6743bfc64664fbf4a6fc6cb24717a6669ce9a31c288f44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5395,17 +5390,17 @@ class CfnQueue(
     @jsii.member(jsii_name="jobAttachmentSettings")
     def job_attachment_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobAttachmentSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobAttachmentSettingsProperty"]]:
         '''The job attachment settings.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobAttachmentSettingsProperty"]], jsii.get(self, "jobAttachmentSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobAttachmentSettingsProperty"]], jsii.get(self, "jobAttachmentSettings"))
 
     @job_attachment_settings.setter
     def job_attachment_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobAttachmentSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobAttachmentSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__358c548fac5f624a3c1d72ec9252063f4d1a9bd3c0342b2e54358d53c0204b5c)
+            type_hints = cached_type_hints(_typecheckingstub__358c548fac5f624a3c1d72ec9252063f4d1a9bd3c0342b2e54358d53c0204b5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobAttachmentSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -5413,17 +5408,17 @@ class CfnQueue(
     @jsii.member(jsii_name="jobRunAsUser")
     def job_run_as_user(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobRunAsUserProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobRunAsUserProperty"]]:
         '''Identifies the user for a job.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobRunAsUserProperty"]], jsii.get(self, "jobRunAsUser"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobRunAsUserProperty"]], jsii.get(self, "jobRunAsUser"))
 
     @job_run_as_user.setter
     def job_run_as_user(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobRunAsUserProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobRunAsUserProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b1f44b18bbd9cd34d33d3fe1de23e5f60be6648dd1ee50efa7531459cd7ae65)
+            type_hints = cached_type_hints(_typecheckingstub__5b1f44b18bbd9cd34d33d3fe1de23e5f60be6648dd1ee50efa7531459cd7ae65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobRunAsUser", value) # pyright: ignore[reportArgumentType]
 
@@ -5441,7 +5436,7 @@ class CfnQueue(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d9c178caaac7844afec201e90468fdd98d393162443d88987d2fd5342fb2025)
+            type_hints = cached_type_hints(_typecheckingstub__0d9c178caaac7844afec201e90468fdd98d393162443d88987d2fd5342fb2025)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "requiredFileSystemLocationNames", value) # pyright: ignore[reportArgumentType]
 
@@ -5454,7 +5449,7 @@ class CfnQueue(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfb5bb7ca40abe81d0cb9afaa09246c4bbb7553021c1125ddbc8a2f83d0da3db)
+            type_hints = cached_type_hints(_typecheckingstub__cfb5bb7ca40abe81d0cb9afaa09246c4bbb7553021c1125ddbc8a2f83d0da3db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -5462,29 +5457,32 @@ class CfnQueue(
     @jsii.member(jsii_name="schedulingConfiguration")
     def scheduling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]], jsii.get(self, "schedulingConfiguration"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingConfigurationProperty"]], jsii.get(self, "schedulingConfiguration"))
 
     @scheduling_configuration.setter
     def scheduling_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82a9f74d175cbcd0aaff94e7eccd835f3d247053961c19de186dba5bd6101919)
+            type_hints = cached_type_hints(_typecheckingstub__82a9f74d175cbcd0aaff94e7eccd835f3d247053961c19de186dba5bd6101919)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedulingConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your queue.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57b6aaea7cc5d22bb58ee62113bb0f076ca6250b3869aeb5848ed24fd0103755)
+            type_hints = cached_type_hints(_typecheckingstub__57b6aaea7cc5d22bb58ee62113bb0f076ca6250b3869aeb5848ed24fd0103755)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5522,7 +5520,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a91b9031e7181044273ba1904b3e19809ee9a8ab762fe24c5dbe20fcf400ff60)
+                type_hints = cached_type_hints(_typecheckingstub__a91b9031e7181044273ba1904b3e19809ee9a8ab762fe24c5dbe20fcf400ff60)
                 check_type(argname="argument root_prefix", value=root_prefix, expected_type=type_hints["root_prefix"])
                 check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5571,8 +5569,8 @@ class CfnQueue(
             self,
             *,
             run_as: builtins.str,
-            posix: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.PosixUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            windows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.WindowsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            posix: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.PosixUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            windows: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.WindowsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Identifies the user for a job.
 
@@ -5604,7 +5602,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__06247d11c191e79686284edad9440c4d5c7e8038f712251f72b1a60140fbcd14)
+                type_hints = cached_type_hints(_typecheckingstub__06247d11c191e79686284edad9440c4d5c7e8038f712251f72b1a60140fbcd14)
                 check_type(argname="argument run_as", value=run_as, expected_type=type_hints["run_as"])
                 check_type(argname="argument posix", value=posix, expected_type=type_hints["posix"])
                 check_type(argname="argument windows", value=windows, expected_type=type_hints["windows"])
@@ -5629,24 +5627,24 @@ class CfnQueue(
         @builtins.property
         def posix(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PosixUserProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.PosixUserProperty"]]:
             '''The user and group that the jobs in the queue run as.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-jobrunasuser.html#cfn-deadline-queue-jobrunasuser-posix
             '''
             result = self._values.get("posix")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PosixUserProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.PosixUserProperty"]], result)
 
         @builtins.property
         def windows(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WindowsUserProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.WindowsUserProperty"]]:
             '''Identifies a Microsoft Windows user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-jobrunasuser.html#cfn-deadline-queue-jobrunasuser-windows
             '''
             result = self._values.get("windows")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WindowsUserProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.WindowsUserProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5686,7 +5684,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e675ce01c62a0076a355385ac17aeacd32612beedb164bb4511f338c9a841594)
+                type_hints = cached_type_hints(_typecheckingstub__e675ce01c62a0076a355385ac17aeacd32612beedb164bb4511f338c9a841594)
                 check_type(argname="argument group", value=group, expected_type=type_hints["group"])
                 check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5753,7 +5751,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd20b1e94c0290d72dd64fc68f5c411ea253cfe384b8a27868dd41f47f2feed3)
+                type_hints = cached_type_hints(_typecheckingstub__dd20b1e94c0290d72dd64fc68f5c411ea253cfe384b8a27868dd41f47f2feed3)
                 check_type(argname="argument rendering_task_buffer", value=rendering_task_buffer, expected_type=type_hints["rendering_task_buffer"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if rendering_task_buffer is not None:
@@ -5793,9 +5791,9 @@ class CfnQueue(
         def __init__(
             self,
             *,
-            priority_balanced: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.PriorityBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            priority_balanced: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.PriorityBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority_fifo: typing.Any = None,
-            weighted_balanced: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.WeightedBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            weighted_balanced: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.WeightedBalancedSchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param priority_balanced: 
@@ -5836,7 +5834,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__43c12c33ef74f2065798b30a2e0b4b26beba00c10e9f094176bea5d454cd2280)
+                type_hints = cached_type_hints(_typecheckingstub__43c12c33ef74f2065798b30a2e0b4b26beba00c10e9f094176bea5d454cd2280)
                 check_type(argname="argument priority_balanced", value=priority_balanced, expected_type=type_hints["priority_balanced"])
                 check_type(argname="argument priority_fifo", value=priority_fifo, expected_type=type_hints["priority_fifo"])
                 check_type(argname="argument weighted_balanced", value=weighted_balanced, expected_type=type_hints["weighted_balanced"])
@@ -5851,12 +5849,12 @@ class CfnQueue(
         @builtins.property
         def priority_balanced(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html#cfn-deadline-queue-schedulingconfiguration-prioritybalanced
             '''
             result = self._values.get("priority_balanced")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.PriorityBalancedSchedulingConfigurationProperty"]], result)
 
         @builtins.property
         def priority_fifo(self) -> typing.Any:
@@ -5869,12 +5867,12 @@ class CfnQueue(
         @builtins.property
         def weighted_balanced(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-schedulingconfiguration.html#cfn-deadline-queue-schedulingconfiguration-weightedbalanced
             '''
             result = self._values.get("weighted_balanced")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.WeightedBalancedSchedulingConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5913,7 +5911,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__391b340a952b39210aa5ee26a64eb67349217e2cd0cc5ddea6719ab64da1d3ee)
+                type_hints = cached_type_hints(_typecheckingstub__391b340a952b39210aa5ee26a64eb67349217e2cd0cc5ddea6719ab64da1d3ee)
                 check_type(argname="argument always_schedule_first", value=always_schedule_first, expected_type=type_hints["always_schedule_first"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "always_schedule_first": always_schedule_first,
@@ -5965,7 +5963,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5fc3b3512aa62998ace20e26ed6a89ec69ccbabdc58284e1a0188887cc1903f9)
+                type_hints = cached_type_hints(_typecheckingstub__5fc3b3512aa62998ace20e26ed6a89ec69ccbabdc58284e1a0188887cc1903f9)
                 check_type(argname="argument always_schedule_last", value=always_schedule_last, expected_type=type_hints["always_schedule_last"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "always_schedule_last": always_schedule_last,
@@ -6009,8 +6007,8 @@ class CfnQueue(
             self,
             *,
             error_weight: typing.Optional[jsii.Number] = None,
-            max_priority_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingMaxPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            min_priority_override: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingMinPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            max_priority_override: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.SchedulingMaxPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            min_priority_override: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.SchedulingMinPriorityOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority_weight: typing.Optional[jsii.Number] = None,
             rendering_task_buffer: typing.Optional[jsii.Number] = None,
             rendering_task_weight: typing.Optional[jsii.Number] = None,
@@ -6052,7 +6050,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f3f46048ccd541e1c5594d8cb62ffc63c8a507bdf87e89129c76c1ba1ae827e0)
+                type_hints = cached_type_hints(_typecheckingstub__f3f46048ccd541e1c5594d8cb62ffc63c8a507bdf87e89129c76c1ba1ae827e0)
                 check_type(argname="argument error_weight", value=error_weight, expected_type=type_hints["error_weight"])
                 check_type(argname="argument max_priority_override", value=max_priority_override, expected_type=type_hints["max_priority_override"])
                 check_type(argname="argument min_priority_override", value=min_priority_override, expected_type=type_hints["min_priority_override"])
@@ -6089,22 +6087,22 @@ class CfnQueue(
         @builtins.property
         def max_priority_override(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-maxpriorityoverride
             '''
             result = self._values.get("max_priority_override")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingMaxPriorityOverrideProperty"]], result)
 
         @builtins.property
         def min_priority_override(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMinPriorityOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingMinPriorityOverrideProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-queue-weightedbalancedschedulingconfiguration.html#cfn-deadline-queue-weightedbalancedschedulingconfiguration-minpriorityoverride
             '''
             result = self._values.get("min_priority_override")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingMinPriorityOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingMinPriorityOverrideProperty"]], result)
 
         @builtins.property
         def priority_weight(self) -> typing.Optional[jsii.Number]:
@@ -6184,7 +6182,7 @@ class CfnQueue(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e21f3cd393d77359583c8744ba670e4eb05b1b53d4bba3a35461caec2a91fc9c)
+                type_hints = cached_type_hints(_typecheckingstub__e21f3cd393d77359583c8744ba670e4eb05b1b53d4bba3a35461caec2a91fc9c)
                 check_type(argname="argument password_arn", value=password_arn, expected_type=type_hints["password_arn"])
                 check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6224,9 +6222,9 @@ class CfnQueue(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueEnvironmentRef_f24a8344)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IQueueEnvironmentRef)
 class CfnQueueEnvironment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnQueueEnvironment",
 ):
@@ -6273,7 +6271,7 @@ class CfnQueueEnvironment(
         :param template_type: Specifies whether the template for the queue environment is JSON or YAML.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cf2ef79ee46780c7590cdcaf16949904d0291a2627b57555ffa860cb355319b)
+            type_hints = cached_type_hints(_typecheckingstub__0cf2ef79ee46780c7590cdcaf16949904d0291a2627b57555ffa860cb355319b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueEnvironmentProps(
@@ -6294,18 +6292,18 @@ class CfnQueueEnvironment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4798902479c142ac8e06142e419aa44a9ffee3d5f0d81e8531adf463ed21203)
+            type_hints = cached_type_hints(_typecheckingstub__b4798902479c142ac8e06142e419aa44a9ffee3d5f0d81e8531adf463ed21203)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueueEnvironment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a6465894d7e168ae6fe30f0f0519094a5d10b4a0db099eaf9e05619574ec819)
+            type_hints = cached_type_hints(_typecheckingstub__4a6465894d7e168ae6fe30f0f0519094a5d10b4a0db099eaf9e05619574ec819)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6318,7 +6316,7 @@ class CfnQueueEnvironment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4234e955a996a24390a16b9a75175a9e7766aa94cc035cd920a37d37e152197)
+            type_hints = cached_type_hints(_typecheckingstub__d4234e955a996a24390a16b9a75175a9e7766aa94cc035cd920a37d37e152197)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6358,9 +6356,11 @@ class CfnQueueEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="queueEnvironmentRef")
-    def queue_environment_ref(self) -> "_QueueEnvironmentReference_ed60dec7":
+    def queue_environment_ref(
+        self,
+    ) -> "_aws_deadline_b02a7487.QueueEnvironmentReference":
         '''A reference to a QueueEnvironment resource.'''
-        return typing.cast("_QueueEnvironmentReference_ed60dec7", jsii.get(self, "queueEnvironmentRef"))
+        return typing.cast("_aws_deadline_b02a7487.QueueEnvironmentReference", jsii.get(self, "queueEnvironmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="farmId")
@@ -6371,7 +6371,7 @@ class CfnQueueEnvironment(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee0a8ebb761f1a339ba695cf1c4453345e0569d6f01c23d4df36dd86031814e2)
+            type_hints = cached_type_hints(_typecheckingstub__ee0a8ebb761f1a339ba695cf1c4453345e0569d6f01c23d4df36dd86031814e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -6384,7 +6384,7 @@ class CfnQueueEnvironment(
     @priority.setter
     def priority(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__462f62b321d72f5a88f323c76e44d85eaa3374e0f6adb3f512104435274114c0)
+            type_hints = cached_type_hints(_typecheckingstub__462f62b321d72f5a88f323c76e44d85eaa3374e0f6adb3f512104435274114c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
@@ -6397,7 +6397,7 @@ class CfnQueueEnvironment(
     @queue_id.setter
     def queue_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e636e4de083154e3080b3a798c660c93a0d0503ff898703d5f4337707ee40a26)
+            type_hints = cached_type_hints(_typecheckingstub__e636e4de083154e3080b3a798c660c93a0d0503ff898703d5f4337707ee40a26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queueId", value) # pyright: ignore[reportArgumentType]
 
@@ -6410,7 +6410,7 @@ class CfnQueueEnvironment(
     @template.setter
     def template(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bebb6c72d0cd02e4f9a11ae2664110700bb277dc5fc328e6a9679f00fe106638)
+            type_hints = cached_type_hints(_typecheckingstub__bebb6c72d0cd02e4f9a11ae2664110700bb277dc5fc328e6a9679f00fe106638)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "template", value) # pyright: ignore[reportArgumentType]
 
@@ -6423,7 +6423,7 @@ class CfnQueueEnvironment(
     @template_type.setter
     def template_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4192f38c45d04e5d9283902f89bf09ebe24569bc7c096f6e34e9a156c7f2896)
+            type_hints = cached_type_hints(_typecheckingstub__c4192f38c45d04e5d9283902f89bf09ebe24569bc7c096f6e34e9a156c7f2896)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "templateType", value) # pyright: ignore[reportArgumentType]
 
@@ -6475,7 +6475,7 @@ class CfnQueueEnvironmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea67e4e193bb92e88985247d97314b7feb5f0208ac9f9998cecd35054915fe67)
+            type_hints = cached_type_hints(_typecheckingstub__ea67e4e193bb92e88985247d97314b7feb5f0208ac9f9998cecd35054915fe67)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -6551,9 +6551,9 @@ class CfnQueueEnvironmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueFleetAssociationRef_9b9c74cf)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IQueueFleetAssociationRef)
 class CfnQueueFleetAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnQueueFleetAssociation",
 ):
@@ -6594,7 +6594,7 @@ class CfnQueueFleetAssociation(
         :param queue_id: The queue ID.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bf5f16a9974daab9dba069dab2d83de0ff5b4a6e417026bc9f4c775d17511e6)
+            type_hints = cached_type_hints(_typecheckingstub__3bf5f16a9974daab9dba069dab2d83de0ff5b4a6e417026bc9f4c775d17511e6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueFleetAssociationProps(
@@ -6611,18 +6611,18 @@ class CfnQueueFleetAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3212aaaf13a6b26e583d25ffd85c280e12f043cdb18fb8505d78a14ff03bd1b3)
+            type_hints = cached_type_hints(_typecheckingstub__3212aaaf13a6b26e583d25ffd85c280e12f043cdb18fb8505d78a14ff03bd1b3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueueFleetAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ff12ea5f9a70d8e7142807e0c6f13883ba906fa01e1e7887b8de68261b1db16)
+            type_hints = cached_type_hints(_typecheckingstub__2ff12ea5f9a70d8e7142807e0c6f13883ba906fa01e1e7887b8de68261b1db16)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6635,7 +6635,7 @@ class CfnQueueFleetAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e31fddcabe78ead7dcb1221739b2cf550282943452143253d1aba9300c17652)
+            type_hints = cached_type_hints(_typecheckingstub__3e31fddcabe78ead7dcb1221739b2cf550282943452143253d1aba9300c17652)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6657,9 +6657,11 @@ class CfnQueueFleetAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="queueFleetAssociationRef")
-    def queue_fleet_association_ref(self) -> "_QueueFleetAssociationReference_953e1b0e":
+    def queue_fleet_association_ref(
+        self,
+    ) -> "_aws_deadline_b02a7487.QueueFleetAssociationReference":
         '''A reference to a QueueFleetAssociation resource.'''
-        return typing.cast("_QueueFleetAssociationReference_953e1b0e", jsii.get(self, "queueFleetAssociationRef"))
+        return typing.cast("_aws_deadline_b02a7487.QueueFleetAssociationReference", jsii.get(self, "queueFleetAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="farmId")
@@ -6670,7 +6672,7 @@ class CfnQueueFleetAssociation(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e19729f1c6fb8ec0c8b6f6c31e0865e9725dd22fc08c9ec2197711d95f5baa21)
+            type_hints = cached_type_hints(_typecheckingstub__e19729f1c6fb8ec0c8b6f6c31e0865e9725dd22fc08c9ec2197711d95f5baa21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -6683,7 +6685,7 @@ class CfnQueueFleetAssociation(
     @fleet_id.setter
     def fleet_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf8c906b58e9214a10c2d83a1b139049a42f93254fc8ec57da660c71ab58bb1)
+            type_hints = cached_type_hints(_typecheckingstub__2bf8c906b58e9214a10c2d83a1b139049a42f93254fc8ec57da660c71ab58bb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fleetId", value) # pyright: ignore[reportArgumentType]
 
@@ -6696,7 +6698,7 @@ class CfnQueueFleetAssociation(
     @queue_id.setter
     def queue_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad97a4082938a418ac03725615af17abfdffa0f3dcb8f92815671754e0657141)
+            type_hints = cached_type_hints(_typecheckingstub__ad97a4082938a418ac03725615af17abfdffa0f3dcb8f92815671754e0657141)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queueId", value) # pyright: ignore[reportArgumentType]
 
@@ -6736,7 +6738,7 @@ class CfnQueueFleetAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5457199586ad5b5517f14765c4203a9a198d98c68deaf06933477e9fcccc9ffb)
+            type_hints = cached_type_hints(_typecheckingstub__5457199586ad5b5517f14765c4203a9a198d98c68deaf06933477e9fcccc9ffb)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument fleet_id", value=fleet_id, expected_type=type_hints["fleet_id"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -6788,9 +6790,9 @@ class CfnQueueFleetAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IQueueLimitAssociationRef_9d6777b6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IQueueLimitAssociationRef)
 class CfnQueueLimitAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnQueueLimitAssociation",
 ):
@@ -6833,7 +6835,7 @@ class CfnQueueLimitAssociation(
         :param queue_id: The unique identifier of the queue in the association.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33bb0126f21fd4cda69453821444b10474f3d0aa1fb2e74c53855f1bab6619af)
+            type_hints = cached_type_hints(_typecheckingstub__33bb0126f21fd4cda69453821444b10474f3d0aa1fb2e74c53855f1bab6619af)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnQueueLimitAssociationProps(
@@ -6850,18 +6852,18 @@ class CfnQueueLimitAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb79204add58d5e517af034a032bf3b9fb2280891c30d00866c36db6925b3174)
+            type_hints = cached_type_hints(_typecheckingstub__eb79204add58d5e517af034a032bf3b9fb2280891c30d00866c36db6925b3174)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnQueueLimitAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea4db6a7c399e845c1e7229799d5119d1b27b4eafa4177f531354937d19f1288)
+            type_hints = cached_type_hints(_typecheckingstub__ea4db6a7c399e845c1e7229799d5119d1b27b4eafa4177f531354937d19f1288)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6874,7 +6876,7 @@ class CfnQueueLimitAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90795c7c14ba63ddf5c77599ab3af7be5c53e96f84e225e618cd6a0e6b7172aa)
+            type_hints = cached_type_hints(_typecheckingstub__90795c7c14ba63ddf5c77599ab3af7be5c53e96f84e225e618cd6a0e6b7172aa)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6896,9 +6898,11 @@ class CfnQueueLimitAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="queueLimitAssociationRef")
-    def queue_limit_association_ref(self) -> "_QueueLimitAssociationReference_aeea1939":
+    def queue_limit_association_ref(
+        self,
+    ) -> "_aws_deadline_b02a7487.QueueLimitAssociationReference":
         '''A reference to a QueueLimitAssociation resource.'''
-        return typing.cast("_QueueLimitAssociationReference_aeea1939", jsii.get(self, "queueLimitAssociationRef"))
+        return typing.cast("_aws_deadline_b02a7487.QueueLimitAssociationReference", jsii.get(self, "queueLimitAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="farmId")
@@ -6909,7 +6913,7 @@ class CfnQueueLimitAssociation(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__403fffa3c6aecc39b19be3c4370bf9a2122428534f3f293d7d0e92ea712a482a)
+            type_hints = cached_type_hints(_typecheckingstub__403fffa3c6aecc39b19be3c4370bf9a2122428534f3f293d7d0e92ea712a482a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -6922,7 +6926,7 @@ class CfnQueueLimitAssociation(
     @limit_id.setter
     def limit_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81482eb74e42f1ae8e5a39d253572074c07dac8a3f9c6cf155bcdc70b07a9d8b)
+            type_hints = cached_type_hints(_typecheckingstub__81482eb74e42f1ae8e5a39d253572074c07dac8a3f9c6cf155bcdc70b07a9d8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "limitId", value) # pyright: ignore[reportArgumentType]
 
@@ -6935,7 +6939,7 @@ class CfnQueueLimitAssociation(
     @queue_id.setter
     def queue_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95918502773e04fedfce617293e1273542487559239540340f6318ee3b2652bd)
+            type_hints = cached_type_hints(_typecheckingstub__95918502773e04fedfce617293e1273542487559239540340f6318ee3b2652bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queueId", value) # pyright: ignore[reportArgumentType]
 
@@ -6975,7 +6979,7 @@ class CfnQueueLimitAssociationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6ee3120556a9adfac55bd8ed189354788afc9d44f3f38d4c0ed4d4741462bd3)
+            type_hints = cached_type_hints(_typecheckingstub__a6ee3120556a9adfac55bd8ed189354788afc9d44f3f38d4c0ed4d4741462bd3)
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument limit_id", value=limit_id, expected_type=type_hints["limit_id"])
             check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
@@ -7053,12 +7057,12 @@ class CfnQueueProps:
         allowed_storage_profile_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         default_budget_action: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        job_attachment_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobAttachmentSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        job_run_as_user: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_attachment_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.JobAttachmentSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        job_run_as_user: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.JobRunAsUserProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        scheduling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scheduling_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnQueue.SchedulingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnQueue``.
 
@@ -7141,7 +7145,7 @@ class CfnQueueProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a92d64f51023fd5b945aa0d9e2b696749e02f9df358265737e05dd4a730fd30d)
+            type_hints = cached_type_hints(_typecheckingstub__a92d64f51023fd5b945aa0d9e2b696749e02f9df358265737e05dd4a730fd30d)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument allowed_storage_profile_ids", value=allowed_storage_profile_ids, expected_type=type_hints["allowed_storage_profile_ids"])
@@ -7238,7 +7242,7 @@ class CfnQueueProps:
     @builtins.property
     def job_attachment_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobAttachmentSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobAttachmentSettingsProperty"]]:
         '''The job attachment settings.
 
         These are the Amazon S3 bucket name and the Amazon S3 prefix.
@@ -7246,18 +7250,18 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html#cfn-deadline-queue-jobattachmentsettings
         '''
         result = self._values.get("job_attachment_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobAttachmentSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobAttachmentSettingsProperty"]], result)
 
     @builtins.property
     def job_run_as_user(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobRunAsUserProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobRunAsUserProperty"]]:
         '''Identifies the user for a job.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html#cfn-deadline-queue-jobrunasuser
         '''
         result = self._values.get("job_run_as_user")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.JobRunAsUserProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.JobRunAsUserProperty"]], result)
 
     @builtins.property
     def required_file_system_location_names(
@@ -7282,15 +7286,15 @@ class CfnQueueProps:
     @builtins.property
     def scheduling_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingConfigurationProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html#cfn-deadline-queue-schedulingconfiguration
         '''
         result = self._values.get("scheduling_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnQueue.SchedulingConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnQueue.SchedulingConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to add to your queue.
 
         Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -7298,7 +7302,7 @@ class CfnQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-queue.html#cfn-deadline-queue-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7312,9 +7316,9 @@ class CfnQueueProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IStorageProfileRef_e09d36f2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_deadline_b02a7487.IStorageProfileRef)
 class CfnStorageProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_deadline.CfnStorageProfile",
 ):
@@ -7352,7 +7356,7 @@ class CfnStorageProfile(
         display_name: builtins.str,
         farm_id: builtins.str,
         os_family: builtins.str,
-        file_system_locations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStorageProfile.FileSystemLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        file_system_locations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStorageProfile.FileSystemLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Deadline::StorageProfile``.
 
@@ -7364,7 +7368,7 @@ class CfnStorageProfile(
         :param file_system_locations: Operating system specific file system path to the storage location.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3bb4938fbe160a975ec7626f79799d48d7603f2cc166cf513bf1920de8659cb)
+            type_hints = cached_type_hints(_typecheckingstub__d3bb4938fbe160a975ec7626f79799d48d7603f2cc166cf513bf1920de8659cb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnStorageProfileProps(
@@ -7384,18 +7388,18 @@ class CfnStorageProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7348a3698df1e026d8e4f446f2476393065cf71a7bd6c392d1ff86eaf1bf2303)
+            type_hints = cached_type_hints(_typecheckingstub__7348a3698df1e026d8e4f446f2476393065cf71a7bd6c392d1ff86eaf1bf2303)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStorageProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f2c21ddee6a44d7c3543d169f12db3f66484a191cb97771d03130be960a1dde)
+            type_hints = cached_type_hints(_typecheckingstub__4f2c21ddee6a44d7c3543d169f12db3f66484a191cb97771d03130be960a1dde)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7408,7 +7412,7 @@ class CfnStorageProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9daf383d7a7e24cea3229e3fe4ee60cad6d86ebd3ae060051973527e9544b1a5)
+            type_hints = cached_type_hints(_typecheckingstub__9daf383d7a7e24cea3229e3fe4ee60cad6d86ebd3ae060051973527e9544b1a5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7439,9 +7443,9 @@ class CfnStorageProfile(
 
     @builtins.property
     @jsii.member(jsii_name="storageProfileRef")
-    def storage_profile_ref(self) -> "_StorageProfileReference_4e288a9f":
+    def storage_profile_ref(self) -> "_aws_deadline_b02a7487.StorageProfileReference":
         '''A reference to a StorageProfile resource.'''
-        return typing.cast("_StorageProfileReference_4e288a9f", jsii.get(self, "storageProfileRef"))
+        return typing.cast("_aws_deadline_b02a7487.StorageProfileReference", jsii.get(self, "storageProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -7452,7 +7456,7 @@ class CfnStorageProfile(
     @display_name.setter
     def display_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20c6213a2c65defbfbde8129f9b8c1e7681d519ea98354db0d5bbcf5e03e8d6)
+            type_hints = cached_type_hints(_typecheckingstub__f20c6213a2c65defbfbde8129f9b8c1e7681d519ea98354db0d5bbcf5e03e8d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -7465,7 +7469,7 @@ class CfnStorageProfile(
     @farm_id.setter
     def farm_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f736eedcb6c466af3ef1210e274e369c621b42de8f8102b78a138c4d5cc04f9c)
+            type_hints = cached_type_hints(_typecheckingstub__f736eedcb6c466af3ef1210e274e369c621b42de8f8102b78a138c4d5cc04f9c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "farmId", value) # pyright: ignore[reportArgumentType]
 
@@ -7478,7 +7482,7 @@ class CfnStorageProfile(
     @os_family.setter
     def os_family(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff32f8bb060d0ada4a6522805c78bae216b6b86ab15b16b64b07a49ae94df357)
+            type_hints = cached_type_hints(_typecheckingstub__ff32f8bb060d0ada4a6522805c78bae216b6b86ab15b16b64b07a49ae94df357)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "osFamily", value) # pyright: ignore[reportArgumentType]
 
@@ -7486,17 +7490,17 @@ class CfnStorageProfile(
     @jsii.member(jsii_name="fileSystemLocations")
     def file_system_locations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStorageProfile.FileSystemLocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageProfile.FileSystemLocationProperty"]]]]:
         '''Operating system specific file system path to the storage location.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStorageProfile.FileSystemLocationProperty"]]]], jsii.get(self, "fileSystemLocations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageProfile.FileSystemLocationProperty"]]]], jsii.get(self, "fileSystemLocations"))
 
     @file_system_locations.setter
     def file_system_locations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStorageProfile.FileSystemLocationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageProfile.FileSystemLocationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41022fa9902dd4229e3676de8f74c666e01c3237936ce7470d2c1ab45b6055ea)
+            type_hints = cached_type_hints(_typecheckingstub__41022fa9902dd4229e3676de8f74c666e01c3237936ce7470d2c1ab45b6055ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileSystemLocations", value) # pyright: ignore[reportArgumentType]
 
@@ -7535,7 +7539,7 @@ class CfnStorageProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30accc33e266fd187349c32faa815a79744e919f16060567a73b75c87e43a574)
+                type_hints = cached_type_hints(_typecheckingstub__30accc33e266fd187349c32faa815a79744e919f16060567a73b75c87e43a574)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -7604,7 +7608,7 @@ class CfnStorageProfileProps:
         display_name: builtins.str,
         farm_id: builtins.str,
         os_family: builtins.str,
-        file_system_locations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStorageProfile.FileSystemLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        file_system_locations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnStorageProfile.FileSystemLocationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnStorageProfile``.
 
@@ -7636,7 +7640,7 @@ class CfnStorageProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d873ae2006c75776847d16361d1b495d51e00d618e49d32a001db4fe2f72991)
+            type_hints = cached_type_hints(_typecheckingstub__0d873ae2006c75776847d16361d1b495d51e00d618e49d32a001db4fe2f72991)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument farm_id", value=farm_id, expected_type=type_hints["farm_id"])
             check_type(argname="argument os_family", value=os_family, expected_type=type_hints["os_family"])
@@ -7686,13 +7690,13 @@ class CfnStorageProfileProps:
     @builtins.property
     def file_system_locations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStorageProfile.FileSystemLocationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageProfile.FileSystemLocationProperty"]]]]:
         '''Operating system specific file system path to the storage location.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-storageprofile.html#cfn-deadline-storageprofile-filesystemlocations
         '''
         result = self._values.get("file_system_locations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStorageProfile.FileSystemLocationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnStorageProfile.FileSystemLocationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7741,13 +7745,13 @@ def _typecheckingstub__c8cfafb7690986cd3ddb4ba2de814f300f2faab0827e01a86f2f528af
     cost_scale_factor: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6798bafbe4fbee09c44c9bd3ad9e001cecc3ae9d5006b942f13bf08cda9fc8dd(
-    resource: _IFarmRef_21a39bdf,
+    resource: _aws_deadline_b02a7487.IFarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7759,7 +7763,7 @@ def _typecheckingstub__6ee256500801970980c207be2e20d31e327cf613ba506f32de6f737d5
     pass
 
 def _typecheckingstub__4f6b1d970d70d840fd22a69886b9553ac48f2e83d63e421ea979261b3bddf1d0(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7795,7 +7799,7 @@ def _typecheckingstub__1bd09d08fc701cc061b023ad6a5d72db4516ff09e295b470365e39043
     pass
 
 def _typecheckingstub__0e0688a8dc8cdc7f618bc0975895ced63b43e9c85cd1b97a6a84272f1b38fefe(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7806,7 +7810,7 @@ def _typecheckingstub__85eb8ab8e233d51550c535a34f621e657ea5dfc47e9b977b5a9b73c3b
     cost_scale_factor: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7815,21 +7819,21 @@ def _typecheckingstub__b982dfa2ac88548efd13c63c65f7144bf79a74dd670eebe5a13537f1f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     display_name: builtins.str,
     farm_id: builtins.str,
     max_worker_count: jsii.Number,
     role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    host_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.HostConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    host_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.HostConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_worker_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0e5a869a388623237c964a690fcf41f8f17f05f4fb03b112a17f4dee1feff8a7(
-    resource: _IFleetRef_7c29970e,
+    resource: _aws_deadline_b02a7487.IFleetRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7841,7 +7845,7 @@ def _typecheckingstub__7806a60a45b754051274341f8ce662f62919548a5f56d5143f5e47ba5
     pass
 
 def _typecheckingstub__1c7467a1be46332c11edfbc2f2073b67842b79e2b6dc68d7fa0312c8a5b8c595(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7853,7 +7857,7 @@ def _typecheckingstub__624f83add0edac45b93d9318e64f5196dd2045c50f094e69787beb05a
     pass
 
 def _typecheckingstub__9e2fe844317b39494e7f7a1851d6e5842bc0627b2cc937a6709042cb43a27a3f(
-    value: typing.Union[_IResolvable_da3f097b, CfnFleet.FleetConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFleet.FleetConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7889,7 +7893,7 @@ def _typecheckingstub__084da5a242d843b332de24a8c53af7e8830cd00d0dca22235f0c3d665
     pass
 
 def _typecheckingstub__5cb78c2488fd0676b6c07d92f69a0cf51c19a186b0a6d2f13bbc62aec7608cfe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.HostConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFleet.HostConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7901,15 +7905,15 @@ def _typecheckingstub__e98aa63695c4cd93c0aae20c0cd7e90226c1100540a8732e0be19b9d6
     pass
 
 def _typecheckingstub__9c9ddff2a0e8eb5e8397bf64d0158ac4f8fba30ee673a959c2d550657e6f0248(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8521be2862d68a89d6ed0657d975b7b035f5921c08c4e707e47a6d67e5feb805(
     *,
-    selections: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AcceleratorSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AcceleratorCountRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    selections: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.AcceleratorSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    count: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.AcceleratorCountRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7950,8 +7954,8 @@ def _typecheckingstub__8c1cfe3f05aba39c56c382361943715334bf46778423ea2363fb7d33e
 def _typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b3e3881d(
     *,
     mode: builtins.str,
-    worker_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CustomerManagedWorkerCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
-    auto_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CustomerManagedAutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    worker_capabilities: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.CustomerManagedWorkerCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.CustomerManagedAutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_profile_id: typing.Optional[builtins.str] = None,
     tag_propagation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7961,14 +7965,14 @@ def _typecheckingstub__1e0d0744c60a31b3157ef03f930266f6c000eafa44c6050607897ea5b
 def _typecheckingstub__bbfd53a4095156c6675556d0bc3d17d02d807749147c8ab86039c9614cf19652(
     *,
     cpu_architecture_type: builtins.str,
-    memory_mib: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.MemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]],
+    memory_mib: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.MemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]],
     os_family: builtins.str,
-    v_cpu_count: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VCpuCountRangeProperty, typing.Dict[builtins.str, typing.Any]]],
-    accelerator_count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AcceleratorCountRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    accelerator_total_memory_mib: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AcceleratorTotalMemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    v_cpu_count: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.VCpuCountRangeProperty, typing.Dict[builtins.str, typing.Any]]],
+    accelerator_count: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.AcceleratorCountRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    accelerator_total_memory_mib: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.AcceleratorTotalMemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     accelerator_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    custom_amounts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_amounts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8001,16 +8005,16 @@ def _typecheckingstub__3aecc2f9273876f0a639b5d6f1630dcfd8aca136d3caeaeb82918997f
 
 def _typecheckingstub__740fdb4badd1a242b2d3b374ef6944877551e5f0eb2de2239a830f3c2028b7b1(
     *,
-    amounts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    amounts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3ef3ed1850d4005d38d3a6c912a28b59698026461815dad08ff096a4c327a89c(
     *,
-    customer_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.CustomerManagedFleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_managed_ec2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customer_managed: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.CustomerManagedFleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_managed_ec2: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ServiceManagedEc2FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8053,12 +8057,12 @@ def _typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8da
 
 def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39(
     *,
-    instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
-    instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
-    auto_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    persistent_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.PersistentVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    instance_capabilities: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_market_options: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    auto_scaling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    persistent_volume_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.PersistentVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_profile_id: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8066,15 +8070,15 @@ def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c50907360328
 def _typecheckingstub__b6bce0a6fe3858a9b9eaa850b95b27731a62d9ef26b45c40b5684d6586ed6996(
     *,
     cpu_architecture_type: builtins.str,
-    memory_mib: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.MemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]],
+    memory_mib: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.MemoryMiBRangeProperty, typing.Dict[builtins.str, typing.Any]]],
     os_family: builtins.str,
-    v_cpu_count: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VCpuCountRangeProperty, typing.Dict[builtins.str, typing.Any]]],
-    accelerator_capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.AcceleratorCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    v_cpu_count: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.VCpuCountRangeProperty, typing.Dict[builtins.str, typing.Any]]],
+    accelerator_capabilities: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.AcceleratorCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     allowed_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    custom_amounts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_amounts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAmountCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetAttributeCapabilityProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     excluded_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
-    root_ebs_volume: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.Ec2EbsVolumeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    root_ebs_volume: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.Ec2EbsVolumeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8103,15 +8107,15 @@ def _typecheckingstub__54c02580b19d5690de8f0571b8939331063fdba5295262f67c0ffacd4
 
 def _typecheckingstub__a1472efddb89af74b2ae4dc1156d30448332099bec47f03ae56886a44d2d7c7a(
     *,
-    configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.FleetConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     display_name: builtins.str,
     farm_id: builtins.str,
     max_worker_count: jsii.Number,
     role_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    host_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.HostConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    host_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFleet.HostConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_worker_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8123,13 +8127,13 @@ def _typecheckingstub__2263281bf0506f61e2d06a34042a34c3aa49572fcab3143d4b6c4bc81
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__86f495f121c989ce633484634ae5e5893aac8b00980fdf684f9d142fe9b01acf(
-    resource: _ILicenseEndpointRef_6214b46a,
+    resource: _aws_deadline_b02a7487.ILicenseEndpointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8141,7 +8145,7 @@ def _typecheckingstub__4c55303a9745d5fc973745f82b67995797a056a975584226995a614fd
     pass
 
 def _typecheckingstub__b9aa87cad0472c90e08c8aa1a9c72cc53c01e0cf980555f0f3b357ef4148f041(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8171,7 +8175,7 @@ def _typecheckingstub__4fe095c981d830b60af0a60f921ac267a1eba38300aa520b18fa36782
     pass
 
 def _typecheckingstub__328d44ddd074858e36e2c2a2c68ed8b77068feeb72199a2b74d4b41ff444c616(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8181,7 +8185,7 @@ def _typecheckingstub__7a9c98d4186629e7162fde16ad1be09ade6a940c8cf979c87af77955e
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
     vpc_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8206,7 +8210,7 @@ def _typecheckingstub__3c15238b3803d51330c75247e2d6b1d1aa1bc6fedfa044ed9617e7cbf
     pass
 
 def _typecheckingstub__83b7d3f7848e22e6703b3dee913451d9b15c46f08fe2a7b74b935640f721d335(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8269,7 +8273,7 @@ def _typecheckingstub__1349660e6447c1e6551d1ce7cde2c5dc6adbf1fb1fdceb9f214b066a5
     pass
 
 def _typecheckingstub__63eeb510633682c1bc212666148ac6f177b35f8f2fc4704f704b7d5970167414(
-    resource: _IMeteredProductRef_9ac23750,
+    resource: _aws_deadline_b02a7487.IMeteredProductRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8281,7 +8285,7 @@ def _typecheckingstub__dbefe8d8ad8880b6ed1a04494b18aba021e9485a4c70331a054aa0fc4
     pass
 
 def _typecheckingstub__e5d2d01a238f229eb758201d336be8ca9e707d08020ad2910986c804ac3c7809(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8321,13 +8325,13 @@ def _typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959e
     role_arn: builtins.str,
     subdomain: builtins.str,
     identity_center_region: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c0b91e4233624bd76c06fc42cd34136003830b63504b54c6b997d0308082766d(
-    resource: _IMonitorRef_af35d2ec,
+    resource: _aws_deadline_b02a7487.IMonitorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8339,7 +8343,7 @@ def _typecheckingstub__07a7b8fc562a560ba9840b8cc08fc45052dafb751c0ba81b2fc317475
     pass
 
 def _typecheckingstub__034755889d5bcfdc70af9b9b4f8a99b600dbe0a5e6f4d141826a5eca63ae16e1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8381,7 +8385,7 @@ def _typecheckingstub__1a4086b2adbb852e92f05a0e8269f5772c3582c2a7eca92c19dbaaa29
     pass
 
 def _typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8393,7 +8397,7 @@ def _typecheckingstub__491e65cd80e97b2076199940d899980b250e96b9da8d5783d92f236ae
     role_arn: builtins.str,
     subdomain: builtins.str,
     identity_center_region: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8407,18 +8411,18 @@ def _typecheckingstub__7c8ed104ef6a730c7b90ba82ab4ab0b37d213e5444e12df63d7d60b1e
     allowed_storage_profile_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     default_budget_action: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    job_attachment_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobAttachmentSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_run_as_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_attachment_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.JobAttachmentSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_run_as_user: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    scheduling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__abf15d986f33e840db48386d4d767c7de5401c3c6bbdb0a4c2b754aa21135149(
-    resource: _IQueueRef_00ca677f,
+    resource: _aws_deadline_b02a7487.IQueueRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8430,7 +8434,7 @@ def _typecheckingstub__96a060d1452f2401d1cc8e049bf0f5bde7deecb1b862116037fb259cb
     pass
 
 def _typecheckingstub__50a951ea75684c1a0e1477adfe4d54001bbe626c602cd5380b6445649ddc198e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8472,13 +8476,13 @@ def _typecheckingstub__b2559bfc8e75a5a3fe6743bfc64664fbf4a6fc6cb24717a6669ce9a31
     pass
 
 def _typecheckingstub__358c548fac5f624a3c1d72ec9252063f4d1a9bd3c0342b2e54358d53c0204b5c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.JobAttachmentSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQueue.JobAttachmentSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5b1f44b18bbd9cd34d33d3fe1de23e5f60be6648dd1ee50efa7531459cd7ae65(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.JobRunAsUserProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQueue.JobRunAsUserProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8496,13 +8500,13 @@ def _typecheckingstub__cfb5bb7ca40abe81d0cb9afaa09246c4bbb7553021c1125ddbc8a2f83
     pass
 
 def _typecheckingstub__82a9f74d175cbcd0aaff94e7eccd835f3d247053961c19de186dba5bd6101919(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnQueue.SchedulingConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnQueue.SchedulingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__57b6aaea7cc5d22bb58ee62113bb0f076ca6250b3869aeb5848ed24fd0103755(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8518,8 +8522,8 @@ def _typecheckingstub__a91b9031e7181044273ba1904b3e19809ee9a8ab762fe24c5dbe20fcf
 def _typecheckingstub__06247d11c191e79686284edad9440c4d5c7e8038f712251f72b1a60140fbcd14(
     *,
     run_as: builtins.str,
-    posix: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.PosixUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    windows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.WindowsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    posix: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.PosixUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    windows: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.WindowsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8541,9 +8545,9 @@ def _typecheckingstub__dd20b1e94c0290d72dd64fc68f5c411ea253cfe384b8a27868dd41f47
 
 def _typecheckingstub__43c12c33ef74f2065798b30a2e0b4b26beba00c10e9f094176bea5d454cd2280(
     *,
-    priority_balanced: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.PriorityBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    priority_balanced: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.PriorityBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority_fifo: typing.Any = None,
-    weighted_balanced: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.WeightedBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    weighted_balanced: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.WeightedBalancedSchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8565,8 +8569,8 @@ def _typecheckingstub__5fc3b3512aa62998ace20e26ed6a89ec69ccbabdc58284e1a0188887c
 def _typecheckingstub__f3f46048ccd541e1c5594d8cb62ffc63c8a507bdf87e89129c76c1ba1ae827e0(
     *,
     error_weight: typing.Optional[jsii.Number] = None,
-    max_priority_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingMaxPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    min_priority_override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingMinPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_priority_override: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.SchedulingMaxPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    min_priority_override: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.SchedulingMinPriorityOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority_weight: typing.Optional[jsii.Number] = None,
     rendering_task_buffer: typing.Optional[jsii.Number] = None,
     rendering_task_weight: typing.Optional[jsii.Number] = None,
@@ -8603,7 +8607,7 @@ def _typecheckingstub__b4798902479c142ac8e06142e419aa44a9ffee3d5f0d81e8531adf463
     pass
 
 def _typecheckingstub__4a6465894d7e168ae6fe30f0f0519094a5d10b4a0db099eaf9e05619574ec819(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8673,7 +8677,7 @@ def _typecheckingstub__3212aaaf13a6b26e583d25ffd85c280e12f043cdb18fb8505d78a14ff
     pass
 
 def _typecheckingstub__2ff12ea5f9a70d8e7142807e0c6f13883ba906fa01e1e7887b8de68261b1db16(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8729,7 +8733,7 @@ def _typecheckingstub__eb79204add58d5e517af034a032bf3b9fb2280891c30d00866c36db69
     pass
 
 def _typecheckingstub__ea4db6a7c399e845c1e7229799d5119d1b27b4eafa4177f531354937d19f1288(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8774,12 +8778,12 @@ def _typecheckingstub__a92d64f51023fd5b945aa0d9e2b696749e02f9df358265737e05dd4a7
     allowed_storage_profile_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     default_budget_action: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    job_attachment_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobAttachmentSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_run_as_user: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_attachment_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.JobAttachmentSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_run_as_user: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.JobRunAsUserProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     required_file_system_location_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    scheduling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scheduling_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnQueue.SchedulingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8791,7 +8795,7 @@ def _typecheckingstub__d3bb4938fbe160a975ec7626f79799d48d7603f2cc166cf513bf1920d
     display_name: builtins.str,
     farm_id: builtins.str,
     os_family: builtins.str,
-    file_system_locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageProfile.FileSystemLocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    file_system_locations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageProfile.FileSystemLocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8803,7 +8807,7 @@ def _typecheckingstub__7348a3698df1e026d8e4f446f2476393065cf71a7bd6c392d1ff86eaf
     pass
 
 def _typecheckingstub__4f2c21ddee6a44d7c3543d169f12db3f66484a191cb97771d03130be960a1dde(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8833,7 +8837,7 @@ def _typecheckingstub__ff32f8bb060d0ada4a6522805c78bae216b6b86ab15b16b64b07a49ae
     pass
 
 def _typecheckingstub__41022fa9902dd4229e3676de8f74c666e01c3237936ce7470d2c1ab45b6055ea(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStorageProfile.FileSystemLocationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnStorageProfile.FileSystemLocationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8852,7 +8856,7 @@ def _typecheckingstub__0d873ae2006c75776847d16361d1b495d51e00d618e49d32a001db4fe
     display_name: builtins.str,
     farm_id: builtins.str,
     os_family: builtins.str,
-    file_system_locations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStorageProfile.FileSystemLocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    file_system_locations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnStorageProfile.FileSystemLocationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class CapacityReservationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed03e15637dfd04e8cb942727955453b165a7628fd36cdd7fbe6cb826d5452e4)
+            type_hints = cached_type_hints(_typecheckingstub__ed03e15637dfd04e8cb942727955453b165a7628fd36cdd7fbe6cb826d5452e4)
             check_type(argname="argument capacity_reservation_arn", value=capacity_reservation_arn, expected_type=type_hints["capacity_reservation_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_reservation_arn": capacity_reservation_arn,
@@ -107,7 +111,7 @@ class DataCatalogReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4d331c6538b87bd92e94c1c887faa87b351a321589953355092c63f8d11852a)
+            type_hints = cached_type_hints(_typecheckingstub__b4d331c6538b87bd92e94c1c887faa87b351a321589953355092c63f8d11852a)
             check_type(argname="argument data_catalog_name", value=data_catalog_name, expected_type=type_hints["data_catalog_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_catalog_name": data_catalog_name,
@@ -135,7 +139,7 @@ class DataCatalogReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.ICapacityReservationRef")
 class ICapacityReservationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
@@ -155,7 +159,7 @@ class ICapacityReservationRef(
 
 class _ICapacityReservationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CapacityReservation.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, ICapacityReservationRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.IDataCatalogRef")
 class IDataCatalogRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataCatalog.
@@ -200,7 +204,7 @@ class IDataCatalogRef(
 
 class _IDataCatalogRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataCatalog.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IDataCatalogRef).__jsii_proxy_class__ = lambda : _IDataC
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.INamedQueryRef")
 class INamedQueryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a NamedQuery.
@@ -245,7 +249,7 @@ class INamedQueryRef(
 
 class _INamedQueryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a NamedQuery.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, INamedQueryRef).__jsii_proxy_class__ = lambda : _INamedQ
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.IPreparedStatementRef")
 class IPreparedStatementRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PreparedStatement.
@@ -290,7 +294,7 @@ class IPreparedStatementRef(
 
 class _IPreparedStatementRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PreparedStatement.
 
@@ -315,7 +319,7 @@ typing.cast(typing.Any, IPreparedStatementRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.IWorkGroupRef")
 class IWorkGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WorkGroup.
@@ -335,7 +339,7 @@ class IWorkGroupRef(
 
 class _IWorkGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WorkGroup.
 
@@ -381,7 +385,7 @@ class NamedQueryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb78f814f219b554ae585d86189d76c3b565202bcc84e2e82015de6a6033c74e)
+            type_hints = cached_type_hints(_typecheckingstub__fb78f814f219b554ae585d86189d76c3b565202bcc84e2e82015de6a6033c74e)
             check_type(argname="argument named_query_id", value=named_query_id, expected_type=type_hints["named_query_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "named_query_id": named_query_id,
@@ -437,7 +441,7 @@ class PreparedStatementReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e79cee1079d75d49425539c959b6360f318a9ea2bf4dfcd757f3656094c91a8)
+            type_hints = cached_type_hints(_typecheckingstub__8e79cee1079d75d49425539c959b6360f318a9ea2bf4dfcd757f3656094c91a8)
             check_type(argname="argument statement_name", value=statement_name, expected_type=type_hints["statement_name"])
             check_type(argname="argument work_group", value=work_group, expected_type=type_hints["work_group"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -495,7 +499,7 @@ class WorkGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba012f3bab)
+            type_hints = cached_type_hints(_typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba012f3bab)
             check_type(argname="argument work_group_name", value=work_group_name, expected_type=type_hints["work_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "work_group_name": work_group_name,

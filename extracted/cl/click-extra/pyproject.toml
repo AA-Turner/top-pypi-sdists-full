@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "8.4.0"
+version = "8.5.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -203,7 +203,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.4.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v8.5.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -401,6 +401,13 @@ default.extend-ignore-identifiers-re = [
   # 112 │ ...all keyword arguments match a known field, so typos like `optoin=...` raise immediately.
   #     ╰╴                                                             ━━━━━━
   "optoin",
+  # astroid is the AST-parsing library sphinx-autodoc2 depends on, not a typo.
+  # error: `astroid` should be `asteroid`
+  #     ╭▸ ./docs/myst-docstrings.md:201:389
+  #     │
+  # 201 │ ...vember 2023; incompatible with Sphinx 8+, docutils 0.21+, and astroid 4+).
+  #     ╰╴                                                                ━━━━━━━
+  "astroid",
 ]
 
 [tool.pytest]
@@ -436,7 +443,7 @@ report.precision = 2
 file = "tests/cli-test-suite.toml"
 
 [tool.bumpversion]
-current_version = "8.4.0"
+current_version = "8.5.0"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [

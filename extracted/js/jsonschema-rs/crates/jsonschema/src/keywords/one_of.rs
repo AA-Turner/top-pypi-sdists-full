@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     compiler,
     error::ValidationError,
@@ -7,17 +9,21 @@ use crate::{
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
+    Json, JsonNode, SerdeJson,
 };
 use serde_json::{Map, Value};
 
-pub(crate) struct OneOfValidator {
-    schemas: Vec<SchemaNode>,
+pub(crate) struct OneOfValidator<F: Json> {
+    schemas: Vec<SchemaNode<F>>,
     location: Location,
 }
 
-impl OneOfValidator {
+impl OneOfValidator<SerdeJson> {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         if let Value::Array(items) = schema {
             let ctx = ctx.new_at_location("oneOf");
             let mut schemas = Vec::with_capacity(items.len());
@@ -36,13 +42,19 @@ impl OneOfValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                schema,
+                Cow::Borrowed(schema),
                 JsonType::Array,
             ))
         }
     }
+}
 
-    fn get_first_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> Option<usize> {
+impl<F: Json> OneOfValidator<F> {
+    fn get_first_valid(
+        &self,
+        instance: &F::Node<'_>,
+        ctx: &mut ValidationContext,
+    ) -> Option<usize> {
         let mut first_valid_idx = None;
         for (idx, node) in self.schemas.iter().enumerate() {
             if node.is_valid(instance, ctx) {
@@ -54,7 +66,12 @@ impl OneOfValidator {
     }
 
     #[allow(clippy::arithmetic_side_effects)]
-    fn are_others_valid(&self, instance: &Value, idx: usize, ctx: &mut ValidationContext) -> bool {
+    fn are_others_valid(
+        &self,
+        instance: &F::Node<'_>,
+        idx: usize,
+        ctx: &mut ValidationContext,
+    ) -> bool {
         self.schemas
             .iter()
             .skip(idx + 1)
@@ -64,14 +81,17 @@ impl OneOfValidator {
 
 /// Optimized validator for `oneOf` with a single subschema.
 /// With exactly one schema, `oneOf` behaves identically to `anyOf`.
-pub(crate) struct SingleOneOfValidator {
-    node: SchemaNode,
+pub(crate) struct SingleOneOfValidator<F: Json> {
+    node: SchemaNode<F>,
     location: Location,
 }
 
-impl SingleOneOfValidator {
+impl SingleOneOfValidator<SerdeJson> {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         let one_of_ctx = ctx.new_at_location("oneOf");
         let item_ctx = one_of_ctx.new_at_location(0);
         let node = compiler::compile(&item_ctx, item_ctx.as_resource_ref(schema))?;
@@ -82,14 +102,14 @@ impl SingleOneOfValidator {
     }
 }
 
-impl Validate for SingleOneOfValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for SingleOneOfValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         self.node.is_valid(instance, ctx)
     }
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
@@ -101,7 +121,7 @@ impl Validate for SingleOneOfValidator {
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 vec![self
                     .node
                     .iter_errors(instance, location, tracker, ctx)
@@ -112,7 +132,7 @@ impl Validate for SingleOneOfValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
@@ -124,15 +144,15 @@ impl Validate for SingleOneOfValidator {
     }
 }
 
-impl Validate for OneOfValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for OneOfValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         let first_valid_idx = self.get_first_valid(instance, ctx);
         first_valid_idx.is_some_and(|idx| !self.are_others_valid(instance, idx, ctx))
     }
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
@@ -144,7 +164,7 @@ impl Validate for OneOfValidator {
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     self.schemas
                         .iter()
                         .map(|schema| {
@@ -161,7 +181,7 @@ impl Validate for OneOfValidator {
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 self.schemas
                     .iter()
                     .map(|schema| {
@@ -176,7 +196,7 @@ impl Validate for OneOfValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
@@ -223,11 +243,11 @@ impl Validate for OneOfValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     match schema {
         Value::Array(items) => match items.as_slice() {
             [item] => Some(SingleOneOfValidator::compile(ctx, item)),

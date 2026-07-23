@@ -1194,6 +1194,8 @@ dashboard.add_widgets(cloudwatch.LogQueryWidget(
 ))
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1207,69 +1209,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    Resource as _Resource_45bc6135,
-    ResourceProps as _ResourceProps_15a65b4e,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
-from ..interfaces.aws_autoscaling import (
-    IScalingPolicyRef as _IScalingPolicyRef_fcca0de5
-)
-from ..interfaces.aws_cloudwatch import (
-    AlarmMuteRuleReference as _AlarmMuteRuleReference_38cc9dfc,
-    AlarmReference as _AlarmReference_76b2c14f,
-    AnomalyDetectorReference as _AnomalyDetectorReference_11b9b19b,
-    CompositeAlarmReference as _CompositeAlarmReference_bca78bf2,
-    DashboardReference as _DashboardReference_71933abf,
-    IAlarmMuteRuleRef as _IAlarmMuteRuleRef_bf9ec4d2,
-    IAlarmRef as _IAlarmRef_2bb0e5de,
-    IAnomalyDetectorRef as _IAnomalyDetectorRef_824aa9dc,
-    ICompositeAlarmRef as _ICompositeAlarmRef_fa51824d,
-    IDashboardRef as _IDashboardRef_3c35946b,
-    IInsightRuleRef as _IInsightRuleRef_436d0d73,
-    ILogAlarmRef as _ILogAlarmRef_1add8d52,
-    IMetricStreamRef as _IMetricStreamRef_2c784fc6,
-    IOTelEnrichmentRef as _IOTelEnrichmentRef_d7a7e26b,
-    InsightRuleReference as _InsightRuleReference_d30ddeea,
-    LogAlarmReference as _LogAlarmReference_622068d1,
-    MetricStreamReference as _MetricStreamReference_e417a88f,
-    OTelEnrichmentReference as _OTelEnrichmentReference_8678d69f,
-)
-from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
-from ..interfaces.aws_kinesisfirehose import (
-    IDeliveryStreamRef as _IDeliveryStreamRef_678f5e53
-)
-from ..interfaces.aws_sns import ITopicRef as _ITopicRef_29aa9a88
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.interfaces.aws_autoscaling as _aws_autoscaling_66012b8a
+    import aws_cdk.interfaces.aws_cloudwatch as _aws_cloudwatch_70717108
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kinesisfirehose as _aws_kinesisfirehose_0487cfc9
+    import aws_cdk.interfaces.aws_sns as _aws_sns_c06cc191
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_autoscaling_66012b8a = _LazyImport("aws_cdk.interfaces.aws_autoscaling")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cloudwatch_70717108 = _LazyImport("aws_cdk.interfaces.aws_cloudwatch")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kinesisfirehose_0487cfc9 = _LazyImport("aws_cdk.interfaces.aws_kinesisfirehose")
+    _aws_sns_c06cc191 = _LazyImport("aws_cdk.interfaces.aws_sns")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -1296,7 +1270,7 @@ class AlarmActionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f1ff7030413de3d64c1ba15be58b5993bda266f09d078a54ade9ac8b5a2c478)
+            type_hints = cached_type_hints(_typecheckingstub__1f1ff7030413de3d64c1ba15be58b5993bda266f09d078a54ade9ac8b5a2c478)
             check_type(argname="argument alarm_action_arn", value=alarm_action_arn, expected_type=type_hints["alarm_action_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alarm_action_arn": alarm_action_arn,
@@ -1359,7 +1333,7 @@ class AlarmRule(
         :param operands: IAlarmRules to be joined with AND operator.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73fcf7d7f6f71bc46cabb994493848ff6474356a6f35fb7c178bc77e7b4bf0b)
+            type_hints = cached_type_hints(_typecheckingstub__a73fcf7d7f6f71bc46cabb994493848ff6474356a6f35fb7c178bc77e7b4bf0b)
             check_type(argname="argument operands", value=operands, expected_type=typing.Tuple[type_hints["operands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "allOf", [*operands]))
 
@@ -1371,7 +1345,7 @@ class AlarmRule(
         :param operands: IAlarmRules to be joined with OR operator.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c83f7a2932bb0e6ad7daedb63c82a736735f725c8596adb65d2dd0358464ade)
+            type_hints = cached_type_hints(_typecheckingstub__9c83f7a2932bb0e6ad7daedb63c82a736735f725c8596adb65d2dd0358464ade)
             check_type(argname="argument operands", value=operands, expected_type=typing.Tuple[type_hints["operands"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "anyOf", [*operands]))
 
@@ -1379,7 +1353,7 @@ class AlarmRule(
     @builtins.classmethod
     def from_alarm(
         cls,
-        alarm: "_IAlarmRef_2bb0e5de",
+        alarm: "_aws_cloudwatch_70717108.IAlarmRef",
         alarm_state: "AlarmState",
     ) -> "IAlarmRule":
         '''function to build Rule Expression for given IAlarm and AlarmState.
@@ -1388,7 +1362,7 @@ class AlarmRule(
         :param alarm_state: AlarmState to be used in Rule Expression.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7dd0ffc30f4ddc0cb0621fdae0fe1af07770e9fd504527c4df1f6e9ed2032cc)
+            type_hints = cached_type_hints(_typecheckingstub__c7dd0ffc30f4ddc0cb0621fdae0fe1af07770e9fd504527c4df1f6e9ed2032cc)
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
             check_type(argname="argument alarm_state", value=alarm_state, expected_type=type_hints["alarm_state"])
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "fromAlarm", [alarm, alarm_state]))
@@ -1401,7 +1375,7 @@ class AlarmRule(
         :param value: boolean value to be used in rule expression.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4a2328411f3cd1f101e6ec1cb8b2e99fc902ce06552b8b213d9cab093ad51cc)
+            type_hints = cached_type_hints(_typecheckingstub__d4a2328411f3cd1f101e6ec1cb8b2e99fc902ce06552b8b213d9cab093ad51cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "fromBoolean", [value]))
 
@@ -1413,7 +1387,7 @@ class AlarmRule(
         :param alarm_rule: string to be used in Rule Expression.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ab510b22518be75f8aa37082e6a3eb8a0352f4b78b509de75bac3e2651e7909)
+            type_hints = cached_type_hints(_typecheckingstub__3ab510b22518be75f8aa37082e6a3eb8a0352f4b78b509de75bac3e2651e7909)
             check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "fromString", [alarm_rule]))
 
@@ -1425,7 +1399,7 @@ class AlarmRule(
         :param operand: IAlarmRule to be wrapped in NOT operator.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__130f148217f9842e34a2de59608585cc9ab66211fa42610aa323425b1f214b0a)
+            type_hints = cached_type_hints(_typecheckingstub__130f148217f9842e34a2de59608585cc9ab66211fa42610aa323425b1f214b0a)
             check_type(argname="argument operand", value=operand, expected_type=type_hints["operand"])
         return typing.cast("IAlarmRule", jsii.sinvoke(cls, "not", [operand]))
 
@@ -1474,7 +1448,7 @@ class AlarmStatusWidgetProps:
     def __init__(
         self,
         *,
-        alarms: typing.Sequence["_IAlarmRef_2bb0e5de"],
+        alarms: typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"],
         height: typing.Optional[jsii.Number] = None,
         sort_by: typing.Optional["AlarmStatusWidgetSortBy"] = None,
         states: typing.Optional[typing.Sequence["AlarmState"]] = None,
@@ -1504,7 +1478,7 @@ class AlarmStatusWidgetProps:
                 ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b487d6400a85492ffe968131ec5a7294320f90cef90f0505f02beffc7d3055a1)
+            type_hints = cached_type_hints(_typecheckingstub__b487d6400a85492ffe968131ec5a7294320f90cef90f0505f02beffc7d3055a1)
             check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument sort_by", value=sort_by, expected_type=type_hints["sort_by"])
@@ -1526,11 +1500,11 @@ class AlarmStatusWidgetProps:
             self._values["width"] = width
 
     @builtins.property
-    def alarms(self) -> typing.List["_IAlarmRef_2bb0e5de"]:
+    def alarms(self) -> typing.List["_aws_cloudwatch_70717108.IAlarmRef"]:
         '''CloudWatch Alarms to show in widget.'''
         result = self._values.get("alarms")
         assert result is not None, "Required property 'alarms' is missing"
-        return typing.cast(typing.List["_IAlarmRef_2bb0e5de"], result)
+        return typing.cast(typing.List["_aws_cloudwatch_70717108.IAlarmRef"], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
@@ -1658,7 +1632,7 @@ class AnomalyDetectionAlarmProps:
         comparison_operator: typing.Optional["ComparisonOperator"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         statistic: typing.Optional[builtins.str] = None,
         std_devs: typing.Optional[jsii.Number] = None,
         treat_missing_data: typing.Optional["TreatMissingData"] = None,
@@ -1703,7 +1677,7 @@ class AnomalyDetectionAlarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d770d314ce70d6c9f6003c8d6c5aa5cc35a2de931e79a5b71b5612d03298011d)
+            type_hints = cached_type_hints(_typecheckingstub__d770d314ce70d6c9f6003c8d6c5aa5cc35a2de931e79a5b71b5612d03298011d)
             check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
@@ -1828,7 +1802,7 @@ class AnomalyDetectionAlarmProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''(deprecated) The period over which the specified statistic is applied.
 
         Cannot be used with ``MathExpression`` objects.
@@ -1840,7 +1814,7 @@ class AnomalyDetectionAlarmProps:
         :stability: deprecated
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def statistic(self) -> typing.Optional[builtins.str]:
@@ -1901,9 +1875,9 @@ class AnomalyDetectionAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAlarmRef_2bb0e5de, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAlarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAlarm(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm",
 ):
@@ -1993,26 +1967,26 @@ class CfnAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         comparison_operator: typing.Optional[builtins.str] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-        evaluation_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        evaluation_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         evaluation_interval: typing.Optional[jsii.Number] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
-        insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
-        metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         namespace: typing.Optional[builtins.str] = None,
-        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         period: typing.Optional[jsii.Number] = None,
         statistic: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
         threshold_metric_id: typing.Optional[builtins.str] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
@@ -2048,7 +2022,7 @@ class CfnAlarm(
         :param unit: The unit of the metric associated with the alarm. Specify this only if you are creating an alarm based on a single metric. Do not specify this if you are specifying a ``Metrics`` array. You can specify the following values: Seconds, Microseconds, Milliseconds, Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes, Bits, Kilobits, Megabits, Gigabits, Terabits, Percent, Count, Bytes/Second, Kilobytes/Second, Megabytes/Second, Gigabytes/Second, Terabytes/Second, Bits/Second, Kilobits/Second, Megabits/Second, Gigabits/Second, Terabits/Second, Count/Second, or None.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
+            type_hints = cached_type_hints(_typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4d1f1b68)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAlarmProps(
@@ -2082,12 +2056,15 @@ class CfnAlarm(
 
     @jsii.member(jsii_name="arnForAlarm")
     @builtins.classmethod
-    def arn_for_alarm(cls, resource: "_IAlarmRef_2bb0e5de") -> builtins.str:
+    def arn_for_alarm(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IAlarmRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbc3625824c9d8dd875ed28803fa041fbb52c24b0bde065c344d7da906151bb0)
+            type_hints = cached_type_hints(_typecheckingstub__bbc3625824c9d8dd875ed28803fa041fbb52c24b0bde065c344d7da906151bb0)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlarm", [resource]))
 
@@ -2098,7 +2075,7 @@ class CfnAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IAlarmRef_2bb0e5de":
+    ) -> "_aws_cloudwatch_70717108.IAlarmRef":
         '''Creates a new IAlarmRef from an ARN.
 
         :param scope: -
@@ -2106,11 +2083,11 @@ class CfnAlarm(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__544b0968def3d9b72962fb1bbce7dec4b2d60b4c2518711cc9df447306ed6c4c)
+            type_hints = cached_type_hints(_typecheckingstub__544b0968def3d9b72962fb1bbce7dec4b2d60b4c2518711cc9df447306ed6c4c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IAlarmRef_2bb0e5de", jsii.sinvoke(cls, "fromAlarmArn", [scope, id, arn]))
+        return typing.cast("_aws_cloudwatch_70717108.IAlarmRef", jsii.sinvoke(cls, "fromAlarmArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromAlarmName")
     @builtins.classmethod
@@ -2119,7 +2096,7 @@ class CfnAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         alarm_name: builtins.str,
-    ) -> "_IAlarmRef_2bb0e5de":
+    ) -> "_aws_cloudwatch_70717108.IAlarmRef":
         '''Creates a new IAlarmRef from a alarmName.
 
         :param scope: -
@@ -2127,11 +2104,11 @@ class CfnAlarm(
         :param alarm_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__191b683ee20d5f420eb03eb2e0b1a6e0e7cfed31f66a3afa94d14da0767a90f4)
+            type_hints = cached_type_hints(_typecheckingstub__191b683ee20d5f420eb03eb2e0b1a6e0e7cfed31f66a3afa94d14da0767a90f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
-        return typing.cast("_IAlarmRef_2bb0e5de", jsii.sinvoke(cls, "fromAlarmName", [scope, id, alarm_name]))
+        return typing.cast("_aws_cloudwatch_70717108.IAlarmRef", jsii.sinvoke(cls, "fromAlarmName", [scope, id, alarm_name]))
 
     @jsii.member(jsii_name="isCfnAlarm")
     @builtins.classmethod
@@ -2141,18 +2118,18 @@ class CfnAlarm(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f16c8a189bf39c8d5c16604f2d401048c7106f1de30aa7a7366ebb521ebc13c4)
+            type_hints = cached_type_hints(_typecheckingstub__f16c8a189bf39c8d5c16604f2d401048c7106f1de30aa7a7366ebb521ebc13c4)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlarm", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57)
+            type_hints = cached_type_hints(_typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2165,7 +2142,7 @@ class CfnAlarm(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310)
+            type_hints = cached_type_hints(_typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2177,9 +2154,9 @@ class CfnAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="alarmRef")
-    def alarm_ref(self) -> "_AlarmReference_76b2c14f":
+    def alarm_ref(self) -> "_aws_cloudwatch_70717108.AlarmReference":
         '''A reference to a Alarm resource.'''
-        return typing.cast("_AlarmReference_76b2c14f", jsii.get(self, "alarmRef"))
+        return typing.cast("_aws_cloudwatch_70717108.AlarmReference", jsii.get(self, "alarmRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -2192,9 +2169,9 @@ class CfnAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2210,17 +2187,17 @@ class CfnAlarm(
     @jsii.member(jsii_name="actionsEnabled")
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "actionsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "actionsEnabled"))
 
     @actions_enabled.setter
     def actions_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb)
+            type_hints = cached_type_hints(_typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -2233,7 +2210,7 @@ class CfnAlarm(
     @alarm_actions.setter
     def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a)
+            type_hints = cached_type_hints(_typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
 
@@ -2246,7 +2223,7 @@ class CfnAlarm(
     @alarm_description.setter
     def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638)
+            type_hints = cached_type_hints(_typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -2259,7 +2236,7 @@ class CfnAlarm(
     @alarm_name.setter
     def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1)
+            type_hints = cached_type_hints(_typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
 
@@ -2272,7 +2249,7 @@ class CfnAlarm(
     @comparison_operator.setter
     def comparison_operator(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
+            type_hints = cached_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
 
@@ -2285,7 +2262,7 @@ class CfnAlarm(
     @datapoints_to_alarm.setter
     def datapoints_to_alarm(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796)
+            type_hints = cached_type_hints(_typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "datapointsToAlarm", value) # pyright: ignore[reportArgumentType]
 
@@ -2293,17 +2270,17 @@ class CfnAlarm(
     @jsii.member(jsii_name="dimensions")
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]]:
         '''The dimensions for the metric associated with the alarm.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]], jsii.get(self, "dimensions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]], jsii.get(self, "dimensions"))
 
     @dimensions.setter
     def dimensions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e)
+            type_hints = cached_type_hints(_typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
 
@@ -2319,7 +2296,7 @@ class CfnAlarm(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
+            type_hints = cached_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
 
@@ -2327,17 +2304,17 @@ class CfnAlarm(
     @jsii.member(jsii_name="evaluationCriteria")
     def evaluation_criteria(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationCriteriaProperty"]]:
         '''The evaluation criteria for an alarm.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]], jsii.get(self, "evaluationCriteria"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationCriteriaProperty"]], jsii.get(self, "evaluationCriteria"))
 
     @evaluation_criteria.setter
     def evaluation_criteria(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationCriteriaProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c)
+            type_hints = cached_type_hints(_typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluationCriteria", value) # pyright: ignore[reportArgumentType]
 
@@ -2350,7 +2327,7 @@ class CfnAlarm(
     @evaluation_interval.setter
     def evaluation_interval(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b73f7296958c694aafdc052a403054092cf3be773c45f71d031860bb42ac387)
+            type_hints = cached_type_hints(_typecheckingstub__9b73f7296958c694aafdc052a403054092cf3be773c45f71d031860bb42ac387)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluationInterval", value) # pyright: ignore[reportArgumentType]
 
@@ -2363,7 +2340,7 @@ class CfnAlarm(
     @evaluation_periods.setter
     def evaluation_periods(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
+            type_hints = cached_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
 
@@ -2379,7 +2356,7 @@ class CfnAlarm(
     @extended_statistic.setter
     def extended_statistic(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9)
+            type_hints = cached_type_hints(_typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "extendedStatistic", value) # pyright: ignore[reportArgumentType]
 
@@ -2395,7 +2372,7 @@ class CfnAlarm(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14)
+            type_hints = cached_type_hints(_typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
 
@@ -2408,7 +2385,7 @@ class CfnAlarm(
     @metric_name.setter
     def metric_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f)
+            type_hints = cached_type_hints(_typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
 
@@ -2416,17 +2393,17 @@ class CfnAlarm(
     @jsii.member(jsii_name="metrics")
     def metrics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricDataQueryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricDataQueryProperty"]]]]:
         '''An array that enables you to create an alarm based on the result of a metric math expression.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricDataQueryProperty"]]]], jsii.get(self, "metrics"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricDataQueryProperty"]]]], jsii.get(self, "metrics"))
 
     @metrics.setter
     def metrics(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricDataQueryProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricDataQueryProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493)
+            type_hints = cached_type_hints(_typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metrics", value) # pyright: ignore[reportArgumentType]
 
@@ -2439,7 +2416,7 @@ class CfnAlarm(
     @namespace.setter
     def namespace(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9)
+            type_hints = cached_type_hints(_typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
 
@@ -2452,7 +2429,7 @@ class CfnAlarm(
     @ok_actions.setter
     def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d)
+            type_hints = cached_type_hints(_typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
 
@@ -2465,7 +2442,7 @@ class CfnAlarm(
     @period.setter
     def period(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4)
+            type_hints = cached_type_hints(_typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "period", value) # pyright: ignore[reportArgumentType]
 
@@ -2481,20 +2458,23 @@ class CfnAlarm(
     @statistic.setter
     def statistic(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3)
+            type_hints = cached_type_hints(_typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statistic", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the alarm.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9)
+            type_hints = cached_type_hints(_typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2507,7 +2487,7 @@ class CfnAlarm(
     @threshold.setter
     def threshold(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de)
+            type_hints = cached_type_hints(_typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
 
@@ -2520,7 +2500,7 @@ class CfnAlarm(
     @threshold_metric_id.setter
     def threshold_metric_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3)
+            type_hints = cached_type_hints(_typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thresholdMetricId", value) # pyright: ignore[reportArgumentType]
 
@@ -2533,7 +2513,7 @@ class CfnAlarm(
     @treat_missing_data.setter
     def treat_missing_data(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a)
+            type_hints = cached_type_hints(_typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
 
@@ -2546,7 +2526,7 @@ class CfnAlarm(
     @unit.setter
     def unit(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
+            type_hints = cached_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
 
@@ -2589,7 +2569,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716)
+                type_hints = cached_type_hints(_typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716)
                 check_type(argname="argument pending_period", value=pending_period, expected_type=type_hints["pending_period"])
                 check_type(argname="argument query", value=query, expected_type=type_hints["query"])
                 check_type(argname="argument recovery_period", value=recovery_period, expected_type=type_hints["recovery_period"])
@@ -2670,7 +2650,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b)
+                type_hints = cached_type_hints(_typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef388a48b)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2720,7 +2700,7 @@ class CfnAlarm(
         def __init__(
             self,
             *,
-            prom_ql_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.AlarmPromQLCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prom_ql_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.AlarmPromQLCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The evaluation criteria for an alarm.
 
@@ -2746,7 +2726,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__38a7772ce3b5785b40cbaff90247c13196fc1c188fa9df5615c0c74a96f8c5f4)
+                type_hints = cached_type_hints(_typecheckingstub__38a7772ce3b5785b40cbaff90247c13196fc1c188fa9df5615c0c74a96f8c5f4)
                 check_type(argname="argument prom_ql_criteria", value=prom_ql_criteria, expected_type=type_hints["prom_ql_criteria"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if prom_ql_criteria is not None:
@@ -2755,13 +2735,13 @@ class CfnAlarm(
         @builtins.property
         def prom_ql_criteria(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.AlarmPromQLCriteriaProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.AlarmPromQLCriteriaProperty"]]:
             '''Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html#cfn-cloudwatch-alarm-evaluationcriteria-promqlcriteria
             '''
             result = self._values.get("prom_ql_criteria")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.AlarmPromQLCriteriaProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.AlarmPromQLCriteriaProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2795,9 +2775,9 @@ class CfnAlarm(
             account_id: typing.Optional[builtins.str] = None,
             expression: typing.Optional[builtins.str] = None,
             label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_stat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             period: typing.Optional[jsii.Number] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The ``MetricDataQuery`` property type specifies the metric data to return, and whether this call is just retrieving a batch set of data for one metric, or is performing a math expression on metric data.
 
@@ -2847,7 +2827,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f)
+                type_hints = cached_type_hints(_typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426ddaa87372f)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
@@ -2919,7 +2899,7 @@ class CfnAlarm(
         @builtins.property
         def metric_stat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricStatProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricStatProperty"]]:
             '''The metric to be returned, along with statistics, period, and units.
 
             Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
@@ -2929,7 +2909,7 @@ class CfnAlarm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-metricstat
             '''
             result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricStatProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricStatProperty"]], result)
 
         @builtins.property
         def period(self) -> typing.Optional[jsii.Number]:
@@ -2945,7 +2925,7 @@ class CfnAlarm(
         @builtins.property
         def return_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''This option indicates whether to return the timestamps and raw data values of this metric.
 
             When you create an alarm based on a metric math expression, specify ``True`` for this value for only the one math expression that the alarm is based on. You must specify ``False`` for ``ReturnData`` for all the other metrics and expressions used in the alarm.
@@ -2955,7 +2935,7 @@ class CfnAlarm(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricdataquery.html#cfn-cloudwatch-alarm-metricdataquery-returndata
             '''
             result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2981,7 +2961,7 @@ class CfnAlarm(
         def __init__(
             self,
             *,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -3012,7 +2992,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf)
+                type_hints = cached_type_hints(_typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf)
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
@@ -3027,13 +3007,13 @@ class CfnAlarm(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]]:
             '''The metric dimensions that you want to be used for the metric that the alarm will watch.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metric.html#cfn-cloudwatch-alarm-metric-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -3080,7 +3060,7 @@ class CfnAlarm(
         def __init__(
             self,
             *,
-            metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
             period: jsii.Number,
             stat: builtins.str,
             unit: typing.Optional[builtins.str] = None,
@@ -3120,7 +3100,7 @@ class CfnAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe)
+                type_hints = cached_type_hints(_typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe)
                 check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
                 check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
@@ -3136,14 +3116,14 @@ class CfnAlarm(
         @builtins.property
         def metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricProperty"]:
             '''The metric to return, including the metric name, namespace, and dimensions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-metricstat.html#cfn-cloudwatch-alarm-metricstat-metric
             '''
             result = self._values.get("metric")
             assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricProperty"], result)
 
         @builtins.property
         def period(self) -> jsii.Number:
@@ -3198,9 +3178,9 @@ class CfnAlarm(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAlarmMuteRuleRef_bf9ec4d2, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAlarmMuteRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAlarmMuteRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule",
 ):
@@ -3248,13 +3228,13 @@ class CfnAlarmMuteRule(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         expire_date: typing.Optional[builtins.str] = None,
-        mute_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mute_targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         start_date: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::AlarmMuteRule``.
 
@@ -3269,7 +3249,7 @@ class CfnAlarmMuteRule(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c215ee99182d454dd52f4be566428b858153bcfc97e5f338323b0f91a0c2e97)
+            type_hints = cached_type_hints(_typecheckingstub__6c215ee99182d454dd52f4be566428b858153bcfc97e5f338323b0f91a0c2e97)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAlarmMuteRuleProps(
@@ -3288,13 +3268,13 @@ class CfnAlarmMuteRule(
     @builtins.classmethod
     def arn_for_alarm_mute_rule(
         cls,
-        resource: "_IAlarmMuteRuleRef_bf9ec4d2",
+        resource: "_aws_cloudwatch_70717108.IAlarmMuteRuleRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe099a7d25c059b9562273bad019797e289471d050012f67e516fa1ebeda778a)
+            type_hints = cached_type_hints(_typecheckingstub__fe099a7d25c059b9562273bad019797e289471d050012f67e516fa1ebeda778a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlarmMuteRule", [resource]))
 
@@ -3306,18 +3286,18 @@ class CfnAlarmMuteRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dfed2f26d753f5418fce20a45cb66b4ab6522735dfaacf375cb1ae457566383)
+            type_hints = cached_type_hints(_typecheckingstub__5dfed2f26d753f5418fce20a45cb66b4ab6522735dfaacf375cb1ae457566383)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlarmMuteRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4b6d2dfc4a201f712ecaf8c91974c00d0f0f95d7bd57c9048e32c436d2c5071)
+            type_hints = cached_type_hints(_typecheckingstub__b4b6d2dfc4a201f712ecaf8c91974c00d0f0f95d7bd57c9048e32c436d2c5071)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3330,7 +3310,7 @@ class CfnAlarmMuteRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae46582b99e9603aa545bff45f3330b3813f8a036260af5bda9ee7d6ceb543f)
+            type_hints = cached_type_hints(_typecheckingstub__1ae46582b99e9603aa545bff45f3330b3813f8a036260af5bda9ee7d6ceb543f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3342,9 +3322,9 @@ class CfnAlarmMuteRule(
 
     @builtins.property
     @jsii.member(jsii_name="alarmMuteRuleRef")
-    def alarm_mute_rule_ref(self) -> "_AlarmMuteRuleReference_38cc9dfc":
+    def alarm_mute_rule_ref(self) -> "_aws_cloudwatch_70717108.AlarmMuteRuleReference":
         '''A reference to a AlarmMuteRule resource.'''
-        return typing.cast("_AlarmMuteRuleReference_38cc9dfc", jsii.get(self, "alarmMuteRuleRef"))
+        return typing.cast("_aws_cloudwatch_70717108.AlarmMuteRuleReference", jsii.get(self, "alarmMuteRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -3384,9 +3364,9 @@ class CfnAlarmMuteRule(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3402,17 +3382,17 @@ class CfnAlarmMuteRule(
     @jsii.member(jsii_name="rule")
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.RuleProperty"]:
         '''The rule for the mute.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"], jsii.get(self, "rule"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.RuleProperty"], jsii.get(self, "rule"))
 
     @rule.setter
     def rule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.RuleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773)
+            type_hints = cached_type_hints(_typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
@@ -3425,7 +3405,7 @@ class CfnAlarmMuteRule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a5a183121f9a4e0aa6e399964f560ac2e8d54ad25a0c152763254f8cfdb2987)
+            type_hints = cached_type_hints(_typecheckingstub__1a5a183121f9a4e0aa6e399964f560ac2e8d54ad25a0c152763254f8cfdb2987)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -3438,7 +3418,7 @@ class CfnAlarmMuteRule(
     @expire_date.setter
     def expire_date(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cde0d879d)
+            type_hints = cached_type_hints(_typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cde0d879d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expireDate", value) # pyright: ignore[reportArgumentType]
 
@@ -3446,17 +3426,17 @@ class CfnAlarmMuteRule(
     @jsii.member(jsii_name="muteTargets")
     def mute_targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
         '''Targets to be muted.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]], jsii.get(self, "muteTargets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.MuteTargetsProperty"]], jsii.get(self, "muteTargets"))
 
     @mute_targets.setter
     def mute_targets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.MuteTargetsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089)
+            type_hints = cached_type_hints(_typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "muteTargets", value) # pyright: ignore[reportArgumentType]
 
@@ -3469,7 +3449,7 @@ class CfnAlarmMuteRule(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f5173dfeb6c5dda02ee5ca6f489b32d8c27572267115e5344e1d681c34e08b7)
+            type_hints = cached_type_hints(_typecheckingstub__5f5173dfeb6c5dda02ee5ca6f489b32d8c27572267115e5344e1d681c34e08b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3482,20 +3462,23 @@ class CfnAlarmMuteRule(
     @start_date.setter
     def start_date(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3e3dea8d)
+            type_hints = cached_type_hints(_typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3e3dea8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startDate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8)
+            type_hints = cached_type_hints(_typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3524,7 +3507,7 @@ class CfnAlarmMuteRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__117edea88b67dcd6ecc02715528e016b4d39906d7b9dc1cbc0a99e1a9c50fb84)
+                type_hints = cached_type_hints(_typecheckingstub__117edea88b67dcd6ecc02715528e016b4d39906d7b9dc1cbc0a99e1a9c50fb84)
                 check_type(argname="argument alarm_names", value=alarm_names, expected_type=type_hints["alarm_names"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "alarm_names": alarm_names,
@@ -3560,7 +3543,7 @@ class CfnAlarmMuteRule(
         def __init__(
             self,
             *,
-            schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+            schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmMuteRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The rule for the mute.
 
@@ -3586,7 +3569,7 @@ class CfnAlarmMuteRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1c2031402cbbae993effde5b6bdf6177119f90d5b54b5a91af2b09facdc9818a)
+                type_hints = cached_type_hints(_typecheckingstub__1c2031402cbbae993effde5b6bdf6177119f90d5b54b5a91af2b09facdc9818a)
                 check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "schedule": schedule,
@@ -3595,14 +3578,14 @@ class CfnAlarmMuteRule(
         @builtins.property
         def schedule(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.ScheduleProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.ScheduleProperty"]:
             '''Schedule for the mute to be active.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-rule.html#cfn-cloudwatch-alarmmuterule-rule-schedule
             '''
             result = self._values.get("schedule")
             assert result is not None, "Required property 'schedule' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.ScheduleProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.ScheduleProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3656,7 +3639,7 @@ class CfnAlarmMuteRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f2614a943b8467ca4e82510570c1d1a7dfac166ee9b35e1aaba6bba3d8b1d5f)
+                type_hints = cached_type_hints(_typecheckingstub__4f2614a943b8467ca4e82510570c1d1a7dfac166ee9b35e1aaba6bba3d8b1d5f)
                 check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
@@ -3725,13 +3708,13 @@ class CfnAlarmMuteRuleProps:
     def __init__(
         self,
         *,
-        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        rule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         expire_date: typing.Optional[builtins.str] = None,
-        mute_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mute_targets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         start_date: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAlarmMuteRule``.
 
@@ -3779,7 +3762,7 @@ class CfnAlarmMuteRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84dcdc1b29)
+            type_hints = cached_type_hints(_typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84dcdc1b29)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument expire_date", value=expire_date, expected_type=type_hints["expire_date"])
@@ -3806,14 +3789,14 @@ class CfnAlarmMuteRuleProps:
     @builtins.property
     def rule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.RuleProperty"]:
         '''The rule for the mute.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-rule
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.RuleProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3836,13 +3819,13 @@ class CfnAlarmMuteRuleProps:
     @builtins.property
     def mute_targets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
         '''Targets to be muted.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-mutetargets
         '''
         result = self._values.get("mute_targets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarmMuteRule.MuteTargetsProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -3863,13 +3846,13 @@ class CfnAlarmMuteRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3917,26 +3900,26 @@ class CfnAlarmProps:
     def __init__(
         self,
         *,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         comparison_operator: typing.Optional[builtins.str] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-        dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-        evaluation_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        evaluation_criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.EvaluationCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         evaluation_interval: typing.Optional[jsii.Number] = None,
         evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
-        insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
-        metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metrics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         namespace: typing.Optional[builtins.str] = None,
-        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         period: typing.Optional[jsii.Number] = None,
         statistic: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         threshold: typing.Optional[jsii.Number] = None,
         threshold_metric_id: typing.Optional[builtins.str] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
@@ -4043,7 +4026,7 @@ class CfnAlarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517)
+            type_hints = cached_type_hints(_typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517)
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument alarm_actions", value=alarm_actions, expected_type=type_hints["alarm_actions"])
             check_type(argname="argument alarm_description", value=alarm_description, expected_type=type_hints["alarm_description"])
@@ -4121,7 +4104,7 @@ class CfnAlarmProps:
     @builtins.property
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state.
 
         The default is TRUE.
@@ -4131,12 +4114,12 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-actionsenabled
         '''
         result = self._values.get("actions_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def alarm_actions(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The list of actions to execute when this alarm transitions into an ALARM state from any other state.
 
         Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
@@ -4144,7 +4127,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-alarmactions
         '''
         result = self._values.get("alarm_actions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
     def alarm_description(self) -> typing.Optional[builtins.str]:
@@ -4196,7 +4179,7 @@ class CfnAlarmProps:
     @builtins.property
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]]:
         '''The dimensions for the metric associated with the alarm.
 
         For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
@@ -4204,7 +4187,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-dimensions
         '''
         result = self._values.get("dimensions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.DimensionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.DimensionProperty"]]]], result)
 
     @builtins.property
     def evaluate_low_sample_count_percentile(self) -> typing.Optional[builtins.str]:
@@ -4220,7 +4203,7 @@ class CfnAlarmProps:
     @builtins.property
     def evaluation_criteria(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationCriteriaProperty"]]:
         '''The evaluation criteria for an alarm.
 
         This is a union type that currently supports ``PromQLCriteria``.
@@ -4228,7 +4211,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationcriteria
         '''
         result = self._values.get("evaluation_criteria")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.EvaluationCriteriaProperty"]], result)
 
     @builtins.property
     def evaluation_interval(self) -> typing.Optional[jsii.Number]:
@@ -4268,7 +4251,7 @@ class CfnAlarmProps:
     @builtins.property
     def insufficient_data_actions(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state.
 
         Each action is specified as an Amazon Resource Name (ARN).
@@ -4276,7 +4259,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-insufficientdataactions
         '''
         result = self._values.get("insufficient_data_actions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
     def metric_name(self) -> typing.Optional[builtins.str]:
@@ -4292,7 +4275,7 @@ class CfnAlarmProps:
     @builtins.property
     def metrics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricDataQueryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricDataQueryProperty"]]]]:
         '''An array that enables you to create an alarm based on the result of a metric math expression.
 
         Each item in the array either retrieves a metric or performs a math expression.
@@ -4302,7 +4285,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-metrics
         '''
         result = self._values.get("metrics")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAlarm.MetricDataQueryProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.MetricDataQueryProperty"]]]], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
@@ -4320,7 +4303,7 @@ class CfnAlarmProps:
     @builtins.property
     def ok_actions(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The actions to execute when this alarm transitions to the ``OK`` state from any other state.
 
         Each action is specified as an Amazon Resource Name (ARN).
@@ -4328,7 +4311,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-okactions
         '''
         result = self._values.get("ok_actions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
     def period(self) -> typing.Optional[jsii.Number]:
@@ -4359,7 +4342,7 @@ class CfnAlarmProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the alarm.
 
         You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission.
@@ -4369,7 +4352,7 @@ class CfnAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def threshold(self) -> typing.Optional[jsii.Number]:
@@ -4427,9 +4410,9 @@ class CfnAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAnomalyDetectorRef_824aa9dc)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IAnomalyDetectorRef)
 class CfnAnomalyDetector(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector",
 ):
@@ -4514,13 +4497,13 @@ class CfnAnomalyDetector(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        metric_characteristics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_math_anomaly_detector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metric_characteristics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_math_anomaly_detector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
-        single_metric_anomaly_detector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        single_metric_anomaly_detector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stat: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::AnomalyDetector``.
@@ -4537,7 +4520,7 @@ class CfnAnomalyDetector(
         :param stat: The statistic of the metric associated with the anomaly detection band.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a)
+            type_hints = cached_type_hints(_typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e596659a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAnomalyDetectorProps(
@@ -4561,18 +4544,18 @@ class CfnAnomalyDetector(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__147b45ca23d6612825f6e75a818338ba95d65978cb0e262d28b9f99e8745a28b)
+            type_hints = cached_type_hints(_typecheckingstub__147b45ca23d6612825f6e75a818338ba95d65978cb0e262d28b9f99e8745a28b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAnomalyDetector", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb)
+            type_hints = cached_type_hints(_typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4585,7 +4568,7 @@ class CfnAnomalyDetector(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94)
+            type_hints = cached_type_hints(_typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17eaeafdc94)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4597,9 +4580,11 @@ class CfnAnomalyDetector(
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectorRef")
-    def anomaly_detector_ref(self) -> "_AnomalyDetectorReference_11b9b19b":
+    def anomaly_detector_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.AnomalyDetectorReference":
         '''A reference to a AnomalyDetector resource.'''
-        return typing.cast("_AnomalyDetectorReference_11b9b19b", jsii.get(self, "anomalyDetectorRef"))
+        return typing.cast("_aws_cloudwatch_70717108.AnomalyDetectorReference", jsii.get(self, "anomalyDetectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -4623,17 +4608,17 @@ class CfnAnomalyDetector(
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.ConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.ConfigurationProperty"]]:
         '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.ConfigurationProperty"]], jsii.get(self, "configuration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.ConfigurationProperty"]], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.ConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.ConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a)
+            type_hints = cached_type_hints(_typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
 
@@ -4641,17 +4626,17 @@ class CfnAnomalyDetector(
     @jsii.member(jsii_name="dimensions")
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]]:
         '''The dimensions of the metric associated with the anomaly detection band.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]], jsii.get(self, "dimensions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]], jsii.get(self, "dimensions"))
 
     @dimensions.setter
     def dimensions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55)
+            type_hints = cached_type_hints(_typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
 
@@ -4659,17 +4644,17 @@ class CfnAnomalyDetector(
     @jsii.member(jsii_name="metricCharacteristics")
     def metric_characteristics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
         '''Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricCharacteristicsProperty"]], jsii.get(self, "metricCharacteristics"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricCharacteristicsProperty"]], jsii.get(self, "metricCharacteristics"))
 
     @metric_characteristics.setter
     def metric_characteristics(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricCharacteristicsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricCharacteristicsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba)
+            type_hints = cached_type_hints(_typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricCharacteristics", value) # pyright: ignore[reportArgumentType]
 
@@ -4677,17 +4662,17 @@ class CfnAnomalyDetector(
     @jsii.member(jsii_name="metricMathAnomalyDetector")
     def metric_math_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
         '''The CloudWatch metric math expression for this anomaly detector.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], jsii.get(self, "metricMathAnomalyDetector"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], jsii.get(self, "metricMathAnomalyDetector"))
 
     @metric_math_anomaly_detector.setter
     def metric_math_anomaly_detector(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4)
+            type_hints = cached_type_hints(_typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricMathAnomalyDetector", value) # pyright: ignore[reportArgumentType]
 
@@ -4700,7 +4685,7 @@ class CfnAnomalyDetector(
     @metric_name.setter
     def metric_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964)
+            type_hints = cached_type_hints(_typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
 
@@ -4713,7 +4698,7 @@ class CfnAnomalyDetector(
     @namespace.setter
     def namespace(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3)
+            type_hints = cached_type_hints(_typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
 
@@ -4721,17 +4706,17 @@ class CfnAnomalyDetector(
     @jsii.member(jsii_name="singleMetricAnomalyDetector")
     def single_metric_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
         '''The CloudWatch metric and statistic for this anomaly detector.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], jsii.get(self, "singleMetricAnomalyDetector"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], jsii.get(self, "singleMetricAnomalyDetector"))
 
     @single_metric_anomaly_detector.setter
     def single_metric_anomaly_detector(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8)
+            type_hints = cached_type_hints(_typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "singleMetricAnomalyDetector", value) # pyright: ignore[reportArgumentType]
 
@@ -4744,7 +4729,7 @@ class CfnAnomalyDetector(
     @stat.setter
     def stat(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822)
+            type_hints = cached_type_hints(_typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stat", value) # pyright: ignore[reportArgumentType]
 
@@ -4760,7 +4745,7 @@ class CfnAnomalyDetector(
         def __init__(
             self,
             *,
-            excluded_time_ranges: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            excluded_time_ranges: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_time_zone: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.
@@ -4788,7 +4773,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121)
+                type_hints = cached_type_hints(_typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121)
                 check_type(argname="argument excluded_time_ranges", value=excluded_time_ranges, expected_type=type_hints["excluded_time_ranges"])
                 check_type(argname="argument metric_time_zone", value=metric_time_zone, expected_type=type_hints["metric_time_zone"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4800,7 +4785,7 @@ class CfnAnomalyDetector(
         @builtins.property
         def excluded_time_ranges(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.RangeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]]:
             '''Specifies an array of time ranges to exclude from use when the anomaly detection model is trained and updated.
 
             Use this to make sure that events that could cause unusual values for the metric, such as deployments, aren't used when CloudWatch creates or updates the model.
@@ -4808,7 +4793,7 @@ class CfnAnomalyDetector(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-configuration.html#cfn-cloudwatch-anomalydetector-configuration-excludedtimeranges
             '''
             result = self._values.get("excluded_time_ranges")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.RangeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]], result)
 
         @builtins.property
         def metric_time_zone(self) -> typing.Optional[builtins.str]:
@@ -4865,7 +4850,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9)
+                type_hints = cached_type_hints(_typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7b77dac9)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4915,7 +4900,7 @@ class CfnAnomalyDetector(
         def __init__(
             self,
             *,
-            periodic_spikes: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            periodic_spikes: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''This object includes parameters that you can use to provide information to CloudWatch to help it build more accurate anomaly detection models.
 
@@ -4935,7 +4920,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b)
+                type_hints = cached_type_hints(_typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b)
                 check_type(argname="argument periodic_spikes", value=periodic_spikes, expected_type=type_hints["periodic_spikes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if periodic_spikes is not None:
@@ -4944,7 +4929,7 @@ class CfnAnomalyDetector(
         @builtins.property
         def periodic_spikes(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Set this parameter to true if values for this metric consistently include spikes that should not be considered to be anomalies.
 
             With this set to true, CloudWatch will expect to see spikes that occurred consistently during the model training period, and won't flag future similar spikes as anomalies.
@@ -4952,7 +4937,7 @@ class CfnAnomalyDetector(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metriccharacteristics.html#cfn-cloudwatch-anomalydetector-metriccharacteristics-periodicspikes
             '''
             result = self._values.get("periodic_spikes")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4986,9 +4971,9 @@ class CfnAnomalyDetector(
             account_id: typing.Optional[builtins.str] = None,
             expression: typing.Optional[builtins.str] = None,
             label: typing.Optional[builtins.str] = None,
-            metric_stat: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metric_stat: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricStatProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             period: typing.Optional[jsii.Number] = None,
-            return_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            return_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''This structure is used in both ``GetMetricData`` and ``PutMetricAlarm`` .
 
@@ -5048,7 +5033,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721)
+                type_hints = cached_type_hints(_typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
@@ -5128,7 +5113,7 @@ class CfnAnomalyDetector(
         @builtins.property
         def metric_stat(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricStatProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricStatProperty"]]:
             '''The metric to be returned, along with statistics, period, and units.
 
             Use this parameter only if this object is retrieving a metric and not performing a math expression on returned data.
@@ -5138,7 +5123,7 @@ class CfnAnomalyDetector(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-metricstat
             '''
             result = self._values.get("metric_stat")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricStatProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricStatProperty"]], result)
 
         @builtins.property
         def period(self) -> typing.Optional[jsii.Number]:
@@ -5154,7 +5139,7 @@ class CfnAnomalyDetector(
         @builtins.property
         def return_data(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When used in ``GetMetricData`` , this option indicates whether to return the timestamps and raw data values of this metric.
 
             If you are performing this call just to do math expressions and do not also need the raw data returned, you can specify ``false`` . If you omit this, the default of ``true`` is used.
@@ -5164,7 +5149,7 @@ class CfnAnomalyDetector(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricdataquery.html#cfn-cloudwatch-anomalydetector-metricdataquery-returndata
             '''
             result = self._values.get("return_data")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5186,7 +5171,7 @@ class CfnAnomalyDetector(
         def __init__(
             self,
             *,
-            metric_data_queries: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_data_queries: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricDataQueryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Indicates the CloudWatch math expression that provides the time series the anomaly detector uses as input.
 
@@ -5234,7 +5219,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb)
+                type_hints = cached_type_hints(_typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb)
                 check_type(argname="argument metric_data_queries", value=metric_data_queries, expected_type=type_hints["metric_data_queries"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if metric_data_queries is not None:
@@ -5243,7 +5228,7 @@ class CfnAnomalyDetector(
         @builtins.property
         def metric_data_queries(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricDataQueryProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricDataQueryProperty"]]]]:
             '''An array of metric data query structures that enables you to create an anomaly detector based on the result of a metric math expression.
 
             Each item in ``MetricDataQueries`` gets a metric or performs a math expression. One item in ``MetricDataQueries`` is the expression that provides the time series that the anomaly detector uses as input. Designate the expression by setting ``ReturnData`` to ``true`` for this object in the array. For all other expressions and metrics, set ``ReturnData`` to ``false`` . The designated expression must return a single time series.
@@ -5251,7 +5236,7 @@ class CfnAnomalyDetector(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricmathanomalydetector.html#cfn-cloudwatch-anomalydetector-metricmathanomalydetector-metricdataqueries
             '''
             result = self._values.get("metric_data_queries")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricDataQueryProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricDataQueryProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5279,7 +5264,7 @@ class CfnAnomalyDetector(
             *,
             metric_name: builtins.str,
             namespace: builtins.str,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Represents a specific metric.
 
@@ -5308,7 +5293,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392)
+                type_hints = cached_type_hints(_typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af0bf0392)
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
@@ -5344,13 +5329,13 @@ class CfnAnomalyDetector(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]]:
             '''The dimensions for the metric.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metric.html#cfn-cloudwatch-anomalydetector-metric-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5377,7 +5362,7 @@ class CfnAnomalyDetector(
         def __init__(
             self,
             *,
-            metric: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
+            metric: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricProperty", typing.Dict[builtins.str, typing.Any]]],
             period: jsii.Number,
             stat: builtins.str,
             unit: typing.Optional[builtins.str] = None,
@@ -5417,7 +5402,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c)
+                type_hints = cached_type_hints(_typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c)
                 check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
                 check_type(argname="argument period", value=period, expected_type=type_hints["period"])
                 check_type(argname="argument stat", value=stat, expected_type=type_hints["stat"])
@@ -5433,14 +5418,14 @@ class CfnAnomalyDetector(
         @builtins.property
         def metric(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricProperty"]:
             '''The metric to return, including the metric name, namespace, and dimensions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricstat.html#cfn-cloudwatch-anomalydetector-metricstat-metric
             '''
             result = self._values.get("metric")
             assert result is not None, "Required property 'metric' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricProperty"], result)
 
         @builtins.property
         def period(self) -> jsii.Number:
@@ -5521,7 +5506,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b)
+                type_hints = cached_type_hints(_typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959cb4afa0b)
                 check_type(argname="argument end_time", value=end_time, expected_type=type_hints["end_time"])
                 check_type(argname="argument start_time", value=start_time, expected_type=type_hints["start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5580,7 +5565,7 @@ class CfnAnomalyDetector(
             self,
             *,
             account_id: typing.Optional[builtins.str] = None,
-            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             metric_name: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
             stat: typing.Optional[builtins.str] = None,
@@ -5616,7 +5601,7 @@ class CfnAnomalyDetector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0)
+                type_hints = cached_type_hints(_typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0)
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
@@ -5648,13 +5633,13 @@ class CfnAnomalyDetector(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]]:
             '''The metric dimensions to create the anomaly detection model for.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-singlemetricanomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]], result)
 
         @builtins.property
         def metric_name(self) -> typing.Optional[builtins.str]:
@@ -5713,13 +5698,13 @@ class CfnAnomalyDetectorProps:
     def __init__(
         self,
         *,
-        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        metric_characteristics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metric_math_anomaly_detector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dimensions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        metric_characteristics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricCharacteristicsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_math_anomaly_detector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.MetricMathAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
         namespace: typing.Optional[builtins.str] = None,
-        single_metric_anomaly_detector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        single_metric_anomaly_detector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stat: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnAnomalyDetector``.
@@ -5802,7 +5787,7 @@ class CfnAnomalyDetectorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__929a09b64f3cc2009ffca4b74d148c42dfbbc7531a49bc66cb58443f8870fba2)
+            type_hints = cached_type_hints(_typecheckingstub__929a09b64f3cc2009ffca4b74d148c42dfbbc7531a49bc66cb58443f8870fba2)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             check_type(argname="argument metric_characteristics", value=metric_characteristics, expected_type=type_hints["metric_characteristics"])
@@ -5832,7 +5817,7 @@ class CfnAnomalyDetectorProps:
     @builtins.property
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.ConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.ConfigurationProperty"]]:
         '''Specifies details about how the anomaly detection model is to be trained, including time ranges to exclude when training and updating the model.
 
         The configuration can also include the time zone to use for the metric.
@@ -5840,23 +5825,23 @@ class CfnAnomalyDetectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-configuration
         '''
         result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.ConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.ConfigurationProperty"]], result)
 
     @builtins.property
     def dimensions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]]:
         '''The dimensions of the metric associated with the anomaly detection band.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-dimensions
         '''
         result = self._values.get("dimensions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.DimensionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.DimensionProperty"]]]], result)
 
     @builtins.property
     def metric_characteristics(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricCharacteristicsProperty"]]:
         '''Use this object to include parameters to provide information about your metric to CloudWatch to help it build more accurate anomaly detection models.
 
         Currently, it includes the ``PeriodicSpikes`` parameter.
@@ -5864,18 +5849,18 @@ class CfnAnomalyDetectorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-metriccharacteristics
         '''
         result = self._values.get("metric_characteristics")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricCharacteristicsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricCharacteristicsProperty"]], result)
 
     @builtins.property
     def metric_math_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]]:
         '''The CloudWatch metric math expression for this anomaly detector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-metricmathanomalydetector
         '''
         result = self._values.get("metric_math_anomaly_detector")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.MetricMathAnomalyDetectorProperty"]], result)
 
     @builtins.property
     def metric_name(self) -> typing.Optional[builtins.str]:
@@ -5898,13 +5883,13 @@ class CfnAnomalyDetectorProps:
     @builtins.property
     def single_metric_anomaly_detector(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]]:
         '''The CloudWatch metric and statistic for this anomaly detector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-anomalydetector.html#cfn-cloudwatch-anomalydetector-singlemetricanomalydetector
         '''
         result = self._values.get("single_metric_anomaly_detector")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty"]], result)
 
     @builtins.property
     def stat(self) -> typing.Optional[builtins.str]:
@@ -5927,9 +5912,9 @@ class CfnAnomalyDetectorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICompositeAlarmRef_fa51824d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.ICompositeAlarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCompositeAlarm(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnCompositeAlarm",
 ):
@@ -5982,16 +5967,16 @@ class CfnCompositeAlarm(
         id: builtins.str,
         *,
         alarm_rule: builtins.str,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        actions_suppressor: typing.Optional[typing.Union[builtins.str, "_IAlarmRef_2bb0e5de", "_ICompositeAlarmRef_fa51824d"]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        actions_suppressor: typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]] = None,
         actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
         actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::CompositeAlarm``.
 
@@ -6010,7 +5995,7 @@ class CfnCompositeAlarm(
         :param tags: A list of key-value pairs to associate with the alarm. You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3)
+            type_hints = cached_type_hints(_typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd867e5cf3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCompositeAlarmProps(
@@ -6033,13 +6018,13 @@ class CfnCompositeAlarm(
     @builtins.classmethod
     def arn_for_composite_alarm(
         cls,
-        resource: "_ICompositeAlarmRef_fa51824d",
+        resource: "_aws_cloudwatch_70717108.ICompositeAlarmRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7af23cb9aa06ec62b0666b06bece3839d45b0343dea2057ceb06d53b6b3f6b7a)
+            type_hints = cached_type_hints(_typecheckingstub__7af23cb9aa06ec62b0666b06bece3839d45b0343dea2057ceb06d53b6b3f6b7a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCompositeAlarm", [resource]))
 
@@ -6050,7 +6035,7 @@ class CfnCompositeAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         alarm_name: builtins.str,
-    ) -> "_ICompositeAlarmRef_fa51824d":
+    ) -> "_aws_cloudwatch_70717108.ICompositeAlarmRef":
         '''Creates a new ICompositeAlarmRef from a alarmName.
 
         :param scope: -
@@ -6058,11 +6043,11 @@ class CfnCompositeAlarm(
         :param alarm_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71d13a1576f09da6fbb3e974f93e831467e810d2390b1a14257ef6524b78a3c4)
+            type_hints = cached_type_hints(_typecheckingstub__71d13a1576f09da6fbb3e974f93e831467e810d2390b1a14257ef6524b78a3c4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
-        return typing.cast("_ICompositeAlarmRef_fa51824d", jsii.sinvoke(cls, "fromAlarmName", [scope, id, alarm_name]))
+        return typing.cast("_aws_cloudwatch_70717108.ICompositeAlarmRef", jsii.sinvoke(cls, "fromAlarmName", [scope, id, alarm_name]))
 
     @jsii.member(jsii_name="fromCompositeAlarmArn")
     @builtins.classmethod
@@ -6071,7 +6056,7 @@ class CfnCompositeAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_ICompositeAlarmRef_fa51824d":
+    ) -> "_aws_cloudwatch_70717108.ICompositeAlarmRef":
         '''Creates a new ICompositeAlarmRef from an ARN.
 
         :param scope: -
@@ -6079,11 +6064,11 @@ class CfnCompositeAlarm(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30c61a346bf38a874d919545efefd48d8e8c34c27d901c7450c4ada5b868d8b3)
+            type_hints = cached_type_hints(_typecheckingstub__30c61a346bf38a874d919545efefd48d8e8c34c27d901c7450c4ada5b868d8b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_ICompositeAlarmRef_fa51824d", jsii.sinvoke(cls, "fromCompositeAlarmArn", [scope, id, arn]))
+        return typing.cast("_aws_cloudwatch_70717108.ICompositeAlarmRef", jsii.sinvoke(cls, "fromCompositeAlarmArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="isCfnCompositeAlarm")
     @builtins.classmethod
@@ -6093,18 +6078,18 @@ class CfnCompositeAlarm(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34a7505383be8caa4299aa2c1fa819d153cd8bdeaa8d116b14ac49c61f807432)
+            type_hints = cached_type_hints(_typecheckingstub__34a7505383be8caa4299aa2c1fa819d153cd8bdeaa8d116b14ac49c61f807432)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCompositeAlarm", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93)
+            type_hints = cached_type_hints(_typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6117,7 +6102,7 @@ class CfnCompositeAlarm(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a)
+            type_hints = cached_type_hints(_typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01b50a12a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6138,9 +6123,9 @@ class CfnCompositeAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6154,9 +6139,9 @@ class CfnCompositeAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="compositeAlarmRef")
-    def composite_alarm_ref(self) -> "_CompositeAlarmReference_bca78bf2":
+    def composite_alarm_ref(self) -> "_aws_cloudwatch_70717108.CompositeAlarmReference":
         '''A reference to a CompositeAlarm resource.'''
-        return typing.cast("_CompositeAlarmReference_bca78bf2", jsii.get(self, "compositeAlarmRef"))
+        return typing.cast("_aws_cloudwatch_70717108.CompositeAlarmReference", jsii.get(self, "compositeAlarmRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alarmRule")
@@ -6167,7 +6152,7 @@ class CfnCompositeAlarm(
     @alarm_rule.setter
     def alarm_rule(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7)
+            type_hints = cached_type_hints(_typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
 
@@ -6175,17 +6160,17 @@ class CfnCompositeAlarm(
     @jsii.member(jsii_name="actionsEnabled")
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state of the composite alarm.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "actionsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "actionsEnabled"))
 
     @actions_enabled.setter
     def actions_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb)
+            type_hints = cached_type_hints(_typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -6198,7 +6183,7 @@ class CfnCompositeAlarm(
     @actions_suppressor.setter
     def actions_suppressor(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a)
+            type_hints = cached_type_hints(_typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsSuppressor", value) # pyright: ignore[reportArgumentType]
 
@@ -6214,7 +6199,7 @@ class CfnCompositeAlarm(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a)
+            type_hints = cached_type_hints(_typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsSuppressorExtensionPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -6230,7 +6215,7 @@ class CfnCompositeAlarm(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4)
+            type_hints = cached_type_hints(_typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsSuppressorWaitPeriod", value) # pyright: ignore[reportArgumentType]
 
@@ -6243,7 +6228,7 @@ class CfnCompositeAlarm(
     @alarm_actions.setter
     def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5)
+            type_hints = cached_type_hints(_typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
 
@@ -6256,7 +6241,7 @@ class CfnCompositeAlarm(
     @alarm_description.setter
     def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab)
+            type_hints = cached_type_hints(_typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -6269,7 +6254,7 @@ class CfnCompositeAlarm(
     @alarm_name.setter
     def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1)
+            type_hints = cached_type_hints(_typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
 
@@ -6285,7 +6270,7 @@ class CfnCompositeAlarm(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb)
+            type_hints = cached_type_hints(_typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
 
@@ -6298,20 +6283,23 @@ class CfnCompositeAlarm(
     @ok_actions.setter
     def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9)
+            type_hints = cached_type_hints(_typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the alarm.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452)
+            type_hints = cached_type_hints(_typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6338,16 +6326,16 @@ class CfnCompositeAlarmProps:
         self,
         *,
         alarm_rule: builtins.str,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        actions_suppressor: typing.Optional[typing.Union[builtins.str, "_IAlarmRef_2bb0e5de", "_ICompositeAlarmRef_fa51824d"]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        actions_suppressor: typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]] = None,
         actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
         actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCompositeAlarm``.
 
@@ -6393,7 +6381,7 @@ class CfnCompositeAlarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0277be2c)
+            type_hints = cached_type_hints(_typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0277be2c)
             check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument actions_suppressor", value=actions_suppressor, expected_type=type_hints["actions_suppressor"])
@@ -6458,7 +6446,7 @@ class CfnCompositeAlarmProps:
     @builtins.property
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state of the composite alarm.
 
         The default is TRUE.
@@ -6466,12 +6454,12 @@ class CfnCompositeAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-actionsenabled
         '''
         result = self._values.get("actions_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def actions_suppressor(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IAlarmRef_2bb0e5de", "_ICompositeAlarmRef_fa51824d"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]]:
         '''Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state.
 
         ``ActionsSuppressor`` can be an AlarmName or an Amazon Resource Name (ARN) from an existing alarm.
@@ -6479,7 +6467,7 @@ class CfnCompositeAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-actionssuppressor
         '''
         result = self._values.get("actions_suppressor")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IAlarmRef_2bb0e5de", "_ICompositeAlarmRef_fa51824d"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]], result)
 
     @builtins.property
     def actions_suppressor_extension_period(self) -> typing.Optional[jsii.Number]:
@@ -6512,7 +6500,7 @@ class CfnCompositeAlarmProps:
     @builtins.property
     def alarm_actions(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The actions to execute when this alarm transitions to the ALARM state from any other state.
 
         Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
@@ -6520,7 +6508,7 @@ class CfnCompositeAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-alarmactions
         '''
         result = self._values.get("alarm_actions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
     def alarm_description(self) -> typing.Optional[builtins.str]:
@@ -6556,7 +6544,7 @@ class CfnCompositeAlarmProps:
     @builtins.property
     def ok_actions(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]]:
         '''The actions to execute when this alarm transitions to the OK state from any other state.
 
         Each action is specified as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
@@ -6564,10 +6552,10 @@ class CfnCompositeAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-okactions
         '''
         result = self._values.get("ok_actions")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_sns_c06cc191.ITopicRef"]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the alarm.
 
         You can associate as many as 50 tags with an alarm. To be able to associate tags with the alarm when you create the alarm, you must have the ``cloudwatch:TagResource`` permission.
@@ -6577,7 +6565,7 @@ class CfnCompositeAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6591,9 +6579,9 @@ class CfnCompositeAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDashboardRef_3c35946b, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IDashboardRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDashboard(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnDashboard",
 ):
@@ -6633,7 +6621,7 @@ class CfnDashboard(
         *,
         dashboard_body: builtins.str,
         dashboard_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::Dashboard``.
 
@@ -6644,7 +6632,7 @@ class CfnDashboard(
         :param tags: A list of key-value pairs to associate with the cloudwatch dashboard. You can associate up to 50 tags with a dashboard
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66)
+            type_hints = cached_type_hints(_typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe529821b66)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDashboardProps(
@@ -6655,12 +6643,15 @@ class CfnDashboard(
 
     @jsii.member(jsii_name="arnForDashboard")
     @builtins.classmethod
-    def arn_for_dashboard(cls, resource: "_IDashboardRef_3c35946b") -> builtins.str:
+    def arn_for_dashboard(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IDashboardRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6020be094e2b2d4afee4b69155bd8476ddd027a5a492711e2ab0ffa4951f8de9)
+            type_hints = cached_type_hints(_typecheckingstub__6020be094e2b2d4afee4b69155bd8476ddd027a5a492711e2ab0ffa4951f8de9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDashboard", [resource]))
 
@@ -6671,7 +6662,7 @@ class CfnDashboard(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         dashboard_name: builtins.str,
-    ) -> "_IDashboardRef_3c35946b":
+    ) -> "_aws_cloudwatch_70717108.IDashboardRef":
         '''Creates a new IDashboardRef from a dashboardName.
 
         :param scope: -
@@ -6679,11 +6670,11 @@ class CfnDashboard(
         :param dashboard_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2a65575230b6782811b6cc1c4a4d1c6cc87f971ef5aa437442cc859d489ff82)
+            type_hints = cached_type_hints(_typecheckingstub__f2a65575230b6782811b6cc1c4a4d1c6cc87f971ef5aa437442cc859d489ff82)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
-        return typing.cast("_IDashboardRef_3c35946b", jsii.sinvoke(cls, "fromDashboardName", [scope, id, dashboard_name]))
+        return typing.cast("_aws_cloudwatch_70717108.IDashboardRef", jsii.sinvoke(cls, "fromDashboardName", [scope, id, dashboard_name]))
 
     @jsii.member(jsii_name="isCfnDashboard")
     @builtins.classmethod
@@ -6693,18 +6684,18 @@ class CfnDashboard(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d163d575fae2847d04a059a3bd78db0874553f77d99531e37fe4a3e40242651e)
+            type_hints = cached_type_hints(_typecheckingstub__d163d575fae2847d04a059a3bd78db0874553f77d99531e37fe4a3e40242651e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDashboard", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2)
+            type_hints = cached_type_hints(_typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6717,7 +6708,7 @@ class CfnDashboard(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06)
+            type_hints = cached_type_hints(_typecheckingstub__2ce11f5733e6656fe8931f571c3719842e64f032f829682b3282f6a1b8f67e06)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6729,9 +6720,9 @@ class CfnDashboard(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6745,9 +6736,9 @@ class CfnDashboard(
 
     @builtins.property
     @jsii.member(jsii_name="dashboardRef")
-    def dashboard_ref(self) -> "_DashboardReference_71933abf":
+    def dashboard_ref(self) -> "_aws_cloudwatch_70717108.DashboardReference":
         '''A reference to a Dashboard resource.'''
-        return typing.cast("_DashboardReference_71933abf", jsii.get(self, "dashboardRef"))
+        return typing.cast("_aws_cloudwatch_70717108.DashboardReference", jsii.get(self, "dashboardRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dashboardBody")
@@ -6758,7 +6749,7 @@ class CfnDashboard(
     @dashboard_body.setter
     def dashboard_body(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d)
+            type_hints = cached_type_hints(_typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashboardBody", value) # pyright: ignore[reportArgumentType]
 
@@ -6771,20 +6762,23 @@ class CfnDashboard(
     @dashboard_name.setter
     def dashboard_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb)
+            type_hints = cached_type_hints(_typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashboardName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the cloudwatch dashboard.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895)
+            type_hints = cached_type_hints(_typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -6804,7 +6798,7 @@ class CfnDashboardProps:
         *,
         dashboard_body: builtins.str,
         dashboard_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDashboard``.
 
@@ -6834,7 +6828,7 @@ class CfnDashboardProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47caee4ca)
+            type_hints = cached_type_hints(_typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47caee4ca)
             check_type(argname="argument dashboard_body", value=dashboard_body, expected_type=type_hints["dashboard_body"])
             check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -6872,7 +6866,7 @@ class CfnDashboardProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the cloudwatch dashboard.
 
         You can associate up to 50 tags with a dashboard
@@ -6880,7 +6874,7 @@ class CfnDashboardProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-dashboard.html#cfn-cloudwatch-dashboard-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6894,9 +6888,9 @@ class CfnDashboardProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInsightRuleRef_436d0d73, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IInsightRuleRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnInsightRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnInsightRule",
 ):
@@ -6937,8 +6931,8 @@ class CfnInsightRule(
         rule_body: builtins.str,
         rule_name: builtins.str,
         rule_state: builtins.str,
-        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::InsightRule``.
 
@@ -6947,11 +6941,11 @@ class CfnInsightRule(
         :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
         :param rule_name: The name of the rule.
         :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
-        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
+        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` . Default: - false
         :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855)
+            type_hints = cached_type_hints(_typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8deae855)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInsightRuleProps(
@@ -6968,13 +6962,13 @@ class CfnInsightRule(
     @builtins.classmethod
     def arn_for_insight_rule(
         cls,
-        resource: "_IInsightRuleRef_436d0d73",
+        resource: "_aws_cloudwatch_70717108.IInsightRuleRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bdca02c0c0e49733ec98b354acc2cd5f898577d2d4262e5ad756ecb162d38ae)
+            type_hints = cached_type_hints(_typecheckingstub__2bdca02c0c0e49733ec98b354acc2cd5f898577d2d4262e5ad756ecb162d38ae)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInsightRule", [resource]))
 
@@ -6986,18 +6980,18 @@ class CfnInsightRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c840cd7320becbed17b38f7cb6d8cc434fa30e47e50d34f49b35143c5b5e257)
+            type_hints = cached_type_hints(_typecheckingstub__8c840cd7320becbed17b38f7cb6d8cc434fa30e47e50d34f49b35143c5b5e257)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInsightRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685)
+            type_hints = cached_type_hints(_typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7010,7 +7004,7 @@ class CfnInsightRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb)
+            type_hints = cached_type_hints(_typecheckingstub__85b06cd7db59c69ce5f4eeed03813e201c4d3359daf90d04d6607b73d60e27cb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7028,14 +7022,6 @@ class CfnInsightRule(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRuleName")
@@ -7058,15 +7044,15 @@ class CfnInsightRule(
 
     @builtins.property
     @jsii.member(jsii_name="insightRuleRef")
-    def insight_rule_ref(self) -> "_InsightRuleReference_d30ddeea":
+    def insight_rule_ref(self) -> "_aws_cloudwatch_70717108.InsightRuleReference":
         '''A reference to a InsightRule resource.'''
-        return typing.cast("_InsightRuleReference_d30ddeea", jsii.get(self, "insightRuleRef"))
+        return typing.cast("_aws_cloudwatch_70717108.InsightRuleReference", jsii.get(self, "insightRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="ruleBody")
@@ -7077,7 +7063,7 @@ class CfnInsightRule(
     @rule_body.setter
     def rule_body(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9)
+            type_hints = cached_type_hints(_typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleBody", value) # pyright: ignore[reportArgumentType]
 
@@ -7090,7 +7076,7 @@ class CfnInsightRule(
     @rule_name.setter
     def rule_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a)
+            type_hints = cached_type_hints(_typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
 
@@ -7103,7 +7089,7 @@ class CfnInsightRule(
     @rule_state.setter
     def rule_state(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b)
+            type_hints = cached_type_hints(_typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleState", value) # pyright: ignore[reportArgumentType]
 
@@ -7111,30 +7097,33 @@ class CfnInsightRule(
     @jsii.member(jsii_name="applyOnTransformedLogs")
     def apply_on_transformed_logs(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Determines whether the rules is evaluated on transformed versions of logs.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "applyOnTransformedLogs"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "applyOnTransformedLogs"))
 
     @apply_on_transformed_logs.setter
     def apply_on_transformed_logs(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512)
+            type_hints = cached_type_hints(_typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applyOnTransformedLogs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the Contributor Insights rule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054)
+            type_hints = cached_type_hints(_typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7157,15 +7146,15 @@ class CfnInsightRuleProps:
         rule_body: builtins.str,
         rule_name: builtins.str,
         rule_state: builtins.str,
-        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnInsightRule``.
 
         :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
         :param rule_name: The name of the rule.
         :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
-        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
+        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` . Default: - false
         :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html
@@ -7192,7 +7181,7 @@ class CfnInsightRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce4589cfb7c)
+            type_hints = cached_type_hints(_typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce4589cfb7c)
             check_type(argname="argument rule_body", value=rule_body, expected_type=type_hints["rule_body"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
             check_type(argname="argument rule_state", value=rule_state, expected_type=type_hints["rule_state"])
@@ -7245,18 +7234,20 @@ class CfnInsightRuleProps:
     @builtins.property
     def apply_on_transformed_logs(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Determines whether the rules is evaluated on transformed versions of logs.
 
         Valid values are ``TRUE`` and ``FALSE`` .
 
+        :default: - false
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html#cfn-cloudwatch-insightrule-applyontransformedlogs
         '''
         result = self._values.get("apply_on_transformed_logs")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the Contributor Insights rule.
 
         You can associate as many as 50 tags with a rule.
@@ -7268,7 +7259,7 @@ class CfnInsightRuleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html#cfn-cloudwatch-insightrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7282,9 +7273,9 @@ class CfnInsightRuleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILogAlarmRef_1add8d52, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.ILogAlarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLogAlarm(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm",
 ):
@@ -7347,17 +7338,17 @@ class CfnLogAlarm(
         comparison_operator: builtins.str,
         query_results_to_alarm: jsii.Number,
         query_results_to_evaluate: jsii.Number,
-        scheduled_query_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        scheduled_query_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         threshold: jsii.Number,
         action_log_line_count: typing.Optional[jsii.Number] = None,
         action_log_line_role_arn: typing.Optional[builtins.str] = None,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::LogAlarm``.
@@ -7381,7 +7372,7 @@ class CfnLogAlarm(
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are breaching, notBreaching, ignore, and missing.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f)
+            type_hints = cached_type_hints(_typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLogAlarmProps(
@@ -7406,12 +7397,15 @@ class CfnLogAlarm(
 
     @jsii.member(jsii_name="arnForLogAlarm")
     @builtins.classmethod
-    def arn_for_log_alarm(cls, resource: "_ILogAlarmRef_1add8d52") -> builtins.str:
+    def arn_for_log_alarm(
+        cls,
+        resource: "_aws_cloudwatch_70717108.ILogAlarmRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efd401d53febd8a3df2d1052494ea095140d0c2c5c73ff6eab4a24121702d4c7)
+            type_hints = cached_type_hints(_typecheckingstub__efd401d53febd8a3df2d1052494ea095140d0c2c5c73ff6eab4a24121702d4c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLogAlarm", [resource]))
 
@@ -7423,18 +7417,18 @@ class CfnLogAlarm(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__601f99701a21cd7e5da6fb7ccc6ee1080fdfc7fff053001432c549bd368aefc1)
+            type_hints = cached_type_hints(_typecheckingstub__601f99701a21cd7e5da6fb7ccc6ee1080fdfc7fff053001432c549bd368aefc1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogAlarm", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c207e74c519d34045081f1bb4b073dd5ba661d0f71ac173878794a8e97a49dc)
+            type_hints = cached_type_hints(_typecheckingstub__5c207e74c519d34045081f1bb4b073dd5ba661d0f71ac173878794a8e97a49dc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7447,7 +7441,7 @@ class CfnLogAlarm(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b182a083d5c9132c40d6586fc0ae7b4f75e1376683012b815343beaf3b5bdb86)
+            type_hints = cached_type_hints(_typecheckingstub__b182a083d5c9132c40d6586fc0ae7b4f75e1376683012b815343beaf3b5bdb86)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7468,9 +7462,9 @@ class CfnLogAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7484,9 +7478,9 @@ class CfnLogAlarm(
 
     @builtins.property
     @jsii.member(jsii_name="logAlarmRef")
-    def log_alarm_ref(self) -> "_LogAlarmReference_622068d1":
+    def log_alarm_ref(self) -> "_aws_cloudwatch_70717108.LogAlarmReference":
         '''A reference to a LogAlarm resource.'''
-        return typing.cast("_LogAlarmReference_622068d1", jsii.get(self, "logAlarmRef"))
+        return typing.cast("_aws_cloudwatch_70717108.LogAlarmReference", jsii.get(self, "logAlarmRef"))
 
     @builtins.property
     @jsii.member(jsii_name="comparisonOperator")
@@ -7497,7 +7491,7 @@ class CfnLogAlarm(
     @comparison_operator.setter
     def comparison_operator(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c4429adac9487d84439545e51a8c003a8c23309dd0e27adebe431280b092c65)
+            type_hints = cached_type_hints(_typecheckingstub__2c4429adac9487d84439545e51a8c003a8c23309dd0e27adebe431280b092c65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
 
@@ -7510,7 +7504,7 @@ class CfnLogAlarm(
     @query_results_to_alarm.setter
     def query_results_to_alarm(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a00d4632a3df5d0052f9efe64255f0d0ec03d2dd2e1c7a0b2cd688a036e327ef)
+            type_hints = cached_type_hints(_typecheckingstub__a00d4632a3df5d0052f9efe64255f0d0ec03d2dd2e1c7a0b2cd688a036e327ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queryResultsToAlarm", value) # pyright: ignore[reportArgumentType]
 
@@ -7523,7 +7517,7 @@ class CfnLogAlarm(
     @query_results_to_evaluate.setter
     def query_results_to_evaluate(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18cc249d09)
+            type_hints = cached_type_hints(_typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18cc249d09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "queryResultsToEvaluate", value) # pyright: ignore[reportArgumentType]
 
@@ -7531,17 +7525,17 @@ class CfnLogAlarm(
     @jsii.member(jsii_name="scheduledQueryConfiguration")
     def scheduled_query_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
         '''The scheduled query configuration for the log alarm.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], jsii.get(self, "scheduledQueryConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], jsii.get(self, "scheduledQueryConfiguration"))
 
     @scheduled_query_configuration.setter
     def scheduled_query_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduledQueryConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a)
+            type_hints = cached_type_hints(_typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scheduledQueryConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -7554,7 +7548,7 @@ class CfnLogAlarm(
     @threshold.setter
     def threshold(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f)
+            type_hints = cached_type_hints(_typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
 
@@ -7567,7 +7561,7 @@ class CfnLogAlarm(
     @action_log_line_count.setter
     def action_log_line_count(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c48f5b3e0b866349933dbee5a0837092dd1ec510160c8daa75ec9fb9ede0668)
+            type_hints = cached_type_hints(_typecheckingstub__0c48f5b3e0b866349933dbee5a0837092dd1ec510160c8daa75ec9fb9ede0668)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionLogLineCount", value) # pyright: ignore[reportArgumentType]
 
@@ -7580,7 +7574,7 @@ class CfnLogAlarm(
     @action_log_line_role_arn.setter
     def action_log_line_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b5057b256e6)
+            type_hints = cached_type_hints(_typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b5057b256e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionLogLineRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -7588,17 +7582,17 @@ class CfnLogAlarm(
     @jsii.member(jsii_name="actionsEnabled")
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "actionsEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "actionsEnabled"))
 
     @actions_enabled.setter
     def actions_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c)
+            type_hints = cached_type_hints(_typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -7611,7 +7605,7 @@ class CfnLogAlarm(
     @alarm_actions.setter
     def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a07ccc15bb9aba841cec4859b59e545772527029140fee5a5bfe973c4b27f588)
+            type_hints = cached_type_hints(_typecheckingstub__a07ccc15bb9aba841cec4859b59e545772527029140fee5a5bfe973c4b27f588)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
 
@@ -7624,7 +7618,7 @@ class CfnLogAlarm(
     @alarm_description.setter
     def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__608691ef4aa71a9c9cb5f60979b313b23ba1833636e17d6f6d21e04af5f23486)
+            type_hints = cached_type_hints(_typecheckingstub__608691ef4aa71a9c9cb5f60979b313b23ba1833636e17d6f6d21e04af5f23486)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -7637,7 +7631,7 @@ class CfnLogAlarm(
     @alarm_name.setter
     def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad540f5ba271076fa582d5879ca7f9098ab95f4de8fbb8a5f2809390e047609d)
+            type_hints = cached_type_hints(_typecheckingstub__ad540f5ba271076fa582d5879ca7f9098ab95f4de8fbb8a5f2809390e047609d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
 
@@ -7653,7 +7647,7 @@ class CfnLogAlarm(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73ba3eb046f253c0b8fb17671850149e739e98335311ca54dc5e6a478ba8db5)
+            type_hints = cached_type_hints(_typecheckingstub__a73ba3eb046f253c0b8fb17671850149e739e98335311ca54dc5e6a478ba8db5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
 
@@ -7666,20 +7660,23 @@ class CfnLogAlarm(
     @ok_actions.setter
     def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bbef35ed6)
+            type_hints = cached_type_hints(_typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bbef35ed6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the log alarm.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8)
+            type_hints = cached_type_hints(_typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -7692,7 +7689,7 @@ class CfnLogAlarm(
     @treat_missing_data.setter
     def treat_missing_data(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a4059095)
+            type_hints = cached_type_hints(_typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a4059095)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
 
@@ -7737,7 +7734,7 @@ class CfnLogAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0)
+                type_hints = cached_type_hints(_typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0)
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
                 check_type(argname="argument end_time_offset", value=end_time_offset, expected_type=type_hints["end_time_offset"])
                 check_type(argname="argument start_time_offset", value=start_time_offset, expected_type=type_hints["start_time_offset"])
@@ -7806,7 +7803,7 @@ class CfnLogAlarm(
             aggregation_expression: builtins.str,
             log_group_identifiers: typing.Sequence[builtins.str],
             query_string: builtins.str,
-            schedule_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            schedule_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             scheduled_query_role_arn: builtins.str,
         ) -> None:
             '''The scheduled query configuration for the log alarm.
@@ -7841,7 +7838,7 @@ class CfnLogAlarm(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6c351b1a)
+                type_hints = cached_type_hints(_typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6c351b1a)
                 check_type(argname="argument aggregation_expression", value=aggregation_expression, expected_type=type_hints["aggregation_expression"])
                 check_type(argname="argument log_group_identifiers", value=log_group_identifiers, expected_type=type_hints["log_group_identifiers"])
                 check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
@@ -7888,14 +7885,14 @@ class CfnLogAlarm(
         @builtins.property
         def schedule_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduleConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduleConfigurationProperty"]:
             '''The schedule configuration for the scheduled query.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-scheduleconfiguration
             '''
             result = self._values.get("schedule_configuration")
             assert result is not None, "Required property 'schedule_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduleConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduleConfigurationProperty"], result)
 
         @builtins.property
         def scheduled_query_role_arn(self) -> builtins.str:
@@ -7947,17 +7944,17 @@ class CfnLogAlarmProps:
         comparison_operator: builtins.str,
         query_results_to_alarm: jsii.Number,
         query_results_to_evaluate: jsii.Number,
-        scheduled_query_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        scheduled_query_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         threshold: jsii.Number,
         action_log_line_count: typing.Optional[jsii.Number] = None,
         action_log_line_role_arn: typing.Optional[builtins.str] = None,
-        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         treat_missing_data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnLogAlarm``.
@@ -8024,7 +8021,7 @@ class CfnLogAlarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5bc1d264)
+            type_hints = cached_type_hints(_typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5bc1d264)
             check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
             check_type(argname="argument query_results_to_alarm", value=query_results_to_alarm, expected_type=type_hints["query_results_to_alarm"])
             check_type(argname="argument query_results_to_evaluate", value=query_results_to_evaluate, expected_type=type_hints["query_results_to_evaluate"])
@@ -8103,14 +8100,14 @@ class CfnLogAlarmProps:
     @builtins.property
     def scheduled_query_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
         '''The scheduled query configuration for the log alarm.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration
         '''
         result = self._values.get("scheduled_query_configuration")
         assert result is not None, "Required property 'scheduled_query_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], result)
 
     @builtins.property
     def threshold(self) -> jsii.Number:
@@ -8147,7 +8144,7 @@ class CfnLogAlarmProps:
     @builtins.property
     def actions_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether actions should be executed during any changes to the alarm state.
 
         The default is TRUE.
@@ -8157,7 +8154,7 @@ class CfnLogAlarmProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-actionsenabled
         '''
         result = self._values.get("actions_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8205,13 +8202,13 @@ class CfnLogAlarmProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of key-value pairs to associate with the log alarm.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def treat_missing_data(self) -> typing.Optional[builtins.str]:
@@ -8236,9 +8233,9 @@ class CfnLogAlarmProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMetricStreamRef_2c784fc6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IMetricStreamRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnMetricStream(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream",
 ):
@@ -8308,15 +8305,15 @@ class CfnMetricStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        firehose_arn: typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53"],
+        firehose_arn: typing.Union[builtins.str, "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef"],
         output_format: builtins.str,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        exclude_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        exclude_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         name: typing.Optional[builtins.str] = None,
-        statistics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        statistics_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::CloudWatch::MetricStream``.
 
@@ -8333,7 +8330,7 @@ class CfnMetricStream(
         :param tags: An array of key-value pairs to apply to the metric stream. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb)
+            type_hints = cached_type_hints(_typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457ef131eb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMetricStreamProps(
@@ -8354,13 +8351,13 @@ class CfnMetricStream(
     @builtins.classmethod
     def arn_for_metric_stream(
         cls,
-        resource: "_IMetricStreamRef_2c784fc6",
+        resource: "_aws_cloudwatch_70717108.IMetricStreamRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__124af1fa5c01bd8fd1b2cdf674999c1b2e7ea84e0936e842f082ee579ac35379)
+            type_hints = cached_type_hints(_typecheckingstub__124af1fa5c01bd8fd1b2cdf674999c1b2e7ea84e0936e842f082ee579ac35379)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMetricStream", [resource]))
 
@@ -8371,7 +8368,7 @@ class CfnMetricStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IMetricStreamRef_2c784fc6":
+    ) -> "_aws_cloudwatch_70717108.IMetricStreamRef":
         '''Creates a new IMetricStreamRef from an ARN.
 
         :param scope: -
@@ -8379,11 +8376,11 @@ class CfnMetricStream(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50e36a4aae3592a141f72295c65ce2cf6f01c0153925f610e589758abcc065e2)
+            type_hints = cached_type_hints(_typecheckingstub__50e36a4aae3592a141f72295c65ce2cf6f01c0153925f610e589758abcc065e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IMetricStreamRef_2c784fc6", jsii.sinvoke(cls, "fromMetricStreamArn", [scope, id, arn]))
+        return typing.cast("_aws_cloudwatch_70717108.IMetricStreamRef", jsii.sinvoke(cls, "fromMetricStreamArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromMetricStreamName")
     @builtins.classmethod
@@ -8392,7 +8389,7 @@ class CfnMetricStream(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         metric_stream_name: builtins.str,
-    ) -> "_IMetricStreamRef_2c784fc6":
+    ) -> "_aws_cloudwatch_70717108.IMetricStreamRef":
         '''Creates a new IMetricStreamRef from a metricStreamName.
 
         :param scope: -
@@ -8400,11 +8397,11 @@ class CfnMetricStream(
         :param metric_stream_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__635a32b621fbf5f4f1c0d44f6749043dfa44bfb3ec257d8fe8a02439751244c1)
+            type_hints = cached_type_hints(_typecheckingstub__635a32b621fbf5f4f1c0d44f6749043dfa44bfb3ec257d8fe8a02439751244c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument metric_stream_name", value=metric_stream_name, expected_type=type_hints["metric_stream_name"])
-        return typing.cast("_IMetricStreamRef_2c784fc6", jsii.sinvoke(cls, "fromMetricStreamName", [scope, id, metric_stream_name]))
+        return typing.cast("_aws_cloudwatch_70717108.IMetricStreamRef", jsii.sinvoke(cls, "fromMetricStreamName", [scope, id, metric_stream_name]))
 
     @jsii.member(jsii_name="isCfnMetricStream")
     @builtins.classmethod
@@ -8414,18 +8411,18 @@ class CfnMetricStream(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a622c4c5da6c706040437ab802d6d99d70d74065c1748b9bce71d6b825eebf48)
+            type_hints = cached_type_hints(_typecheckingstub__a622c4c5da6c706040437ab802d6d99d70d74065c1748b9bce71d6b825eebf48)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMetricStream", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c)
+            type_hints = cached_type_hints(_typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -8438,7 +8435,7 @@ class CfnMetricStream(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca)
+            type_hints = cached_type_hints(_typecheckingstub__bc4e04abbe7c420d426a886e2590972a98723e1abf197bd044bef66ef0f366ca)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -8496,15 +8493,15 @@ class CfnMetricStream(
 
     @builtins.property
     @jsii.member(jsii_name="metricStreamRef")
-    def metric_stream_ref(self) -> "_MetricStreamReference_e417a88f":
+    def metric_stream_ref(self) -> "_aws_cloudwatch_70717108.MetricStreamReference":
         '''A reference to a MetricStream resource.'''
-        return typing.cast("_MetricStreamReference_e417a88f", jsii.get(self, "metricStreamRef"))
+        return typing.cast("_aws_cloudwatch_70717108.MetricStreamReference", jsii.get(self, "metricStreamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="firehoseArn")
@@ -8515,7 +8512,7 @@ class CfnMetricStream(
     @firehose_arn.setter
     def firehose_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14)
+            type_hints = cached_type_hints(_typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "firehoseArn", value) # pyright: ignore[reportArgumentType]
 
@@ -8528,7 +8525,7 @@ class CfnMetricStream(
     @output_format.setter
     def output_format(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb)
+            type_hints = cached_type_hints(_typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputFormat", value) # pyright: ignore[reportArgumentType]
 
@@ -8541,7 +8538,7 @@ class CfnMetricStream(
     @role_arn.setter
     def role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5)
+            type_hints = cached_type_hints(_typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -8549,17 +8546,17 @@ class CfnMetricStream(
     @jsii.member(jsii_name="excludeFilters")
     def exclude_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "excludeFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "excludeFilters"))
 
     @exclude_filters.setter
     def exclude_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49)
+            type_hints = cached_type_hints(_typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -8567,17 +8564,17 @@ class CfnMetricStream(
     @jsii.member(jsii_name="includeFilters")
     def include_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "includeFilters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]], jsii.get(self, "includeFilters"))
 
     @include_filters.setter
     def include_filters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d)
+            type_hints = cached_type_hints(_typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
 
@@ -8585,17 +8582,17 @@ class CfnMetricStream(
     @jsii.member(jsii_name="includeLinkedAccountsMetrics")
     def include_linked_accounts_metrics(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "includeLinkedAccountsMetrics"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "includeLinkedAccountsMetrics"))
 
     @include_linked_accounts_metrics.setter
     def include_linked_accounts_metrics(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148)
+            type_hints = cached_type_hints(_typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "includeLinkedAccountsMetrics", value) # pyright: ignore[reportArgumentType]
 
@@ -8608,7 +8605,7 @@ class CfnMetricStream(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f)
+            type_hints = cached_type_hints(_typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -8616,30 +8613,33 @@ class CfnMetricStream(
     @jsii.member(jsii_name="statisticsConfigurations")
     def statistics_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
         '''By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], jsii.get(self, "statisticsConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], jsii.get(self, "statisticsConfigurations"))
 
     @statistics_configurations.setter
     def statistics_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0)
+            type_hints = cached_type_hints(_typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statisticsConfigurations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to the metric stream.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe)
+            type_hints = cached_type_hints(_typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -8679,7 +8679,7 @@ class CfnMetricStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025)
+                type_hints = cached_type_hints(_typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c3348025)
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument metric_names", value=metric_names, expected_type=type_hints["metric_names"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8737,7 +8737,7 @@ class CfnMetricStream(
             self,
             *,
             additional_statistics: typing.Sequence[builtins.str],
-            include_metrics: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamStatisticsMetricProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            include_metrics: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamStatisticsMetricProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''This structure specifies a list of additional statistics to stream, and the metrics to stream those additional statistics for.
 
@@ -8764,7 +8764,7 @@ class CfnMetricStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9)
+                type_hints = cached_type_hints(_typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9)
                 check_type(argname="argument additional_statistics", value=additional_statistics, expected_type=type_hints["additional_statistics"])
                 check_type(argname="argument include_metrics", value=include_metrics, expected_type=type_hints["include_metrics"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8785,14 +8785,14 @@ class CfnMetricStream(
         @builtins.property
         def include_metrics(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]]:
             '''An array that defines the metrics that are to have additional statistics streamed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-metricstream-metricstreamstatisticsconfiguration.html#cfn-cloudwatch-metricstream-metricstreamstatisticsconfiguration-includemetrics
             '''
             result = self._values.get("include_metrics")
             assert result is not None, "Required property 'include_metrics' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsMetricProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8837,7 +8837,7 @@ class CfnMetricStream(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b)
+                type_hints = cached_type_hints(_typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff342926b)
                 check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8896,15 +8896,15 @@ class CfnMetricStreamProps:
     def __init__(
         self,
         *,
-        firehose_arn: typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53"],
+        firehose_arn: typing.Union[builtins.str, "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef"],
         output_format: builtins.str,
-        role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
-        exclude_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        role_arn: typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"],
+        exclude_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         name: typing.Optional[builtins.str] = None,
-        statistics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        statistics_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMetricStream.MetricStreamStatisticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMetricStream``.
 
@@ -8962,7 +8962,7 @@ class CfnMetricStreamProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3841eb4f0098d496658caf6739d964d8b08f872e67d2ad28362ac3882ccd7d74)
+            type_hints = cached_type_hints(_typecheckingstub__3841eb4f0098d496658caf6739d964d8b08f872e67d2ad28362ac3882ccd7d74)
             check_type(argname="argument firehose_arn", value=firehose_arn, expected_type=type_hints["firehose_arn"])
             check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -8993,7 +8993,7 @@ class CfnMetricStreamProps:
     @builtins.property
     def firehose_arn(
         self,
-    ) -> typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53"]:
+    ) -> typing.Union[builtins.str, "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef"]:
         '''The ARN of the Amazon Kinesis Firehose delivery stream to use for this metric stream.
 
         This Amazon Kinesis Firehose delivery stream must already exist and must be in the same account as the metric stream.
@@ -9002,7 +9002,7 @@ class CfnMetricStreamProps:
         '''
         result = self._values.get("firehose_arn")
         assert result is not None, "Required property 'firehose_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef"], result)
 
     @builtins.property
     def output_format(self) -> builtins.str:
@@ -9019,7 +9019,7 @@ class CfnMetricStreamProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
+    def role_arn(self) -> typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]:
         '''The ARN of an IAM role that this metric stream will use to access Amazon Kinesis Firehose resources.
 
         This IAM role must already exist and must be in the same account as the metric stream. This IAM role must include the ``firehose:PutRecord`` and ``firehose:PutRecordBatch`` permissions.
@@ -9028,12 +9028,12 @@ class CfnMetricStreamProps:
         '''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def exclude_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends metrics from all metric namespaces except for the namespaces that you specify here.
 
         You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream.
@@ -9043,12 +9043,12 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-excludefilters
         '''
         result = self._values.get("exclude_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
 
     @builtins.property
     def include_filters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]]:
         '''If you specify this parameter, the stream sends only the metrics from the metric namespaces that you specify here.
 
         You cannot specify both ``IncludeFilters`` and ``ExcludeFilters`` in the same metric stream.
@@ -9058,12 +9058,12 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-includefilters
         '''
         result = self._values.get("include_filters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamFilterProperty"]]]], result)
 
     @builtins.property
     def include_linked_accounts_metrics(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If you are creating a metric stream in a monitoring account, specify ``true`` to include metrics from source accounts that are linked to this monitoring account, in the metric stream.
 
         The default is ``false`` .
@@ -9073,7 +9073,7 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-includelinkedaccountsmetrics
         '''
         result = self._values.get("include_linked_accounts_metrics")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -9091,7 +9091,7 @@ class CfnMetricStreamProps:
     @builtins.property
     def statistics_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]]:
         '''By default, a metric stream always sends the MAX, MIN, SUM, and SAMPLECOUNT statistics for each metric that is streamed.
 
         You can use this parameter to have the metric stream also send additional statistics in the stream. This array can have up to 100 members.
@@ -9101,10 +9101,10 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-statisticsconfigurations
         '''
         result = self._values.get("statistics_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMetricStream.MetricStreamStatisticsConfigurationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to the metric stream.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -9112,7 +9112,7 @@ class CfnMetricStreamProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-metricstream.html#cfn-cloudwatch-metricstream-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9126,9 +9126,9 @@ class CfnMetricStreamProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOTelEnrichmentRef_d7a7e26b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IOTelEnrichmentRef)
 class CfnOTelEnrichment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichment",
 ):
@@ -9158,7 +9158,7 @@ class CfnOTelEnrichment(
         :param id: Construct identifier for this resource (unique in its scope).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667)
+            type_hints = cached_type_hints(_typecheckingstub__91fe64afece70cc36e2d54718c3c64b53722fa35cafb27766af95dd0a147a667)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOTelEnrichmentProps()
@@ -9173,18 +9173,18 @@ class CfnOTelEnrichment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1af19ef1ba38cebc54a9624293ee328d04fa84b23a55cd3ffa8d5a7a40087af)
+            type_hints = cached_type_hints(_typecheckingstub__c1af19ef1ba38cebc54a9624293ee328d04fa84b23a55cd3ffa8d5a7a40087af)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOTelEnrichment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf6bf3dc5)
+            type_hints = cached_type_hints(_typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf6bf3dc5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9197,7 +9197,7 @@ class CfnOTelEnrichment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ef03b934f7d0fd97461f0f5a4084cbf1bd814052ece44bc08fd00d54b53b465)
+            type_hints = cached_type_hints(_typecheckingstub__3ef03b934f7d0fd97461f0f5a4084cbf1bd814052ece44bc08fd00d54b53b465)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9239,9 +9239,11 @@ class CfnOTelEnrichment(
 
     @builtins.property
     @jsii.member(jsii_name="oTelEnrichmentRef")
-    def o_tel_enrichment_ref(self) -> "_OTelEnrichmentReference_8678d69f":
+    def o_tel_enrichment_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.OTelEnrichmentReference":
         '''A reference to a OTelEnrichment resource.'''
-        return typing.cast("_OTelEnrichmentReference_8678d69f", jsii.get(self, "oTelEnrichmentRef"))
+        return typing.cast("_aws_cloudwatch_70717108.OTelEnrichmentReference", jsii.get(self, "oTelEnrichmentRef"))
 
 
 @jsii.data_type(
@@ -9374,7 +9376,7 @@ class CommonMetricOptions:
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
@@ -9424,7 +9426,7 @@ class CommonMetricOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd18f372aac3bb8d4a678dd4ee7a3b5bd34447637695b896086139ee2b7b4a19)
+            type_hints = cached_type_hints(_typecheckingstub__dd18f372aac3bb8d4a678dd4ee7a3b5bd34447637695b896086139ee2b7b4a19)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
@@ -9524,13 +9526,13 @@ class CommonMetricOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the specified statistic is applied.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
@@ -9693,9 +9695,9 @@ class CompositeAlarmProps:
         *,
         alarm_rule: "IAlarmRule",
         actions_enabled: typing.Optional[builtins.bool] = None,
-        actions_suppressor: typing.Optional["_IAlarmRef_2bb0e5de"] = None,
-        actions_suppressor_extension_period: typing.Optional["_Duration_4839e8c3"] = None,
-        actions_suppressor_wait_period: typing.Optional["_Duration_4839e8c3"] = None,
+        actions_suppressor: typing.Optional["_aws_cloudwatch_70717108.IAlarmRef"] = None,
+        actions_suppressor_extension_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        actions_suppressor_wait_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         composite_alarm_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -9730,7 +9732,7 @@ class CompositeAlarmProps:
             my_composite_alarm.add_ok_action(on_ok_action)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac3983e61925a8b50987e3b6213e939907d0c4bb41a5682e1321634d8b68675b)
+            type_hints = cached_type_hints(_typecheckingstub__ac3983e61925a8b50987e3b6213e939907d0c4bb41a5682e1321634d8b68675b)
             check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument actions_suppressor", value=actions_suppressor, expected_type=type_hints["actions_suppressor"])
@@ -9771,18 +9773,20 @@ class CompositeAlarmProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def actions_suppressor(self) -> typing.Optional["_IAlarmRef_2bb0e5de"]:
+    def actions_suppressor(
+        self,
+    ) -> typing.Optional["_aws_cloudwatch_70717108.IAlarmRef"]:
         '''Actions will be suppressed if the suppressor alarm is in the ALARM state.
 
         :default: - alarm will not be suppressed.
         '''
         result = self._values.get("actions_suppressor")
-        return typing.cast(typing.Optional["_IAlarmRef_2bb0e5de"], result)
+        return typing.cast(typing.Optional["_aws_cloudwatch_70717108.IAlarmRef"], result)
 
     @builtins.property
     def actions_suppressor_extension_period(
         self,
-    ) -> typing.Optional["_Duration_4839e8c3"]:
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum duration that the composite alarm waits after suppressor alarm goes out of the ALARM state.
 
         After this time, the composite alarm performs its actions.
@@ -9790,10 +9794,12 @@ class CompositeAlarmProps:
         :default: - 1 minute extension period will be set.
         '''
         result = self._values.get("actions_suppressor_extension_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def actions_suppressor_wait_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def actions_suppressor_wait_period(
+        self,
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum duration that the composite alarm waits for the suppressor alarm to go into the ALARM state.
 
         After this time, the composite alarm performs its actions.
@@ -9801,7 +9807,7 @@ class CompositeAlarmProps:
         :default: - 1 minute wait period will be set.
         '''
         result = self._values.get("actions_suppressor_wait_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def alarm_description(self) -> typing.Optional[builtins.str]:
@@ -9902,7 +9908,7 @@ class CreateAlarmOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91617a8a8e9f459ae82e35cee9e72d7bc0040c89e7759483900a64aadd24ca0b)
+            type_hints = cached_type_hints(_typecheckingstub__91617a8a8e9f459ae82e35cee9e72d7bc0040c89e7759483900a64aadd24ca0b)
             check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
@@ -10082,7 +10088,7 @@ class CustomWidgetProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d71374eb7e9e4cb8250337037e840a61230633064256eddde7401c0a174961c)
+            type_hints = cached_type_hints(_typecheckingstub__4d71374eb7e9e4cb8250337037e840a61230633064256eddde7401c0a174961c)
             check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
             check_type(argname="argument title", value=title, expected_type=type_hints["title"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
@@ -10192,7 +10198,7 @@ class CustomWidgetProps:
 
 
 class Dashboard(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudwatch.Dashboard",
 ):
@@ -10225,7 +10231,7 @@ class Dashboard(
         id: builtins.str,
         *,
         dashboard_name: typing.Optional[builtins.str] = None,
-        default_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        default_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         end: typing.Optional[builtins.str] = None,
         period_override: typing.Optional["PeriodOverride"] = None,
         start: typing.Optional[builtins.str] = None,
@@ -10244,7 +10250,7 @@ class Dashboard(
         :param widgets: Initial set of widgets on the dashboard. One array represents a row of widgets. Default: - No widgets
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fda01df790539d40ed9b476d4407925232861deff439705940e219dc8e29020)
+            type_hints = cached_type_hints(_typecheckingstub__6fda01df790539d40ed9b476d4407925232861deff439705940e219dc8e29020)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DashboardProps(
@@ -10268,7 +10274,7 @@ class Dashboard(
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_dashboard_variables.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1da9fa9df70a5b921eac287c4fe08d6816d2514a66f72147b77e9feea1a8a606)
+            type_hints = cached_type_hints(_typecheckingstub__1da9fa9df70a5b921eac287c4fe08d6816d2514a66f72147b77e9feea1a8a606)
             check_type(argname="argument variable", value=variable, expected_type=type_hints["variable"])
         return typing.cast(None, jsii.invoke(self, "addVariable", [variable]))
 
@@ -10290,7 +10296,7 @@ class Dashboard(
         :param widgets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e914386fa8a66a4e8e6cbeaa4a3f975f705962fc3be601de7228f8576e15c42d)
+            type_hints = cached_type_hints(_typecheckingstub__e914386fa8a66a4e8e6cbeaa4a3f975f705962fc3be601de7228f8576e15c42d)
             check_type(argname="argument widgets", value=widgets, expected_type=typing.Tuple[type_hints["widgets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addWidgets", [*widgets]))
 
@@ -10337,7 +10343,7 @@ class DashboardProps:
         self,
         *,
         dashboard_name: typing.Optional[builtins.str] = None,
-        default_interval: typing.Optional["_Duration_4839e8c3"] = None,
+        default_interval: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         end: typing.Optional[builtins.str] = None,
         period_override: typing.Optional["PeriodOverride"] = None,
         start: typing.Optional[builtins.str] = None,
@@ -10375,7 +10381,7 @@ class DashboardProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c41d6a8494d12ab7a95fc9ee6638b207cc78fd0aa3e36ceec570a394588d6890)
+            type_hints = cached_type_hints(_typecheckingstub__c41d6a8494d12ab7a95fc9ee6638b207cc78fd0aa3e36ceec570a394588d6890)
             check_type(argname="argument dashboard_name", value=dashboard_name, expected_type=type_hints["dashboard_name"])
             check_type(argname="argument default_interval", value=default_interval, expected_type=type_hints["default_interval"])
             check_type(argname="argument end", value=end, expected_type=type_hints["end"])
@@ -10411,7 +10417,7 @@ class DashboardProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def default_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def default_interval(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Interval duration for metrics. You can specify defaultInterval with the relative time (e.g. cdk.Duration.days(7)).
 
         Both properties ``defaultInterval`` and ``start`` cannot be set at once.
@@ -10419,7 +10425,7 @@ class DashboardProps:
         :default: When the dashboard loads, the defaultInterval time will be the default time range.
         '''
         result = self._values.get("default_interval")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def end(self) -> typing.Optional[builtins.str]:
@@ -10562,7 +10568,7 @@ class DashboardVariableOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4da4c2a317eff8c9083c9e23732734166969be3616c35a7f51e21115e260cba6)
+            type_hints = cached_type_hints(_typecheckingstub__4da4c2a317eff8c9083c9e23732734166969be3616c35a7f51e21115e260cba6)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument input_type", value=input_type, expected_type=type_hints["input_type"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -10704,7 +10710,7 @@ class DefaultValue(
         :param value: the value to be used as default.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4f7631acc3b9fb4aea3e273751a2a20c7480f62e33d5789fd4938c009af2ec8)
+            type_hints = cached_type_hints(_typecheckingstub__c4f7631acc3b9fb4aea3e273751a2a20c7480f62e33d5789fd4938c009af2ec8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("DefaultValue", jsii.sinvoke(cls, "value", [value]))
 
@@ -10749,7 +10755,7 @@ class Dimension:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f1a4bef1bc9e7080c21c9fd7656533f0a327837e2ebfcb35a0338efb47ad17)
+            type_hints = cached_type_hints(_typecheckingstub__f9f1a4bef1bc9e7080c21c9fd7656533f0a327837e2ebfcb35a0338efb47ad17)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10857,7 +10863,7 @@ class HorizontalAnnotation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590b09336dca786909b6d40a91a4108f1ce6787811718cd6151f7cd2d8e37be9)
+            type_hints = cached_type_hints(_typecheckingstub__590b09336dca786909b6d40a91a4108f1ce6787811718cd6151f7cd2d8e37be9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument fill", value=fill, expected_type=type_hints["fill"])
@@ -10965,7 +10971,7 @@ class _IAlarmActionProxy:
         :param alarm: CloudWatch alarm that the action will target [disable-awslint:prefer-ref-interface].
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19a88cc904e70d7841abfa1406b71edcf34c316b173c37c2881e75702bc0c75a)
+            type_hints = cached_type_hints(_typecheckingstub__19a88cc904e70d7841abfa1406b71edcf34c316b173c37c2881e75702bc0c75a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
         return typing.cast("AlarmActionConfig", jsii.invoke(self, "bind", [scope, alarm]))
@@ -11196,7 +11202,7 @@ class _IWidgetProxy:
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f09026a4cce4261b0c1f425d42f625c9bd8f0ba4495e11743f621a2cd44b00f8)
+            type_hints = cached_type_hints(_typecheckingstub__f09026a4cce4261b0c1f425d42f625c9bd8f0ba4495e11743f621a2cd44b00f8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -11355,7 +11361,7 @@ class LogQueryWidgetProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7d4a308b1274696259a35b14b5ae833f34881f95eaba521bb47a74b3a80e8c0)
+            type_hints = cached_type_hints(_typecheckingstub__b7d4a308b1274696259a35b14b5ae833f34881f95eaba521bb47a74b3a80e8c0)
             check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
@@ -11548,7 +11554,7 @@ class MathExpression(
         using_metrics: typing.Optional[typing.Mapping[builtins.str, "IMetric"]] = None,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -11607,7 +11613,7 @@ class MathExpression(
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Default: TreatMissingData.Missing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2288caf1bef913802628b6170f42c00c75c6fb8a67ec2e269d8e950bb21fbe4b)
+            type_hints = cached_type_hints(_typecheckingstub__2288caf1bef913802628b6170f42c00c75c6fb8a67ec2e269d8e950bb21fbe4b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CreateAlarmOptions(
@@ -11640,7 +11646,7 @@ class MathExpression(
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> "MathExpression":
@@ -11672,9 +11678,9 @@ class MathExpression(
 
     @builtins.property
     @jsii.member(jsii_name="period")
-    def period(self) -> "_Duration_4839e8c3":
+    def period(self) -> "_aws_cdk_0cae9daa.Duration":
         '''Aggregation period of this metric.'''
-        return typing.cast("_Duration_4839e8c3", jsii.get(self, "period"))
+        return typing.cast("_aws_cdk_0cae9daa.Duration", jsii.get(self, "period"))
 
     @builtins.property
     @jsii.member(jsii_name="usingMetrics")
@@ -11743,7 +11749,7 @@ class MathExpressionOptions:
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -11773,7 +11779,7 @@ class MathExpressionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f28a14de04cee7a41ccdb702d4444beec1719a2620a487cbc8e934b85c29a574)
+            type_hints = cached_type_hints(_typecheckingstub__f28a14de04cee7a41ccdb702d4444beec1719a2620a487cbc8e934b85c29a574)
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -11829,7 +11835,7 @@ class MathExpressionOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
@@ -11838,7 +11844,7 @@ class MathExpressionOptions:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def search_account(self) -> typing.Optional[builtins.str]:
@@ -11895,7 +11901,7 @@ class MathExpressionProps(MathExpressionOptions):
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
         expression: builtins.str,
@@ -11932,7 +11938,7 @@ class MathExpressionProps(MathExpressionOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cfb588e44acd0977aa0e09f00c3e2435bad84385ab7b6d163b332963d844e0a)
+            type_hints = cached_type_hints(_typecheckingstub__7cfb588e44acd0977aa0e09f00c3e2435bad84385ab7b6d163b332963d844e0a)
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -11994,7 +12000,7 @@ class MathExpressionProps(MathExpressionOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
@@ -12003,7 +12009,7 @@ class MathExpressionProps(MathExpressionOptions):
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def search_account(self) -> typing.Optional[builtins.str]:
@@ -12141,7 +12147,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
@@ -12193,7 +12199,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         std_devs: typing.Optional[jsii.Number] = None,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> "MathExpression":
@@ -12225,16 +12231,16 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
     @builtins.classmethod
     def grant_put_metric_data(
         cls,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to the given identity to write metrics.
 
         :param grantee: The IAM identity to give permissions to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80cc2795f9742554fa1b3991c8df3ae2020ca7ee2fdc5766276d72c863b4eb74)
+            type_hints = cached_type_hints(_typecheckingstub__80cc2795f9742554fa1b3991c8df3ae2020ca7ee2fdc5766276d72c863b4eb74)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.sinvoke(cls, "grantPutMetricData", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.sinvoke(cls, "grantPutMetricData", [grantee]))
 
     @jsii.member(jsii_name="attachTo")
     def attach_to(self, scope: "_constructs_77d1e7e8.IConstruct") -> "Metric":
@@ -12252,7 +12258,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25be678fc533e02941d84f54a76d8c3b96a0229380a8181f05cf39cb522d894f)
+            type_hints = cached_type_hints(_typecheckingstub__25be678fc533e02941d84f54a76d8c3b96a0229380a8181f05cf39cb522d894f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("Metric", jsii.invoke(self, "attachTo", [scope]))
 
@@ -12290,7 +12296,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Default: TreatMissingData.Missing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d06465478bbcf4229dd841339de63538dcc33dff4d9dbdf0e5b10087b556a00)
+            type_hints = cached_type_hints(_typecheckingstub__9d06465478bbcf4229dd841339de63538dcc33dff4d9dbdf0e5b10087b556a00)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CreateAlarmOptions(
@@ -12326,7 +12332,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
@@ -12382,9 +12388,9 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
 
     @builtins.property
     @jsii.member(jsii_name="period")
-    def period(self) -> "_Duration_4839e8c3":
+    def period(self) -> "_aws_cdk_0cae9daa.Duration":
         '''Period of this metric.'''
-        return typing.cast("_Duration_4839e8c3", jsii.get(self, "period"))
+        return typing.cast("_aws_cdk_0cae9daa.Duration", jsii.get(self, "period"))
 
     @builtins.property
     @jsii.member(jsii_name="statistic")
@@ -12551,7 +12557,7 @@ class MetricConfig:
         if isinstance(search_expression, dict):
             search_expression = MetricExpressionConfig(**search_expression)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ddb584abe8421d7f77520aa621133794d500e179ff044f43970dac3fd018cca)
+            type_hints = cached_type_hints(_typecheckingstub__2ddb584abe8421d7f77520aa621133794d500e179ff044f43970dac3fd018cca)
             check_type(argname="argument math_expression", value=math_expression, expected_type=type_hints["math_expression"])
             check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
             check_type(argname="argument rendering_properties", value=rendering_properties, expected_type=type_hints["rendering_properties"])
@@ -12671,7 +12677,7 @@ class MetricExpressionConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78c6be62e28f1743856b4fd66c3982e1e250f21015b1ed9d4e038be59f0d4fde)
+            type_hints = cached_type_hints(_typecheckingstub__78c6be62e28f1743856b4fd66c3982e1e250f21015b1ed9d4e038be59f0d4fde)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
             check_type(argname="argument using_metrics", value=using_metrics, expected_type=type_hints["using_metrics"])
@@ -12765,7 +12771,7 @@ class MetricOptions(CommonMetricOptions):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
@@ -12813,7 +12819,7 @@ class MetricOptions(CommonMetricOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d8480d8116)
+            type_hints = cached_type_hints(_typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d8480d8116)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
@@ -12913,13 +12919,13 @@ class MetricOptions(CommonMetricOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the specified statistic is applied.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
@@ -13044,7 +13050,7 @@ class MetricProps(CommonMetricOptions):
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
@@ -13096,7 +13102,7 @@ class MetricProps(CommonMetricOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e1e153a11ab88ed91297aedb5d7a78a81e7bf88f8aeda51bc11ff42ebe01d74)
+            type_hints = cached_type_hints(_typecheckingstub__5e1e153a11ab88ed91297aedb5d7a78a81e7bf88f8aeda51bc11ff42ebe01d74)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument dimensions_map", value=dimensions_map, expected_type=type_hints["dimensions_map"])
@@ -13201,13 +13207,13 @@ class MetricProps(CommonMetricOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the specified statistic is applied.
 
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
@@ -13339,7 +13345,7 @@ class MetricStatConfig:
         *,
         metric_name: builtins.str,
         namespace: builtins.str,
-        period: "_Duration_4839e8c3",
+        period: "_aws_cdk_0cae9daa.Duration",
         statistic: builtins.str,
         account: typing.Optional[builtins.str] = None,
         account_override: typing.Optional[builtins.str] = None,
@@ -13394,7 +13400,7 @@ class MetricStatConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4491ad5e5a4b9301258f50e45d0278fe9bbf165c840e3c65f8feab639322bae)
+            type_hints = cached_type_hints(_typecheckingstub__b4491ad5e5a4b9301258f50e45d0278fe9bbf165c840e3c65f8feab639322bae)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -13439,11 +13445,11 @@ class MetricStatConfig:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def period(self) -> "_Duration_4839e8c3":
+    def period(self) -> "_aws_cdk_0cae9daa.Duration":
         '''How many seconds to aggregate over.'''
         result = self._values.get("period")
         assert result is not None, "Required property 'period' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def statistic(self) -> builtins.str:
@@ -13571,7 +13577,7 @@ class MetricWidgetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc861885b12c38)
+            type_hints = cached_type_hints(_typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc861885b12c38)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -13683,13 +13689,13 @@ class PromQLAlarmProps:
     def __init__(
         self,
         *,
-        evaluation_interval: "_Duration_4839e8c3",
+        evaluation_interval: "_aws_cdk_0cae9daa.Duration",
         query: builtins.str,
         actions_enabled: typing.Optional[builtins.bool] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
-        pending_period: typing.Optional["_Duration_4839e8c3"] = None,
-        recovery_period: typing.Optional["_Duration_4839e8c3"] = None,
+        pending_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        recovery_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for creating a PromQL Alarm.
 
@@ -13714,7 +13720,7 @@ class PromQLAlarmProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6017bc8e2e0481a685bab5777420329aba67cead4ff49ecad7b1c5d8b8111cda)
+            type_hints = cached_type_hints(_typecheckingstub__6017bc8e2e0481a685bab5777420329aba67cead4ff49ecad7b1c5d8b8111cda)
             check_type(argname="argument evaluation_interval", value=evaluation_interval, expected_type=type_hints["evaluation_interval"])
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
@@ -13738,14 +13744,14 @@ class PromQLAlarmProps:
             self._values["recovery_period"] = recovery_period
 
     @builtins.property
-    def evaluation_interval(self) -> "_Duration_4839e8c3":
+    def evaluation_interval(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The frequency at which the alarm is evaluated.
 
         Must be between 10 seconds and 3600 seconds.
         '''
         result = self._values.get("evaluation_interval")
         assert result is not None, "Required property 'evaluation_interval' is missing"
-        return typing.cast("_Duration_4839e8c3", result)
+        return typing.cast("_aws_cdk_0cae9daa.Duration", result)
 
     @builtins.property
     def query(self) -> builtins.str:
@@ -13782,22 +13788,22 @@ class PromQLAlarmProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def pending_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def pending_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration that a contributor must continuously breach before the contributor transitions to ALARM state.
 
         :default: - No pending period
         '''
         result = self._values.get("pending_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def recovery_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def recovery_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The duration that a contributor must continuously not be breaching before it transitions back to the OK state.
 
         :default: - No recovery period
         '''
         result = self._values.get("recovery_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13833,7 +13839,7 @@ class Row(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Row"):
         :param widgets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40733d2619229fa61f0179677abbedccf016612d902783aeea0675549c61429e)
+            type_hints = cached_type_hints(_typecheckingstub__40733d2619229fa61f0179677abbedccf016612d902783aeea0675549c61429e)
             check_type(argname="argument widgets", value=widgets, expected_type=typing.Tuple[type_hints["widgets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*widgets])
 
@@ -13844,7 +13850,7 @@ class Row(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Row"):
         :param w: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1559e21caabf749b14d57eaa513451f7692532be8e10362f6f35a8d79f522e)
+            type_hints = cached_type_hints(_typecheckingstub__be1559e21caabf749b14d57eaa513451f7692532be8e10362f6f35a8d79f522e)
             check_type(argname="argument w", value=w, expected_type=type_hints["w"])
         return typing.cast(None, jsii.invoke(self, "addWidget", [w]))
 
@@ -13856,7 +13862,7 @@ class Row(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Row"):
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16ac800c3f04ad1be947a2de94d65265cf3e61d41b3ef93dc1a1a64706b3c07f)
+            type_hints = cached_type_hints(_typecheckingstub__16ac800c3f04ad1be947a2de94d65265cf3e61d41b3ef93dc1a1a64706b3c07f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -13939,7 +13945,7 @@ class SearchComponents:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__834c69a269555056b1b73146ff2784af68174eb591f39133c585607049d7afe7)
+            type_hints = cached_type_hints(_typecheckingstub__834c69a269555056b1b73146ff2784af68174eb591f39133c585607049d7afe7)
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
@@ -14030,7 +14036,7 @@ class SearchExpression(
         expression: builtins.str,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -14069,7 +14075,7 @@ class SearchExpression(
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> "SearchExpression":
@@ -14101,9 +14107,9 @@ class SearchExpression(
 
     @builtins.property
     @jsii.member(jsii_name="period")
-    def period(self) -> "_Duration_4839e8c3":
+    def period(self) -> "_aws_cdk_0cae9daa.Duration":
         '''The aggregation period for the metrics produced by the Search Expression.'''
-        return typing.cast("_Duration_4839e8c3", jsii.get(self, "period"))
+        return typing.cast("_aws_cdk_0cae9daa.Duration", jsii.get(self, "period"))
 
     @builtins.property
     @jsii.member(jsii_name="color")
@@ -14166,7 +14172,7 @@ class SearchExpressionOptions:
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -14196,7 +14202,7 @@ class SearchExpressionOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e04900ccf74c)
+            type_hints = cached_type_hints(_typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e04900ccf74c)
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -14254,7 +14260,7 @@ class SearchExpressionOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the search expression's statistics are applied.
 
         This period overrides the period defined within the search expression.
@@ -14262,7 +14268,7 @@ class SearchExpressionOptions:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def search_account(self) -> typing.Optional[builtins.str]:
@@ -14312,7 +14318,7 @@ class SearchExpressionProps(SearchExpressionOptions):
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
         expression: builtins.str,
@@ -14337,7 +14343,7 @@ class SearchExpressionProps(SearchExpressionOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e062f08e)
+            type_hints = cached_type_hints(_typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e062f08e)
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -14398,7 +14404,7 @@ class SearchExpressionProps(SearchExpressionOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the search expression's statistics are applied.
 
         This period overrides the period defined within the search expression.
@@ -14406,7 +14412,7 @@ class SearchExpressionProps(SearchExpressionOptions):
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def search_account(self) -> typing.Optional[builtins.str]:
@@ -14502,7 +14508,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         metrics: typing.Sequence["IMetric"],
         end: typing.Optional[builtins.str] = None,
         full_precision: typing.Optional[builtins.bool] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         sparkline: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
@@ -14536,7 +14542,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e49650041)
+            type_hints = cached_type_hints(_typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e49650041)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -14659,7 +14665,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The default period for all metrics in this widget.
 
         The period is the length of time represented by one data point on the graph.
@@ -14668,7 +14674,7 @@ class SingleValueWidgetProps(MetricWidgetProps):
         :default: cdk.Duration.seconds(300)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def set_period_to_time_range(self) -> typing.Optional[builtins.bool]:
@@ -14757,7 +14763,7 @@ class Spacer(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Spac
         :param _y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0236fe592a65d0a71aaf6677c75eec030eb736094a2786b8e76b8268bf9a92ed)
+            type_hints = cached_type_hints(_typecheckingstub__0236fe592a65d0a71aaf6677c75eec030eb736094a2786b8e76b8268bf9a92ed)
             check_type(argname="argument _x", value=_x, expected_type=type_hints["_x"])
             check_type(argname="argument _y", value=_y, expected_type=type_hints["_y"])
         return typing.cast(None, jsii.invoke(self, "position", [_x, _y]))
@@ -14811,7 +14817,7 @@ class SpacerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ce130b788b85b7cf4858285014ef18ed05d407efad51e70fc325d771e03cd07)
+            type_hints = cached_type_hints(_typecheckingstub__6ce130b788b85b7cf4858285014ef18ed05d407efad51e70fc325d771e03cd07)
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument width", value=width, expected_type=type_hints["width"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -14951,7 +14957,7 @@ class Stats(
         :param percentile: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fe6b13717c2f469cb6495af37c0676d3baf89c7971d1f4421f83fb8386423c5)
+            type_hints = cached_type_hints(_typecheckingstub__6fe6b13717c2f469cb6495af37c0676d3baf89c7971d1f4421f83fb8386423c5)
             check_type(argname="argument percentile", value=percentile, expected_type=type_hints["percentile"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "p", [percentile]))
 
@@ -14969,7 +14975,7 @@ class Stats(
         :param percentile: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b20618ea2205ed15f0a41b04678afac5b1c065f0b533015b7b38bc29faf2d28f)
+            type_hints = cached_type_hints(_typecheckingstub__b20618ea2205ed15f0a41b04678afac5b1c065f0b533015b7b38bc29faf2d28f)
             check_type(argname="argument percentile", value=percentile, expected_type=type_hints["percentile"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "percentile", [percentile]))
 
@@ -14994,7 +15000,7 @@ class Stats(
         :param v2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c9c42984ea88c4bfe005c7b416b3bc4f37f123fcb4179c31c52608b1d17d6ad)
+            type_hints = cached_type_hints(_typecheckingstub__1c9c42984ea88c4bfe005c7b416b3bc4f37f123fcb4179c31c52608b1d17d6ad)
             check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
             check_type(argname="argument v2", value=v2, expected_type=type_hints["v2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "percentileRank", [v1, v2]))
@@ -15012,7 +15018,7 @@ class Stats(
         :param v2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a8709abf45bdade8c71c455bb23d9992475641bb192922b080e052213ff7a2d)
+            type_hints = cached_type_hints(_typecheckingstub__3a8709abf45bdade8c71c455bb23d9992475641bb192922b080e052213ff7a2d)
             check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
             check_type(argname="argument v2", value=v2, expected_type=type_hints["v2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "pr", [v1, v2]))
@@ -15030,7 +15036,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a59697bf582c1a9d2cf797a3831d238c515f86f8b25fa39d523b89bc479ee7b)
+            type_hints = cached_type_hints(_typecheckingstub__6a59697bf582c1a9d2cf797a3831d238c515f86f8b25fa39d523b89bc479ee7b)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "tc", [p1, p2]))
@@ -15048,7 +15054,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f436c4f45d1d4c4b619c5d92a59806b069fccea9b744eb05a1a8a63d5fad1bc1)
+            type_hints = cached_type_hints(_typecheckingstub__f436c4f45d1d4c4b619c5d92a59806b069fccea9b744eb05a1a8a63d5fad1bc1)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "tm", [p1, p2]))
@@ -15076,7 +15082,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4039f2f3dc599b3ff76634eaaa717bb526fa7c9790b7eb4d412a7860ef92c6c8)
+            type_hints = cached_type_hints(_typecheckingstub__4039f2f3dc599b3ff76634eaaa717bb526fa7c9790b7eb4d412a7860ef92c6c8)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "trimmedCount", [p1, p2]))
@@ -15107,7 +15113,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a459a1d21547ef8c2ced058c40dc9c19552a9b7c47f0c98c4f674eea7415c1b4)
+            type_hints = cached_type_hints(_typecheckingstub__a459a1d21547ef8c2ced058c40dc9c19552a9b7c47f0c98c4f674eea7415c1b4)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "trimmedMean", [p1, p2]))
@@ -15137,7 +15143,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b907dc76d7f5d30c86b61f5d0bc18c4c525bb2d23f21bb493c2c59eb8918a669)
+            type_hints = cached_type_hints(_typecheckingstub__b907dc76d7f5d30c86b61f5d0bc18c4c525bb2d23f21bb493c2c59eb8918a669)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "trimmedSum", [p1, p2]))
@@ -15155,7 +15161,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b47525d73a908d3fb5feeddc346925ac46e91b28aeb372a1d789770b4b54554b)
+            type_hints = cached_type_hints(_typecheckingstub__b47525d73a908d3fb5feeddc346925ac46e91b28aeb372a1d789770b4b54554b)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "ts", [p1, p2]))
@@ -15193,7 +15199,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56e0f0610a2a67b4632bbdfee23cd7509fcd0e93b34d23c36208dc99ac803774)
+            type_hints = cached_type_hints(_typecheckingstub__56e0f0610a2a67b4632bbdfee23cd7509fcd0e93b34d23c36208dc99ac803774)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "winsorizedMean", [p1, p2]))
@@ -15211,7 +15217,7 @@ class Stats(
         :param p2: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1740e870895a9795d40caa429b748dd124ed575f6ae4335284294f42209ae324)
+            type_hints = cached_type_hints(_typecheckingstub__1740e870895a9795d40caa429b748dd124ed575f6ae4335284294f42209ae324)
             check_type(argname="argument p1", value=p1, expected_type=type_hints["p1"])
             check_type(argname="argument p2", value=p2, expected_type=type_hints["p2"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "wm", [p1, p2]))
@@ -15369,7 +15375,7 @@ class TableSummaryProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98c18eab758ffae376ffa1675e2524ad60cd0a50fd033fe135c6d98d0f5d2692)
+            type_hints = cached_type_hints(_typecheckingstub__98c18eab758ffae376ffa1675e2524ad60cd0a50fd033fe135c6d98d0f5d2692)
             check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
             check_type(argname="argument hide_non_summary_columns", value=hide_non_summary_columns, expected_type=type_hints["hide_non_summary_columns"])
             check_type(argname="argument sticky", value=sticky, expected_type=type_hints["sticky"])
@@ -15457,7 +15463,7 @@ class TableThreshold(
         :param color: cell color for values within threshold range.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d2d8bf527174c0069d64738e83c5ebe4fd927ac2332ac0de67140546fb8616)
+            type_hints = cached_type_hints(_typecheckingstub__70d2d8bf527174c0069d64738e83c5ebe4fd927ac2332ac0de67140546fb8616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
         return typing.cast("TableThreshold", jsii.sinvoke(cls, "above", [value, color]))
@@ -15475,7 +15481,7 @@ class TableThreshold(
         :param color: cell color for values within threshold range.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6f92993218488cf545481e8167442910bb8b8c7c45aa7dfb6667808cb1077e6)
+            type_hints = cached_type_hints(_typecheckingstub__e6f92993218488cf545481e8167442910bb8b8c7c45aa7dfb6667808cb1077e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
         return typing.cast("TableThreshold", jsii.sinvoke(cls, "below", [value, color]))
@@ -15495,7 +15501,7 @@ class TableThreshold(
         :param color: cell color for values within threshold range.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__837fdebf81b3f53de6d99624ebde152b4aba1d764a0cc2bd930440701533924a)
+            type_hints = cached_type_hints(_typecheckingstub__837fdebf81b3f53de6d99624ebde152b4aba1d764a0cc2bd930440701533924a)
             check_type(argname="argument lower_bound", value=lower_bound, expected_type=type_hints["lower_bound"])
             check_type(argname="argument upper_bound", value=upper_bound, expected_type=type_hints["upper_bound"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
@@ -15543,7 +15549,7 @@ class TableWidgetProps(MetricWidgetProps):
         layout: typing.Optional["TableLayout"] = None,
         live_data: typing.Optional[builtins.bool] = None,
         metrics: typing.Optional[typing.Sequence["IMetric"]] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         show_units_in_label: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
@@ -15587,7 +15593,7 @@ class TableWidgetProps(MetricWidgetProps):
         if isinstance(summary, dict):
             summary = TableSummaryProps(**summary)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03726ba90bb01c2a1340af4f73005fffe1b8288cff57d77f31d745d629defb8b)
+            type_hints = cached_type_hints(_typecheckingstub__03726ba90bb01c2a1340af4f73005fffe1b8288cff57d77f31d745d629defb8b)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -15745,7 +15751,7 @@ class TableWidgetProps(MetricWidgetProps):
         return typing.cast(typing.Optional[typing.List["IMetric"]], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The default period for all metrics in this widget.
 
         The period is the length of time represented by one data point on the graph.
@@ -15754,7 +15760,7 @@ class TableWidgetProps(MetricWidgetProps):
         :default: cdk.Duration.seconds(300)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def set_period_to_time_range(self) -> typing.Optional[builtins.bool]:
@@ -15894,7 +15900,7 @@ class TextWidgetProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c678c9d6bdc1a1e852f5260a40406f2e09cfc10b899093e99e66b9998d086d5e)
+            type_hints = cached_type_hints(_typecheckingstub__c678c9d6bdc1a1e852f5260a40406f2e09cfc10b899093e99e66b9998d086d5e)
             check_type(argname="argument markdown", value=markdown, expected_type=type_hints["markdown"])
             check_type(argname="argument background", value=background, expected_type=type_hints["background"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
@@ -16130,7 +16136,7 @@ class Values(
         :param populate_from: dimension the dimension name, that the search expression retrieves, whose values will be used to populate the values to choose from. For example ``InstanceId``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afe23853ba6c48e47b97d468ea15f87c9bfe3b880732f11d19570ed0895f18ca)
+            type_hints = cached_type_hints(_typecheckingstub__afe23853ba6c48e47b97d468ea15f87c9bfe3b880732f11d19570ed0895f18ca)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
             check_type(argname="argument populate_from", value=populate_from, expected_type=type_hints["populate_from"])
         return typing.cast("Values", jsii.sinvoke(cls, "fromSearch", [expression, populate_from]))
@@ -16169,7 +16175,7 @@ class Values(
         :param values: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad2d8863dfb0f396c5d69f43fdc7137d8386cc972baa88ad212df48bbc5c3e6c)
+            type_hints = cached_type_hints(_typecheckingstub__ad2d8863dfb0f396c5d69f43fdc7137d8386cc972baa88ad212df48bbc5c3e6c)
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Values", jsii.sinvoke(cls, "fromValues", [*values]))
 
@@ -16302,7 +16308,7 @@ class VariableValue:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03c9a6d1a1a0197c51468b97744230720e131da2f17bd50bfcfa9f7a3b4092cb)
+            type_hints = cached_type_hints(_typecheckingstub__03c9a6d1a1a0197c51468b97744230720e131da2f17bd50bfcfa9f7a3b4092cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -16387,7 +16393,7 @@ class VerticalAnnotation:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c903f8a4aafff9c3e6b2539c8372df8551aba4035bb4187c0e0930b0ee60ff00)
+            type_hints = cached_type_hints(_typecheckingstub__c903f8a4aafff9c3e6b2539c8372df8551aba4035bb4187c0e0930b0ee60ff00)
             check_type(argname="argument date", value=date, expected_type=type_hints["date"])
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument fill", value=fill, expected_type=type_hints["fill"])
@@ -16516,7 +16522,7 @@ class YAxisProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec63852e8e70001b1e7a1554d96ad9ddb32bcfee6e3c022b5ba672bf9259a3be)
+            type_hints = cached_type_hints(_typecheckingstub__ec63852e8e70001b1e7a1554d96ad9ddb32bcfee6e3c022b5ba672bf9259a3be)
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
@@ -16652,7 +16658,7 @@ class AlarmProps(CreateAlarmOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2e7c873c118fbc1f6cf26e1bb5bd3d8549040c626a6450f2d686bb07b87266b)
+            type_hints = cached_type_hints(_typecheckingstub__b2e7c873c118fbc1f6cf26e1bb5bd3d8549040c626a6450f2d686bb07b87266b)
             check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
@@ -16813,7 +16819,7 @@ class AlarmWidgetProps(MetricWidgetProps):
         region: typing.Optional[builtins.str] = None,
         title: typing.Optional[builtins.str] = None,
         width: typing.Optional[jsii.Number] = None,
-        alarm: "_IAlarmRef_2bb0e5de",
+        alarm: "_aws_cloudwatch_70717108.IAlarmRef",
         left_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for an AlarmWidget.
@@ -16842,7 +16848,7 @@ class AlarmWidgetProps(MetricWidgetProps):
         if isinstance(left_y_axis, dict):
             left_y_axis = YAxisProps(**left_y_axis)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b6bef2cc64a78bffd68dc95a764829a6c125294deaebcd42b56c493541573d5)
+            type_hints = cached_type_hints(_typecheckingstub__8b6bef2cc64a78bffd68dc95a764829a6c125294deaebcd42b56c493541573d5)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -16922,11 +16928,11 @@ class AlarmWidgetProps(MetricWidgetProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def alarm(self) -> "_IAlarmRef_2bb0e5de":
+    def alarm(self) -> "_aws_cloudwatch_70717108.IAlarmRef":
         '''The alarm to show.'''
         result = self._values.get("alarm")
         assert result is not None, "Required property 'alarm' is missing"
-        return typing.cast("_IAlarmRef_2bb0e5de", result)
+        return typing.cast("_aws_cloudwatch_70717108.IAlarmRef", result)
 
     @builtins.property
     def left_y_axis(self) -> typing.Optional["YAxisProps"]:
@@ -16968,7 +16974,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         *,
         color: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         search_account: typing.Optional[builtins.str] = None,
         search_region: typing.Optional[builtins.str] = None,
         metric: "IMetric",
@@ -17008,7 +17014,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5ab1cfa142c158cb621ab2339ccaa469bd13773cd7f760d978164625bcdeb80)
+            type_hints = cached_type_hints(_typecheckingstub__c5ab1cfa142c158cb621ab2339ccaa469bd13773cd7f760d978164625bcdeb80)
             check_type(argname="argument color", value=color, expected_type=type_hints["color"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument period", value=period, expected_type=type_hints["period"])
@@ -17070,7 +17076,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
@@ -17079,7 +17085,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
         :default: Duration.minutes(5)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def search_account(self) -> typing.Optional[builtins.str]:
@@ -17164,7 +17170,7 @@ class Column(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Colu
         :param widgets: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76ce8e89badc991e6248d5096f1d0b7ed5c9b4e588f4383e932e8f87c07043c6)
+            type_hints = cached_type_hints(_typecheckingstub__76ce8e89badc991e6248d5096f1d0b7ed5c9b4e588f4383e932e8f87c07043c6)
             check_type(argname="argument widgets", value=widgets, expected_type=typing.Tuple[type_hints["widgets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*widgets])
 
@@ -17175,7 +17181,7 @@ class Column(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Colu
         :param w: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e7a63a93df283f275f6e4f6eea63f6665322c9a990c8c8aa9db71dd89fe730e)
+            type_hints = cached_type_hints(_typecheckingstub__1e7a63a93df283f275f6e4f6eea63f6665322c9a990c8c8aa9db71dd89fe730e)
             check_type(argname="argument w", value=w, expected_type=type_hints["w"])
         return typing.cast(None, jsii.invoke(self, "addWidget", [w]))
 
@@ -17187,7 +17193,7 @@ class Column(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Colu
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be386baa88e2f34ab4e89e312e9a044e57596f584e0dc58e3e0de3089771cbf5)
+            type_hints = cached_type_hints(_typecheckingstub__be386baa88e2f34ab4e89e312e9a044e57596f584e0dc58e3e0de3089771cbf5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -17232,7 +17238,7 @@ class ConcreteWidget(
         :param height: The amount of vertical grid units the widget will take up.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5472697255361cd3423eece6fc66536dcf7e58a80d3801bec6331d231c9e36d)
+            type_hints = cached_type_hints(_typecheckingstub__c5472697255361cd3423eece6fc66536dcf7e58a80d3801bec6331d231c9e36d)
             check_type(argname="argument width", value=width, expected_type=type_hints["width"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
         jsii.create(self.__class__, self, [width, height])
@@ -17244,7 +17250,7 @@ class ConcreteWidget(
         :param ms: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5ae2d5f50f7532d79ca7e346e91f137e37e297127e588b21f681019986b1c55)
+            type_hints = cached_type_hints(_typecheckingstub__e5ae2d5f50f7532d79ca7e346e91f137e37e297127e588b21f681019986b1c55)
             check_type(argname="argument ms", value=ms, expected_type=typing.Tuple[type_hints["ms"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "copyMetricWarnings", [*ms]))
 
@@ -17256,7 +17262,7 @@ class ConcreteWidget(
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e0f6387845c9d7953cfc1de766c2a56f8bb9fb94f5c273ed272288b546b4392)
+            type_hints = cached_type_hints(_typecheckingstub__0e0f6387845c9d7953cfc1de766c2a56f8bb9fb94f5c273ed272288b546b4392)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -17301,7 +17307,7 @@ class ConcreteWidget(
     @_x.setter
     def _x(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6a944db25b0c1533973a41edef1a431615645e2f5fcbcc1e577c331d33bb0ff)
+            type_hints = cached_type_hints(_typecheckingstub__e6a944db25b0c1533973a41edef1a431615645e2f5fcbcc1e577c331d33bb0ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "x", value) # pyright: ignore[reportArgumentType]
 
@@ -17313,7 +17319,7 @@ class ConcreteWidget(
     @_y.setter
     def _y(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81266f4e20969db506e61dedc6af36fce6fe0f75af699f49b5c6f11f9225bef2)
+            type_hints = cached_type_hints(_typecheckingstub__81266f4e20969db506e61dedc6af36fce6fe0f75af699f49b5c6f11f9225bef2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "y", value) # pyright: ignore[reportArgumentType]
 
@@ -17502,7 +17508,7 @@ class GaugeWidget(
         legend_position: typing.Optional["LegendPosition"] = None,
         live_data: typing.Optional[builtins.bool] = None,
         metrics: typing.Optional[typing.Sequence["IMetric"]] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
@@ -17556,7 +17562,7 @@ class GaugeWidget(
         :param metric: the metric to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11f194bd6989eaa4279174f388eb1c44a7faf424b684d189ffe90647dfd0eeb2)
+            type_hints = cached_type_hints(_typecheckingstub__11f194bd6989eaa4279174f388eb1c44a7faf424b684d189ffe90647dfd0eeb2)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
         return typing.cast(None, jsii.invoke(self, "addMetric", [metric]))
 
@@ -17602,7 +17608,7 @@ class GaugeWidgetProps(MetricWidgetProps):
         legend_position: typing.Optional["LegendPosition"] = None,
         live_data: typing.Optional[builtins.bool] = None,
         metrics: typing.Optional[typing.Sequence["IMetric"]] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
@@ -17645,7 +17651,7 @@ class GaugeWidgetProps(MetricWidgetProps):
         if isinstance(left_y_axis, dict):
             left_y_axis = YAxisProps(**left_y_axis)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1f8fe2511861f7fc6d2225bf5821fc9134b7036355dffb1d0ddd86a99b53dc5)
+            type_hints = cached_type_hints(_typecheckingstub__c1f8fe2511861f7fc6d2225bf5821fc9134b7036355dffb1d0ddd86a99b53dc5)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -17806,7 +17812,7 @@ class GaugeWidgetProps(MetricWidgetProps):
         return typing.cast(typing.Optional[typing.List["IMetric"]], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The default period for all metrics in this widget.
 
         The period is the length of time represented by one data point on the graph.
@@ -17815,7 +17821,7 @@ class GaugeWidgetProps(MetricWidgetProps):
         :default: cdk.Duration.seconds(300)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def set_period_to_time_range(self) -> typing.Optional[builtins.bool]:
@@ -17905,7 +17911,7 @@ class GraphWidget(
         left_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
         legend_position: typing.Optional["LegendPosition"] = None,
         live_data: typing.Optional[builtins.bool] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         right: typing.Optional[typing.Sequence["IMetric"]] = None,
         right_annotations: typing.Optional[typing.Sequence[typing.Union["HorizontalAnnotation", typing.Dict[builtins.str, typing.Any]]]] = None,
         right_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -17979,7 +17985,7 @@ class GraphWidget(
         :param metric: the metric to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78a36122d01bdf3dadbdef1806a83ff151cd1d77de21139074c37ca284275e0e)
+            type_hints = cached_type_hints(_typecheckingstub__78a36122d01bdf3dadbdef1806a83ff151cd1d77de21139074c37ca284275e0e)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
         return typing.cast(None, jsii.invoke(self, "addLeftMetric", [metric]))
 
@@ -17990,7 +17996,7 @@ class GraphWidget(
         :param metric: the metric to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d98276ba6bbea7a9a5b2efedfda4a862eeca9b42a2aaca743679984a15762407)
+            type_hints = cached_type_hints(_typecheckingstub__d98276ba6bbea7a9a5b2efedfda4a862eeca9b42a2aaca743679984a15762407)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
         return typing.cast(None, jsii.invoke(self, "addRightMetric", [metric]))
 
@@ -18044,7 +18050,7 @@ class GraphWidgetProps(MetricWidgetProps):
         left_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
         legend_position: typing.Optional["LegendPosition"] = None,
         live_data: typing.Optional[builtins.bool] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         right: typing.Optional[typing.Sequence["IMetric"]] = None,
         right_annotations: typing.Optional[typing.Sequence[typing.Union["HorizontalAnnotation", typing.Dict[builtins.str, typing.Any]]]] = None,
         right_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -18105,7 +18111,7 @@ class GraphWidgetProps(MetricWidgetProps):
         if isinstance(right_y_axis, dict):
             right_y_axis = YAxisProps(**right_y_axis)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc9263b3b)
+            type_hints = cached_type_hints(_typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc9263b3b)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -18298,7 +18304,7 @@ class GraphWidgetProps(MetricWidgetProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The default period for all metrics in this widget.
 
         The period is the length of time represented by one data point on the graph.
@@ -18307,7 +18313,7 @@ class GraphWidgetProps(MetricWidgetProps):
         :default: cdk.Duration.seconds(300)
         '''
         result = self._values.get("period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def right(self) -> typing.Optional[typing.List["IMetric"]]:
@@ -18418,8 +18424,8 @@ class GraphWidgetProps(MetricWidgetProps):
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cloudwatch.IAlarm")
 class IAlarm(
     IAlarmRule,
-    _IResource_c80c4260,
-    _IAlarmRef_2bb0e5de,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cloudwatch_70717108.IAlarmRef,
     typing_extensions.Protocol,
 ):
     '''Represents a CloudWatch Alarm.'''
@@ -18445,8 +18451,8 @@ class IAlarm(
 
 class _IAlarmProxy(
     jsii.proxy_for(IAlarmRule), # type: ignore[misc]
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IAlarmRef_2bb0e5de), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cloudwatch_70717108.IAlarmRef), # type: ignore[misc]
 ):
     '''Represents a CloudWatch Alarm.'''
 
@@ -18571,7 +18577,7 @@ class SingleValueWidget(
         metrics: typing.Sequence["IMetric"],
         end: typing.Optional[builtins.str] = None,
         full_precision: typing.Optional[builtins.bool] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         sparkline: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
@@ -18647,7 +18653,7 @@ class TableWidget(
         layout: typing.Optional["TableLayout"] = None,
         live_data: typing.Optional[builtins.bool] = None,
         metrics: typing.Optional[typing.Sequence["IMetric"]] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         set_period_to_time_range: typing.Optional[builtins.bool] = None,
         show_units_in_label: typing.Optional[builtins.bool] = None,
         start: typing.Optional[builtins.str] = None,
@@ -18708,7 +18714,7 @@ class TableWidget(
         :param metric: the metric to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14b284f52f62e4bb0b4243fb3b3bcaa2693e6ee107b2721f9467d31d81cf408b)
+            type_hints = cached_type_hints(_typecheckingstub__14b284f52f62e4bb0b4243fb3b3bcaa2693e6ee107b2721f9467d31d81cf408b)
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
         return typing.cast(None, jsii.invoke(self, "addMetric", [metric]))
 
@@ -18765,7 +18771,7 @@ class TextWidget(
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8d51865c110b61caff6f389abfdbc4862eb4488d27c9b39083e0293fd0be343)
+            type_hints = cached_type_hints(_typecheckingstub__c8d51865c110b61caff6f389abfdbc4862eb4488d27c9b39083e0293fd0be343)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -18778,7 +18784,7 @@ class TextWidget(
 
 @jsii.implements(IAlarm)
 class AlarmBase(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_cloudwatch.AlarmBase",
 ):
@@ -18803,10 +18809,10 @@ class AlarmBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e7154d8d457acf3b0cf78ed544360096e7c3981ec43306ad2f509853c4efe1b)
+            type_hints = cached_type_hints(_typecheckingstub__6e7154d8d457acf3b0cf78ed544360096e7c3981ec43306ad2f509853c4efe1b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = _ResourceProps_15a65b4e(
+        props = _aws_cdk_0cae9daa.ResourceProps(
             account=account,
             environment_from_arn=environment_from_arn,
             physical_name=physical_name,
@@ -18824,7 +18830,7 @@ class AlarmBase(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbc62cbd9f9d10401db80f46c6d4b0e4a15c97163470cbdd2dd91c82b5a76c38)
+            type_hints = cached_type_hints(_typecheckingstub__bbc62cbd9f9d10401db80f46c6d4b0e4a15c97163470cbdd2dd91c82b5a76c38)
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addAlarmAction", [*actions]))
 
@@ -18837,7 +18843,7 @@ class AlarmBase(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e588099840d4554b8e9faf3cc33868d492f714f24d214d9f770291fb25fad20)
+            type_hints = cached_type_hints(_typecheckingstub__7e588099840d4554b8e9faf3cc33868d492f714f24d214d9f770291fb25fad20)
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addInsufficientDataAction", [*actions]))
 
@@ -18850,7 +18856,7 @@ class AlarmBase(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f195fe021c2d9115ee79498e038ce63454be2e0d319995ca3a3d767feb45dab)
+            type_hints = cached_type_hints(_typecheckingstub__7f195fe021c2d9115ee79498e038ce63454be2e0d319995ca3a3d767feb45dab)
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addOkAction", [*actions]))
 
@@ -18878,9 +18884,9 @@ class AlarmBase(
 
     @builtins.property
     @jsii.member(jsii_name="alarmRef")
-    def alarm_ref(self) -> "_AlarmReference_76b2c14f":
+    def alarm_ref(self) -> "_aws_cloudwatch_70717108.AlarmReference":
         '''A reference to a Alarm resource.'''
-        return typing.cast("_AlarmReference_76b2c14f", jsii.get(self, "alarmRef"))
+        return typing.cast("_aws_cloudwatch_70717108.AlarmReference", jsii.get(self, "alarmRef"))
 
     @builtins.property
     @jsii.member(jsii_name="alarmActionArns")
@@ -18893,7 +18899,7 @@ class AlarmBase(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f77158cf05762b87148c9ece7c4fc0f4591bc620078d7052247bf9fa5146bbe8)
+            type_hints = cached_type_hints(_typecheckingstub__f77158cf05762b87148c9ece7c4fc0f4591bc620078d7052247bf9fa5146bbe8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "alarmActionArns", value) # pyright: ignore[reportArgumentType]
 
@@ -18910,7 +18916,7 @@ class AlarmBase(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e28ecf3733272408c8625c4e9726b39ea586c58f4c89c08d7ba8579a99a5247)
+            type_hints = cached_type_hints(_typecheckingstub__4e28ecf3733272408c8625c4e9726b39ea586c58f4c89c08d7ba8579a99a5247)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insufficientDataActionArns", value) # pyright: ignore[reportArgumentType]
 
@@ -18925,14 +18931,14 @@ class AlarmBase(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32c054ee1bf96f6ce4073fc60bc6e30b8c1c7d0fe7f902e814f6554b6ee36a71)
+            type_hints = cached_type_hints(_typecheckingstub__32c054ee1bf96f6ce4073fc60bc6e30b8c1c7d0fe7f902e814f6554b6ee36a71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "okActionArns", value) # pyright: ignore[reportArgumentType]
 
 
 class _AlarmBaseProxy(
     AlarmBase,
-    jsii.proxy_for(_Resource_45bc6135), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.Resource), # type: ignore[misc]
 ):
     @builtins.property
     @jsii.member(jsii_name="alarmArn")
@@ -18977,7 +18983,7 @@ class AlarmStatusWidget(
     def __init__(
         self,
         *,
-        alarms: typing.Sequence["_IAlarmRef_2bb0e5de"],
+        alarms: typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"],
         height: typing.Optional[jsii.Number] = None,
         sort_by: typing.Optional["AlarmStatusWidgetSortBy"] = None,
         states: typing.Optional[typing.Sequence["AlarmState"]] = None,
@@ -19011,7 +19017,7 @@ class AlarmStatusWidget(
         :param y: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fc0a3126fa9c8844de1784e81a9f4f3230086511ca9713ee2ff0d042663da5f)
+            type_hints = cached_type_hints(_typecheckingstub__1fc0a3126fa9c8844de1784e81a9f4f3230086511ca9713ee2ff0d042663da5f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
             check_type(argname="argument y", value=y, expected_type=type_hints["y"])
         return typing.cast(None, jsii.invoke(self, "position", [x, y]))
@@ -19046,7 +19052,7 @@ class AlarmWidget(
     def __init__(
         self,
         *,
-        alarm: "_IAlarmRef_2bb0e5de",
+        alarm: "_aws_cloudwatch_70717108.IAlarmRef",
         left_y_axis: typing.Optional[typing.Union["YAxisProps", typing.Dict[builtins.str, typing.Any]]] = None,
         account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
@@ -19116,9 +19122,9 @@ class CompositeAlarm(
         *,
         alarm_rule: "IAlarmRule",
         actions_enabled: typing.Optional[builtins.bool] = None,
-        actions_suppressor: typing.Optional["_IAlarmRef_2bb0e5de"] = None,
-        actions_suppressor_extension_period: typing.Optional["_Duration_4839e8c3"] = None,
-        actions_suppressor_wait_period: typing.Optional["_Duration_4839e8c3"] = None,
+        actions_suppressor: typing.Optional["_aws_cloudwatch_70717108.IAlarmRef"] = None,
+        actions_suppressor_extension_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        actions_suppressor_wait_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         composite_alarm_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -19134,7 +19140,7 @@ class CompositeAlarm(
         :param composite_alarm_name: Name of the alarm. Default: - Automatically generated name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7a7ea1ddc8fb0690826832fbc77c405acacd10123a1aa81696d3863d8252abb)
+            type_hints = cached_type_hints(_typecheckingstub__e7a7ea1ddc8fb0690826832fbc77c405acacd10123a1aa81696d3863d8252abb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CompositeAlarmProps(
@@ -19164,7 +19170,7 @@ class CompositeAlarm(
         :param composite_alarm_arn: Composite Alarm ARN (i.e. arn:aws:cloudwatch:::alarm:CompositeAlarmName).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfb039403469bae811c18af1008f632188c3f4e24312b57fe3c23c7e5e1405fc)
+            type_hints = cached_type_hints(_typecheckingstub__dfb039403469bae811c18af1008f632188c3f4e24312b57fe3c23c7e5e1405fc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument composite_alarm_arn", value=composite_alarm_arn, expected_type=type_hints["composite_alarm_arn"])
@@ -19185,7 +19191,7 @@ class CompositeAlarm(
         :param composite_alarm_name: Composite Alarm Name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7b77df6004a58e1183aacd1214d4fe5762c7287cc2361f2ff0337e84ccbb6b3)
+            type_hints = cached_type_hints(_typecheckingstub__c7b77df6004a58e1183aacd1214d4fe5762c7287cc2361f2ff0337e84ccbb6b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument composite_alarm_name", value=composite_alarm_name, expected_type=type_hints["composite_alarm_name"])
@@ -19243,13 +19249,13 @@ class PromQLAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        evaluation_interval: "_Duration_4839e8c3",
+        evaluation_interval: "_aws_cdk_0cae9daa.Duration",
         query: builtins.str,
         actions_enabled: typing.Optional[builtins.bool] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
-        pending_period: typing.Optional["_Duration_4839e8c3"] = None,
-        recovery_period: typing.Optional["_Duration_4839e8c3"] = None,
+        pending_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        recovery_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19263,7 +19269,7 @@ class PromQLAlarm(
         :param recovery_period: The duration that a contributor must continuously not be breaching before it transitions back to the OK state. Default: - No recovery period
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96ebf9f77ab391162864e870beb27491e0a49c8e2892205b04af9aca18ca64c5)
+            type_hints = cached_type_hints(_typecheckingstub__96ebf9f77ab391162864e870beb27491e0a49c8e2892205b04af9aca18ca64c5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PromQLAlarmProps(
@@ -19293,7 +19299,7 @@ class PromQLAlarm(
         :param alarm_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3958a06abde596488e1b37d6c64546a53699c6f965f2027d59a3473ae97f23d8)
+            type_hints = cached_type_hints(_typecheckingstub__3958a06abde596488e1b37d6c64546a53699c6f965f2027d59a3473ae97f23d8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
@@ -19314,7 +19320,7 @@ class PromQLAlarm(
         :param alarm_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__171a36e666c2db7f0490d2e4bd3709f7e0558ffc48fe85e8efe845911441bf21)
+            type_hints = cached_type_hints(_typecheckingstub__171a36e666c2db7f0490d2e4bd3709f7e0558ffc48fe85e8efe845911441bf21)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
@@ -19412,7 +19418,7 @@ class Alarm(
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Default: TreatMissingData.Missing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41e461c6171d2c06570e53eaf2dc07ca5b3d80e0feb2f773d23b3dd8e3826382)
+            type_hints = cached_type_hints(_typecheckingstub__41e461c6171d2c06570e53eaf2dc07ca5b3d80e0feb2f773d23b3dd8e3826382)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AlarmProps(
@@ -19445,7 +19451,7 @@ class Alarm(
         :param alarm_arn: Alarm ARN (i.e. arn:aws:cloudwatch:::alarm:Foo).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8a5a6150e68ee9e26c8b7ebe6f92594c12f9b3cda4195d76462b991008c92b5)
+            type_hints = cached_type_hints(_typecheckingstub__f8a5a6150e68ee9e26c8b7ebe6f92594c12f9b3cda4195d76462b991008c92b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
@@ -19466,7 +19472,7 @@ class Alarm(
         :param alarm_name: Alarm Name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f69e87f80e55b26f710e5c03872b4814d854ded266dd530cb19c3aeb9cae0b2)
+            type_hints = cached_type_hints(_typecheckingstub__0f69e87f80e55b26f710e5c03872b4814d854ded266dd530cb19c3aeb9cae0b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
@@ -19481,7 +19487,7 @@ class Alarm(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35e42b79cd71f370c96d9123c26abff1c323e3360845e3957f3fa6b0bb344dde)
+            type_hints = cached_type_hints(_typecheckingstub__35e42b79cd71f370c96d9123c26abff1c323e3360845e3957f3fa6b0bb344dde)
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addAlarmAction", [*actions]))
 
@@ -19597,7 +19603,7 @@ class AnomalyDetectionAlarm(
         comparison_operator: typing.Optional["ComparisonOperator"] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-        period: typing.Optional["_Duration_4839e8c3"] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         statistic: typing.Optional[builtins.str] = None,
         std_devs: typing.Optional[jsii.Number] = None,
         treat_missing_data: typing.Optional["TreatMissingData"] = None,
@@ -19619,7 +19625,7 @@ class AnomalyDetectionAlarm(
         :param treat_missing_data: Sets how this alarm is to handle missing data points. Default: TreatMissingData.Missing
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7086e47981f437b1862310e2c90e4c5bcd6054dc3450e46e526bc835a0fdda0)
+            type_hints = cached_type_hints(_typecheckingstub__a7086e47981f437b1862310e2c90e4c5bcd6054dc3450e46e526bc835a0fdda0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AnomalyDetectionAlarmProps(
@@ -19779,7 +19785,7 @@ def _typecheckingstub__9c83f7a2932bb0e6ad7daedb63c82a736735f725c8596adb65d2dd035
     pass
 
 def _typecheckingstub__c7dd0ffc30f4ddc0cb0621fdae0fe1af07770e9fd504527c4df1f6e9ed2032cc(
-    alarm: _IAlarmRef_2bb0e5de,
+    alarm: _aws_cloudwatch_70717108.IAlarmRef,
     alarm_state: AlarmState,
 ) -> None:
     """Type checking stubs"""
@@ -19805,7 +19811,7 @@ def _typecheckingstub__130f148217f9842e34a2de59608585cc9ab66211fa42610aa323425b1
 
 def _typecheckingstub__b487d6400a85492ffe968131ec5a7294320f90cef90f0505f02beffc7d3055a1(
     *,
-    alarms: typing.Sequence[_IAlarmRef_2bb0e5de],
+    alarms: typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef],
     height: typing.Optional[jsii.Number] = None,
     sort_by: typing.Optional[AlarmStatusWidgetSortBy] = None,
     states: typing.Optional[typing.Sequence[AlarmState]] = None,
@@ -19825,7 +19831,7 @@ def _typecheckingstub__d770d314ce70d6c9f6003c8d6c5aa5cc35a2de931e79a5b71b5612d03
     comparison_operator: typing.Optional[ComparisonOperator] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     statistic: typing.Optional[builtins.str] = None,
     std_devs: typing.Optional[jsii.Number] = None,
     treat_missing_data: typing.Optional[TreatMissingData] = None,
@@ -19837,26 +19843,26 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IScalingPolicyRef_fcca0de5, _ITopicRef_29aa9a88]]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_autoscaling_66012b8a.IScalingPolicyRef, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     comparison_operator: typing.Optional[builtins.str] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-    evaluation_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    evaluation_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     evaluation_interval: typing.Optional[jsii.Number] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
-    insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
-    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
-    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     period: typing.Optional[jsii.Number] = None,
     statistic: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
     threshold_metric_id: typing.Optional[builtins.str] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
@@ -19866,7 +19872,7 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     pass
 
 def _typecheckingstub__bbc3625824c9d8dd875ed28803fa041fbb52c24b0bde065c344d7da906151bb0(
-    resource: _IAlarmRef_2bb0e5de,
+    resource: _aws_cloudwatch_70717108.IAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19894,7 +19900,7 @@ def _typecheckingstub__f16c8a189bf39c8d5c16604f2d401048c7106f1de30aa7a7366ebb521
     pass
 
 def _typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba16c7f57(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19906,7 +19912,7 @@ def _typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5b
     pass
 
 def _typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19942,7 +19948,7 @@ def _typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd262882023
     pass
 
 def _typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.DimensionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarm.DimensionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19954,7 +19960,7 @@ def _typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01
     pass
 
 def _typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarm.EvaluationCriteriaProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarm.EvaluationCriteriaProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19990,7 +19996,7 @@ def _typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804b
     pass
 
 def _typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAlarm.MetricDataQueryProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarm.MetricDataQueryProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20020,7 +20026,7 @@ def _typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd686
     pass
 
 def _typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20068,7 +20074,7 @@ def _typecheckingstub__caa951097684de7785a360ff0dd7dd52b38193dd6abedc429031dbeef
 
 def _typecheckingstub__38a7772ce3b5785b40cbaff90247c13196fc1c188fa9df5615c0c74a96f8c5f4(
     *,
-    prom_ql_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.AlarmPromQLCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prom_ql_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.AlarmPromQLCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20079,16 +20085,16 @@ def _typecheckingstub__44202067ada87cd47b3af31a51714a781d59c3a94ffe7a34b1e426dda
     account_id: typing.Optional[builtins.str] = None,
     expression: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_stat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     period: typing.Optional[jsii.Number] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af97ce55cf(
     *,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -20097,7 +20103,7 @@ def _typecheckingstub__f25dbc8a0f576b492c27e93b80f26a025e8007e3b69752a846bae6af9
 
 def _typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f59d20fe(
     *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
     period: jsii.Number,
     stat: builtins.str,
     unit: typing.Optional[builtins.str] = None,
@@ -20109,19 +20115,19 @@ def _typecheckingstub__6c215ee99182d454dd52f4be566428b858153bcfc97e5f338323b0f91
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     expire_date: typing.Optional[builtins.str] = None,
-    mute_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mute_targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     start_date: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe099a7d25c059b9562273bad019797e289471d050012f67e516fa1ebeda778a(
-    resource: _IAlarmMuteRuleRef_bf9ec4d2,
+    resource: _aws_cloudwatch_70717108.IAlarmMuteRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20133,7 +20139,7 @@ def _typecheckingstub__5dfed2f26d753f5418fce20a45cb66b4ab6522735dfaacf375cb1ae45
     pass
 
 def _typecheckingstub__b4b6d2dfc4a201f712ecaf8c91974c00d0f0f95d7bd57c9048e32c436d2c5071(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20145,7 +20151,7 @@ def _typecheckingstub__1ae46582b99e9603aa545bff45f3330b3813f8a036260af5bda9ee7d6
     pass
 
 def _typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773(
-    value: typing.Union[_IResolvable_da3f097b, CfnAlarmMuteRule.RuleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarmMuteRule.RuleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20163,7 +20169,7 @@ def _typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cd
     pass
 
 def _typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmMuteRule.MuteTargetsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarmMuteRule.MuteTargetsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20181,7 +20187,7 @@ def _typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3
     pass
 
 def _typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20195,7 +20201,7 @@ def _typecheckingstub__117edea88b67dcd6ecc02715528e016b4d39906d7b9dc1cbc0a99e1a9
 
 def _typecheckingstub__1c2031402cbbae993effde5b6bdf6177119f90d5b54b5a91af2b09facdc9818a(
     *,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmMuteRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20211,39 +20217,39 @@ def _typecheckingstub__4f2614a943b8467ca4e82510570c1d1a7dfac166ee9b35e1aaba6bba3
 
 def _typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84dcdc1b29(
     *,
-    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    rule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     expire_date: typing.Optional[builtins.str] = None,
-    mute_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mute_targets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     start_date: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517(
     *,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IScalingPolicyRef_fcca0de5, _ITopicRef_29aa9a88]]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_autoscaling_66012b8a.IScalingPolicyRef, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     comparison_operator: typing.Optional[builtins.str] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-    evaluation_criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    evaluation_criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.EvaluationCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     evaluation_interval: typing.Optional[jsii.Number] = None,
     evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
-    insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
-    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
-    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     period: typing.Optional[jsii.Number] = None,
     statistic: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     threshold: typing.Optional[jsii.Number] = None,
     threshold_metric_id: typing.Optional[builtins.str] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
@@ -20256,13 +20262,13 @@ def _typecheckingstub__09a2ebaa31c6ab1b46831db515c9eec0f049e129318fe5ad32dd73c9e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_characteristics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_math_anomaly_detector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
-    single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    single_metric_anomaly_detector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stat: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20275,7 +20281,7 @@ def _typecheckingstub__147b45ca23d6612825f6e75a818338ba95d65978cb0e262d28b9f99e8
     pass
 
 def _typecheckingstub__f3e4e45621b2bf2b69c3fe98b2cba7744a560f297c63ceb4f36a9522a03416fb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20287,25 +20293,25 @@ def _typecheckingstub__5d95740790e1f93b73e8f89f80ba917c53d59b96d60ce701fb57c17ea
     pass
 
 def _typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.ConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalyDetector.ConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.DimensionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalyDetector.DimensionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricCharacteristicsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalyDetector.MetricCharacteristicsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalyDetector.MetricMathAnomalyDetectorProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20323,7 +20329,7 @@ def _typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738
     pass
 
 def _typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20336,7 +20342,7 @@ def _typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da87
 
 def _typecheckingstub__67352ac72587eb41e06664f1e6dbbc18d0b51da2732f4318f403896a70102121(
     *,
-    excluded_time_ranges: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    excluded_time_ranges: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_time_zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20352,7 +20358,7 @@ def _typecheckingstub__621384455c6fe008d1544e799a687e205dfd7c831d4d16758c94209b7
 
 def _typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb386bfa0b(
     *,
-    periodic_spikes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    periodic_spikes: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20363,16 +20369,16 @@ def _typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242
     account_id: typing.Optional[builtins.str] = None,
     expression: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    metric_stat: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_stat: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricStatProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     period: typing.Optional[jsii.Number] = None,
-    return_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    return_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fe2d23d029852cd64aa565c80080a904e189f6017f7ab50f0c89da36d7c772bb(
     *,
-    metric_data_queries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_data_queries: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricDataQueryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20381,14 +20387,14 @@ def _typecheckingstub__0b189668a1a93615dfd113ac1c4798293f70acd463c9a2519156d29af
     *,
     metric_name: builtins.str,
     namespace: builtins.str,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5b3d65b4810e6974d2b03459fe0fd3d8db280dcecbf37190a36d9be3e039913c(
     *,
-    metric: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
+    metric: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricProperty, typing.Dict[builtins.str, typing.Any]]],
     period: jsii.Number,
     stat: builtins.str,
     unit: typing.Optional[builtins.str] = None,
@@ -20407,7 +20413,7 @@ def _typecheckingstub__9bc80976f2b683f55d7e2d50a80f5b0ac541edd875fa1a1062846959c
 def _typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524458adf0(
     *,
     account_id: typing.Optional[builtins.str] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     stat: typing.Optional[builtins.str] = None,
@@ -20417,13 +20423,13 @@ def _typecheckingstub__2a262a607da9d06ac67c27003b22dd869da37f8dcb73d7c6f1f5c7524
 
 def _typecheckingstub__929a09b64f3cc2009ffca4b74d148c42dfbbc7531a49bc66cb58443f8870fba2(
     *,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    metric_characteristics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metric_math_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dimensions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_characteristics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricCharacteristicsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metric_math_anomaly_detector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.MetricMathAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
-    single_metric_anomaly_detector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    single_metric_anomaly_detector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.SingleMetricAnomalyDetectorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stat: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20434,22 +20440,22 @@ def _typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd8
     id: builtins.str,
     *,
     alarm_rule: builtins.str,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    actions_suppressor: typing.Optional[typing.Union[builtins.str, _IAlarmRef_2bb0e5de, _ICompositeAlarmRef_fa51824d]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    actions_suppressor: typing.Optional[typing.Union[builtins.str, _aws_cloudwatch_70717108.IAlarmRef, _aws_cloudwatch_70717108.ICompositeAlarmRef]] = None,
     actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
     actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7af23cb9aa06ec62b0666b06bece3839d45b0343dea2057ceb06d53b6b3f6b7a(
-    resource: _ICompositeAlarmRef_fa51824d,
+    resource: _aws_cloudwatch_70717108.ICompositeAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20477,7 +20483,7 @@ def _typecheckingstub__34a7505383be8caa4299aa2c1fa819d153cd8bdeaa8d116b14ac49c61
     pass
 
 def _typecheckingstub__399fd96f9e0939b1087102f4b90094a74c88e8fdf84dcd24f4f9a6faf0d9ee93(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20495,7 +20501,7 @@ def _typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b8
     pass
 
 def _typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20549,7 +20555,7 @@ def _typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c19
     pass
 
 def _typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20557,16 +20563,16 @@ def _typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c
 def _typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0277be2c(
     *,
     alarm_rule: builtins.str,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    actions_suppressor: typing.Optional[typing.Union[builtins.str, _IAlarmRef_2bb0e5de, _ICompositeAlarmRef_fa51824d]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    actions_suppressor: typing.Optional[typing.Union[builtins.str, _aws_cloudwatch_70717108.IAlarmRef, _aws_cloudwatch_70717108.ICompositeAlarmRef]] = None,
     actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
     actions_suppressor_wait_period: typing.Optional[jsii.Number] = None,
-    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ok_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_sns_c06cc191.ITopicRef]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20577,13 +20583,13 @@ def _typecheckingstub__5add67d5fc6c551e627bade2623b719ee8c8de03ff6216bc3471bbe52
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6020be094e2b2d4afee4b69155bd8476ddd027a5a492711e2ab0ffa4951f8de9(
-    resource: _IDashboardRef_3c35946b,
+    resource: _aws_cloudwatch_70717108.IDashboardRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20603,7 +20609,7 @@ def _typecheckingstub__d163d575fae2847d04a059a3bd78db0874553f77d99531e37fe4a3e40
     pass
 
 def _typecheckingstub__ea2b521a69d5f78d24dc5aba9c387baa4fc450da2dc68bb876531861ee0929b2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20627,7 +20633,7 @@ def _typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e4
     pass
 
 def _typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20636,7 +20642,7 @@ def _typecheckingstub__42d47a219edd6b2c040597f718bfa93d023a9554d8079e5c8295ecd47
     *,
     dashboard_body: builtins.str,
     dashboard_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20648,14 +20654,14 @@ def _typecheckingstub__7d177572b447b5b9761effd52cd14b4510ca4c8fc8607968bdc5e0bd8
     rule_body: builtins.str,
     rule_name: builtins.str,
     rule_state: builtins.str,
-    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2bdca02c0c0e49733ec98b354acc2cd5f898577d2d4262e5ad756ecb162d38ae(
-    resource: _IInsightRuleRef_436d0d73,
+    resource: _aws_cloudwatch_70717108.IInsightRuleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20667,7 +20673,7 @@ def _typecheckingstub__8c840cd7320becbed17b38f7cb6d8cc434fa30e47e50d34f49b35143c
     pass
 
 def _typecheckingstub__cba00200e260114593f7b73e5266f02b1427404baba75fd95d8aed05d7f2b685(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20697,13 +20703,13 @@ def _typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383e
     pass
 
 def _typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20713,8 +20719,8 @@ def _typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce45
     rule_body: builtins.str,
     rule_name: builtins.str,
     rule_state: builtins.str,
-    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20726,24 +20732,24 @@ def _typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54
     comparison_operator: builtins.str,
     query_results_to_alarm: jsii.Number,
     query_results_to_evaluate: jsii.Number,
-    scheduled_query_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    scheduled_query_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     threshold: jsii.Number,
     action_log_line_count: typing.Optional[jsii.Number] = None,
     action_log_line_role_arn: typing.Optional[builtins.str] = None,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__efd401d53febd8a3df2d1052494ea095140d0c2c5c73ff6eab4a24121702d4c7(
-    resource: _ILogAlarmRef_1add8d52,
+    resource: _aws_cloudwatch_70717108.ILogAlarmRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20755,7 +20761,7 @@ def _typecheckingstub__601f99701a21cd7e5da6fb7ccc6ee1080fdfc7fff053001432c549bd3
     pass
 
 def _typecheckingstub__5c207e74c519d34045081f1bb4b073dd5ba661d0f71ac173878794a8e97a49dc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20785,7 +20791,7 @@ def _typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18c
     pass
 
 def _typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a(
-    value: typing.Union[_IResolvable_da3f097b, CfnLogAlarm.ScheduledQueryConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLogAlarm.ScheduledQueryConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20809,7 +20815,7 @@ def _typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b505
     pass
 
 def _typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20845,7 +20851,7 @@ def _typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bb
     pass
 
 def _typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20870,7 +20876,7 @@ def _typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6
     aggregation_expression: builtins.str,
     log_group_identifiers: typing.Sequence[builtins.str],
     query_string: builtins.str,
-    schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    schedule_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     scheduled_query_role_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -20881,17 +20887,17 @@ def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5
     comparison_operator: builtins.str,
     query_results_to_alarm: jsii.Number,
     query_results_to_evaluate: jsii.Number,
-    scheduled_query_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    scheduled_query_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     threshold: jsii.Number,
     action_log_line_count: typing.Optional[jsii.Number] = None,
     action_log_line_role_arn: typing.Optional[builtins.str] = None,
-    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     treat_missing_data: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20901,21 +20907,21 @@ def _typecheckingstub__324083d9d1c11bed8d2cf8d1d0cab6adbcb8194552cea34115b984457
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    firehose_arn: typing.Union[builtins.str, _IDeliveryStreamRef_678f5e53],
+    firehose_arn: typing.Union[builtins.str, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef],
     output_format: builtins.str,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
-    exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    exclude_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
-    statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    statistics_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__124af1fa5c01bd8fd1b2cdf674999c1b2e7ea84e0936e842f082ee579ac35379(
-    resource: _IMetricStreamRef_2c784fc6,
+    resource: _aws_cloudwatch_70717108.IMetricStreamRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20943,7 +20949,7 @@ def _typecheckingstub__a622c4c5da6c706040437ab802d6d99d70d74065c1748b9bce71d6b82
     pass
 
 def _typecheckingstub__3d75d145801429f4f9f0daaae66adb695e6690f2bd7b00a62aedff30952bef4c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20973,19 +20979,19 @@ def _typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580
     pass
 
 def _typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetricStream.MetricStreamFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamFilterProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetricStream.MetricStreamFilterProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20997,13 +21003,13 @@ def _typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e5
     pass
 
 def _typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMetricStream.MetricStreamStatisticsConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21019,7 +21025,7 @@ def _typecheckingstub__4de34777618ee8ff0a4cfe901b94bf76a91e50ee6a29cf6a17d55887c
 def _typecheckingstub__014629a07843af45b16fe266381194e9a273db3a2b42bae461f897e5c6c957a9(
     *,
     additional_statistics: typing.Sequence[builtins.str],
-    include_metrics: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsMetricProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    include_metrics: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamStatisticsMetricProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21034,15 +21040,15 @@ def _typecheckingstub__dd6943836e019c7fb3dffa95c2ffb1b7cb9db587bd9c145bf9373c8ff
 
 def _typecheckingstub__3841eb4f0098d496658caf6739d964d8b08f872e67d2ad28362ac3882ccd7d74(
     *,
-    firehose_arn: typing.Union[builtins.str, _IDeliveryStreamRef_678f5e53],
+    firehose_arn: typing.Union[builtins.str, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef],
     output_format: builtins.str,
-    role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
-    exclude_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_arn: typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef],
+    exclude_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    include_linked_accounts_metrics: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
-    statistics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    statistics_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMetricStream.MetricStreamStatisticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21061,7 +21067,7 @@ def _typecheckingstub__c1af19ef1ba38cebc54a9624293ee328d04fa84b23a55cd3ffa8d5a7a
     pass
 
 def _typecheckingstub__3d721c69f1f9b1fb7a3bfa765e04a1f028e5fa6b40940806ac59593cf6bf3dc5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21079,7 +21085,7 @@ def _typecheckingstub__dd18f372aac3bb8d4a678dd4ee7a3b5bd34447637695b896086139ee2
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
@@ -21094,9 +21100,9 @@ def _typecheckingstub__ac3983e61925a8b50987e3b6213e939907d0c4bb41a5682e1321634d8
     *,
     alarm_rule: IAlarmRule,
     actions_enabled: typing.Optional[builtins.bool] = None,
-    actions_suppressor: typing.Optional[_IAlarmRef_2bb0e5de] = None,
-    actions_suppressor_extension_period: typing.Optional[_Duration_4839e8c3] = None,
-    actions_suppressor_wait_period: typing.Optional[_Duration_4839e8c3] = None,
+    actions_suppressor: typing.Optional[_aws_cloudwatch_70717108.IAlarmRef] = None,
+    actions_suppressor_extension_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    actions_suppressor_wait_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     composite_alarm_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21137,7 +21143,7 @@ def _typecheckingstub__6fda01df790539d40ed9b476d4407925232861deff439705940e219dc
     id: builtins.str,
     *,
     dashboard_name: typing.Optional[builtins.str] = None,
-    default_interval: typing.Optional[_Duration_4839e8c3] = None,
+    default_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     end: typing.Optional[builtins.str] = None,
     period_override: typing.Optional[PeriodOverride] = None,
     start: typing.Optional[builtins.str] = None,
@@ -21162,7 +21168,7 @@ def _typecheckingstub__e914386fa8a66a4e8e6cbeaa4a3f975f705962fc3be601de7228f8576
 def _typecheckingstub__c41d6a8494d12ab7a95fc9ee6638b207cc78fd0aa3e36ceec570a394588d6890(
     *,
     dashboard_name: typing.Optional[builtins.str] = None,
-    default_interval: typing.Optional[_Duration_4839e8c3] = None,
+    default_interval: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     end: typing.Optional[builtins.str] = None,
     period_override: typing.Optional[PeriodOverride] = None,
     start: typing.Optional[builtins.str] = None,
@@ -21262,7 +21268,7 @@ def _typecheckingstub__f28a14de04cee7a41ccdb702d4444beec1719a2620a487cbc8e934b85
     *,
     color: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21273,7 +21279,7 @@ def _typecheckingstub__7cfb588e44acd0977aa0e09f00c3e2435bad84385ab7b6d163b332963
     *,
     color: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
     expression: builtins.str,
@@ -21283,7 +21289,7 @@ def _typecheckingstub__7cfb588e44acd0977aa0e09f00c3e2435bad84385ab7b6d163b332963
     pass
 
 def _typecheckingstub__80cc2795f9742554fa1b3991c8df3ae2020ca7ee2fdc5766276d72c863b4eb74(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21339,7 +21345,7 @@ def _typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d84
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
@@ -21357,7 +21363,7 @@ def _typecheckingstub__5e1e153a11ab88ed91297aedb5d7a78a81e7bf88f8aeda51bc11ff42e
     dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     id: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     region: typing.Optional[builtins.str] = None,
     stack_account: typing.Optional[builtins.str] = None,
     stack_region: typing.Optional[builtins.str] = None,
@@ -21374,7 +21380,7 @@ def _typecheckingstub__b4491ad5e5a4b9301258f50e45d0278fe9bbf165c840e3c65f8feab63
     *,
     metric_name: builtins.str,
     namespace: builtins.str,
-    period: _Duration_4839e8c3,
+    period: _aws_cdk_0cae9daa.Duration,
     statistic: builtins.str,
     account: typing.Optional[builtins.str] = None,
     account_override: typing.Optional[builtins.str] = None,
@@ -21399,13 +21405,13 @@ def _typecheckingstub__028d2c6eccbbf06b74566403b038cac0cdc1c8588c939f4352cc86188
 
 def _typecheckingstub__6017bc8e2e0481a685bab5777420329aba67cead4ff49ecad7b1c5d8b8111cda(
     *,
-    evaluation_interval: _Duration_4839e8c3,
+    evaluation_interval: _aws_cdk_0cae9daa.Duration,
     query: builtins.str,
     actions_enabled: typing.Optional[builtins.bool] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
-    pending_period: typing.Optional[_Duration_4839e8c3] = None,
-    recovery_period: typing.Optional[_Duration_4839e8c3] = None,
+    pending_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    recovery_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21443,7 +21449,7 @@ def _typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e0490
     *,
     color: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21454,7 +21460,7 @@ def _typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e
     *,
     color: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
     expression: builtins.str,
@@ -21472,7 +21478,7 @@ def _typecheckingstub__4596565f40195bdcc9fe939fa585a3bdf484f8a4a6817e427c6f9e1e4
     metrics: typing.Sequence[IMetric],
     end: typing.Optional[builtins.str] = None,
     full_precision: typing.Optional[builtins.bool] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     set_period_to_time_range: typing.Optional[builtins.bool] = None,
     sparkline: typing.Optional[builtins.bool] = None,
     start: typing.Optional[builtins.str] = None,
@@ -21620,7 +21626,7 @@ def _typecheckingstub__03726ba90bb01c2a1340af4f73005fffe1b8288cff57d77f31d745d62
     layout: typing.Optional[TableLayout] = None,
     live_data: typing.Optional[builtins.bool] = None,
     metrics: typing.Optional[typing.Sequence[IMetric]] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     set_period_to_time_range: typing.Optional[builtins.bool] = None,
     show_units_in_label: typing.Optional[builtins.bool] = None,
     start: typing.Optional[builtins.str] = None,
@@ -21706,7 +21712,7 @@ def _typecheckingstub__8b6bef2cc64a78bffd68dc95a764829a6c125294deaebcd42b56c4935
     region: typing.Optional[builtins.str] = None,
     title: typing.Optional[builtins.str] = None,
     width: typing.Optional[jsii.Number] = None,
-    alarm: _IAlarmRef_2bb0e5de,
+    alarm: _aws_cloudwatch_70717108.IAlarmRef,
     left_y_axis: typing.Optional[typing.Union[YAxisProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -21716,7 +21722,7 @@ def _typecheckingstub__c5ab1cfa142c158cb621ab2339ccaa469bd13773cd7f760d978164625
     *,
     color: typing.Optional[builtins.str] = None,
     label: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     search_account: typing.Optional[builtins.str] = None,
     search_region: typing.Optional[builtins.str] = None,
     metric: IMetric,
@@ -21795,7 +21801,7 @@ def _typecheckingstub__c1f8fe2511861f7fc6d2225bf5821fc9134b7036355dffb1d0ddd86a9
     legend_position: typing.Optional[LegendPosition] = None,
     live_data: typing.Optional[builtins.bool] = None,
     metrics: typing.Optional[typing.Sequence[IMetric]] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     set_period_to_time_range: typing.Optional[builtins.bool] = None,
     start: typing.Optional[builtins.str] = None,
     statistic: typing.Optional[builtins.str] = None,
@@ -21829,7 +21835,7 @@ def _typecheckingstub__3471ad100c9e34a517506d76368276ef9b137a3c7b33aecc91910b5dc
     left_y_axis: typing.Optional[typing.Union[YAxisProps, typing.Dict[builtins.str, typing.Any]]] = None,
     legend_position: typing.Optional[LegendPosition] = None,
     live_data: typing.Optional[builtins.bool] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     right: typing.Optional[typing.Sequence[IMetric]] = None,
     right_annotations: typing.Optional[typing.Sequence[typing.Union[HorizontalAnnotation, typing.Dict[builtins.str, typing.Any]]]] = None,
     right_y_axis: typing.Optional[typing.Union[YAxisProps, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -21917,9 +21923,9 @@ def _typecheckingstub__e7a7ea1ddc8fb0690826832fbc77c405acacd10123a1aa81696d3863d
     *,
     alarm_rule: IAlarmRule,
     actions_enabled: typing.Optional[builtins.bool] = None,
-    actions_suppressor: typing.Optional[_IAlarmRef_2bb0e5de] = None,
-    actions_suppressor_extension_period: typing.Optional[_Duration_4839e8c3] = None,
-    actions_suppressor_wait_period: typing.Optional[_Duration_4839e8c3] = None,
+    actions_suppressor: typing.Optional[_aws_cloudwatch_70717108.IAlarmRef] = None,
+    actions_suppressor_extension_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    actions_suppressor_wait_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     composite_alarm_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21946,13 +21952,13 @@ def _typecheckingstub__96ebf9f77ab391162864e870beb27491e0a49c8e2892205b04af9aca1
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    evaluation_interval: _Duration_4839e8c3,
+    evaluation_interval: _aws_cdk_0cae9daa.Duration,
     query: builtins.str,
     actions_enabled: typing.Optional[builtins.bool] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
-    pending_period: typing.Optional[_Duration_4839e8c3] = None,
-    recovery_period: typing.Optional[_Duration_4839e8c3] = None,
+    pending_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    recovery_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22025,7 +22031,7 @@ def _typecheckingstub__a7086e47981f437b1862310e2c90e4c5bcd6054dc3450e46e526bc835
     comparison_operator: typing.Optional[ComparisonOperator] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
-    period: typing.Optional[_Duration_4839e8c3] = None,
+    period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     statistic: typing.Optional[builtins.str] = None,
     std_devs: typing.Optional[jsii.Number] = None,
     treat_missing_data: typing.Optional[TreatMissingData] = None,

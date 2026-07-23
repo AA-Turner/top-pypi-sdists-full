@@ -59,11 +59,13 @@ class CustomerTier(StrEnum):
         return self.value.replace("_", " ").title()
 
 
-# Tier promotion sequence
+# Tier promotion sequence. Each stage is an explicit customer cohort, ending at
+# `TIER_0` (the highest-priority customers). "Everyone by default" is not a
+# rollout stage — it is the GA promotion that follows the final tier.
 TIER_ORDER: list[CustomerTier] = [
     CustomerTier.TIER_2,
     CustomerTier.TIER_1,
-    CustomerTier.ALL,
+    CustomerTier.TIER_0,
 ]
 
 # ---------------------------------------------------------------------------
@@ -101,3 +103,13 @@ ROLLOUT_FAILURE_COUNT_THRESHOLD: dict[RolloutStrategy, int] = {
     RolloutStrategy.FAST: 1,
     RolloutStrategy.SLOW: 1,
 }
+
+# ---------------------------------------------------------------------------
+# Finalize reconciliation
+# ---------------------------------------------------------------------------
+
+# Minutes a rollout may sit in `finalizing` before auto-promote treats it as
+# stuck and reconciles it. A healthy finalize (fresh Temporal run confirming
+# the GA default) closes well within this window; anything longer indicates the
+# finalize Temporal run died before recording the terminal transition.
+FINALIZING_GRACE_MINUTES = 20

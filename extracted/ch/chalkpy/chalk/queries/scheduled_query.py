@@ -152,9 +152,11 @@ class ScheduledQuery:
 
         self._error_builder = FunctionCallErrorBuilder(get_function_caller_info(frame_offset=1))
 
-        if not store_offline and not store_online:
+        # A write_to destination makes a run meaningful even without online/offline
+        # store persistence: the output rows are written to the destination directly.
+        if not store_offline and not store_online and write_to is None:
             self.errors.append(
-                f"Scheduled query '{name}' was instantiated with `store_offline=False` and `store_online=False`. Running it will have no effect, as it does not store any data."
+                f"Scheduled query '{name}' was instantiated with `store_offline=False` and `store_online=False`, and no `write_to` destination. Running it will have no effect, as it does not store any data."
             )
 
         self.input_sql = input_sql

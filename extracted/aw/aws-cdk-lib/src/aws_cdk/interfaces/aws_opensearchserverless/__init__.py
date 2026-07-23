@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class AccessPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__884b1febac0e45274b13db6e6fff887e454adae7740f43545bdcb8f934db5374)
+            type_hints = cached_type_hints(_typecheckingstub__884b1febac0e45274b13db6e6fff887e454adae7740f43545bdcb8f934db5374)
             check_type(argname="argument access_policy_name", value=access_policy_name, expected_type=type_hints["access_policy_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -128,7 +132,7 @@ class CollectionGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c739f7c4af23f34b25c875fb65df26ed250d3ce2ec367efa27222334a2988e46)
+            type_hints = cached_type_hints(_typecheckingstub__c739f7c4af23f34b25c875fb65df26ed250d3ce2ec367efa27222334a2988e46)
             check_type(argname="argument collection_group_arn", value=collection_group_arn, expected_type=type_hints["collection_group_arn"])
             check_type(argname="argument collection_group_id", value=collection_group_id, expected_type=type_hints["collection_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -196,7 +200,7 @@ class CollectionIndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bc8fbaf35bc901936c94fbb2c85b198fdade97250b8131958131439686e35c9)
+            type_hints = cached_type_hints(_typecheckingstub__0bc8fbaf35bc901936c94fbb2c85b198fdade97250b8131958131439686e35c9)
             check_type(argname="argument collection_index_id", value=collection_index_id, expected_type=type_hints["collection_index_id"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -261,7 +265,7 @@ class CollectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0d1637ffbe962d4f161b7af695510fbe2ac28d49df39a4d165b29bb398d5948)
+            type_hints = cached_type_hints(_typecheckingstub__f0d1637ffbe962d4f161b7af695510fbe2ac28d49df39a4d165b29bb398d5948)
             check_type(argname="argument collection_arn", value=collection_arn, expected_type=type_hints["collection_arn"])
             check_type(argname="argument collection_id", value=collection_id, expected_type=type_hints["collection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -300,7 +304,7 @@ class CollectionReference:
 )
 class IAccessPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
@@ -320,7 +324,7 @@ class IAccessPolicyRef(
 
 class _IAccessPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPolicy.
 
@@ -347,7 +351,7 @@ typing.cast(typing.Any, IAccessPolicyRef).__jsii_proxy_class__ = lambda : _IAcce
 )
 class ICollectionGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CollectionGroup.
@@ -367,7 +371,7 @@ class ICollectionGroupRef(
 
 class _ICollectionGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CollectionGroup.
 
@@ -394,7 +398,7 @@ typing.cast(typing.Any, ICollectionGroupRef).__jsii_proxy_class__ = lambda : _IC
 )
 class ICollectionIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CollectionIndex.
@@ -414,7 +418,7 @@ class ICollectionIndexRef(
 
 class _ICollectionIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CollectionIndex.
 
@@ -441,7 +445,7 @@ typing.cast(typing.Any, ICollectionIndexRef).__jsii_proxy_class__ = lambda : _IC
 )
 class ICollectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Collection.
@@ -461,7 +465,7 @@ class ICollectionRef(
 
 class _ICollectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Collection.
 
@@ -486,7 +490,7 @@ typing.cast(typing.Any, ICollectionRef).__jsii_proxy_class__ = lambda : _ICollec
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_opensearchserverless.IIndexRef")
 class IIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
@@ -506,7 +510,7 @@ class IIndexRef(
 
 class _IIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
 
@@ -533,7 +537,7 @@ typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefPro
 )
 class ILifecyclePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
@@ -553,7 +557,7 @@ class ILifecyclePolicyRef(
 
 class _ILifecyclePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LifecyclePolicy.
 
@@ -580,7 +584,7 @@ typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _IL
 )
 class ISecurityConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityConfig.
@@ -600,7 +604,7 @@ class ISecurityConfigRef(
 
 class _ISecurityConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityConfig.
 
@@ -627,7 +631,7 @@ typing.cast(typing.Any, ISecurityConfigRef).__jsii_proxy_class__ = lambda : _ISe
 )
 class ISecurityPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityPolicy.
@@ -647,7 +651,7 @@ class ISecurityPolicyRef(
 
 class _ISecurityPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SecurityPolicy.
 
@@ -674,7 +678,7 @@ typing.cast(typing.Any, ISecurityPolicyRef).__jsii_proxy_class__ = lambda : _ISe
 )
 class IVpcEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcEndpoint.
@@ -694,7 +698,7 @@ class IVpcEndpointRef(
 
 class _IVpcEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcEndpoint.
 
@@ -750,7 +754,7 @@ class IndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf3db2e251e120a85c5a4a474fb7a1e1736793520a4ea61671be9939f6460570)
+            type_hints = cached_type_hints(_typecheckingstub__bf3db2e251e120a85c5a4a474fb7a1e1736793520a4ea61671be9939f6460570)
             check_type(argname="argument collection_endpoint", value=collection_endpoint, expected_type=type_hints["collection_endpoint"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -815,7 +819,7 @@ class LifecyclePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a4e4ca557ce34920b2d88a43ff7aa9bf1f0cb1e6d6aa445629d7d0ced14af67)
+            type_hints = cached_type_hints(_typecheckingstub__7a4e4ca557ce34920b2d88a43ff7aa9bf1f0cb1e6d6aa445629d7d0ced14af67)
             check_type(argname="argument lifecycle_policy_name", value=lifecycle_policy_name, expected_type=type_hints["lifecycle_policy_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -873,7 +877,7 @@ class SecurityConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef152ac0903e5421e3a855d153d56824ef0f9065aa3c1c0ecd08843a03556fd0)
+            type_hints = cached_type_hints(_typecheckingstub__ef152ac0903e5421e3a855d153d56824ef0f9065aa3c1c0ecd08843a03556fd0)
             check_type(argname="argument security_config_id", value=security_config_id, expected_type=type_hints["security_config_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_config_id": security_config_id,
@@ -929,7 +933,7 @@ class SecurityPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2caf24de5f6e303c90fa3f4fb522cf353e016c2aefd5fb670977579cd021b79b)
+            type_hints = cached_type_hints(_typecheckingstub__2caf24de5f6e303c90fa3f4fb522cf353e016c2aefd5fb670977579cd021b79b)
             check_type(argname="argument security_policy_name", value=security_policy_name, expected_type=type_hints["security_policy_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -987,7 +991,7 @@ class VpcEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b08dfe0437caf78c6728ccbe3f060d9d69e6b653518ea92835805c9321335a30)
+            type_hints = cached_type_hints(_typecheckingstub__b08dfe0437caf78c6728ccbe3f060d9d69e6b653518ea92835805c9321335a30)
             check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_endpoint_id": vpc_endpoint_id,

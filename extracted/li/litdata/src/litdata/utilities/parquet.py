@@ -21,9 +21,12 @@ class ParquetDir(ABC):
         self,
         dir_path: str | Dir | None,
         cache_path: str | None = None,
-        storage_options: dict | None = {},
+        storage_options: dict | None = None,
         num_workers: int = 4,
     ):
+        if storage_options is None:
+            storage_options = {}
+
         self.dir = _resolve_dir(dir_path)
         self.cache_path = cache_path
         self.storage_options = storage_options
@@ -147,7 +150,7 @@ class CloudParquetDir(ParquetDir):
         for provider in _CLOUD_PROVIDER:
             if self.dir.url.startswith(provider):
                 # Initialize the cloud filesystem
-                self.fs = fsspec.filesystem(provider, *self.storage_options)
+                self.fs = fsspec.filesystem(provider, **self.storage_options)
                 print(f"using provider: {provider}")
                 break
 
@@ -323,7 +326,12 @@ def get_parquet_indexer_cls(
 
     obj = parse.urlparse(dir_path)
 
-    if obj.scheme in ("local", ""):
+    # On Windows, paths like "C:\\Users\\..." parse with scheme='c'. A single-letter
+    # scheme is never a valid URI scheme (RFC 3986 requires >=2 chars) so treat it
+    # as a Windows drive letter and dispatch to LocalParquetDir.
+    is_windows_drive = len(obj.scheme) == 1 and obj.scheme.isalpha()
+
+    if obj.scheme in ("local", "") or is_windows_drive:
         return LocalParquetDir(*args)
     if obj.scheme in ("gs", "s3"):
         return CloudParquetDir(*args)

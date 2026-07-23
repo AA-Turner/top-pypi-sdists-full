@@ -52,15 +52,14 @@ DEFAULT_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000000"
 CONTEXT_ERROR = "Connector context failed to load."
 
 # The per-tier rollout cards enumerate the three disjoint customer cohorts
-# (Tier 2, Tier 1, Tier 0). The progressive-rollout backend models the final
-# stage as `CustomerTier.ALL` (GA to everyone) rather than a `TIER_0` stage, so
-# that stage is surfaced under the `TIER_0` cohort it ultimately brings in.
-# Each entry pairs the displayed cohort with the rollout `tier` value that
-# feeds it. Rollout progression / next-stage logic still uses `TIER_ORDER`.
+# (Tier 2, Tier 1, Tier 0), matching `TIER_ORDER`. Each entry pairs the
+# displayed cohort with the rollout `tier` value that feeds it. Legacy rollouts
+# whose terminal stage was modeled as `ALL` are normalized to `TIER_0` upstream
+# (`OpsMcpAdapter._tier_from_filters`), so they land on the `TIER_0` card here.
 _CARD_TIER_STAGES: list[tuple[CustomerTier, str]] = [
     (CustomerTier.TIER_2, CustomerTier.TIER_2.value),
     (CustomerTier.TIER_1, CustomerTier.TIER_1.value),
-    (CustomerTier.TIER_0, CustomerTier.ALL.value),
+    (CustomerTier.TIER_0, CustomerTier.TIER_0.value),
 ]
 APPLY_ERROR = "Apply change failed. No connector version override was applied."
 SCOPE_PLACEHOLDER_SUFFIX = "_example"
@@ -71,6 +70,52 @@ SCOPE_PLACEHOLDER_SUFFIX = "_example"
 EMPTY_ROLLOUT_STATE: dict[str, Any] = RolloutSelection().model_dump(mode="json")
 EMPTY_PIN_STATE: dict[str, Any] = PinSelection().model_dump(mode="json")
 EMPTY_ROLLOUT_SUMMARY: dict[str, Any] = RolloutSummary().model_dump(mode="json")
+
+# Rollout states that autopilot cannot silently advance and that therefore
+# warrant a human review cue in the Webapp. `finalizing` is amber because it is
+# usually settling but can stall if the finalize Temporal run dies; `errored`
+# is red because it needs deliberate remediation.
+_REVIEW_STATES: dict[str, tuple[str, str]] = {
+    "finalizing": (
+        "amber",
+        "Finalizing — settling to GA. If the default version is already live, "
+        "re-drive the finalize to close the rollout.",
+    ),
+    "paused": ("amber", "Paused — manual review required before it can resume."),
+    "errored": ("red", "Errored — inspect the rollout and remediate."),
+    "failed_rolled_back": (
+        "red",
+        "Failed and rolled back — review why the RC did not pass.",
+    ),
+}
+
+
+def classify_rollout_health(states: list[str]) -> dict[str, Any]:
+    """Classify a connector's rollout states into a review cue for the UI.
+
+    Given the states of every active tier rollout, returns the most severe
+    review disposition (`red` outranks `amber`) plus whether any rollout is
+    `finalizing` (which gates the Re-drive Finalize control). Returns a
+    non-review disposition when every rollout is in a healthy, progressing
+    state.
+    """
+    severity_rank = {"": 0, "amber": 1, "red": 2}
+    severity = ""
+    reason = ""
+    is_finalizing = False
+    for state in states:
+        normalized = (state or "").strip().lower()
+        if normalized == "finalizing":
+            is_finalizing = True
+        review = _REVIEW_STATES.get(normalized)
+        if review and severity_rank[review[0]] > severity_rank[severity]:
+            severity, reason = review
+    return {
+        "needs_review": bool(severity),
+        "needs_review_severity": severity,
+        "needs_review_reason": reason,
+        "is_finalizing": is_finalizing,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1173,6 +1218,25 @@ def build_rollout_summary(
         (int(r.get("rc_pin_count", 0)) for r in sorted_rollouts), default=0
     )
 
+    # Review cue: classify across every tier's state, then capture the specific
+    # rollout the Re-drive Finalize control should target (the highest-tier
+    # finalizing one). All of that action's arguments — rollout_id, connector_id,
+    # docker_repository, docker_image_tag — must come from this same row so a
+    # finalizing rollout on a lower tier (or a different RC tag) can't be driven
+    # with the highest-tier row's version.
+    states = [r.get("state", "") for r in sorted_rollouts]
+    health = classify_rollout_health(states)
+    finalizing_rollout = next(
+        (
+            r
+            for r in reversed(sorted_rollouts)
+            if (r.get("state", "") or "").strip().lower() == "finalizing"
+        ),
+        None,
+    )
+    finalizing_rollout = finalizing_rollout or {}
+    highest_state = highest_rollout.get("state", "")
+
     # The "advance" targets the highest tier rollout
     # The "promote to GA" also targets the highest tier rollout
     return {
@@ -1194,6 +1258,20 @@ def build_rollout_summary(
         "advance_tier": highest_tier_value,
         "advance_pct": str(highest_rollout.get("current_target_rollout_pct", "0")),
         "promote_rollout_id": highest_rollout.get("rollout_id", ""),
+        "state": highest_state,
+        "state_display": highest_state.replace("_", " ").title()
+        if highest_state
+        else "",
+        "needs_review": health["needs_review"],
+        "needs_review_reason": health["needs_review_reason"],
+        "needs_review_severity": health["needs_review_severity"],
+        "is_finalizing": health["is_finalizing"],
+        "finalizing_rollout_id": finalizing_rollout.get("rollout_id", ""),
+        "finalizing_connector_id": finalizing_rollout.get("connector_id", ""),
+        "finalizing_docker_repository": finalizing_rollout.get("docker_repository", ""),
+        "finalizing_rc_docker_image_tag": finalizing_rollout.get(
+            "rc_docker_image_tag", ""
+        ),
     }
 
 

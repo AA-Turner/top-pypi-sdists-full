@@ -47,7 +47,8 @@ GUARD_DB_BACKUP_SLEEP_SECONDS = 0.05
 WORKSPACE_CONFIG_FILENAMES = (".ai-plugin-scanner-guard.toml", ".hol-guard.toml")
 MAX_APPROVAL_WAIT_TIMEOUT_SECONDS = 600
 
-# Fast hook review rollout flags (environment-controlled for safe staged rollout).
+# Hook review controls. The resident worker is the safe production default;
+# operators can explicitly disable it for emergency rollback.
 # These are read from os.environ at call time so tests/daemon can toggle without restart.
 HOOK_FAST_PATH_ENV = "HOL_GUARD_HOOK_FAST_PATH"
 HOOK_SOURCE_REF_ENV = "HOL_GUARD_HOOK_SOURCE_REF"
@@ -58,7 +59,7 @@ def hook_fast_path_enabled() -> bool:
     """Whether the daemon should use the resident hook worker for fast-path review."""
     import os
 
-    return os.environ.get(HOOK_FAST_PATH_ENV, "0") == "1"
+    return os.environ.get(HOOK_FAST_PATH_ENV, "1") == "1"
 
 
 def hook_source_ref_enabled() -> bool:
@@ -465,6 +466,11 @@ def load_guard_config(
         receipt_redaction_level=_coerce_loaded_receipt_redaction_level(
             merged.get("receipt_redaction_level"),
         ),
+        evidence_retain_days=_coerce_loaded_bounded_positive_int(
+            merged.get("evidence_retain_days"),
+            default=90,
+            maximum=3_650,
+        ),
         managed_policy_status=managed_state.status,
         managed_policy_hash=effective_managed_policy.content_hash if effective_managed_policy is not None else None,
         managed_locked_settings=tuple(sorted(effective_managed_policy.locked_settings))
@@ -511,6 +517,7 @@ def update_guard_settings(
     payload: dict[str, object],
     *,
     approval_gate_grant: ApprovalGateGrant | None = None,
+    cloud_sync_entitled: bool = False,
 ) -> GuardConfig:
     """Persist safe local Guard settings to config.toml and return the updated config."""
 
@@ -540,7 +547,7 @@ def update_guard_settings(
         ]
         if weakened:
             raise ValueError(f"Managed policy locks prevent weakening: {', '.join(sorted(weakened))}")
-    if next_payload.get("sync") is True and next_payload.get("billing") is not True:
+    if next_payload.get("sync") is True and not cloud_sync_entitled:
         raise ValueError("Cloud sync requires a paid team plan.")
     _write_guard_config(guard_home / "config.toml", next_payload)
     return load_guard_config(guard_home)
@@ -651,8 +658,14 @@ def _coerce_loaded_bounded_int(value: object, *, default: int, maximum: int) -> 
     return default
 
 
+def _coerce_loaded_bounded_positive_int(value: object, *, default: int, maximum: int) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= maximum:
+        return value
+    return default
+
+
 def _coerce_loaded_approval_surface_policy(value: object) -> str:
-    if value == "auto-open-once":
+    if value in {"auto-open-once", "approval-center"}:
         return "attention-aware"
     if isinstance(value, str) and value in VALID_APPROVAL_SURFACE_POLICIES:
         return value

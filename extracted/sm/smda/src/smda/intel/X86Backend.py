@@ -236,7 +236,7 @@ class X86Backend(ArchBackend):
             state.addCodeRef(i_address, jump_destination, by_jump=True)
             d.tailcall_analyzer.addJump(i_address, jump_destination)
             if dereferenced is not None:
-                d._handleApiTarget(i_address, jump_destination, dereferenced)
+                self._handleApiJumpTarget(d, state, i_address, jump_destination, dereferenced)
         elif i_op_str.startswith("qword ptr [rip"):
             # case = "QWORD-PTR, RIP-relative"
             # Handles mostly jmp-to-api, stubs or tailcalls, all should be handled sanely this way.
@@ -246,7 +246,7 @@ class X86Backend(ArchBackend):
             state.addCodeRef(i_address, jump_destination, by_jump=True)
             d.tailcall_analyzer.addJump(i_address, jump_destination)
             if dereferenced is not None:
-                d._handleApiTarget(i_address, jump_destination, dereferenced)
+                self._handleApiJumpTarget(d, state, i_address, jump_destination, dereferenced)
         elif i_op_str.startswith("0x"):
             jump_destination = d.getReferencedAddr(i_op_str)
             d.tailcall_analyzer.addJump(i_address, jump_destination)
@@ -258,7 +258,7 @@ class X86Backend(ArchBackend):
                 pass
             else:
                 import_slot = self._resolveImportSlot(d, jump_destination)
-                if import_slot is not None and d._handleApiTarget(i_address, import_slot, import_slot):
+                if import_slot is not None and self._handleApiJumpTarget(d, state, i_address, import_slot, import_slot):
                     # case = "STUB-TAILCALL-API!"
                     state.setSanelyEnding(True)
                 elif state.isFirstInstruction():
@@ -276,6 +276,14 @@ class X86Backend(ArchBackend):
                     state.addCodeRef(i_address, target, by_jump=True)
         state.setNextInstructionReachable(False)
         state.setBlockEndingInstruction(True)
+
+    @staticmethod
+    def _handleApiJumpTarget(d, state, instruction_addr, import_slot, dereferenced):
+        resolved_api = d._handleApiTarget(instruction_addr, import_slot, dereferenced)
+        if resolved_api and state.isFirstInstruction():
+            # the entire function body is this one jmp-to-import: a thunk, not a real routine
+            state.setThunkCall(True)
+        return resolved_api
 
     def _analyzeEndInstruction(self, state):
         state.setSanelyEnding(True)
@@ -410,13 +418,13 @@ class X86Backend(ArchBackend):
                     i_address,
                 )
         elif previous_address is not None and i_address != start_addr and previous_mnemonic == "call":
-            instruction_sequence = list(d.capstone.disasm(d._getDisasmWindowBuffer(i_address), i_address))
-            is_alignment_evidence = d.disassembly.language["_guess"] != "go" and d.fc_manager.isAlignmentSequence(
-                instruction_sequence
-            )
+            instruction_bytes = d._getDisasmWindowBuffer(i_address)
+            instruction_sequence = list(d.capstone.disasm_lite(instruction_bytes, i_address))
+            has_alignment_sequence = d.fc_manager.isAlignmentSequence(instruction_sequence, instruction_bytes)
+            is_alignment_evidence = d.disassembly.language["_guess"] != "go" and has_alignment_sequence
             is_candidate_evidence = d.fc_manager.isFunctionCandidate(i_address)
             if is_alignment_evidence and not is_candidate_evidence and d.disassembly.binary_info._getLiefType() == "PE":
-                if d.fc_manager.isHotpatchPrologue(d._getDisasmWindowBuffer(i_address)[:5]):
+                if d.fc_manager.isHotpatchPrologue(instruction_bytes[:5]):
                     seed_address = i_address
                 else:
                     seed_address = previous_address + (16 - previous_address % 16)
@@ -438,7 +446,10 @@ class X86Backend(ArchBackend):
                 # LLVM and GCC sometimes tends to produce lots of tailcalls that basically mess with function end detection, we cut whenever we find effective nops after calls
                 # however, Go tends to insert alignment NOPs after calls, too, but in this case, they are no tailcall indicator
                 # apparently calls are frequently padded with NOPs, so one last chance to continue disassembly is when we already have instructions for our function beyond this call.
-                if not any(disassembled_addr > i_address for disassembled_addr in state.instruction_start_bytes):
+                max_instruction_start = getattr(state, "max_instruction_start", None)
+                if max_instruction_start is None:
+                    max_instruction_start = max(state.instruction_start_bytes, default=-1)
+                if max_instruction_start <= i_address:
                     LOGGER.debug(
                         "    current function: 0x%x ---> ran into alignment sequence after call -> 0x%08x, cutting block here.",
                         start_addr,
@@ -450,12 +461,12 @@ class X86Backend(ArchBackend):
                     state.setBlockEndingInstruction(True)
                     state.endBlock()
                     state.setSanelyEnding(True)
-                    if d.fc_manager.isAlignmentSequence(instruction_sequence):
+                    if has_alignment_sequence:
                         # A hotpatch stub right after a call can look like alignment padding
                         # (its leading `mov edi, edi` is an effective NOP), but that byte pair
                         # is the next function's true entry. Seed it directly rather than the
                         # 16-byte-rounded address, which would land two bytes late.
-                        if d.fc_manager.isHotpatchPrologue(d._getDisasmWindowBuffer(i_address)[:5]):
+                        if d.fc_manager.isHotpatchPrologue(instruction_bytes[:5]):
                             next_candidate_address = i_address
                         else:
                             next_candidate_address = previous_address + (16 - previous_address % 16)

@@ -1,58 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from random import Random
 from typing import Any
-from typing import cast
 
 from rstr import Rstr
 
 from schwifty import common
 from schwifty import exceptions
 from schwifty import registry
+from schwifty._compat import override
+from schwifty._compat import Self
 from schwifty.bic import BIC
 from schwifty.checksum import algorithms
+from schwifty.domain import Bank
 from schwifty.domain import Component
+from schwifty.domain import IBANSpec
+from schwifty.domain import Range
 
 
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self
-
-
-@dataclass
-class Range:
-    start: int = 0
-    end: int = 0
-
-    @property
-    def length(self) -> int:
-        return self.end - self.start
-
-    @property
-    def is_empty(self) -> bool:
-        return self.start == 0 and self.end == 0
-
-    def cut(self, s: str) -> str:
-        return s[self.start : self.end]
-
-
-def _get_bban_spec(country_code: str) -> dict[str, Any]:
-    try:
-        spec = registry.get("iban")
-        assert isinstance(spec, dict)
-        return spec[country_code]
-    except KeyError as e:
-        raise exceptions.InvalidCountryCode(f"Unknown country-code '{country_code}'") from e
-
-
-def _get_position_range(spec: dict[str, Any], component_type: Component) -> Range:
-    return Range(*spec.get("positions", {}).get(component_type, [0, 0]))
-
-
-def _get_position_ranges(spec: dict[str, Any]) -> dict[Component, Range]:
-    return {component: _get_position_range(spec, component) for component in Component}
+def _get_bban_spec(country_code: str) -> IBANSpec:
+    return registry.get_iban_spec(country_code)
 
 
 def compute_national_checksum(country_code: str, components: dict[Component, str]) -> str:
@@ -94,6 +61,7 @@ class BBAN(common.Base):
     def __getnewargs__(self) -> tuple[str, str]:  # type: ignore[override]
         return (self.country_code, self.compact)
 
+    @override
     def __deepcopy__(self, memo: dict[str, Any] | None = None) -> Self:
         return self.__class__(self.country_code, self.compact)
 
@@ -119,11 +87,11 @@ class BBAN(common.Base):
         Raises:
             InvalidAccountCode: If the account code does not meet the national requirements.
         """
-        spec: dict[str, Any] = _get_bban_spec(country_code)
-        if "positions" not in spec:  # pragma: no cover
+        spec = _get_bban_spec(country_code)
+        if not spec.positions:  # pragma: no cover
             raise exceptions.SchwiftyException(f"BBAN generation for {country_code} not supported")
 
-        ranges = _get_position_ranges(spec)
+        ranges = spec.positions
         components: dict[Component, str] = {}
         for key, range_ in ranges.items():
             components[key] = common.clean(values.get(key, "")).zfill(range_.length)
@@ -155,7 +123,7 @@ class BBAN(common.Base):
         if checksum:
             components[Component.NATIONAL_CHECKSUM_DIGITS] = checksum
 
-        bban = "0" * spec["bban_length"]
+        bban = "0" * spec.bban_length
         for key, value in components.items():
             range_ = ranges[key]
             if range_.is_empty:
@@ -198,29 +166,35 @@ class BBAN(common.Base):
         if random is None:
             random = Random()  # noqa: S311
 
-        banks_by_country = cast(dict[str, Any], registry.get("country"))
         if not country_code:
-            country_code = random.choice(list(banks_by_country.keys()))
+            country_code = random.choice(registry.get_countries())
 
         rstr = Rstr(random)
         spec = _get_bban_spec(country_code)
-        bank: dict[str, Any] = {}
-        if (banks := banks_by_country.get(country_code)) is not None and use_registry:
+        bank: Bank | None = None
+        banks = registry.get_banks_by_country(country_code)
+        if banks and use_registry:
             bank = random.choice(banks)
 
-        if "positions" not in spec:
-            return cls(country_code, rstr.xeger(spec["regex"]).upper())
+        if not spec.positions:
+            return cls(country_code, rstr.xeger(spec.regex).upper())
 
-        ranges = _get_position_ranges(spec)
-        for _ in range(100):
-            bban = rstr.xeger(spec["regex"]).upper()
+        ranges = spec.positions
+        # A random account code only satisfies a bank-specific national checksum with
+        # low probability (some German methods hit roughly 1-in-50), so allow enough
+        # attempts that a valid BBAN is found in practice. Countries without a checksum
+        # succeed on the first iteration, so the higher bound only affects the retry
+        # path.
+        for _ in range(2000):
+            bban = rstr.xeger(spec.regex).upper()
             components: dict[Component, str] = {}
             for key, range_ in ranges.items():
                 if (value := values.get(key)) is not None:
                     components[key] = value
                 else:
-                    components[key] = bank.get(key) or spec.get(
-                        f"default_{key.value}", range_.cut(bban)
+                    bank_value = getattr(bank, key.value, None) if bank is not None else None
+                    components[key] = (
+                        bank_value or spec.defaults.get(f"default_{key.value}") or range_.cut(bban)
                     )
 
             bank_code = components[Component.BANK_CODE]
@@ -236,13 +210,18 @@ class BBAN(common.Base):
                 components[key] = value[: ranges[key].length]
 
             try:
-                return cls.from_components(
+                bban = cls.from_components(
                     country_code, **{key.value: value for key, value in components.items()}
                 )
+                # A randomly generated account code will usually not satisfy the
+                # bank-specific national checksum (e.g. the many German methods), so
+                # reject and retry until the generated BBAN validates against its own
+                # checksum algorithm. Banks without a known algorithm validate trivially.
+                bban.validate_national_checksum()
             except exceptions.SchwiftyException:
-                pass
-        else:
-            raise exceptions.GenerateRandomOverflowError
+                continue
+            return bban
+        raise exceptions.GenerateRandomOverflowError
 
     def validate_national_checksum(self) -> bool:
         """bool: Validate the national checksum digits.
@@ -250,8 +229,8 @@ class BBAN(common.Base):
         Raises:
             InvalidBBANChecksum: If the country specific BBAN checksum is invalid.
         """
-        bank = self.bank or {}
-        algo_name = bank.get("checksum_algo", "default")
+        bank = self.bank
+        algo_name = bank.checksum_algo if bank is not None else "default"
         algo = algorithms.get(f"{self.country_code}:{algo_name}")
         if algo is None:
             return True
@@ -261,12 +240,12 @@ class BBAN(common.Base):
         return True
 
     def _get_component(self, component_type: Component) -> str:
-        position = _get_position_range(self.spec, component_type)
+        position = self.spec.positions.get(component_type) or Range(0, 0)
         return self._get_slice(position.start, position.end)
 
     @property
-    def spec(self) -> dict[str, Any]:
-        """dict: The country specific BBAN specification."""
+    def spec(self) -> IBANSpec:
+        """IbanSpec: The country specific BBAN specification."""
         return _get_bban_spec(self.country_code)
 
     @property
@@ -275,7 +254,7 @@ class BBAN(common.Base):
 
         If the bank code is not available in schwifty's registry ``None`` is returned.
         """
-        lookup_by = self.spec.get("bic_lookup_components", [Component.BANK_CODE])
+        lookup_by = self.spec.bic_lookup_components or [Component.BANK_CODE]
         key = "".join(self._get_component(component) for component in lookup_by)
         try:
             return BIC.from_bank_code(self.country_code, key)
@@ -335,18 +314,14 @@ class BBAN(common.Base):
         return self._get_component(Component.CURRENCY_CODE)
 
     @property
-    def bank(self) -> dict | None:
-        """dict | None: The information of bank related to this BBANs bank code."""
-        bank_registry = registry.get("bank_code")
-        assert isinstance(bank_registry, dict)
-
-        lookup_by = self.spec.get("bic_lookup_components", [Component.BANK_CODE])
+    def bank(self) -> Bank | None:
+        """Bank | None: The information of bank related to this BBANs bank code."""
+        lookup_by = self.spec.bic_lookup_components or [Component.BANK_CODE]
         key = "".join(self._get_component(component) for component in lookup_by)
-
-        bank_entry = bank_registry.get((self.country_code, key))
+        bank_entry = registry.get_banks_by_code(self.country_code, key)
         if not bank_entry:
             return None
-        return bank_entry and bank_entry[0]
+        return bank_entry[0]
 
     @property
     def bank_name(self) -> str | None:
@@ -356,7 +331,7 @@ class BBAN(common.Base):
             >>> BBAN("DE", "370400440532013000").bank_name
             'Commerzbank'
         """
-        return None if self.bank is None else self.bank["name"]
+        return None if self.bank is None else self.bank.name
 
     @property
     def bank_short_name(self) -> str | None:
@@ -366,7 +341,4 @@ class BBAN(common.Base):
             >>> BBAN("DE", "370400440532013000").bank_short_name
             'Commerzbank Köln'
         """
-        return None if self.bank is None else self.bank["short_name"]
-
-
-registry.build_index("bank", "country", key="country_code", accumulate=True)
+        return None if self.bank is None else self.bank.short_name

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AccessLogSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eee6fd0541b13ea53ebc8ac1ffc56bc5e0359ce79eb968e43350edd24063121d)
+            type_hints = cached_type_hints(_typecheckingstub__eee6fd0541b13ea53ebc8ac1ffc56bc5e0359ce79eb968e43350edd24063121d)
             check_type(argname="argument access_log_subscription_arn", value=access_log_subscription_arn, expected_type=type_hints["access_log_subscription_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "access_log_subscription_arn": access_log_subscription_arn,
@@ -107,7 +111,7 @@ class AuthPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b4222593547993629599ee186ee2a7ac5673c4cd311653690629108d2b945f1)
+            type_hints = cached_type_hints(_typecheckingstub__6b4222593547993629599ee186ee2a7ac5673c4cd311653690629108d2b945f1)
             check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_identifier": resource_identifier,
@@ -156,7 +160,7 @@ class DomainVerificationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ef18a4e614451bd32b33743bc39d1adf9ef27a0a1833a41e87b1c46cc07d2a7)
+            type_hints = cached_type_hints(_typecheckingstub__4ef18a4e614451bd32b33743bc39d1adf9ef27a0a1833a41e87b1c46cc07d2a7)
             check_type(argname="argument domain_verification_arn", value=domain_verification_arn, expected_type=type_hints["domain_verification_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_verification_arn": domain_verification_arn,
@@ -186,7 +190,7 @@ class DomainVerificationReference:
 )
 class IAccessLogSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessLogSubscription.
@@ -206,7 +210,7 @@ class IAccessLogSubscriptionRef(
 
 class _IAccessLogSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessLogSubscription.
 
@@ -231,7 +235,7 @@ typing.cast(typing.Any, IAccessLogSubscriptionRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IAuthPolicyRef")
 class IAuthPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AuthPolicy.
@@ -251,7 +255,7 @@ class IAuthPolicyRef(
 
 class _IAuthPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AuthPolicy.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IAuthPolicyRef).__jsii_proxy_class__ = lambda : _IAuthPo
 )
 class IDomainVerificationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainVerification.
@@ -298,7 +302,7 @@ class IDomainVerificationRef(
 
 class _IDomainVerificationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DomainVerification.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, IDomainVerificationRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IListenerRef")
 class IListenerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Listener.
@@ -343,7 +347,7 @@ class IListenerRef(
 
 class _IListenerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Listener.
 
@@ -370,7 +374,7 @@ typing.cast(typing.Any, IListenerRef).__jsii_proxy_class__ = lambda : _IListener
 )
 class IResourceConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceConfiguration.
@@ -390,7 +394,7 @@ class IResourceConfigurationRef(
 
 class _IResourceConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceConfiguration.
 
@@ -415,7 +419,7 @@ typing.cast(typing.Any, IResourceConfigurationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IResourceGatewayRef")
 class IResourceGatewayRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceGateway.
@@ -435,7 +439,7 @@ class IResourceGatewayRef(
 
 class _IResourceGatewayRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceGateway.
 
@@ -460,7 +464,7 @@ typing.cast(typing.Any, IResourceGatewayRef).__jsii_proxy_class__ = lambda : _IR
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
@@ -480,7 +484,7 @@ class IResourcePolicyRef(
 
 class _IResourcePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
 
@@ -505,7 +509,7 @@ typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IRuleRef")
 class IRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rule.
@@ -525,7 +529,7 @@ class IRuleRef(
 
 class _IRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rule.
 
@@ -550,7 +554,7 @@ typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IServiceNetworkRef")
 class IServiceNetworkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetwork.
@@ -570,7 +574,7 @@ class IServiceNetworkRef(
 
 class _IServiceNetworkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetwork.
 
@@ -597,7 +601,7 @@ typing.cast(typing.Any, IServiceNetworkRef).__jsii_proxy_class__ = lambda : _ISe
 )
 class IServiceNetworkResourceAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkResourceAssociation.
@@ -619,7 +623,7 @@ class IServiceNetworkResourceAssociationRef(
 
 class _IServiceNetworkResourceAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkResourceAssociation.
 
@@ -648,7 +652,7 @@ typing.cast(typing.Any, IServiceNetworkResourceAssociationRef).__jsii_proxy_clas
 )
 class IServiceNetworkServiceAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkServiceAssociation.
@@ -670,7 +674,7 @@ class IServiceNetworkServiceAssociationRef(
 
 class _IServiceNetworkServiceAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkServiceAssociation.
 
@@ -699,7 +703,7 @@ typing.cast(typing.Any, IServiceNetworkServiceAssociationRef).__jsii_proxy_class
 )
 class IServiceNetworkVpcAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkVpcAssociation.
@@ -721,7 +725,7 @@ class IServiceNetworkVpcAssociationRef(
 
 class _IServiceNetworkVpcAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceNetworkVpcAssociation.
 
@@ -748,7 +752,7 @@ typing.cast(typing.Any, IServiceNetworkVpcAssociationRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.IServiceRef")
 class IServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
@@ -768,7 +772,7 @@ class IServiceRef(
 
 class _IServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
 
@@ -793,7 +797,7 @@ typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_vpclattice.ITargetGroupRef")
 class ITargetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
@@ -813,7 +817,7 @@ class ITargetGroupRef(
 
 class _ITargetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TargetGroup.
 
@@ -859,7 +863,7 @@ class ListenerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__965fa1eba5e1af07399f1753a49579bbc9eaba99382ef68fe7f40a2f74c8f6c5)
+            type_hints = cached_type_hints(_typecheckingstub__965fa1eba5e1af07399f1753a49579bbc9eaba99382ef68fe7f40a2f74c8f6c5)
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "listener_arn": listener_arn,
@@ -908,7 +912,7 @@ class ResourceConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01aa1731f7400fd0fbbd0ab9e562e01167b82272f7ae845c5ba128ef8c3f653c)
+            type_hints = cached_type_hints(_typecheckingstub__01aa1731f7400fd0fbbd0ab9e562e01167b82272f7ae845c5ba128ef8c3f653c)
             check_type(argname="argument resource_configuration_arn", value=resource_configuration_arn, expected_type=type_hints["resource_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_configuration_arn": resource_configuration_arn,
@@ -957,7 +961,7 @@ class ResourceGatewayReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eeeed4911e0d5b52f7c408387c0bd049c15579a4b74cd3572476a786d4753eb)
+            type_hints = cached_type_hints(_typecheckingstub__7eeeed4911e0d5b52f7c408387c0bd049c15579a4b74cd3572476a786d4753eb)
             check_type(argname="argument resource_gateway_arn", value=resource_gateway_arn, expected_type=type_hints["resource_gateway_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_gateway_arn": resource_gateway_arn,
@@ -1006,7 +1010,7 @@ class ResourcePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__979a24e39dd99ef98df1c5a8972fbad3c260a89832ff509fd71b9fa660ea698e)
+            type_hints = cached_type_hints(_typecheckingstub__979a24e39dd99ef98df1c5a8972fbad3c260a89832ff509fd71b9fa660ea698e)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_arn": resource_arn,
@@ -1055,7 +1059,7 @@ class RuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c31697e252076f82b6f5809ae5f1f181f88393d4517665f9a0a4199acae70a5d)
+            type_hints = cached_type_hints(_typecheckingstub__c31697e252076f82b6f5809ae5f1f181f88393d4517665f9a0a4199acae70a5d)
             check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_arn": rule_arn,
@@ -1104,7 +1108,7 @@ class ServiceNetworkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6b48f322c42a5f3c8df7ec325e22835870e9672b9e4889c1209482c9f3752a0)
+            type_hints = cached_type_hints(_typecheckingstub__d6b48f322c42a5f3c8df7ec325e22835870e9672b9e4889c1209482c9f3752a0)
             check_type(argname="argument service_network_arn", value=service_network_arn, expected_type=type_hints["service_network_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_network_arn": service_network_arn,
@@ -1159,7 +1163,7 @@ class ServiceNetworkResourceAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3f3a759e496df615d490ce6d7b13e4b0e5bcd68e9359b341b1eb6a49fefec2a)
+            type_hints = cached_type_hints(_typecheckingstub__d3f3a759e496df615d490ce6d7b13e4b0e5bcd68e9359b341b1eb6a49fefec2a)
             check_type(argname="argument service_network_resource_association_arn", value=service_network_resource_association_arn, expected_type=type_hints["service_network_resource_association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_network_resource_association_arn": service_network_resource_association_arn,
@@ -1214,7 +1218,7 @@ class ServiceNetworkServiceAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1058a21f7886e4433c3556e40928eb116b3a6aeb9d2d6acdf1cf89fd60310902)
+            type_hints = cached_type_hints(_typecheckingstub__1058a21f7886e4433c3556e40928eb116b3a6aeb9d2d6acdf1cf89fd60310902)
             check_type(argname="argument service_network_service_association_arn", value=service_network_service_association_arn, expected_type=type_hints["service_network_service_association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_network_service_association_arn": service_network_service_association_arn,
@@ -1265,7 +1269,7 @@ class ServiceNetworkVpcAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df01d5099e197e14c354e1d86f9d79642c3c274bea656dd0c1afb850adc133b2)
+            type_hints = cached_type_hints(_typecheckingstub__df01d5099e197e14c354e1d86f9d79642c3c274bea656dd0c1afb850adc133b2)
             check_type(argname="argument service_network_vpc_association_arn", value=service_network_vpc_association_arn, expected_type=type_hints["service_network_vpc_association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_network_vpc_association_arn": service_network_vpc_association_arn,
@@ -1314,7 +1318,7 @@ class ServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44f1d49d464523b529c3f2efb035ca9ff8374bda21eac01e5e2858a53c52ce1a)
+            type_hints = cached_type_hints(_typecheckingstub__44f1d49d464523b529c3f2efb035ca9ff8374bda21eac01e5e2858a53c52ce1a)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_arn": service_arn,
@@ -1363,7 +1367,7 @@ class TargetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41490e38d96c29ab679d2317b367a7029adf48425cfcd15e0615e8325d1d57ae)
+            type_hints = cached_type_hints(_typecheckingstub__41490e38d96c29ab679d2317b367a7029adf48425cfcd15e0615e8325d1d57ae)
             check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "target_group_arn": target_group_arn,

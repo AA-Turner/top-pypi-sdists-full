@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,52 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mediapackagev2 import (
-    ChannelGroupReference as _ChannelGroupReference_55198220,
-    ChannelPolicyReference as _ChannelPolicyReference_b0f4024b,
-    ChannelReference as _ChannelReference_1971bed1,
-    IChannelGroupRef as _IChannelGroupRef_c3346570,
-    IChannelPolicyRef as _IChannelPolicyRef_4515fa07,
-    IChannelRef as _IChannelRef_095ba255,
-    IOriginEndpointPolicyRef as _IOriginEndpointPolicyRef_b3d033fb,
-    IOriginEndpointRef as _IOriginEndpointRef_33e12a65,
-    OriginEndpointPolicyReference as _OriginEndpointPolicyReference_9aea8bed,
-    OriginEndpointReference as _OriginEndpointReference_b496e4e2,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mediapackagev2 as _aws_mediapackagev2_e8996b18
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mediapackagev2_e8996b18 = _LazyImport("aws_cdk.interfaces.aws_mediapackagev2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelRef_095ba255, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediapackagev2_e8996b18.IChannelRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnChannel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannel",
 ):
@@ -141,10 +127,10 @@ class CfnChannel(
         channel_group_name: builtins.str,
         channel_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        input_switch_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
-        output_header_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::Channel``.
 
@@ -159,7 +145,7 @@ class CfnChannel(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e0e3c7c1)
+            type_hints = cached_type_hints(_typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e0e3c7c1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelProps(
@@ -176,12 +162,15 @@ class CfnChannel(
 
     @jsii.member(jsii_name="arnForChannel")
     @builtins.classmethod
-    def arn_for_channel(cls, resource: "_IChannelRef_095ba255") -> builtins.str:
+    def arn_for_channel(
+        cls,
+        resource: "_aws_mediapackagev2_e8996b18.IChannelRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f2fbbc07607d70e24aa38fb56a7d832c03ddbd7253a9086cff4a4f28e49c6ad)
+            type_hints = cached_type_hints(_typecheckingstub__4f2fbbc07607d70e24aa38fb56a7d832c03ddbd7253a9086cff4a4f28e49c6ad)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
 
@@ -193,18 +182,18 @@ class CfnChannel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18abf160c132a61689605df991b120100014f1b20712f4b846fa52580cf992a0)
+            type_hints = cached_type_hints(_typecheckingstub__18abf160c132a61689605df991b120100014f1b20712f4b846fa52580cf992a0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e420705ca6e035f67df6dc549d10387c546517b6ba6c086e3e8a2aa9d31185d9)
+            type_hints = cached_type_hints(_typecheckingstub__e420705ca6e035f67df6dc549d10387c546517b6ba6c086e3e8a2aa9d31185d9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -217,7 +206,7 @@ class CfnChannel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__151c82108a0a47810b493e5e882a8c1cee0d53d834da01c686f370947109f4b2)
+            type_hints = cached_type_hints(_typecheckingstub__151c82108a0a47810b493e5e882a8c1cee0d53d834da01c686f370947109f4b2)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -247,12 +236,12 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="attrIngestEndpoints")
-    def attr_ingest_endpoints(self) -> "_IResolvable_da3f097b":
+    def attr_ingest_endpoints(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The ingest endpoints associated with the channel.
 
         :cloudformationAttribute: IngestEndpoints
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIngestEndpoints"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIngestEndpoints"))
 
     @builtins.property
     @jsii.member(jsii_name="attrIngestEndpointUrls")
@@ -274,9 +263,9 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -290,9 +279,9 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> "_ChannelReference_1971bed1":
+    def channel_ref(self) -> "_aws_mediapackagev2_e8996b18.ChannelReference":
         '''A reference to a Channel resource.'''
-        return typing.cast("_ChannelReference_1971bed1", jsii.get(self, "channelRef"))
+        return typing.cast("_aws_mediapackagev2_e8996b18.ChannelReference", jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -303,7 +292,7 @@ class CfnChannel(
     @channel_group_name.setter
     def channel_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9226145b09f87b401f2f5e357dafd5cd14b0b6a288f53bb6f985030a67a2ac8c)
+            type_hints = cached_type_hints(_typecheckingstub__9226145b09f87b401f2f5e357dafd5cd14b0b6a288f53bb6f985030a67a2ac8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -316,7 +305,7 @@ class CfnChannel(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1e91bde8ef4635665f6fef9c2cf22478a1d6e8a29ee675d883277fd4eb950f8)
+            type_hints = cached_type_hints(_typecheckingstub__f1e91bde8ef4635665f6fef9c2cf22478a1d6e8a29ee675d883277fd4eb950f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -329,7 +318,7 @@ class CfnChannel(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee07183524d44b124938ad354f47b29384e1ea3a14ba4e7fa739d6847d2cdf12)
+            type_hints = cached_type_hints(_typecheckingstub__ee07183524d44b124938ad354f47b29384e1ea3a14ba4e7fa739d6847d2cdf12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -337,17 +326,17 @@ class CfnChannel(
     @jsii.member(jsii_name="inputSwitchConfiguration")
     def input_switch_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSwitchConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.InputSwitchConfigurationProperty"]]:
         '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSwitchConfigurationProperty"]], jsii.get(self, "inputSwitchConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.InputSwitchConfigurationProperty"]], jsii.get(self, "inputSwitchConfiguration"))
 
     @input_switch_configuration.setter
     def input_switch_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSwitchConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.InputSwitchConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3390ae8163479dfdbac5df53086ecff4210fbf97553d12d70faac0b628fe5c00)
+            type_hints = cached_type_hints(_typecheckingstub__3390ae8163479dfdbac5df53086ecff4210fbf97553d12d70faac0b628fe5c00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputSwitchConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -360,7 +349,7 @@ class CfnChannel(
     @input_type.setter
     def input_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743cf024664)
+            type_hints = cached_type_hints(_typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743cf024664)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inputType", value) # pyright: ignore[reportArgumentType]
 
@@ -368,29 +357,32 @@ class CfnChannel(
     @jsii.member(jsii_name="outputHeaderConfiguration")
     def output_header_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputHeaderConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]]:
         '''The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputHeaderConfigurationProperty"]], jsii.get(self, "outputHeaderConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]], jsii.get(self, "outputHeaderConfiguration"))
 
     @output_header_configuration.setter
     def output_header_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputHeaderConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417)
+            type_hints = cached_type_hints(_typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputHeaderConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61a8d14ccc4954881d5a995d8d9c088f4870a4a3a28d0b44314514a2fbb02a01)
+            type_hints = cached_type_hints(_typecheckingstub__61a8d14ccc4954881d5a995d8d9c088f4870a4a3a28d0b44314514a2fbb02a01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -426,7 +418,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__52a72049adc4af63f65ccfb6f3c098cecb2b442bbe00bad4a877f2099a4bea86)
+                type_hints = cached_type_hints(_typecheckingstub__52a72049adc4af63f65ccfb6f3c098cecb2b442bbe00bad4a877f2099a4bea86)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -476,7 +468,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             preferred_input: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
@@ -499,7 +491,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080acf68bef5)
+                type_hints = cached_type_hints(_typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080acf68bef5)
                 check_type(argname="argument mqcs_input_switching", value=mqcs_input_switching, expected_type=type_hints["mqcs_input_switching"])
                 check_type(argname="argument preferred_input", value=preferred_input, expected_type=type_hints["preferred_input"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -511,7 +503,7 @@ class CfnChannel(
         @builtins.property
         def mqcs_input_switching(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, AWS Elemental MediaPackage performs input switching based on the MQCS.
 
             Default is false. This setting is valid only when ``InputType`` is ``CMAF`` .
@@ -519,7 +511,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-inputswitchconfiguration.html#cfn-mediapackagev2-channel-inputswitchconfiguration-mqcsinputswitching
             '''
             result = self._values.get("mqcs_input_switching")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def preferred_input(self) -> typing.Optional[jsii.Number]:
@@ -552,7 +544,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            publish_mqcs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            publish_mqcs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
 
@@ -572,7 +564,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__173b31e2a58ec560b57e45f11a2ad4c62727971f6e225559d90b8cf278b9f4f8)
+                type_hints = cached_type_hints(_typecheckingstub__173b31e2a58ec560b57e45f11a2ad4c62727971f6e225559d90b8cf278b9f4f8)
                 check_type(argname="argument publish_mqcs", value=publish_mqcs, expected_type=type_hints["publish_mqcs"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if publish_mqcs is not None:
@@ -581,7 +573,7 @@ class CfnChannel(
         @builtins.property
         def publish_mqcs(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, AWS Elemental MediaPackage includes the MQCS in responses to the CDN.
 
             This setting is valid only when ``InputType`` is ``CMAF`` .
@@ -589,7 +581,7 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-outputheaderconfiguration.html#cfn-mediapackagev2-channel-outputheaderconfiguration-publishmqcs
             '''
             result = self._values.get("publish_mqcs")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -603,9 +595,9 @@ class CfnChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelGroupRef_c3346570, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediapackagev2_e8996b18.IChannelGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnChannelGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelGroup",
 ):
@@ -641,7 +633,7 @@ class CfnChannelGroup(
         *,
         channel_group_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::ChannelGroup``.
 
@@ -652,7 +644,7 @@ class CfnChannelGroup(
         :param tags: The tags associated with the channel group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d830ced0539d40633bba571496a990f327b96c8fb475a589dba800d21ebab93)
+            type_hints = cached_type_hints(_typecheckingstub__0d830ced0539d40633bba571496a990f327b96c8fb475a589dba800d21ebab93)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelGroupProps(
@@ -665,13 +657,13 @@ class CfnChannelGroup(
     @builtins.classmethod
     def arn_for_channel_group(
         cls,
-        resource: "_IChannelGroupRef_c3346570",
+        resource: "_aws_mediapackagev2_e8996b18.IChannelGroupRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47c614cdf8b613a37bbbe710ed5424a75298a86b8d731c8cff13d2379ae87053)
+            type_hints = cached_type_hints(_typecheckingstub__47c614cdf8b613a37bbbe710ed5424a75298a86b8d731c8cff13d2379ae87053)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannelGroup", [resource]))
 
@@ -683,18 +675,18 @@ class CfnChannelGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__874bd4282342a553794d79f46d320e676199ba62073af11c11797cab61a9f05c)
+            type_hints = cached_type_hints(_typecheckingstub__874bd4282342a553794d79f46d320e676199ba62073af11c11797cab61a9f05c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85339d527078ada2373603756ae52ddf1f0419ece647a7ea7d90b5a88cd80494)
+            type_hints = cached_type_hints(_typecheckingstub__85339d527078ada2373603756ae52ddf1f0419ece647a7ea7d90b5a88cd80494)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -707,7 +699,7 @@ class CfnChannelGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b97c97551c59b98a88e9243bce42e0880ba6021ce928c5162f4d188e32c3d0)
+            type_hints = cached_type_hints(_typecheckingstub__15b97c97551c59b98a88e9243bce42e0880ba6021ce928c5162f4d188e32c3d0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -755,9 +747,9 @@ class CfnChannelGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -771,9 +763,9 @@ class CfnChannelGroup(
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupRef")
-    def channel_group_ref(self) -> "_ChannelGroupReference_55198220":
+    def channel_group_ref(self) -> "_aws_mediapackagev2_e8996b18.ChannelGroupReference":
         '''A reference to a ChannelGroup resource.'''
-        return typing.cast("_ChannelGroupReference_55198220", jsii.get(self, "channelGroupRef"))
+        return typing.cast("_aws_mediapackagev2_e8996b18.ChannelGroupReference", jsii.get(self, "channelGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -784,7 +776,7 @@ class CfnChannelGroup(
     @channel_group_name.setter
     def channel_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab608f9f2545c6bf246db306be81d4790f5052ef181c364ada9dfba9527799b0)
+            type_hints = cached_type_hints(_typecheckingstub__ab608f9f2545c6bf246db306be81d4790f5052ef181c364ada9dfba9527799b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -797,20 +789,23 @@ class CfnChannelGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7398d92754f71ac10dc5aea2094dad8322025c79ae1302b6a69e6216e4e16144)
+            type_hints = cached_type_hints(_typecheckingstub__7398d92754f71ac10dc5aea2094dad8322025c79ae1302b6a69e6216e4e16144)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the channel group.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07fbb1a31d1fae7c89e591bbcc359f5dc55386649647301df2f2e0b4e9727f81)
+            type_hints = cached_type_hints(_typecheckingstub__07fbb1a31d1fae7c89e591bbcc359f5dc55386649647301df2f2e0b4e9727f81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -830,7 +825,7 @@ class CfnChannelGroupProps:
         *,
         channel_group_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannelGroup``.
 
@@ -860,7 +855,7 @@ class CfnChannelGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e)
+            type_hints = cached_type_hints(_typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98ce6635e)
             check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -892,13 +887,13 @@ class CfnChannelGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the channel group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channelgroup.html#cfn-mediapackagev2-channelgroup-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -912,9 +907,9 @@ class CfnChannelGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelPolicyRef_4515fa07)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediapackagev2_e8996b18.IChannelPolicyRef)
 class CfnChannelPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannelPolicy",
 ):
@@ -957,7 +952,7 @@ class CfnChannelPolicy(
         :param policy: The policy associated with the channel.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3bd3df241e2da49b066856cd5205c086667bdeae2c7accc2fb87dc6c27afcca)
+            type_hints = cached_type_hints(_typecheckingstub__b3bd3df241e2da49b066856cd5205c086667bdeae2c7accc2fb87dc6c27afcca)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelPolicyProps(
@@ -976,18 +971,18 @@ class CfnChannelPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bd46cb97eff2dd315ef9468e665de58c6547a2dd7cf516ba62c62282eafbc6e)
+            type_hints = cached_type_hints(_typecheckingstub__8bd46cb97eff2dd315ef9468e665de58c6547a2dd7cf516ba62c62282eafbc6e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__876e67bc0ac491acabfef846d2cb0a4a12c7db69dc9b8510736610ce77094825)
+            type_hints = cached_type_hints(_typecheckingstub__876e67bc0ac491acabfef846d2cb0a4a12c7db69dc9b8510736610ce77094825)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1000,7 +995,7 @@ class CfnChannelPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__428a901c1d832a1ec31a5a15117cbe43d42edeb32192ef35e21682ad7114f777)
+            type_hints = cached_type_hints(_typecheckingstub__428a901c1d832a1ec31a5a15117cbe43d42edeb32192ef35e21682ad7114f777)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1022,9 +1017,11 @@ class CfnChannelPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="channelPolicyRef")
-    def channel_policy_ref(self) -> "_ChannelPolicyReference_b0f4024b":
+    def channel_policy_ref(
+        self,
+    ) -> "_aws_mediapackagev2_e8996b18.ChannelPolicyReference":
         '''A reference to a ChannelPolicy resource.'''
-        return typing.cast("_ChannelPolicyReference_b0f4024b", jsii.get(self, "channelPolicyRef"))
+        return typing.cast("_aws_mediapackagev2_e8996b18.ChannelPolicyReference", jsii.get(self, "channelPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -1035,7 +1032,7 @@ class CfnChannelPolicy(
     @channel_group_name.setter
     def channel_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb6da332e5cbe78bc72a7af1de80f930372aa6490fa2d573b540c4b4050a16b7)
+            type_hints = cached_type_hints(_typecheckingstub__fb6da332e5cbe78bc72a7af1de80f930372aa6490fa2d573b540c4b4050a16b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -1048,7 +1045,7 @@ class CfnChannelPolicy(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffc77e98d707d0206432d1f5669baff83936b87558c5f6b3966d25c6d2682bcb)
+            type_hints = cached_type_hints(_typecheckingstub__ffc77e98d707d0206432d1f5669baff83936b87558c5f6b3966d25c6d2682bcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -1061,7 +1058,7 @@ class CfnChannelPolicy(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f9e54d124a239f2e45623971b96e9da027d679f90368ed2a8e63d67a707784f)
+            type_hints = cached_type_hints(_typecheckingstub__9f9e54d124a239f2e45623971b96e9da027d679f90368ed2a8e63d67a707784f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -1107,7 +1104,7 @@ class CfnChannelPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f)
+            type_hints = cached_type_hints(_typecheckingstub__3b390a62609d42c685f94c0572af995fa58a878e57dc79822886178cfbe0a33f)
             check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
@@ -1179,10 +1176,10 @@ class CfnChannelProps:
         channel_group_name: builtins.str,
         channel_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        input_switch_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        input_switch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.InputSwitchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_type: typing.Optional[builtins.str] = None,
-        output_header_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_header_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.OutputHeaderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannel``.
 
@@ -1225,7 +1222,7 @@ class CfnChannelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f)
+            type_hints = cached_type_hints(_typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1b3b987f)
             check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1280,13 +1277,13 @@ class CfnChannelProps:
     @builtins.property
     def input_switch_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSwitchConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.InputSwitchConfigurationProperty"]]:
         '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-inputswitchconfiguration
         '''
         result = self._values.get("input_switch_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InputSwitchConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.InputSwitchConfigurationProperty"]], result)
 
     @builtins.property
     def input_type(self) -> typing.Optional[builtins.str]:
@@ -1307,21 +1304,21 @@ class CfnChannelProps:
     @builtins.property
     def output_header_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputHeaderConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]]:
         '''The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-outputheaderconfiguration
         '''
         result = self._values.get("output_header_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputHeaderConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.OutputHeaderConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1335,9 +1332,9 @@ class CfnChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOriginEndpointRef_33e12a65, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediapackagev2_e8996b18.IOriginEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOriginEndpoint(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint",
 ):
@@ -1561,15 +1558,15 @@ class CfnOriginEndpoint(
         channel_name: builtins.str,
         container_type: builtins.str,
         origin_endpoint_name: builtins.str,
-        dash_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dash_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        force_endpoint_error_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        hls_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.HlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        low_latency_hls_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mss_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        segment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        force_endpoint_error_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hls_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.HlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        low_latency_hls_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mss_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        segment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::OriginEndpoint``.
@@ -1592,7 +1589,7 @@ class CfnOriginEndpoint(
         :param uri_separator: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8e885454)
+            type_hints = cached_type_hints(_typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8e885454)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOriginEndpointProps(
@@ -1618,13 +1615,13 @@ class CfnOriginEndpoint(
     @builtins.classmethod
     def arn_for_origin_endpoint(
         cls,
-        resource: "_IOriginEndpointRef_33e12a65",
+        resource: "_aws_mediapackagev2_e8996b18.IOriginEndpointRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__088dd42120adc4b1441a9341c86b2cb87e16b9cdf0510c7b926c01862c901a7a)
+            type_hints = cached_type_hints(_typecheckingstub__088dd42120adc4b1441a9341c86b2cb87e16b9cdf0510c7b926c01862c901a7a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOriginEndpoint", [resource]))
 
@@ -1636,18 +1633,18 @@ class CfnOriginEndpoint(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ed550831f3269de343ab42dad54a428aa4dbed7f4d2b1b97bcd6ae3f68344ff)
+            type_hints = cached_type_hints(_typecheckingstub__7ed550831f3269de343ab42dad54a428aa4dbed7f4d2b1b97bcd6ae3f68344ff)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOriginEndpoint", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e7f9bba2cb8ce16d2850e4d29968cd8a850c920cb1e5d66b966cd309dd0e90f)
+            type_hints = cached_type_hints(_typecheckingstub__3e7f9bba2cb8ce16d2850e4d29968cd8a850c920cb1e5d66b966cd309dd0e90f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1660,7 +1657,7 @@ class CfnOriginEndpoint(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bffcdef090bba09d673a36358d5eb3ba86b040c5c727f2f4cc117a5fab72df6f)
+            type_hints = cached_type_hints(_typecheckingstub__bffcdef090bba09d673a36358d5eb3ba86b040c5c727f2f4cc117a5fab72df6f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1734,9 +1731,9 @@ class CfnOriginEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1750,9 +1747,11 @@ class CfnOriginEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="originEndpointRef")
-    def origin_endpoint_ref(self) -> "_OriginEndpointReference_b496e4e2":
+    def origin_endpoint_ref(
+        self,
+    ) -> "_aws_mediapackagev2_e8996b18.OriginEndpointReference":
         '''A reference to a OriginEndpoint resource.'''
-        return typing.cast("_OriginEndpointReference_b496e4e2", jsii.get(self, "originEndpointRef"))
+        return typing.cast("_aws_mediapackagev2_e8996b18.OriginEndpointReference", jsii.get(self, "originEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -1763,7 +1762,7 @@ class CfnOriginEndpoint(
     @channel_group_name.setter
     def channel_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7078125edd1beb221f7e3a35a200ce058d31cb41756eb7b1dca1af5dfe90c96f)
+            type_hints = cached_type_hints(_typecheckingstub__7078125edd1beb221f7e3a35a200ce058d31cb41756eb7b1dca1af5dfe90c96f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -1776,7 +1775,7 @@ class CfnOriginEndpoint(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__300d202906247d29b698e05c2891ad6a3e8f72748a5cb046f44ee1cde390954a)
+            type_hints = cached_type_hints(_typecheckingstub__300d202906247d29b698e05c2891ad6a3e8f72748a5cb046f44ee1cde390954a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -1789,7 +1788,7 @@ class CfnOriginEndpoint(
     @container_type.setter
     def container_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ded0ec9a4a78b0a13f4013526976d3ef27bae8928fb665d57679f95325a85b6)
+            type_hints = cached_type_hints(_typecheckingstub__7ded0ec9a4a78b0a13f4013526976d3ef27bae8928fb665d57679f95325a85b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerType", value) # pyright: ignore[reportArgumentType]
 
@@ -1802,7 +1801,7 @@ class CfnOriginEndpoint(
     @origin_endpoint_name.setter
     def origin_endpoint_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b645ac54fdc447a14891e1f23268d3a802e1d51ab06333dab9a1ae79ae88fb)
+            type_hints = cached_type_hints(_typecheckingstub__32b645ac54fdc447a14891e1f23268d3a802e1d51ab06333dab9a1ae79ae88fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "originEndpointName", value) # pyright: ignore[reportArgumentType]
 
@@ -1810,17 +1809,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="dashManifests")
     def dash_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]]:
         '''A DASH manifest configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]], jsii.get(self, "dashManifests"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]], jsii.get(self, "dashManifests"))
 
     @dash_manifests.setter
     def dash_manifests(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__316fdfa36cde837c49bfecdf48716a30e11db3879a7276c8207beeff9aff9317)
+            type_hints = cached_type_hints(_typecheckingstub__316fdfa36cde837c49bfecdf48716a30e11db3879a7276c8207beeff9aff9317)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashManifests", value) # pyright: ignore[reportArgumentType]
 
@@ -1833,7 +1832,7 @@ class CfnOriginEndpoint(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d2dcbe74f178ed4fd2315de3210f8a81e6084e3e73f7337556d68a41cc54333)
+            type_hints = cached_type_hints(_typecheckingstub__5d2dcbe74f178ed4fd2315de3210f8a81e6084e3e73f7337556d68a41cc54333)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1841,17 +1840,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="forceEndpointErrorConfiguration")
     def force_endpoint_error_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]]:
         '''The failover settings for the endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]], jsii.get(self, "forceEndpointErrorConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]], jsii.get(self, "forceEndpointErrorConfiguration"))
 
     @force_endpoint_error_configuration.setter
     def force_endpoint_error_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bd0bc6ee367a0d016a630be9b91f1bbb3565f44feb4d59db2010dbadda4a8a7)
+            type_hints = cached_type_hints(_typecheckingstub__8bd0bc6ee367a0d016a630be9b91f1bbb3565f44feb4d59db2010dbadda4a8a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceEndpointErrorConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1859,17 +1858,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="hlsManifests")
     def hls_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]]:
         '''The HLS manifests associated with the origin endpoint configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]], jsii.get(self, "hlsManifests"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]], jsii.get(self, "hlsManifests"))
 
     @hls_manifests.setter
     def hls_manifests(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de310c90fc64be46bd788fedd55681eba63f450cc4f6537fe91890137af54019)
+            type_hints = cached_type_hints(_typecheckingstub__de310c90fc64be46bd788fedd55681eba63f450cc4f6537fe91890137af54019)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hlsManifests", value) # pyright: ignore[reportArgumentType]
 
@@ -1877,17 +1876,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="lowLatencyHlsManifests")
     def low_latency_hls_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]]:
         '''The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]], jsii.get(self, "lowLatencyHlsManifests"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]], jsii.get(self, "lowLatencyHlsManifests"))
 
     @low_latency_hls_manifests.setter
     def low_latency_hls_manifests(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ab0da83ecaf5e8b2eb477e1a7bb2f955c99813829faeb44ce46e408a3739304)
+            type_hints = cached_type_hints(_typecheckingstub__0ab0da83ecaf5e8b2eb477e1a7bb2f955c99813829faeb44ce46e408a3739304)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lowLatencyHlsManifests", value) # pyright: ignore[reportArgumentType]
 
@@ -1895,17 +1894,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="mssManifests")
     def mss_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]]:
         '''A list of Microsoft Smooth Streaming (MSS) manifest configurations associated with the origin endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]], jsii.get(self, "mssManifests"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]], jsii.get(self, "mssManifests"))
 
     @mss_manifests.setter
     def mss_manifests(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05c39e22a8fee804960ccb55c9ca3411dc4e96823b582c9162b38b1ea0f78253)
+            type_hints = cached_type_hints(_typecheckingstub__05c39e22a8fee804960ccb55c9ca3411dc4e96823b582c9162b38b1ea0f78253)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mssManifests", value) # pyright: ignore[reportArgumentType]
 
@@ -1913,17 +1912,17 @@ class CfnOriginEndpoint(
     @jsii.member(jsii_name="segment")
     def segment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SegmentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SegmentProperty"]]:
         '''The segment associated with the origin endpoint.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SegmentProperty"]], jsii.get(self, "segment"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SegmentProperty"]], jsii.get(self, "segment"))
 
     @segment.setter
     def segment(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SegmentProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SegmentProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__761931cab894d0c1a04fe9fe8aad0785de043e26b7f476c427bb231ae9fc1eeb)
+            type_hints = cached_type_hints(_typecheckingstub__761931cab894d0c1a04fe9fe8aad0785de043e26b7f476c427bb231ae9fc1eeb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "segment", value) # pyright: ignore[reportArgumentType]
 
@@ -1936,20 +1935,23 @@ class CfnOriginEndpoint(
     @startover_window_seconds.setter
     def startover_window_seconds(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfee42fc11)
+            type_hints = cached_type_hints(_typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfee42fc11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startoverWindowSeconds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the origin endpoint.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091aff2f324)
+            type_hints = cached_type_hints(_typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091aff2f324)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1961,7 +1963,7 @@ class CfnOriginEndpoint(
     @uri_separator.setter
     def uri_separator(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70adc1ff26)
+            type_hints = cached_type_hints(_typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70adc1ff26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "uriSeparator", value) # pyright: ignore[reportArgumentType]
 
@@ -1989,7 +1991,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b08f61ec9db3f1fdcd263035446f62e72246fa10baf1fdc8683a110410f5d4a7)
+                type_hints = cached_type_hints(_typecheckingstub__b08f61ec9db3f1fdcd263035446f62e72246fa10baf1fdc8683a110410f5d4a7)
                 check_type(argname="argument fixed_availability_start_time", value=fixed_availability_start_time, expected_type=type_hints["fixed_availability_start_time"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "fixed_availability_start_time": fixed_availability_start_time,
@@ -2062,7 +2064,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be1d880fe401caed5e0186c4f4a6b76f8d63f2e78cf2fcbb490b66d185d4af29)
+                type_hints = cached_type_hints(_typecheckingstub__be1d880fe401caed5e0186c4f4a6b76f8d63f2e78cf2fcbb490b66d185d4af29)
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument dvb_priority", value=dvb_priority, expected_type=type_hints["dvb_priority"])
                 check_type(argname="argument dvb_weight", value=dvb_weight, expected_type=type_hints["dvb_weight"])
@@ -2170,7 +2172,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__81c2694b55243cfd80ec8b5b8d807b1d991f3ae38973b41f6fb77d9d5ea24965)
+                type_hints = cached_type_hints(_typecheckingstub__81c2694b55243cfd80ec8b5b8d807b1d991f3ae38973b41f6fb77d9d5ea24965)
                 check_type(argname="argument font_family", value=font_family, expected_type=type_hints["font_family"])
                 check_type(argname="argument mime_type", value=mime_type, expected_type=type_hints["mime_type"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
@@ -2258,7 +2260,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fadf127f9f82d1f5f09e73b8a4d72d5685c1236b84cdaa5c6132a7ab4774e495)
+                type_hints = cached_type_hints(_typecheckingstub__fadf127f9f82d1f5f09e73b8a4d72d5685c1236b84cdaa5c6132a7ab4774e495)
                 check_type(argname="argument reporting_url", value=reporting_url, expected_type=type_hints["reporting_url"])
                 check_type(argname="argument probability", value=probability, expected_type=type_hints["probability"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2311,8 +2313,8 @@ class CfnOriginEndpoint(
         def __init__(
             self,
             *,
-            error_metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashDvbMetricsReportingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            font_download: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashDvbFontDownloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_metrics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashDvbMetricsReportingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            font_download: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashDvbFontDownloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''For endpoints that use the DVB-DASH profile only.
 
@@ -2345,7 +2347,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b0aed7d8)
+                type_hints = cached_type_hints(_typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b0aed7d8)
                 check_type(argname="argument error_metrics", value=error_metrics, expected_type=type_hints["error_metrics"])
                 check_type(argname="argument font_download", value=font_download, expected_type=type_hints["font_download"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2357,24 +2359,24 @@ class CfnOriginEndpoint(
         @builtins.property
         def error_metrics(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]]:
             '''Playback device error reporting settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html#cfn-mediapackagev2-originendpoint-dashdvbsettings-errormetrics
             '''
             result = self._values.get("error_metrics")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbMetricsReportingProperty"]]]], result)
 
         @builtins.property
         def font_download(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbFontDownloadProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbFontDownloadProperty"]]:
             '''Subtitle font settings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashdvbsettings.html#cfn-mediapackagev2-originendpoint-dashdvbsettings-fontdownload
             '''
             result = self._values.get("font_download")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbFontDownloadProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbFontDownloadProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2419,24 +2421,24 @@ class CfnOriginEndpoint(
             *,
             manifest_name: builtins.str,
             audio_timeline_pattern: typing.Optional[builtins.str] = None,
-            availability_start_time_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            base_urls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashBaseUrlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            availability_start_time_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            base_urls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashBaseUrlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             compactness: typing.Optional[builtins.str] = None,
             drm_signaling: typing.Optional[builtins.str] = None,
-            dvb_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashDvbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            filter_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dvb_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashDvbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
             min_buffer_time_seconds: typing.Optional[jsii.Number] = None,
             min_update_period_seconds: typing.Optional[jsii.Number] = None,
             period_triggers: typing.Optional[typing.Sequence[builtins.str]] = None,
             profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
-            program_information: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashProgramInformationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scte_dash: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteDashProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            program_information: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashProgramInformationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte_dash: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteDashProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             segment_template_format: typing.Optional[builtins.str] = None,
-            subtitle_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashSubtitleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            subtitle_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashSubtitleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
             uri_path_type: typing.Optional[builtins.str] = None,
-            utc_timing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashUtcTimingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            utc_timing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashUtcTimingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The DASH manifest configuration associated with the origin endpoint.
 
@@ -2540,7 +2542,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6)
+                type_hints = cached_type_hints(_typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
                 check_type(argname="argument audio_timeline_pattern", value=audio_timeline_pattern, expected_type=type_hints["audio_timeline_pattern"])
                 check_type(argname="argument availability_start_time_configuration", value=availability_start_time_configuration, expected_type=type_hints["availability_start_time_configuration"])
@@ -2626,23 +2628,23 @@ class CfnOriginEndpoint(
         @builtins.property
         def availability_start_time_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-availabilitystarttimeconfiguration
             '''
             result = self._values.get("availability_start_time_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty"]], result)
 
         @builtins.property
         def base_urls(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashBaseUrlProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashBaseUrlProperty"]]]]:
             '''The base URLs to use for retrieving segments.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-baseurls
             '''
             result = self._values.get("base_urls")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashBaseUrlProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashBaseUrlProperty"]]]], result)
 
         @builtins.property
         def compactness(self) -> typing.Optional[builtins.str]:
@@ -2669,7 +2671,7 @@ class CfnOriginEndpoint(
         @builtins.property
         def dvb_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbSettingsProperty"]]:
             '''For endpoints that use the DVB-DASH profile only.
 
             The font download and error reporting information that you want MediaPackage to pass through to the manifest.
@@ -2677,18 +2679,18 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-dvbsettings
             '''
             result = self._values.get("dvb_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashDvbSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashDvbSettingsProperty"]], result)
 
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
             '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_window_seconds(self) -> typing.Optional[jsii.Number]:
@@ -2740,24 +2742,24 @@ class CfnOriginEndpoint(
         @builtins.property
         def program_information(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashProgramInformationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashProgramInformationProperty"]]:
             '''Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-programinformation
             '''
             result = self._values.get("program_information")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashProgramInformationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashProgramInformationProperty"]], result)
 
         @builtins.property
         def scte_dash(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteDashProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteDashProperty"]]:
             '''The SCTE configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-sctedash
             '''
             result = self._values.get("scte_dash")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteDashProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteDashProperty"]], result)
 
         @builtins.property
         def segment_template_format(self) -> typing.Optional[builtins.str]:
@@ -2777,13 +2779,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def subtitle_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]]:
             '''The configuration for DASH subtitles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-subtitleconfiguration
             '''
             result = self._values.get("subtitle_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashSubtitleConfigurationProperty"]], result)
 
         @builtins.property
         def suggested_presentation_delay_seconds(self) -> typing.Optional[jsii.Number]:
@@ -2805,13 +2807,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def utc_timing(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashUtcTimingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashUtcTimingProperty"]]:
             '''Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-utctiming
             '''
             result = self._values.get("utc_timing")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashUtcTimingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashUtcTimingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2871,7 +2873,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b0c2b5b70e24041767a172f1ebbd9317cd4ce50194b747d40b0c075a554bb92)
+                type_hints = cached_type_hints(_typecheckingstub__5b0c2b5b70e24041767a172f1ebbd9317cd4ce50194b747d40b0c075a554bb92)
                 check_type(argname="argument copyright", value=copyright, expected_type=type_hints["copyright"])
                 check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
                 check_type(argname="argument more_information_url", value=more_information_url, expected_type=type_hints["more_information_url"])
@@ -2954,7 +2956,7 @@ class CfnOriginEndpoint(
         def __init__(
             self,
             *,
-            ttml_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashTtmlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ttml_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashTtmlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for DASH subtitles.
 
@@ -2976,7 +2978,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aa51912df0060cf290274ace134d0cb16e34e1de7ea689b411eeae296d9a8155)
+                type_hints = cached_type_hints(_typecheckingstub__aa51912df0060cf290274ace134d0cb16e34e1de7ea689b411eeae296d9a8155)
                 check_type(argname="argument ttml_configuration", value=ttml_configuration, expected_type=type_hints["ttml_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ttml_configuration is not None:
@@ -2985,13 +2987,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def ttml_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashTtmlConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashTtmlConfigurationProperty"]]:
             '''Settings for TTML subtitles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashsubtitleconfiguration.html#cfn-mediapackagev2-originendpoint-dashsubtitleconfiguration-ttmlconfiguration
             '''
             result = self._values.get("ttml_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashTtmlConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashTtmlConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3029,7 +3031,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bba187ab72699f6dc21195cb98838c8f292af76576ca0254079260c1346c116d)
+                type_hints = cached_type_hints(_typecheckingstub__bba187ab72699f6dc21195cb98838c8f292af76576ca0254079260c1346c116d)
                 check_type(argname="argument ttml_profile", value=ttml_profile, expected_type=type_hints["ttml_profile"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "ttml_profile": ttml_profile,
@@ -3090,7 +3092,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__09bad37e3e4d3382385a9f8aab252d146616b680c49d6ef16671c82ef1248794)
+                type_hints = cached_type_hints(_typecheckingstub__09bad37e3e4d3382385a9f8aab252d146616b680c49d6ef16671c82ef1248794)
                 check_type(argname="argument timing_mode", value=timing_mode, expected_type=type_hints["timing_mode"])
                 check_type(argname="argument timing_source", value=timing_source, expected_type=type_hints["timing_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3163,7 +3165,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5bec1eea406d4bb796486d5773d483a771df06a4cb391f44e1755e98877b7f22)
+                type_hints = cached_type_hints(_typecheckingstub__5bec1eea406d4bb796486d5773d483a771df06a4cb391f44e1755e98877b7f22)
                 check_type(argname="argument preset_speke20_audio", value=preset_speke20_audio, expected_type=type_hints["preset_speke20_audio"])
                 check_type(argname="argument preset_speke20_video", value=preset_speke20_video, expected_type=type_hints["preset_speke20_video"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3264,7 +3266,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__abdd735051ce598919313a259e3efc1aa635283b073d78fb9c4e876eef4ca8b8)
+                type_hints = cached_type_hints(_typecheckingstub__abdd735051ce598919313a259e3efc1aa635283b073d78fb9c4e876eef4ca8b8)
                 check_type(argname="argument cmaf_encryption_method", value=cmaf_encryption_method, expected_type=type_hints["cmaf_encryption_method"])
                 check_type(argname="argument ism_encryption_method", value=ism_encryption_method, expected_type=type_hints["ism_encryption_method"])
                 check_type(argname="argument ts_encryption_method", value=ts_encryption_method, expected_type=type_hints["ts_encryption_method"])
@@ -3331,9 +3333,9 @@ class CfnOriginEndpoint(
         def __init__(
             self,
             *,
-            encryption_method: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.EncryptionMethodProperty", typing.Dict[builtins.str, typing.Any]]],
-            speke_key_provider: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.SpekeKeyProviderProperty", typing.Dict[builtins.str, typing.Any]]],
-            cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            encryption_method: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.EncryptionMethodProperty", typing.Dict[builtins.str, typing.Any]]],
+            speke_key_provider: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.SpekeKeyProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+            cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             constant_initialization_vector: typing.Optional[builtins.str] = None,
             key_rotation_interval_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -3381,7 +3383,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ba68bba2e5edd62f12d66393f036d9e0dc8f60c4705d328714b3a2f959ba4a07)
+                type_hints = cached_type_hints(_typecheckingstub__ba68bba2e5edd62f12d66393f036d9e0dc8f60c4705d328714b3a2f959ba4a07)
                 check_type(argname="argument encryption_method", value=encryption_method, expected_type=type_hints["encryption_method"])
                 check_type(argname="argument speke_key_provider", value=speke_key_provider, expected_type=type_hints["speke_key_provider"])
                 check_type(argname="argument cmaf_exclude_segment_drm_metadata", value=cmaf_exclude_segment_drm_metadata, expected_type=type_hints["cmaf_exclude_segment_drm_metadata"])
@@ -3401,31 +3403,31 @@ class CfnOriginEndpoint(
         @builtins.property
         def encryption_method(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionMethodProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionMethodProperty"]:
             '''The encryption method to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-encryption.html#cfn-mediapackagev2-originendpoint-encryption-encryptionmethod
             '''
             result = self._values.get("encryption_method")
             assert result is not None, "Required property 'encryption_method' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionMethodProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionMethodProperty"], result)
 
         @builtins.property
         def speke_key_provider(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SpekeKeyProviderProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SpekeKeyProviderProperty"]:
             '''The SPEKE key provider to use for encryption.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-encryption.html#cfn-mediapackagev2-originendpoint-encryption-spekekeyprovider
             '''
             result = self._values.get("speke_key_provider")
             assert result is not None, "Required property 'speke_key_provider' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SpekeKeyProviderProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SpekeKeyProviderProperty"], result)
 
         @builtins.property
         def cmaf_exclude_segment_drm_metadata(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Excludes SEIG and SGPD boxes from segment metadata in CMAF containers.
 
             When set to ``true`` , MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes.
@@ -3444,7 +3446,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-encryption.html#cfn-mediapackagev2-originendpoint-encryption-cmafexcludesegmentdrmmetadata
             '''
             result = self._values.get("cmaf_exclude_segment_drm_metadata")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def constant_initialization_vector(self) -> typing.Optional[builtins.str]:
@@ -3528,7 +3530,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cd4523035a4ce6e5ff7d759a2d3d8f5fc12e2c0c96ad04c9ef1b884c6334f16c)
+                type_hints = cached_type_hints(_typecheckingstub__cd4523035a4ce6e5ff7d759a2d3d8f5fc12e2c0c96ad04c9ef1b884c6334f16c)
                 check_type(argname="argument clip_start_time", value=clip_start_time, expected_type=type_hints["clip_start_time"])
                 check_type(argname="argument drm_settings", value=drm_settings, expected_type=type_hints["drm_settings"])
                 check_type(argname="argument end", value=end, expected_type=type_hints["end"])
@@ -3654,7 +3656,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c775185d7f0f530d0727569d624c7700267dcbd432d6270153826a314b2e766e)
+                type_hints = cached_type_hints(_typecheckingstub__c775185d7f0f530d0727569d624c7700267dcbd432d6270153826a314b2e766e)
                 check_type(argname="argument endpoint_error_conditions", value=endpoint_error_conditions, expected_type=type_hints["endpoint_error_conditions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if endpoint_error_conditions is not None:
@@ -3709,14 +3711,14 @@ class CfnOriginEndpoint(
             *,
             manifest_name: builtins.str,
             child_manifest_name: typing.Optional[builtins.str] = None,
-            filter_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
             program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
-            scte_hls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            start_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte_hls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            start_tag: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path_type: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
-            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The HLS manifest configuration associated with the origin endpoint.
 
@@ -3771,7 +3773,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc18458d8)
+                type_hints = cached_type_hints(_typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc18458d8)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
                 check_type(argname="argument child_manifest_name", value=child_manifest_name, expected_type=type_hints["child_manifest_name"])
                 check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
@@ -3826,13 +3828,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
             '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_window_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3855,18 +3857,18 @@ class CfnOriginEndpoint(
         @builtins.property
         def scte_hls(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteHlsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteHlsProperty"]]:
             '''THE SCTE-35 HLS configuration associated with the HLS manifest configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-sctehls
             '''
             result = self._values.get("scte_hls")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteHlsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteHlsProperty"]], result)
 
         @builtins.property
         def start_tag(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.StartTagProperty"]]:
             '''To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset.
 
             When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
@@ -3874,7 +3876,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-starttag
             '''
             result = self._values.get("start_tag")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.StartTagProperty"]], result)
 
         @builtins.property
         def uri_path_type(self) -> typing.Optional[builtins.str]:
@@ -3896,7 +3898,7 @@ class CfnOriginEndpoint(
         @builtins.property
         def url_encode_child_manifest(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When enabled, MediaPackage URL-encodes the query string for API requests for HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol.
 
             For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
@@ -3904,7 +3906,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-urlencodechildmanifest
             '''
             result = self._values.get("url_encode_child_manifest")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3939,14 +3941,14 @@ class CfnOriginEndpoint(
             *,
             manifest_name: builtins.str,
             child_manifest_name: typing.Optional[builtins.str] = None,
-            filter_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
             program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
-            scte_hls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            start_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scte_hls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            start_tag: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.StartTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path_type: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
-            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Specify a low-latency HTTP live streaming (LL-HLS) manifest configuration.
 
@@ -4001,7 +4003,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b326fed5e)
+                type_hints = cached_type_hints(_typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b326fed5e)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
                 check_type(argname="argument child_manifest_name", value=child_manifest_name, expected_type=type_hints["child_manifest_name"])
                 check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
@@ -4058,13 +4060,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
             '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_window_seconds(self) -> typing.Optional[jsii.Number]:
@@ -4091,18 +4093,18 @@ class CfnOriginEndpoint(
         @builtins.property
         def scte_hls(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteHlsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteHlsProperty"]]:
             '''The SCTE-35 HLS configuration associated with the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-sctehls
             '''
             result = self._values.get("scte_hls")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteHlsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteHlsProperty"]], result)
 
         @builtins.property
         def start_tag(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.StartTagProperty"]]:
             '''To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset.
 
             When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
@@ -4110,7 +4112,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-starttag
             '''
             result = self._values.get("start_tag")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.StartTagProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.StartTagProperty"]], result)
 
         @builtins.property
         def uri_path_type(self) -> typing.Optional[builtins.str]:
@@ -4132,7 +4134,7 @@ class CfnOriginEndpoint(
         @builtins.property
         def url_encode_child_manifest(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When enabled, MediaPackage URL-encodes the query string for API requests for LL-HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol.
 
             For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
@@ -4140,7 +4142,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-urlencodechildmanifest
             '''
             result = self._values.get("url_encode_child_manifest")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4168,7 +4170,7 @@ class CfnOriginEndpoint(
             self,
             *,
             manifest_name: builtins.str,
-            filter_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_layout: typing.Optional[builtins.str] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -4206,7 +4208,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5eb842c2ab9f37a97b78623838b99a1722e0398b4d9b44ac0a32ee5e11a89b1c)
+                type_hints = cached_type_hints(_typecheckingstub__5eb842c2ab9f37a97b78623838b99a1722e0398b4d9b44ac0a32ee5e11a89b1c)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
                 check_type(argname="argument filter_configuration", value=filter_configuration, expected_type=type_hints["filter_configuration"])
                 check_type(argname="argument manifest_layout", value=manifest_layout, expected_type=type_hints["manifest_layout"])
@@ -4235,13 +4237,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
             '''
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-mssmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_layout(self) -> typing.Optional[builtins.str]:
@@ -4307,7 +4309,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13ac94f52ccc71367f414c5388529d309fac2b39d9caa3e0e662dc2cfae97455)
+                type_hints = cached_type_hints(_typecheckingstub__13ac94f52ccc71367f414c5388529d309fac2b39d9caa3e0e662dc2cfae97455)
                 check_type(argname="argument ad_marker_dash", value=ad_marker_dash, expected_type=type_hints["ad_marker_dash"])
                 check_type(argname="argument scte_in_manifests", value=scte_in_manifests, expected_type=type_hints["scte_in_manifests"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4386,7 +4388,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d4f889b0a331f5c9a9819d549afcb4b4239d6f7040f9146668998df9485e7ea)
+                type_hints = cached_type_hints(_typecheckingstub__8d4f889b0a331f5c9a9819d549afcb4b4239d6f7040f9146668998df9485e7ea)
                 check_type(argname="argument ad_marker_hls", value=ad_marker_hls, expected_type=type_hints["ad_marker_hls"])
                 check_type(argname="argument scte_in_manifests", value=scte_in_manifests, expected_type=type_hints["scte_in_manifests"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4462,7 +4464,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ef2f402f6bd5f38be28bfd79b40a3e8bf701cd6b9384547f9b36a386a6075a98)
+                type_hints = cached_type_hints(_typecheckingstub__ef2f402f6bd5f38be28bfd79b40a3e8bf701cd6b9384547f9b36a386a6075a98)
                 check_type(argname="argument custom_ad_types", value=custom_ad_types, expected_type=type_hints["custom_ad_types"])
                 check_type(argname="argument scte_filter", value=scte_filter, expected_type=type_hints["scte_filter"])
                 check_type(argname="argument scte_in_segments", value=scte_in_segments, expected_type=type_hints["scte_in_segments"])
@@ -4535,13 +4537,13 @@ class CfnOriginEndpoint(
         def __init__(
             self,
             *,
-            encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            scte: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ScteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            encryption: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            scte: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             segment_duration_seconds: typing.Optional[jsii.Number] = None,
             segment_name: typing.Optional[builtins.str] = None,
-            ts_include_dvb_subtitles: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            ts_use_audio_rendition_group: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ts_include_dvb_subtitles: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            ts_use_audio_rendition_group: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The segment configuration, including the segment name, duration, and other configuration values.
 
@@ -4601,7 +4603,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243ae503d48)
+                type_hints = cached_type_hints(_typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243ae503d48)
                 check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
                 check_type(argname="argument include_iframe_only_streams", value=include_iframe_only_streams, expected_type=type_hints["include_iframe_only_streams"])
                 check_type(argname="argument scte", value=scte, expected_type=type_hints["scte"])
@@ -4628,35 +4630,35 @@ class CfnOriginEndpoint(
         @builtins.property
         def encryption(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionProperty"]]:
             '''Whether to use encryption for the segment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-encryption
             '''
             result = self._values.get("encryption")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionProperty"]], result)
 
         @builtins.property
         def include_iframe_only_streams(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether the segment includes I-frame-only streams.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-includeiframeonlystreams
             '''
             result = self._values.get("include_iframe_only_streams")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def scte(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteProperty"]]:
             '''The SCTE-35 configuration associated with the segment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-scte
             '''
             result = self._values.get("scte")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ScteProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ScteProperty"]], result)
 
         @builtins.property
         def segment_duration_seconds(self) -> typing.Optional[jsii.Number]:
@@ -4679,24 +4681,24 @@ class CfnOriginEndpoint(
         @builtins.property
         def ts_include_dvb_subtitles(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether the segment includes DVB subtitles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-tsincludedvbsubtitles
             '''
             result = self._values.get("ts_include_dvb_subtitles")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def ts_use_audio_rendition_group(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether the segment is an audio rendition group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-segment.html#cfn-mediapackagev2-originendpoint-segment-tsuseaudiorenditiongroup
             '''
             result = self._values.get("ts_use_audio_rendition_group")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4726,7 +4728,7 @@ class CfnOriginEndpoint(
             self,
             *,
             drm_systems: typing.Sequence[builtins.str],
-            encryption_contract_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.EncryptionContractConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            encryption_contract_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.EncryptionContractConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             resource_id: builtins.str,
             role_arn: builtins.str,
             url: builtins.str,
@@ -4765,7 +4767,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e4c003b5dabc0ccf6e42c45fb4504036521870f7799525c5b18f42c7c618d131)
+                type_hints = cached_type_hints(_typecheckingstub__e4c003b5dabc0ccf6e42c45fb4504036521870f7799525c5b18f42c7c618d131)
                 check_type(argname="argument drm_systems", value=drm_systems, expected_type=type_hints["drm_systems"])
                 check_type(argname="argument encryption_contract_configuration", value=encryption_contract_configuration, expected_type=type_hints["encryption_contract_configuration"])
                 check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
@@ -4795,14 +4797,14 @@ class CfnOriginEndpoint(
         @builtins.property
         def encryption_contract_configuration(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionContractConfigurationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionContractConfigurationProperty"]:
             '''The encryption contract configuration associated with the SPEKE key provider.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-spekekeyprovider.html#cfn-mediapackagev2-originendpoint-spekekeyprovider-encryptioncontractconfiguration
             '''
             result = self._values.get("encryption_contract_configuration")
             assert result is not None, "Required property 'encryption_contract_configuration' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.EncryptionContractConfigurationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.EncryptionContractConfigurationProperty"], result)
 
         @builtins.property
         def resource_id(self) -> builtins.str:
@@ -4873,7 +4875,7 @@ class CfnOriginEndpoint(
             self,
             *,
             time_offset: jsii.Number,
-            precise: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            precise: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset.
 
@@ -4899,7 +4901,7 @@ class CfnOriginEndpoint(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__638acac01659df889e5cbdebcde00e01e52315bf2fdb140c76d10ea5a120c30a)
+                type_hints = cached_type_hints(_typecheckingstub__638acac01659df889e5cbdebcde00e01e52315bf2fdb140c76d10ea5a120c30a)
                 check_type(argname="argument time_offset", value=time_offset, expected_type=type_hints["time_offset"])
                 check_type(argname="argument precise", value=precise, expected_type=type_hints["precise"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4923,7 +4925,7 @@ class CfnOriginEndpoint(
         @builtins.property
         def precise(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specify the value for PRECISE within your EXT-X-START tag.
 
             Leave blank, or choose false, to use the default value NO. Choose yes to use the value YES.
@@ -4931,7 +4933,7 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-starttag.html#cfn-mediapackagev2-originendpoint-starttag-precise
             '''
             result = self._values.get("precise")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4945,9 +4947,9 @@ class CfnOriginEndpoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOriginEndpointPolicyRef_b3d033fb)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediapackagev2_e8996b18.IOriginEndpointPolicyRef)
 class CfnOriginEndpointPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicy",
 ):
@@ -4988,7 +4990,7 @@ class CfnOriginEndpointPolicy(
         channel_name: builtins.str,
         origin_endpoint_name: builtins.str,
         policy: typing.Any,
-        cdn_auth_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdn_auth_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaPackageV2::OriginEndpointPolicy``.
 
@@ -5001,7 +5003,7 @@ class CfnOriginEndpointPolicy(
         :param cdn_auth_configuration: The settings to enable CDN authorization headers in MediaPackage.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aac7ba5cbcac1c12933a477adf316805431ea433d0ce36ca80901377b6745377)
+            type_hints = cached_type_hints(_typecheckingstub__aac7ba5cbcac1c12933a477adf316805431ea433d0ce36ca80901377b6745377)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOriginEndpointPolicyProps(
@@ -5022,18 +5024,18 @@ class CfnOriginEndpointPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__962f82fa0cbb0a639554fe5c3828521628a2b84415dddf720acf3806877dfe88)
+            type_hints = cached_type_hints(_typecheckingstub__962f82fa0cbb0a639554fe5c3828521628a2b84415dddf720acf3806877dfe88)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOriginEndpointPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74da85e5d1f694f56bc39f3c1d3745b511f779f8f4ad4d052b2b985b19780fcd)
+            type_hints = cached_type_hints(_typecheckingstub__74da85e5d1f694f56bc39f3c1d3745b511f779f8f4ad4d052b2b985b19780fcd)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5046,7 +5048,7 @@ class CfnOriginEndpointPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9132218ebec80b439a7e6308166a5da9778046634a6a905cd5b91648837863cc)
+            type_hints = cached_type_hints(_typecheckingstub__9132218ebec80b439a7e6308166a5da9778046634a6a905cd5b91648837863cc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5068,9 +5070,11 @@ class CfnOriginEndpointPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="originEndpointPolicyRef")
-    def origin_endpoint_policy_ref(self) -> "_OriginEndpointPolicyReference_9aea8bed":
+    def origin_endpoint_policy_ref(
+        self,
+    ) -> "_aws_mediapackagev2_e8996b18.OriginEndpointPolicyReference":
         '''A reference to a OriginEndpointPolicy resource.'''
-        return typing.cast("_OriginEndpointPolicyReference_9aea8bed", jsii.get(self, "originEndpointPolicyRef"))
+        return typing.cast("_aws_mediapackagev2_e8996b18.OriginEndpointPolicyReference", jsii.get(self, "originEndpointPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelGroupName")
@@ -5081,7 +5085,7 @@ class CfnOriginEndpointPolicy(
     @channel_group_name.setter
     def channel_group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ece6fe1f3215cf8ea357ac0ae337fd3ee216bd554b13e1ed66f380a551871cf8)
+            type_hints = cached_type_hints(_typecheckingstub__ece6fe1f3215cf8ea357ac0ae337fd3ee216bd554b13e1ed66f380a551871cf8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
 
@@ -5094,7 +5098,7 @@ class CfnOriginEndpointPolicy(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__061507a42f38505f6e3060097229ce610dd50d3f6f96ac0cdbd883d1e13cad8a)
+            type_hints = cached_type_hints(_typecheckingstub__061507a42f38505f6e3060097229ce610dd50d3f6f96ac0cdbd883d1e13cad8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -5107,7 +5111,7 @@ class CfnOriginEndpointPolicy(
     @origin_endpoint_name.setter
     def origin_endpoint_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a22e35010e441892b8eae01173c80ff68e7e2c1da6f52737a724971f5555743)
+            type_hints = cached_type_hints(_typecheckingstub__1a22e35010e441892b8eae01173c80ff68e7e2c1da6f52737a724971f5555743)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "originEndpointName", value) # pyright: ignore[reportArgumentType]
 
@@ -5120,7 +5124,7 @@ class CfnOriginEndpointPolicy(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b8094def1eae0770367451a814cb41dcad8e59ef89ff30e7423278b23af07b)
+            type_hints = cached_type_hints(_typecheckingstub__03b8094def1eae0770367451a814cb41dcad8e59ef89ff30e7423278b23af07b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -5128,17 +5132,17 @@ class CfnOriginEndpointPolicy(
     @jsii.member(jsii_name="cdnAuthConfiguration")
     def cdn_auth_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
         '''The settings to enable CDN authorization headers in MediaPackage.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], jsii.get(self, "cdnAuthConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], jsii.get(self, "cdnAuthConfiguration"))
 
     @cdn_auth_configuration.setter
     def cdn_auth_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3)
+            type_hints = cached_type_hints(_typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cdnAuthConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -5177,7 +5181,7 @@ class CfnOriginEndpointPolicy(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2efc99cbc23753feeba6e611700f7b275a0d9dbb8667ffa3a69bd76404c7768b)
+                type_hints = cached_type_hints(_typecheckingstub__2efc99cbc23753feeba6e611700f7b275a0d9dbb8667ffa3a69bd76404c7768b)
                 check_type(argname="argument cdn_identifier_secret_arns", value=cdn_identifier_secret_arns, expected_type=type_hints["cdn_identifier_secret_arns"])
                 check_type(argname="argument secrets_role_arn", value=secrets_role_arn, expected_type=type_hints["secrets_role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5236,7 +5240,7 @@ class CfnOriginEndpointPolicyProps:
         channel_name: builtins.str,
         origin_endpoint_name: builtins.str,
         policy: typing.Any,
-        cdn_auth_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdn_auth_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOriginEndpointPolicy``.
 
@@ -5271,7 +5275,7 @@ class CfnOriginEndpointPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35)
+            type_hints = cached_type_hints(_typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35)
             check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
@@ -5329,13 +5333,13 @@ class CfnOriginEndpointPolicyProps:
     @builtins.property
     def cdn_auth_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
         '''The settings to enable CDN authorization headers in MediaPackage.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration
         '''
         result = self._values.get("cdn_auth_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5377,15 +5381,15 @@ class CfnOriginEndpointProps:
         channel_name: builtins.str,
         container_type: builtins.str,
         origin_endpoint_name: builtins.str,
-        dash_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dash_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.DashManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        force_endpoint_error_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        hls_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.HlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        low_latency_hls_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        mss_manifests: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        segment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        force_endpoint_error_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hls_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.HlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        low_latency_hls_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        mss_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        segment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnOriginEndpoint``.
@@ -5613,7 +5617,7 @@ class CfnOriginEndpointProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402)
+            type_hints = cached_type_hints(_typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de765f62402)
             check_type(argname="argument channel_group_name", value=channel_group_name, expected_type=type_hints["channel_group_name"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument container_type", value=container_type, expected_type=type_hints["container_type"])
@@ -5698,13 +5702,13 @@ class CfnOriginEndpointProps:
     @builtins.property
     def dash_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]]:
         '''A DASH manifest configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-dashmanifests
         '''
         result = self._values.get("dash_manifests")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.DashManifestConfigurationProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -5718,40 +5722,40 @@ class CfnOriginEndpointProps:
     @builtins.property
     def force_endpoint_error_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]]:
         '''The failover settings for the endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-forceendpointerrorconfiguration
         '''
         result = self._values.get("force_endpoint_error_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty"]], result)
 
     @builtins.property
     def hls_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]]:
         '''The HLS manifests associated with the origin endpoint configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-hlsmanifests
         '''
         result = self._values.get("hls_manifests")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.HlsManifestConfigurationProperty"]]]], result)
 
     @builtins.property
     def low_latency_hls_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]]:
         '''The low-latency HLS (LL-HLS) manifests associated with the origin endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifests
         '''
         result = self._values.get("low_latency_hls_manifests")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty"]]]], result)
 
     @builtins.property
     def mss_manifests(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]]:
         '''A list of Microsoft Smooth Streaming (MSS) manifest configurations associated with the origin endpoint.
 
         Each configuration represents a different MSS streaming option available from this endpoint.
@@ -5759,18 +5763,18 @@ class CfnOriginEndpointProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-mssmanifests
         '''
         result = self._values.get("mss_manifests")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssManifestConfigurationProperty"]]]], result)
 
     @builtins.property
     def segment(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SegmentProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SegmentProperty"]]:
         '''The segment associated with the origin endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-segment
         '''
         result = self._values.get("segment")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOriginEndpoint.SegmentProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.SegmentProperty"]], result)
 
     @builtins.property
     def startover_window_seconds(self) -> typing.Optional[jsii.Number]:
@@ -5784,13 +5788,13 @@ class CfnOriginEndpointProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags associated with the origin endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def uri_separator(self) -> typing.Optional[builtins.str]:
@@ -5834,16 +5838,16 @@ def _typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e
     channel_group_name: builtins.str,
     channel_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
-    output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4f2fbbc07607d70e24aa38fb56a7d832c03ddbd7253a9086cff4a4f28e49c6ad(
-    resource: _IChannelRef_095ba255,
+    resource: _aws_mediapackagev2_e8996b18.IChannelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5855,7 +5859,7 @@ def _typecheckingstub__18abf160c132a61689605df991b120100014f1b20712f4b846fa52580
     pass
 
 def _typecheckingstub__e420705ca6e035f67df6dc549d10387c546517b6ba6c086e3e8a2aa9d31185d9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5885,7 +5889,7 @@ def _typecheckingstub__ee07183524d44b124938ad354f47b29384e1ea3a14ba4e7fa739d6847
     pass
 
 def _typecheckingstub__3390ae8163479dfdbac5df53086ecff4210fbf97553d12d70faac0b628fe5c00(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.InputSwitchConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.InputSwitchConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5897,13 +5901,13 @@ def _typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743c
     pass
 
 def _typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.OutputHeaderConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.OutputHeaderConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__61a8d14ccc4954881d5a995d8d9c088f4870a4a3a28d0b44314514a2fbb02a01(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5918,7 +5922,7 @@ def _typecheckingstub__52a72049adc4af63f65ccfb6f3c098cecb2b442bbe00bad4a877f2099
 
 def _typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080acf68bef5(
     *,
-    mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     preferred_input: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5926,7 +5930,7 @@ def _typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080ac
 
 def _typecheckingstub__173b31e2a58ec560b57e45f11a2ad4c62727971f6e225559d90b8cf278b9f4f8(
     *,
-    publish_mqcs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    publish_mqcs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5937,13 +5941,13 @@ def _typecheckingstub__0d830ced0539d40633bba571496a990f327b96c8fb475a589dba800d2
     *,
     channel_group_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47c614cdf8b613a37bbbe710ed5424a75298a86b8d731c8cff13d2379ae87053(
-    resource: _IChannelGroupRef_c3346570,
+    resource: _aws_mediapackagev2_e8996b18.IChannelGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5955,7 +5959,7 @@ def _typecheckingstub__874bd4282342a553794d79f46d320e676199ba62073af11c11797cab6
     pass
 
 def _typecheckingstub__85339d527078ada2373603756ae52ddf1f0419ece647a7ea7d90b5a88cd80494(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5979,7 +5983,7 @@ def _typecheckingstub__7398d92754f71ac10dc5aea2094dad8322025c79ae1302b6a69e6216e
     pass
 
 def _typecheckingstub__07fbb1a31d1fae7c89e591bbcc359f5dc55386649647301df2f2e0b4e9727f81(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5988,7 +5992,7 @@ def _typecheckingstub__c53e8c32bcc3339086fcebea2b9a32198690f58e488775d546eac1d98
     *,
     channel_group_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6011,7 +6015,7 @@ def _typecheckingstub__8bd46cb97eff2dd315ef9468e665de58c6547a2dd7cf516ba62c62282
     pass
 
 def _typecheckingstub__876e67bc0ac491acabfef846d2cb0a4a12c7db69dc9b8510736610ce77094825(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6054,10 +6058,10 @@ def _typecheckingstub__cb84231dfbf08cdefe6ca207d49155a084aa492947c635c5e9ba404f1
     channel_group_name: builtins.str,
     channel_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    input_switch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    input_switch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.InputSwitchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_type: typing.Optional[builtins.str] = None,
-    output_header_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    output_header_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.OutputHeaderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6070,22 +6074,22 @@ def _typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8
     channel_name: builtins.str,
     container_type: builtins.str,
     origin_endpoint_name: builtins.str,
-    dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dash_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mss_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    force_endpoint_error_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hls_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    low_latency_hls_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mss_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    segment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__088dd42120adc4b1441a9341c86b2cb87e16b9cdf0510c7b926c01862c901a7a(
-    resource: _IOriginEndpointRef_33e12a65,
+    resource: _aws_mediapackagev2_e8996b18.IOriginEndpointRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6097,7 +6101,7 @@ def _typecheckingstub__7ed550831f3269de343ab42dad54a428aa4dbed7f4d2b1b97bcd6ae3f
     pass
 
 def _typecheckingstub__3e7f9bba2cb8ce16d2850e4d29968cd8a850c920cb1e5d66b966cd309dd0e90f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6133,7 +6137,7 @@ def _typecheckingstub__32b645ac54fdc447a14891e1f23268d3a802e1d51ab06333dab9a1ae7
     pass
 
 def _typecheckingstub__316fdfa36cde837c49bfecdf48716a30e11db3879a7276c8207beeff9aff9317(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.DashManifestConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.DashManifestConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6145,31 +6149,31 @@ def _typecheckingstub__5d2dcbe74f178ed4fd2315de3210f8a81e6084e3e73f7337556d68a41
     pass
 
 def _typecheckingstub__8bd0bc6ee367a0d016a630be9b91f1bbb3565f44feb4d59db2010dbadda4a8a7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__de310c90fc64be46bd788fedd55681eba63f450cc4f6537fe91890137af54019(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.HlsManifestConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.HlsManifestConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ab0da83ecaf5e8b2eb477e1a7bb2f955c99813829faeb44ce46e408a3739304(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__05c39e22a8fee804960ccb55c9ca3411dc4e96823b582c9162b38b1ea0f78253(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.MssManifestConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.MssManifestConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__761931cab894d0c1a04fe9fe8aad0785de043e26b7f476c427bb231ae9fc1eeb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpoint.SegmentProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpoint.SegmentProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6181,7 +6185,7 @@ def _typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfe
     pass
 
 def _typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091aff2f324(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6228,8 +6232,8 @@ def _typecheckingstub__fadf127f9f82d1f5f09e73b8a4d72d5685c1236b84cdaa5c6132a7ab4
 
 def _typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b0aed7d8(
     *,
-    error_metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbMetricsReportingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    font_download: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbFontDownloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashDvbMetricsReportingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    font_download: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashDvbFontDownloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6238,24 +6242,24 @@ def _typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135
     *,
     manifest_name: builtins.str,
     audio_timeline_pattern: typing.Optional[builtins.str] = None,
-    availability_start_time_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    base_urls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashBaseUrlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    availability_start_time_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    base_urls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashBaseUrlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     compactness: typing.Optional[builtins.str] = None,
     drm_signaling: typing.Optional[builtins.str] = None,
-    dvb_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashDvbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dvb_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashDvbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
     min_buffer_time_seconds: typing.Optional[jsii.Number] = None,
     min_update_period_seconds: typing.Optional[jsii.Number] = None,
     period_triggers: typing.Optional[typing.Sequence[builtins.str]] = None,
     profiles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    program_information: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashProgramInformationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scte_dash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteDashProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    program_information: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashProgramInformationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scte_dash: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteDashProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_template_format: typing.Optional[builtins.str] = None,
-    subtitle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashSubtitleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subtitle_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashSubtitleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     suggested_presentation_delay_seconds: typing.Optional[jsii.Number] = None,
     uri_path_type: typing.Optional[builtins.str] = None,
-    utc_timing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashUtcTimingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    utc_timing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashUtcTimingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6273,7 +6277,7 @@ def _typecheckingstub__5b0c2b5b70e24041767a172f1ebbd9317cd4ce50194b747d40b0c075a
 
 def _typecheckingstub__aa51912df0060cf290274ace134d0cb16e34e1de7ea689b411eeae296d9a8155(
     *,
-    ttml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashTtmlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ttml_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashTtmlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6312,9 +6316,9 @@ def _typecheckingstub__abdd735051ce598919313a259e3efc1aa635283b073d78fb9c4e876ee
 
 def _typecheckingstub__ba68bba2e5edd62f12d66393f036d9e0dc8f60c4705d328714b3a2f959ba4a07(
     *,
-    encryption_method: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.EncryptionMethodProperty, typing.Dict[builtins.str, typing.Any]]],
-    speke_key_provider: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SpekeKeyProviderProperty, typing.Dict[builtins.str, typing.Any]]],
-    cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    encryption_method: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.EncryptionMethodProperty, typing.Dict[builtins.str, typing.Any]]],
+    speke_key_provider: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.SpekeKeyProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     constant_initialization_vector: typing.Optional[builtins.str] = None,
     key_rotation_interval_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6344,14 +6348,14 @@ def _typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc
     *,
     manifest_name: builtins.str,
     child_manifest_name: typing.Optional[builtins.str] = None,
-    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
     program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
-    scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scte_hls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_tag: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_path_type: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
-    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6360,14 +6364,14 @@ def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b3
     *,
     manifest_name: builtins.str,
     child_manifest_name: typing.Optional[builtins.str] = None,
-    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
     program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
-    scte_hls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scte_hls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_tag: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.StartTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_path_type: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
-    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    url_encode_child_manifest: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6375,7 +6379,7 @@ def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b3
 def _typecheckingstub__5eb842c2ab9f37a97b78623838b99a1722e0398b4d9b44ac0a32ee5e11a89b1c(
     *,
     manifest_name: builtins.str,
-    filter_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_layout: typing.Optional[builtins.str] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6409,13 +6413,13 @@ def _typecheckingstub__ef2f402f6bd5f38be28bfd79b40a3e8bf701cd6b9384547f9b36a386a
 
 def _typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243ae503d48(
     *,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    scte: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ScteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    include_iframe_only_streams: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    scte: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_duration_seconds: typing.Optional[jsii.Number] = None,
     segment_name: typing.Optional[builtins.str] = None,
-    ts_include_dvb_subtitles: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ts_use_audio_rendition_group: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ts_include_dvb_subtitles: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    ts_use_audio_rendition_group: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6423,7 +6427,7 @@ def _typecheckingstub__99efb585c0a363a79f96102145e602f3f91887f61fac7a746b16b243a
 def _typecheckingstub__e4c003b5dabc0ccf6e42c45fb4504036521870f7799525c5b18f42c7c618d131(
     *,
     drm_systems: typing.Sequence[builtins.str],
-    encryption_contract_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.EncryptionContractConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    encryption_contract_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.EncryptionContractConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     resource_id: builtins.str,
     role_arn: builtins.str,
     url: builtins.str,
@@ -6435,7 +6439,7 @@ def _typecheckingstub__e4c003b5dabc0ccf6e42c45fb4504036521870f7799525c5b18f42c7c
 def _typecheckingstub__638acac01659df889e5cbdebcde00e01e52315bf2fdb140c76d10ea5a120c30a(
     *,
     time_offset: jsii.Number,
-    precise: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    precise: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6448,7 +6452,7 @@ def _typecheckingstub__aac7ba5cbcac1c12933a477adf316805431ea433d0ce36ca80901377b
     channel_name: builtins.str,
     origin_endpoint_name: builtins.str,
     policy: typing.Any,
-    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdn_auth_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6460,7 +6464,7 @@ def _typecheckingstub__962f82fa0cbb0a639554fe5c3828521628a2b84415dddf720acf38068
     pass
 
 def _typecheckingstub__74da85e5d1f694f56bc39f3c1d3745b511f779f8f4ad4d052b2b985b19780fcd(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6496,7 +6500,7 @@ def _typecheckingstub__03b8094def1eae0770367451a814cb41dcad8e59ef89ff30e7423278b
     pass
 
 def _typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6515,7 +6519,7 @@ def _typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f41
     channel_name: builtins.str,
     origin_endpoint_name: builtins.str,
     policy: typing.Any,
-    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdn_auth_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6526,15 +6530,15 @@ def _typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de76
     channel_name: builtins.str,
     container_type: builtins.str,
     origin_endpoint_name: builtins.str,
-    dash_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dash_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.DashManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    force_endpoint_error_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    low_latency_hls_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    mss_manifests: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    segment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    force_endpoint_error_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ForceEndpointErrorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hls_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.HlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    low_latency_hls_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mss_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    segment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

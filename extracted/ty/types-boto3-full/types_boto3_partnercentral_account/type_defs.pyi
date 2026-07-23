@@ -32,6 +32,9 @@ from .literals import (
     ProfileTaskStatusType,
     ProfileValidationErrorReasonType,
     ProfileVisibilityType,
+    QualificationsAssociationStatusType,
+    QualificationsAssociationTaskStatusType,
+    QualificationsDisassociationTaskStatusType,
     VerificationStatusType,
     VerificationTypeType,
 )
@@ -80,6 +83,12 @@ __all__ = (
     "GetProfileUpdateTaskResponseTypeDef",
     "GetProfileVisibilityRequestTypeDef",
     "GetProfileVisibilityResponseTypeDef",
+    "GetQualificationsAssociationDetailsRequestTypeDef",
+    "GetQualificationsAssociationDetailsResponseTypeDef",
+    "GetQualificationsAssociationTaskRequestTypeDef",
+    "GetQualificationsAssociationTaskResponseTypeDef",
+    "GetQualificationsDisassociationTaskRequestTypeDef",
+    "GetQualificationsDisassociationTaskResponseTypeDef",
     "GetVerificationRequestTypeDef",
     "GetVerificationResponseTypeDef",
     "ListConnectionInvitationsRequestPaginateTypeDef",
@@ -104,6 +113,7 @@ __all__ = (
     "PutAllianceLeadContactResponseTypeDef",
     "PutProfileVisibilityRequestTypeDef",
     "PutProfileVisibilityResponseTypeDef",
+    "QualificationsAssociationPartnerTypeDef",
     "RegistrantVerificationResponseTypeDef",
     "RejectConnectionInvitationRequestTypeDef",
     "RejectConnectionInvitationResponseTypeDef",
@@ -112,6 +122,10 @@ __all__ = (
     "SendEmailVerificationCodeRequestTypeDef",
     "StartProfileUpdateTaskRequestTypeDef",
     "StartProfileUpdateTaskResponseTypeDef",
+    "StartQualificationsAssociationTaskRequestTypeDef",
+    "StartQualificationsAssociationTaskResponseTypeDef",
+    "StartQualificationsDisassociationTaskRequestTypeDef",
+    "StartQualificationsDisassociationTaskResponseTypeDef",
     "StartVerificationRequestTypeDef",
     "StartVerificationResponseTypeDef",
     "TagResourceRequestTypeDef",
@@ -243,6 +257,22 @@ class GetProfileUpdateTaskRequestTypeDef(TypedDict):
     Identifier: str
 
 class GetProfileVisibilityRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+class GetQualificationsAssociationDetailsRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+class QualificationsAssociationPartnerTypeDef(TypedDict):
+    ProfileId: NotRequired[str]
+    AccountId: NotRequired[str]
+
+class GetQualificationsAssociationTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+
+class GetQualificationsDisassociationTaskRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
 
@@ -481,6 +511,70 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Sequence[TagTypeDef]
+
+class GetQualificationsAssociationDetailsResponseTypeDef(TypedDict):
+    Catalog: str
+    Arn: str
+    Id: str
+    Status: QualificationsAssociationStatusType
+    PrimaryPartner: QualificationsAssociationPartnerTypeDef
+    AssociatedPartners: list[QualificationsAssociationPartnerTypeDef]
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetQualificationsAssociationTaskResponseTypeDef(TypedDict):
+    Catalog: str
+    Arn: str
+    Id: str
+    TaskId: str
+    Status: QualificationsAssociationTaskStatusType
+    PrimaryPartner: QualificationsAssociationPartnerTypeDef
+    StartedAt: datetime
+    EndedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetQualificationsDisassociationTaskResponseTypeDef(TypedDict):
+    Catalog: str
+    Arn: str
+    Id: str
+    TaskId: str
+    Status: QualificationsDisassociationTaskStatusType
+    AssociatedPartner: QualificationsAssociationPartnerTypeDef
+    StartedAt: datetime
+    EndedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartQualificationsAssociationTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+    PrimaryPartner: QualificationsAssociationPartnerTypeDef
+    ClientToken: NotRequired[str]
+
+class StartQualificationsAssociationTaskResponseTypeDef(TypedDict):
+    Catalog: str
+    Arn: str
+    Id: str
+    TaskId: str
+    Status: QualificationsAssociationTaskStatusType
+    PrimaryPartner: QualificationsAssociationPartnerTypeDef
+    StartedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartQualificationsDisassociationTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifier: str
+    AssociatedPartner: QualificationsAssociationPartnerTypeDef
+    ClientToken: NotRequired[str]
+
+class StartQualificationsDisassociationTaskResponseTypeDef(TypedDict):
+    Catalog: str
+    Arn: str
+    Id: str
+    TaskId: str
+    Status: QualificationsDisassociationTaskStatusType
+    AssociatedPartner: QualificationsAssociationPartnerTypeDef
+    StartedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConnectionInvitationsRequestPaginateTypeDef(TypedDict):
     Catalog: str

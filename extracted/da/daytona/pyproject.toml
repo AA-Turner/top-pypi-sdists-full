@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "daytona"
-version = "0.200.0"
+version = "0.200.1"
 authors = [
     { name = "Daytona Platforms Inc.", email = "support@daytona.io"  },
 ]
@@ -30,12 +30,12 @@ dependencies = [
     "opentelemetry-instrumentation-aiohttp-client>=0.59b0",
     "urllib3>=2.1.0,<3.0.0",
     "python-socketio[asyncio-client,client]>=5.0.0,<6.0.0",
-    "daytona-api-client (==0.200.0)",
-    "daytona-api-client-async (==0.200.0)",
-    "daytona-toolbox-api-client (==0.200.0)",
-    "daytona-toolbox-api-client-async (==0.200.0)",
-    "daytona-analytics-api-client (==0.200.0)",
-    "daytona-analytics-api-client-async (==0.200.0)"
+    "daytona-api-client (==0.200.1)",
+    "daytona-api-client-async (==0.200.1)",
+    "daytona-toolbox-api-client (==0.200.1)",
+    "daytona-toolbox-api-client-async (==0.200.1)",
+    "daytona-analytics-api-client (==0.200.1)",
+    "daytona-analytics-api-client-async (==0.200.1)"
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

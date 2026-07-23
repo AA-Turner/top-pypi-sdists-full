@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class ConnectorProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0ab9c254228b4525d215ca08cd3b7955eabc767a7082b66099d996a9fd6d6cf)
+            type_hints = cached_type_hints(_typecheckingstub__b0ab9c254228b4525d215ca08cd3b7955eabc767a7082b66099d996a9fd6d6cf)
             check_type(argname="argument connector_profile_arn", value=connector_profile_arn, expected_type=type_hints["connector_profile_arn"])
             check_type(argname="argument connector_profile_name", value=connector_profile_name, expected_type=type_hints["connector_profile_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -136,7 +140,7 @@ class ConnectorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54f3a61a8727d0ce78a0d23574990b842d2ee5f562f125fb63fb2a692a6713c5)
+            type_hints = cached_type_hints(_typecheckingstub__54f3a61a8727d0ce78a0d23574990b842d2ee5f562f125fb63fb2a692a6713c5)
             check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
             check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -196,7 +200,7 @@ class FlowReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f8a38e4637786a3a5cb6bf2027809d64b766f0001f1f8ad9cd6ab0ebe28158e)
+            type_hints = cached_type_hints(_typecheckingstub__8f8a38e4637786a3a5cb6bf2027809d64b766f0001f1f8ad9cd6ab0ebe28158e)
             check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -233,7 +237,7 @@ class FlowReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appflow.IConnectorProfileRef")
 class IConnectorProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorProfile.
@@ -253,7 +257,7 @@ class IConnectorProfileRef(
 
 class _IConnectorProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConnectorProfile.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IConnectorProfileRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appflow.IConnectorRef")
 class IConnectorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connector.
@@ -298,7 +302,7 @@ class IConnectorRef(
 
 class _IConnectorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connector.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnect
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_appflow.IFlowRef")
 class IFlowRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Flow.
@@ -343,7 +347,7 @@ class IFlowRef(
 
 class _IFlowRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Flow.
 

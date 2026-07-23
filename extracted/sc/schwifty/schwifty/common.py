@@ -4,11 +4,8 @@ import re
 from functools import total_ordering
 from typing import Any
 
-
-try:
-    from typing import Self
-except ImportError:
-    from typing_extensions import Self
+from schwifty._compat import override
+from schwifty._compat import Self
 
 
 _clean_regex = re.compile(r"\s+")
@@ -25,9 +22,11 @@ class Base(str):
     def __hash__(self) -> int:
         return hash(str(self))
 
+    @override
     def __eq__(self, other: Any) -> bool:
         return str(self) == str(other)
 
+    @override
     def __lt__(self, other: Any) -> bool:
         return str(self) < str(other)
 

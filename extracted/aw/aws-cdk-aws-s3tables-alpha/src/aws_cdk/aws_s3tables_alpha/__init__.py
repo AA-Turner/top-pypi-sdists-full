@@ -288,6 +288,8 @@ L2 Construct support for:
 
 * KMS encryption support for Tables
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -301,30 +303,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_s3tables as _aws_cdk_aws_s3tables_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_s3tables as _aws_cdk_aws_s3tables_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_s3tables_ceddda9d = _LazyImport("aws_cdk.aws_s3tables")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -385,7 +392,7 @@ class CompactionProperty:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea606cde59917b73fdb198d73eabdbbe686fdbd73e01ef72284a9061ea612d80)
+            type_hints = cached_type_hints(_typecheckingstub__ea606cde59917b73fdb198d73eabdbbe686fdbd73e01ef72284a9061ea612d80)
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument target_file_size_mb", value=target_file_size_mb, expected_type=type_hints["target_file_size_mb"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -688,7 +695,7 @@ class _ITableProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da6cde6f4428a664d5a067b88ed42d6a9c66af2a44cb2211d25ecd28073c5cf3)
+            type_hints = cached_type_hints(_typecheckingstub__da6cde6f4428a664d5a067b88ed42d6a9c66af2a44cb2211d25ecd28073c5cf3)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
@@ -707,7 +714,7 @@ class _ITableProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e83bfa5470edaff0a4a96df441439dc54d0e9371b70d2571426e560cb4ae2eb)
+            type_hints = cached_type_hints(_typecheckingstub__3e83bfa5470edaff0a4a96df441439dc54d0e9371b70d2571426e560cb4ae2eb)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [identity]))
 
@@ -727,7 +734,7 @@ class _ITableProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e9db385d2bd54ad234de96ad643e346812e81e4cf447d2e614c92f8ce02037d)
+            type_hints = cached_type_hints(_typecheckingstub__6e9db385d2bd54ad234de96ad643e346812e81e4cf447d2e614c92f8ce02037d)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [identity]))
 
@@ -747,7 +754,7 @@ class _ITableProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__580625b8fab3a16de8ff8d5024b24a235d5bc9597470275f3fd5c04ef950a9d9)
+            type_hints = cached_type_hints(_typecheckingstub__580625b8fab3a16de8ff8d5024b24a235d5bc9597470275f3fd5c04ef950a9d9)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [identity]))
 
@@ -978,7 +985,7 @@ class _ITableBucketProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c10542c60e15926bb4ef59925c4f6c0878400e041897780edddaa65054d627)
+            type_hints = cached_type_hints(_typecheckingstub__a7c10542c60e15926bb4ef59925c4f6c0878400e041897780edddaa65054d627)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
@@ -999,7 +1006,7 @@ class _ITableBucketProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__853d3e698d103ae1fe304d2239745ee798278fcd22f673c7ae8e9b33884c90a9)
+            type_hints = cached_type_hints(_typecheckingstub__853d3e698d103ae1fe304d2239745ee798278fcd22f673c7ae8e9b33884c90a9)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [identity, table_id]))
@@ -1021,7 +1028,7 @@ class _ITableBucketProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c9eb5186509f26b2c015223d6e2614c16cc34d5c2608ca3903b133360e23990)
+            type_hints = cached_type_hints(_typecheckingstub__1c9eb5186509f26b2c015223d6e2614c16cc34d5c2608ca3903b133360e23990)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [identity, table_id]))
@@ -1043,7 +1050,7 @@ class _ITableBucketProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65fa831e505e76e1fe23a8a8d8ce97bb97ebff683edbf67f37020df64c040fdb)
+            type_hints = cached_type_hints(_typecheckingstub__65fa831e505e76e1fe23a8a8d8ce97bb97ebff683edbf67f37020df64c040fdb)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [identity, table_id]))
@@ -1129,7 +1136,7 @@ class IcebergMetadataProperty:
         if isinstance(iceberg_sort_order, dict):
             iceberg_sort_order = IcebergSortOrder(**iceberg_sort_order)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8230e6a4eadd2193ba7389b1a23bde451e68a07c19bcda56cba1c321d75d5f0)
+            type_hints = cached_type_hints(_typecheckingstub__f8230e6a4eadd2193ba7389b1a23bde451e68a07c19bcda56cba1c321d75d5f0)
             check_type(argname="argument iceberg_schema", value=iceberg_schema, expected_type=type_hints["iceberg_schema"])
             check_type(argname="argument iceberg_partition_spec", value=iceberg_partition_spec, expected_type=type_hints["iceberg_partition_spec"])
             check_type(argname="argument iceberg_sort_order", value=iceberg_sort_order, expected_type=type_hints["iceberg_sort_order"])
@@ -1252,7 +1259,7 @@ class IcebergPartitionField:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5d0cf66f270e429a7d203b192e9ef67e936e4004da8387c15df11e4110a8d6f)
+            type_hints = cached_type_hints(_typecheckingstub__e5d0cf66f270e429a7d203b192e9ef67e936e4004da8387c15df11e4110a8d6f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
             check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
@@ -1369,7 +1376,7 @@ class IcebergPartitionSpec:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da217d3d178fa85bd4bb9f970630aa277193e747d937fa32a82d58506ec36efe)
+            type_hints = cached_type_hints(_typecheckingstub__da217d3d178fa85bd4bb9f970630aa277193e747d937fa32a82d58506ec36efe)
             check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
             check_type(argname="argument spec_id", value=spec_id, expected_type=type_hints["spec_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1470,7 +1477,7 @@ class IcebergSchemaProperty:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4da2961c1ead632b855491f63cf76c4886c0e7a3d1795c1533655124a5dccb6)
+            type_hints = cached_type_hints(_typecheckingstub__f4da2961c1ead632b855491f63cf76c4886c0e7a3d1795c1533655124a5dccb6)
             check_type(argname="argument schema_field_list", value=schema_field_list, expected_type=type_hints["schema_field_list"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schema_field_list": schema_field_list,
@@ -1543,7 +1550,7 @@ class IcebergSortField:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5955a1094280a53008e761233c49aa09cef43e40082ed616156c9c610c5bfd1a)
+            type_hints = cached_type_hints(_typecheckingstub__5955a1094280a53008e761233c49aa09cef43e40082ed616156c9c610c5bfd1a)
             check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
             check_type(argname="argument null_order", value=null_order, expected_type=type_hints["null_order"])
             check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
@@ -1669,7 +1676,7 @@ class IcebergSortOrder:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc0b6651b5710c70f4599ea1f90fb65bd9b0d439c0e345c6cca8f3f0e84e8c73)
+            type_hints = cached_type_hints(_typecheckingstub__bc0b6651b5710c70f4599ea1f90fb65bd9b0d439c0e345c6cca8f3f0e84e8c73)
             check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
             check_type(argname="argument order_id", value=order_id, expected_type=type_hints["order_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1755,7 +1762,7 @@ class IcebergTransform(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e563a040172fb27356e00d6fd85654686bf29db5c82259f7e730caad411622e)
+            type_hints = cached_type_hints(_typecheckingstub__2e563a040172fb27356e00d6fd85654686bf29db5c82259f7e730caad411622e)
             check_type(argname="argument n", value=n, expected_type=type_hints["n"])
         return typing.cast("IcebergTransform", jsii.sinvoke(cls, "bucket", [n]))
 
@@ -1769,7 +1776,7 @@ class IcebergTransform(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb0a8d61450b886452e71d82c44df11d7e06c1bb1ec4eee7d93cf30b6f45c369)
+            type_hints = cached_type_hints(_typecheckingstub__bb0a8d61450b886452e71d82c44df11d7e06c1bb1ec4eee7d93cf30b6f45c369)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("IcebergTransform", jsii.sinvoke(cls, "of", [value]))
 
@@ -1783,7 +1790,7 @@ class IcebergTransform(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d47dc584dc98452555a9be8094034032de5978f5b1a495da183b520f5016d43)
+            type_hints = cached_type_hints(_typecheckingstub__2d47dc584dc98452555a9be8094034032de5978f5b1a495da183b520f5016d43)
             check_type(argname="argument width", value=width, expected_type=type_hints["width"])
         return typing.cast("IcebergTransform", jsii.sinvoke(cls, "truncate", [width]))
 
@@ -1891,7 +1898,7 @@ class Namespace(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea3444f2b1f25cee0bac27bf1e4c044f18ded5f025356448c35a47f4611915d5)
+            type_hints = cached_type_hints(_typecheckingstub__ea3444f2b1f25cee0bac27bf1e4c044f18ded5f025356448c35a47f4611915d5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = NamespaceProps(
@@ -1922,7 +1929,7 @@ class Namespace(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__429e6100662356607de36bc4f09397c07482d4becdff99cdf1257c1b95547276)
+            type_hints = cached_type_hints(_typecheckingstub__429e6100662356607de36bc4f09397c07482d4becdff99cdf1257c1b95547276)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = NamespaceAttributes(
@@ -1942,7 +1949,7 @@ class Namespace(
         :throws: UnscopedValidationError if any naming errors are detected
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a07351eb257958d2290e548252c46a7c8963c7bc2f700e83671f819e4b7dbd5)
+            type_hints = cached_type_hints(_typecheckingstub__4a07351eb257958d2290e548252c46a7c8963c7bc2f700e83671f819e4b7dbd5)
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
         return typing.cast(None, jsii.sinvoke(cls, "validateNamespaceName", [namespace_name]))
 
@@ -2008,7 +2015,7 @@ class NamespaceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f79f8c2998fe357462fbff82a75e82ed3236dd34caffcf6f6267cffcdda3275)
+            type_hints = cached_type_hints(_typecheckingstub__8f79f8c2998fe357462fbff82a75e82ed3236dd34caffcf6f6267cffcdda3275)
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
             check_type(argname="argument table_bucket", value=table_bucket, expected_type=type_hints["table_bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2083,7 +2090,7 @@ class NamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd18f87a98f23ccaea0f0c36db6b294de2ffbbb509594c9bfa49f26b6b0d0e7a)
+            type_hints = cached_type_hints(_typecheckingstub__fd18f87a98f23ccaea0f0c36db6b294de2ffbbb509594c9bfa49f26b6b0d0e7a)
             check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
             check_type(argname="argument table_bucket", value=table_bucket, expected_type=type_hints["table_bucket"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -2277,7 +2284,7 @@ class SchemaFieldProperty:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__798c061a7214691172814263e161286845f9f56262e641ae55c93d363ce227c1)
+            type_hints = cached_type_hints(_typecheckingstub__798c061a7214691172814263e161286845f9f56262e641ae55c93d363ce227c1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -2420,7 +2427,7 @@ class SnapshotManagementProperty:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74aebe9bead3fb2bce88d441c25d815202759baedd02c817c6e08d2e1dfad2b2)
+            type_hints = cached_type_hints(_typecheckingstub__74aebe9bead3fb2bce88d441c25d815202759baedd02c817c6e08d2e1dfad2b2)
             check_type(argname="argument max_snapshot_age_hours", value=max_snapshot_age_hours, expected_type=type_hints["max_snapshot_age_hours"])
             check_type(argname="argument min_snapshots_to_keep", value=min_snapshots_to_keep, expected_type=type_hints["min_snapshots_to_keep"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -2676,7 +2683,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e5378cdcc21935af950b3c144ea6d1e345b4c98cccbf5fe2a92dff410ed06cf)
+            type_hints = cached_type_hints(_typecheckingstub__9e5378cdcc21935af950b3c144ea6d1e345b4c98cccbf5fe2a92dff410ed06cf)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TableProps(
@@ -2712,7 +2719,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c92fbe73fcedcf34bbbc9a2359a274432437ec47317161e4c88ea9d209155ffd)
+            type_hints = cached_type_hints(_typecheckingstub__c92fbe73fcedcf34bbbc9a2359a274432437ec47317161e4c88ea9d209155ffd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TableAttributes(table_arn=table_arn, table_name=table_name)
@@ -2730,7 +2737,7 @@ class Table(
         :throws: UnscopedValidationError if any naming errors are detected
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__536e137c7e7454507b9ec796514d014c3913e8c528dfeba351b5e0e36ba8e228)
+            type_hints = cached_type_hints(_typecheckingstub__536e137c7e7454507b9ec796514d014c3913e8c528dfeba351b5e0e36ba8e228)
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         return typing.cast(None, jsii.sinvoke(cls, "validateTableName", [table_name]))
 
@@ -2752,7 +2759,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf2cc6b0089371bf3b3d86048c16f309f2afb3d7329dc28525f622d9e8006e27)
+            type_hints = cached_type_hints(_typecheckingstub__bf2cc6b0089371bf3b3d86048c16f309f2afb3d7329dc28525f622d9e8006e27)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
@@ -2768,7 +2775,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0556fb0bd61a76d9f9bdbab13c49228511a3523caa64f6dbed93963966ed96c)
+            type_hints = cached_type_hints(_typecheckingstub__f0556fb0bd61a76d9f9bdbab13c49228511a3523caa64f6dbed93963966ed96c)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [identity]))
 
@@ -2784,7 +2791,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f751d804f7db1fb6bfea578e65d8642e7c39a6078f8effb3cc12bd1d6e5cdd45)
+            type_hints = cached_type_hints(_typecheckingstub__f751d804f7db1fb6bfea578e65d8642e7c39a6078f8effb3cc12bd1d6e5cdd45)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [identity]))
 
@@ -2800,7 +2807,7 @@ class Table(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__782a3a885790eb02b5e9bbd37dd4b038ae3f5d0bdcf890b812c9284899e029ce)
+            type_hints = cached_type_hints(_typecheckingstub__782a3a885790eb02b5e9bbd37dd4b038ae3f5d0bdcf890b812c9284899e029ce)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [identity]))
 
@@ -2872,7 +2879,7 @@ class Table(
     @_auto_create_policy.setter
     def _auto_create_policy(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc8c67ff83da04c70c080f40fd29333e2e8cae2c2f37dd6606ad76db5c4cc5d7)
+            type_hints = cached_type_hints(_typecheckingstub__cc8c67ff83da04c70c080f40fd29333e2e8cae2c2f37dd6606ad76db5c4cc5d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoCreatePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -2907,7 +2914,7 @@ class TableAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a648b98b2aa2a4eec0f744feac0d8ec3ee06e18fb2a623e889d224bf8fec03)
+            type_hints = cached_type_hints(_typecheckingstub__20a648b98b2aa2a4eec0f744feac0d8ec3ee06e18fb2a623e889d224bf8fec03)
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3003,7 +3010,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8d9c0bf5c954c2a6797301b7dc6cb8abd812336f3507addc92f72b805ec0a1e)
+            type_hints = cached_type_hints(_typecheckingstub__c8d9c0bf5c954c2a6797301b7dc6cb8abd812336f3507addc92f72b805ec0a1e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TableBucketProps(
@@ -3036,7 +3043,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03d844a802df53acfc8906e32d1d2bbab0d86fedd5fc2ef65296a8c7a0c368d5)
+            type_hints = cached_type_hints(_typecheckingstub__03d844a802df53acfc8906e32d1d2bbab0d86fedd5fc2ef65296a8c7a0c368d5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
@@ -3068,7 +3075,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fd93d11fc9c336a7e785b6aaa945ba1d55d75eb3748b03a2030b08e3d152961)
+            type_hints = cached_type_hints(_typecheckingstub__6fd93d11fc9c336a7e785b6aaa945ba1d55d75eb3748b03a2030b08e3d152961)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = TableBucketAttributes(
@@ -3094,7 +3101,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__054bf3ff46c98611841750ec27c0d492c7ee0aa6480b03f4a250c1d73bf049f7)
+            type_hints = cached_type_hints(_typecheckingstub__054bf3ff46c98611841750ec27c0d492c7ee0aa6480b03f4a250c1d73bf049f7)
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
         return typing.cast(None, jsii.sinvoke(cls, "validateTableBucketName", [bucket_name]))
 
@@ -3149,7 +3156,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51cd52e5dbcb37ec9f9fd146daf9705f341ba8056f0f9d812355dc6e0ec273cd)
+            type_hints = cached_type_hints(_typecheckingstub__51cd52e5dbcb37ec9f9fd146daf9705f341ba8056f0f9d812355dc6e0ec273cd)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
@@ -3167,7 +3174,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fecb8141f36793842f11c48ee39490301f24e6f1f0de09abbbf16bf1f96f0cb3)
+            type_hints = cached_type_hints(_typecheckingstub__fecb8141f36793842f11c48ee39490301f24e6f1f0de09abbbf16bf1f96f0cb3)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantRead", [identity, table_id]))
@@ -3186,7 +3193,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd8d4708cc079743c68f1ed7c239ba7a268460ad7ce4e417684326708cd34a54)
+            type_hints = cached_type_hints(_typecheckingstub__cd8d4708cc079743c68f1ed7c239ba7a268460ad7ce4e417684326708cd34a54)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantReadWrite", [identity, table_id]))
@@ -3205,7 +3212,7 @@ class TableBucket(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f9476ce4489c94b0b073d56ebee26cf1a8f5db20184e82de18e7238c0381b9a)
+            type_hints = cached_type_hints(_typecheckingstub__6f9476ce4489c94b0b073d56ebee26cf1a8f5db20184e82de18e7238c0381b9a)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantWrite", [identity, table_id]))
@@ -3276,7 +3283,7 @@ class TableBucket(
     @_auto_create_policy.setter
     def _auto_create_policy(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddda0c30ebb465614a7378f709964b48c9f175013aa1ed12f0ea7c1218e8c630)
+            type_hints = cached_type_hints(_typecheckingstub__ddda0c30ebb465614a7378f709964b48c9f175013aa1ed12f0ea7c1218e8c630)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoCreatePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3334,7 +3341,7 @@ class TableBucketAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f628073bbee2e81e2162c5225d2230a24b470a8915e2ee4cef917951de644d61)
+            type_hints = cached_type_hints(_typecheckingstub__f628073bbee2e81e2162c5225d2230a24b470a8915e2ee4cef917951de644d61)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -3509,7 +3516,7 @@ class TableBucketPolicy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26a65a7f8b5344e57811d88192dc3cf822bfa45031afe03f34576593e271e7b1)
+            type_hints = cached_type_hints(_typecheckingstub__26a65a7f8b5344e57811d88192dc3cf822bfa45031afe03f34576593e271e7b1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TableBucketPolicyProps(
@@ -3585,7 +3592,7 @@ class TableBucketPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8afedf0f9c96ed3f2bfa2918ddf62a334b286bd16c0997d1db2f20acd045d28)
+            type_hints = cached_type_hints(_typecheckingstub__a8afedf0f9c96ed3f2bfa2918ddf62a334b286bd16c0997d1db2f20acd045d28)
             check_type(argname="argument table_bucket", value=table_bucket, expected_type=type_hints["table_bucket"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
@@ -3701,7 +3708,7 @@ class TableBucketProps:
         if isinstance(unreferenced_file_removal, dict):
             unreferenced_file_removal = UnreferencedFileRemoval(**unreferenced_file_removal)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa14ccf904c2576c446af7122d6335d3a92b012274a231120ab28c942832368b)
+            type_hints = cached_type_hints(_typecheckingstub__aa14ccf904c2576c446af7122d6335d3a92b012274a231120ab28c942832368b)
             check_type(argname="argument table_bucket_name", value=table_bucket_name, expected_type=type_hints["table_bucket_name"])
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
@@ -3894,7 +3901,7 @@ class TablePolicy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b78bf56e8d94ea2b7e7602cfb78ea18ec614a55b94a18e39d69bd1c23964cf8)
+            type_hints = cached_type_hints(_typecheckingstub__8b78bf56e8d94ea2b7e7602cfb78ea18ec614a55b94a18e39d69bd1c23964cf8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = TablePolicyProps(
@@ -3968,7 +3975,7 @@ class TablePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b086238e24aebc145195c4cca70cd83d65abedf1539c0b11b96843994c862fb8)
+            type_hints = cached_type_hints(_typecheckingstub__b086238e24aebc145195c4cca70cd83d65abedf1539c0b11b96843994c862fb8)
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
@@ -4053,7 +4060,7 @@ class TablePropertyEntry:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92f44e0571fa3f75894bf2d5bd18f71e81a97f227d8329824dc1e79326cef5ad)
+            type_hints = cached_type_hints(_typecheckingstub__92f44e0571fa3f75894bf2d5bd18f71e81a97f227d8329824dc1e79326cef5ad)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4181,7 +4188,7 @@ class TableProps:
         if isinstance(snapshot_management, dict):
             snapshot_management = SnapshotManagementProperty(**snapshot_management)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adbbcc05d3dc39dfd296a872f006be429c733d0afc6f602e57bd2bede716f05e)
+            type_hints = cached_type_hints(_typecheckingstub__adbbcc05d3dc39dfd296a872f006be429c733d0afc6f602e57bd2bede716f05e)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument open_table_format", value=open_table_format, expected_type=type_hints["open_table_format"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -4349,7 +4356,7 @@ class UnreferencedFileRemoval:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3c9fa2e0832ae26e721328d6c201e9e86774721d68903a6414d69d8a77a5675)
+            type_hints = cached_type_hints(_typecheckingstub__b3c9fa2e0832ae26e721328d6c201e9e86774721d68903a6414d69d8a77a5675)
             check_type(argname="argument noncurrent_days", value=noncurrent_days, expected_type=type_hints["noncurrent_days"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument unreferenced_days", value=unreferenced_days, expected_type=type_hints["unreferenced_days"])

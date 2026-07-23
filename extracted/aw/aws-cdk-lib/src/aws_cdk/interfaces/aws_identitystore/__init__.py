@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class GroupMembershipReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ad67e884f84d186fa1812d68d8a77bb789c9d47e5eb0bbecfb0242fab3663ad)
+            type_hints = cached_type_hints(_typecheckingstub__2ad67e884f84d186fa1812d68d8a77bb789c9d47e5eb0bbecfb0242fab3663ad)
             check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
             check_type(argname="argument membership_id", value=membership_id, expected_type=type_hints["membership_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -133,7 +137,7 @@ class GroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80be5f97f6bbfe0c4f7499ffab050d76a52ab1f353eb507a8cf57c3a7ec0c030)
+            type_hints = cached_type_hints(_typecheckingstub__80be5f97f6bbfe0c4f7499ffab050d76a52ab1f353eb507a8cf57c3a7ec0c030)
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -172,7 +176,7 @@ class GroupReference:
 )
 class IGroupMembershipRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupMembership.
@@ -192,7 +196,7 @@ class IGroupMembershipRef(
 
 class _IGroupMembershipRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GroupMembership.
 
@@ -217,7 +221,7 @@ typing.cast(typing.Any, IGroupMembershipRef).__jsii_proxy_class__ = lambda : _IG
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_identitystore.IGroupRef")
 class IGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
@@ -237,7 +241,7 @@ class IGroupRef(
 
 class _IGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Group.
 

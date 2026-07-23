@@ -19,12 +19,12 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
     return [
         {
             "name": "tinybird.pipe_stats_rt",
-            "description": "Contains information about all requests made to your API endpoints in real time. This data source has a TTL of 7 days. If you need to query data older than 7 days you must use the aggregated by day data available at tinybird.pipe_stats.",
+            "description": "Contains information about all requests made to your API endpoints in real time. This data source has a TTL of 3 months. If you need to query data older than 3 months you must use the aggregated by day data available at tinybird.pipe_stats.",
             "dateColumn": "start_datetime",
             "engine": {
                 "engine": "MergeTree",
                 "sorting_key": "pipe_id, start_datetime",
-                "ttl": "start_datetime + toIntervalDay(7)",
+                "ttl": "start_datetime + toIntervalMonth(3)",
             },
             "columns": [
                 {"name": "start_datetime", "type": "DateTime"},
@@ -659,7 +659,7 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
             "engine": {
                 "engine": "MergeTree",
                 "sorting_key": "workspace_id, pipe_id, start_datetime",
-                "ttl": "start_datetime + toIntervalDay(7)",
+                "ttl": "start_datetime + toIntervalMonth(3)",
             },
             "columns": [
                 {"name": "workspace_id", "type": "String"},

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: promptlayer
-Version: 1.4.7
+Version: 1.5.1
 Summary: PromptLayer is a platform for prompt engineering and tracks your LLM requests.
 License: Apache-2.0
 License-File: LICENSE
@@ -17,7 +17,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: claude-agents
 Provides-Extra: openai-agents
-Requires-Dist: ably (>=2.0.11,<3.0.0)
 Requires-Dist: aiohttp (>=3.10.10,<4.0.0)
 Requires-Dist: cachetools (>=5.0.0,<6.0.0)
 Requires-Dist: centrifuge-python (>=0.4.1,<0.5.0)
@@ -28,9 +27,10 @@ Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
 Requires-Dist: nest-asyncio (>=1.6.0,<2.0.0)
 Requires-Dist: openai-agents (>=0.3.3,<0.4.0) ; extra == "openai-agents"
 Requires-Dist: opentelemetry-api (>=1.26.0,<2.0.0)
-Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.26.0,<2.0.0) ; extra == "openai-agents"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.26.0,<2.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.26.0,<2.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: rich (>=13.0.0)
 Requires-Dist: tenacity (>=9.1.2,<10.0.0)
 Description-Content-Type: text/markdown
 
@@ -151,7 +151,7 @@ The SDK relies on the following environment variables:
 | --- | --- | --- |
 | `PROMPTLAYER_API_KEY` | Yes, unless passed as `api_key=` | API key used to authenticate requests to PromptLayer. |
 | `PROMPTLAYER_BASE_URL` | No | Overrides the PromptLayer API base URL. Defaults to `https://api.promptlayer.com`. |
-| `PROMPTLAYER_OTLP_TRACES_ENDPOINT` | No | Overrides the OTLP trace endpoint used by the OpenAI Agents tracing integration. |
+| `PROMPTLAYER_OTLP_TRACES_ENDPOINT` | No | Overrides the OTLP trace endpoint (`/v1/traces`) used when SDK tracing is enabled. |
 | `PROMPTLAYER_TRACEPARENT` | No | Optional trace context passed through the Claude Agents integration. |
 
 ## Client Resources

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b1e4534590f5416c5abc69bf46a6e6f6977c7e439529c2cae4fd40303f444e5)
+            type_hints = cached_type_hints(_typecheckingstub__6b1e4534590f5416c5abc69bf46a6e6f6977c7e439529c2cae4fd40303f444e5)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_arn": channel_arn,
@@ -107,7 +111,7 @@ class DashboardReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__605da928544d77164ada0eea8dbdcc59414c1ab694eb78c7f32c3d9912778901)
+            type_hints = cached_type_hints(_typecheckingstub__605da928544d77164ada0eea8dbdcc59414c1ab694eb78c7f32c3d9912778901)
             check_type(argname="argument dashboard_arn", value=dashboard_arn, expected_type=type_hints["dashboard_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dashboard_arn": dashboard_arn,
@@ -156,7 +160,7 @@ class EventDataStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4579736f6ca2c03f650e12878b6ad5b99bec759b9a3ed1e253fe7cda8a48fe54)
+            type_hints = cached_type_hints(_typecheckingstub__4579736f6ca2c03f650e12878b6ad5b99bec759b9a3ed1e253fe7cda8a48fe54)
             check_type(argname="argument event_data_store_arn", value=event_data_store_arn, expected_type=type_hints["event_data_store_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_data_store_arn": event_data_store_arn,
@@ -184,7 +188,7 @@ class EventDataStoreReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudtrail.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -204,7 +208,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudtrail.IDashboardRef")
 class IDashboardRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
@@ -249,7 +253,7 @@ class IDashboardRef(
 
 class _IDashboardRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dashboard.
 
@@ -274,7 +278,7 @@ typing.cast(typing.Any, IDashboardRef).__jsii_proxy_class__ = lambda : _IDashboa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudtrail.IEventDataStoreRef")
 class IEventDataStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventDataStore.
@@ -294,7 +298,7 @@ class IEventDataStoreRef(
 
 class _IEventDataStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventDataStore.
 
@@ -319,7 +323,7 @@ typing.cast(typing.Any, IEventDataStoreRef).__jsii_proxy_class__ = lambda : _IEv
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudtrail.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
@@ -339,7 +343,7 @@ class IResourcePolicyRef(
 
 class _IResourcePolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
 
@@ -364,7 +368,7 @@ typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudtrail.ITrailRef")
 class ITrailRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Trail.
@@ -384,7 +388,7 @@ class ITrailRef(
 
 class _ITrailRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Trail.
 
@@ -430,7 +434,7 @@ class ResourcePolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6ea9fdfa2d0910c22924359c901c3896e7e2aaf13d6d7af06d5d809bb80f690)
+            type_hints = cached_type_hints(_typecheckingstub__e6ea9fdfa2d0910c22924359c901c3896e7e2aaf13d6d7af06d5d809bb80f690)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_arn": resource_arn,
@@ -481,7 +485,7 @@ class TrailReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17ef5cd44b172d4230f3ac5aad3c0dc9b570706c99daec1f3da2bbce4d02d724)
+            type_hints = cached_type_hints(_typecheckingstub__17ef5cd44b172d4230f3ac5aad3c0dc9b570706c99daec1f3da2bbce4d02d724)
             check_type(argname="argument trail_arn", value=trail_arn, expected_type=type_hints["trail_arn"])
             check_type(argname="argument trail_name", value=trail_name, expected_type=type_hints["trail_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

@@ -57,10 +57,23 @@ class TestScriptAndVersionSettings:
                     "Admin": {
                         "type": "worker",
                         "cache": {"enabled": True},
+                        "state": "created",
+                    },
+                    "Counter": {
+                        "storage": "sqlite",
+                        "type": "durable-object",
+                        "container": "my-container",
+                        "state": "created",
+                    },
+                    "OldCounter": {
+                        "renamed_to": "Counter",
+                        "state": "renamed",
+                        "type": "durable-object",
                     },
                     "default": {
                         "type": "worker",
                         "cache": {"enabled": False},
+                        "state": "created",
                     },
                 },
                 "limits": {
@@ -254,10 +267,23 @@ class TestAsyncScriptAndVersionSettings:
                     "Admin": {
                         "type": "worker",
                         "cache": {"enabled": True},
+                        "state": "created",
+                    },
+                    "Counter": {
+                        "storage": "sqlite",
+                        "type": "durable-object",
+                        "container": "my-container",
+                        "state": "created",
+                    },
+                    "OldCounter": {
+                        "renamed_to": "Counter",
+                        "state": "renamed",
+                        "type": "durable-object",
                     },
                     "default": {
                         "type": "worker",
                         "cache": {"enabled": False},
+                        "state": "created",
                     },
                 },
                 "limits": {

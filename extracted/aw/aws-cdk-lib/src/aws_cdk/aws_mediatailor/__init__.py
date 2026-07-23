@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,55 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_mediatailor import (
-    ChannelPolicyReference as _ChannelPolicyReference_17b43a81,
-    ChannelReference as _ChannelReference_168b0e96,
-    IChannelPolicyRef as _IChannelPolicyRef_4259ae97,
-    IChannelRef as _IChannelRef_3696dd49,
-    ILiveSourceRef as _ILiveSourceRef_aff5e4da,
-    IPlaybackConfigurationRef as _IPlaybackConfigurationRef_12fbcfb6,
-    ISourceLocationRef as _ISourceLocationRef_240f0e28,
-    IVodSourceRef as _IVodSourceRef_6ec4c083,
-    LiveSourceReference as _LiveSourceReference_4942d98c,
-    PlaybackConfigurationReference as _PlaybackConfigurationReference_5fac9ece,
-    SourceLocationReference as _SourceLocationReference_17b19686,
-    VodSourceReference as _VodSourceReference_453b2a99,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_mediatailor as _aws_mediatailor_60404695
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_mediatailor_60404695 = _LazyImport("aws_cdk.interfaces.aws_mediatailor")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelRef_3696dd49, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IChannelRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnChannel(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannel",
 ):
@@ -151,14 +134,14 @@ class CfnChannel(
         id: builtins.str,
         *,
         channel_name: builtins.str,
-        outputs: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RequestOutputItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        outputs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.RequestOutputItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         playback_mode: builtins.str,
         audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-        filler_slate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LogConfigurationForChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        filler_slate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.LogConfigurationForChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         tier: typing.Optional[builtins.str] = None,
-        time_shift_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimeShiftConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_shift_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TimeShiftConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::Channel``.
 
@@ -175,7 +158,7 @@ class CfnChannel(
         :param time_shift_configuration: The configuration for time-shifted viewing.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95afc802641850838d7d754c58072c279165a93bff5fc055789c1090a21b9714)
+            type_hints = cached_type_hints(_typecheckingstub__95afc802641850838d7d754c58072c279165a93bff5fc055789c1090a21b9714)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelProps(
@@ -194,12 +177,15 @@ class CfnChannel(
 
     @jsii.member(jsii_name="arnForChannel")
     @builtins.classmethod
-    def arn_for_channel(cls, resource: "_IChannelRef_3696dd49") -> builtins.str:
+    def arn_for_channel(
+        cls,
+        resource: "_aws_mediatailor_60404695.IChannelRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__418fb2485d366f3c8a7b8a95c0dcf780cd3d97d1eacd74f40d7d10b930f2ab95)
+            type_hints = cached_type_hints(_typecheckingstub__418fb2485d366f3c8a7b8a95c0dcf780cd3d97d1eacd74f40d7d10b930f2ab95)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForChannel", [resource]))
 
@@ -210,7 +196,7 @@ class CfnChannel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IChannelRef_3696dd49":
+    ) -> "_aws_mediatailor_60404695.IChannelRef":
         '''Creates a new IChannelRef from an ARN.
 
         :param scope: -
@@ -218,11 +204,11 @@ class CfnChannel(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d19144d331ba31edd24b53fe62ecd68291785594e4276f682970808562a8790)
+            type_hints = cached_type_hints(_typecheckingstub__4d19144d331ba31edd24b53fe62ecd68291785594e4276f682970808562a8790)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IChannelRef_3696dd49", jsii.sinvoke(cls, "fromChannelArn", [scope, id, arn]))
+        return typing.cast("_aws_mediatailor_60404695.IChannelRef", jsii.sinvoke(cls, "fromChannelArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromChannelName")
     @builtins.classmethod
@@ -231,7 +217,7 @@ class CfnChannel(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         channel_name: builtins.str,
-    ) -> "_IChannelRef_3696dd49":
+    ) -> "_aws_mediatailor_60404695.IChannelRef":
         '''Creates a new IChannelRef from a channelName.
 
         :param scope: -
@@ -239,11 +225,11 @@ class CfnChannel(
         :param channel_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08ab9dccb4a244c93c8642dce766e1e9ee544479257409b787228df15d5435d7)
+            type_hints = cached_type_hints(_typecheckingstub__08ab9dccb4a244c93c8642dce766e1e9ee544479257409b787228df15d5435d7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-        return typing.cast("_IChannelRef_3696dd49", jsii.sinvoke(cls, "fromChannelName", [scope, id, channel_name]))
+        return typing.cast("_aws_mediatailor_60404695.IChannelRef", jsii.sinvoke(cls, "fromChannelName", [scope, id, channel_name]))
 
     @jsii.member(jsii_name="isCfnChannel")
     @builtins.classmethod
@@ -253,18 +239,18 @@ class CfnChannel(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b40a7b4e84fbe554602e7462685b4c9b4a1175e608e5fd8e878b86fe361400ea)
+            type_hints = cached_type_hints(_typecheckingstub__b40a7b4e84fbe554602e7462685b4c9b4a1175e608e5fd8e878b86fe361400ea)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannel", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d632b023994803b26caa2590748766e0dabab5ba299874fe587fa9f37c926bda)
+            type_hints = cached_type_hints(_typecheckingstub__d632b023994803b26caa2590748766e0dabab5ba299874fe587fa9f37c926bda)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -277,7 +263,7 @@ class CfnChannel(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd05180cbc64f9ab36b59c9143ba4df4683bae47e98fe90c0d0bacdd9fbb8fae)
+            type_hints = cached_type_hints(_typecheckingstub__fd05180cbc64f9ab36b59c9143ba4df4683bae47e98fe90c0d0bacdd9fbb8fae)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -297,9 +283,9 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -313,9 +299,9 @@ class CfnChannel(
 
     @builtins.property
     @jsii.member(jsii_name="channelRef")
-    def channel_ref(self) -> "_ChannelReference_168b0e96":
+    def channel_ref(self) -> "_aws_mediatailor_60404695.ChannelReference":
         '''A reference to a Channel resource.'''
-        return typing.cast("_ChannelReference_168b0e96", jsii.get(self, "channelRef"))
+        return typing.cast("_aws_mediatailor_60404695.ChannelReference", jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -326,7 +312,7 @@ class CfnChannel(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__414356f19e6a1e142f58fb20d5aa3f44fd76f93ad6f9a944f9177c71e65bd031)
+            type_hints = cached_type_hints(_typecheckingstub__414356f19e6a1e142f58fb20d5aa3f44fd76f93ad6f9a944f9177c71e65bd031)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -334,17 +320,17 @@ class CfnChannel(
     @jsii.member(jsii_name="outputs")
     def outputs(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.RequestOutputItemProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RequestOutputItemProperty"]]]:
         '''The channel's output properties.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.RequestOutputItemProperty"]]], jsii.get(self, "outputs"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RequestOutputItemProperty"]]], jsii.get(self, "outputs"))
 
     @outputs.setter
     def outputs(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.RequestOutputItemProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RequestOutputItemProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6c205b75797f1a6f80dab721b03fc96335f8bd384f7c63aab656bd3136a90ed)
+            type_hints = cached_type_hints(_typecheckingstub__f6c205b75797f1a6f80dab721b03fc96335f8bd384f7c63aab656bd3136a90ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputs", value) # pyright: ignore[reportArgumentType]
 
@@ -357,7 +343,7 @@ class CfnChannel(
     @playback_mode.setter
     def playback_mode(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f01c3b2a4d663235632876690f021c08885e2683808fd8f8354ec563a6cdbcf)
+            type_hints = cached_type_hints(_typecheckingstub__0f01c3b2a4d663235632876690f021c08885e2683808fd8f8354ec563a6cdbcf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "playbackMode", value) # pyright: ignore[reportArgumentType]
 
@@ -370,7 +356,7 @@ class CfnChannel(
     @audiences.setter
     def audiences(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__978734f277fe2347cb97632bb681ac7a90ce350df65be207f74234337bd3d49b)
+            type_hints = cached_type_hints(_typecheckingstub__978734f277fe2347cb97632bb681ac7a90ce350df65be207f74234337bd3d49b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "audiences", value) # pyright: ignore[reportArgumentType]
 
@@ -378,17 +364,17 @@ class CfnChannel(
     @jsii.member(jsii_name="fillerSlate")
     def filler_slate(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SlateSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SlateSourceProperty"]]:
         '''The slate used to fill gaps between programs in the schedule.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SlateSourceProperty"]], jsii.get(self, "fillerSlate"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SlateSourceProperty"]], jsii.get(self, "fillerSlate"))
 
     @filler_slate.setter
     def filler_slate(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SlateSourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SlateSourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb99598f2b90f05f74078bf9dbab5d32c9f963ec0c7f60fc84c741cd7f7a72d5)
+            type_hints = cached_type_hints(_typecheckingstub__bb99598f2b90f05f74078bf9dbab5d32c9f963ec0c7f60fc84c741cd7f7a72d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fillerSlate", value) # pyright: ignore[reportArgumentType]
 
@@ -396,30 +382,33 @@ class CfnChannel(
     @jsii.member(jsii_name="logConfiguration")
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LogConfigurationForChannelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LogConfigurationForChannelProperty"]]:
         '''The log configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LogConfigurationForChannelProperty"]], jsii.get(self, "logConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LogConfigurationForChannelProperty"]], jsii.get(self, "logConfiguration"))
 
     @log_configuration.setter
     def log_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LogConfigurationForChannelProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LogConfigurationForChannelProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__272cdcfa3dd55bace9d7517c474b5f20801108c57ec19149b84a6595215b1252)
+            type_hints = cached_type_hints(_typecheckingstub__272cdcfa3dd55bace9d7517c474b5f20801108c57ec19149b84a6595215b1252)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the channel.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bde4918e4d23e04040b87adfc6739660dba537c84b0ca2f813daacbf009f298)
+            type_hints = cached_type_hints(_typecheckingstub__3bde4918e4d23e04040b87adfc6739660dba537c84b0ca2f813daacbf009f298)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -432,7 +421,7 @@ class CfnChannel(
     @tier.setter
     def tier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35198b30b0429365e601c60c11c6bb80791a3176a301d1fac563832c0e0edd38)
+            type_hints = cached_type_hints(_typecheckingstub__35198b30b0429365e601c60c11c6bb80791a3176a301d1fac563832c0e0edd38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
 
@@ -440,17 +429,17 @@ class CfnChannel(
     @jsii.member(jsii_name="timeShiftConfiguration")
     def time_shift_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimeShiftConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TimeShiftConfigurationProperty"]]:
         '''The configuration for time-shifted viewing.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimeShiftConfigurationProperty"]], jsii.get(self, "timeShiftConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TimeShiftConfigurationProperty"]], jsii.get(self, "timeShiftConfiguration"))
 
     @time_shift_configuration.setter
     def time_shift_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimeShiftConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TimeShiftConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b3c40cad99c53a2773855f4cd98f257598efcf21fd51b6bb734064a33f180c7)
+            type_hints = cached_type_hints(_typecheckingstub__5b3c40cad99c53a2773855f4cd98f257598efcf21fd51b6bb734064a33f180c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "timeShiftConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -497,7 +486,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e53b76fce032c9b5b0b3ab03b03ec40f7f01e061c77ffbd9e3b0101056eecfb5)
+                type_hints = cached_type_hints(_typecheckingstub__e53b76fce032c9b5b0b3ab03b03ec40f7f01e061c77ffbd9e3b0101056eecfb5)
                 check_type(argname="argument manifest_window_seconds", value=manifest_window_seconds, expected_type=type_hints["manifest_window_seconds"])
                 check_type(argname="argument min_buffer_time_seconds", value=min_buffer_time_seconds, expected_type=type_hints["min_buffer_time_seconds"])
                 check_type(argname="argument min_update_period_seconds", value=min_update_period_seconds, expected_type=type_hints["min_update_period_seconds"])
@@ -602,7 +591,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e31cc39cb17d92681c3726ed02355f545c95afa6883032b1e93af1c43179acc2)
+                type_hints = cached_type_hints(_typecheckingstub__e31cc39cb17d92681c3726ed02355f545c95afa6883032b1e93af1c43179acc2)
                 check_type(argname="argument ad_markup_type", value=ad_markup_type, expected_type=type_hints["ad_markup_type"])
                 check_type(argname="argument manifest_window_seconds", value=manifest_window_seconds, expected_type=type_hints["manifest_window_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -673,7 +662,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e5a7e7699e2937a5b57a4d1b83f5129fa2b21541bc55e1f79a1ca106377c5300)
+                type_hints = cached_type_hints(_typecheckingstub__e5a7e7699e2937a5b57a4d1b83f5129fa2b21541bc55e1f79a1ca106377c5300)
                 check_type(argname="argument log_types", value=log_types, expected_type=type_hints["log_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_types is not None:
@@ -715,8 +704,8 @@ class CfnChannel(
             *,
             manifest_name: builtins.str,
             source_group: builtins.str,
-            dash_playlist_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DashPlaylistSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            hls_playlist_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsPlaylistSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dash_playlist_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.DashPlaylistSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            hls_playlist_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.HlsPlaylistSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The output configuration for this channel.
 
@@ -752,7 +741,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f1d4c3a316ddc28d5db9dbd943c872960619d5643164875a0009ce4f4639f744)
+                type_hints = cached_type_hints(_typecheckingstub__f1d4c3a316ddc28d5db9dbd943c872960619d5643164875a0009ce4f4639f744)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
                 check_type(argname="argument source_group", value=source_group, expected_type=type_hints["source_group"])
                 check_type(argname="argument dash_playlist_settings", value=dash_playlist_settings, expected_type=type_hints["dash_playlist_settings"])
@@ -791,24 +780,24 @@ class CfnChannel(
         @builtins.property
         def dash_playlist_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DashPlaylistSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DashPlaylistSettingsProperty"]]:
             '''DASH manifest configuration parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-channel-requestoutputitem.html#cfn-mediatailor-channel-requestoutputitem-dashplaylistsettings
             '''
             result = self._values.get("dash_playlist_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DashPlaylistSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.DashPlaylistSettingsProperty"]], result)
 
         @builtins.property
         def hls_playlist_settings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsPlaylistSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.HlsPlaylistSettingsProperty"]]:
             '''HLS playlist configuration parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-channel-requestoutputitem.html#cfn-mediatailor-channel-requestoutputitem-hlsplaylistsettings
             '''
             result = self._values.get("hls_playlist_settings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsPlaylistSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.HlsPlaylistSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -856,7 +845,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__87bdd7eb43c3b69dcc5175fbdbdf3f64ecc1bea153e89e341c467115c5854c1e)
+                type_hints = cached_type_hints(_typecheckingstub__87bdd7eb43c3b69dcc5175fbdbdf3f64ecc1bea153e89e341c467115c5854c1e)
                 check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
                 check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -921,7 +910,7 @@ class CfnChannel(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9e6f8310362aba9a6cdbcee3376c31f278a1a77eb2cfdd2c6e322b1b49d57eaa)
+                type_hints = cached_type_hints(_typecheckingstub__9e6f8310362aba9a6cdbcee3376c31f278a1a77eb2cfdd2c6e322b1b49d57eaa)
                 check_type(argname="argument max_time_delay_seconds", value=max_time_delay_seconds, expected_type=type_hints["max_time_delay_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_time_delay_seconds": max_time_delay_seconds,
@@ -951,9 +940,9 @@ class CfnChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IChannelPolicyRef_4259ae97)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IChannelPolicyRef)
 class CfnChannelPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnChannelPolicy",
 ):
@@ -995,7 +984,7 @@ class CfnChannelPolicy(
         :param policy: The IAM policy for the channel. IAM policies are used to control access to your channel.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31394bd173fe2beb5213e9badd5aafc6ea2b160b870f8a0efcdd0c7418364408)
+            type_hints = cached_type_hints(_typecheckingstub__31394bd173fe2beb5213e9badd5aafc6ea2b160b870f8a0efcdd0c7418364408)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnChannelPolicyProps(channel_name=channel_name, policy=policy)
@@ -1010,18 +999,18 @@ class CfnChannelPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abda8f12a5a6b5f01e1256783fdb08f119d1fa2429aa22f36113b572849fc90e)
+            type_hints = cached_type_hints(_typecheckingstub__abda8f12a5a6b5f01e1256783fdb08f119d1fa2429aa22f36113b572849fc90e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnChannelPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bb5c51872ae1d2e26ab60faf42e8f67d099d72d6182d14f72ac00d2820a1253)
+            type_hints = cached_type_hints(_typecheckingstub__9bb5c51872ae1d2e26ab60faf42e8f67d099d72d6182d14f72ac00d2820a1253)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1034,7 +1023,7 @@ class CfnChannelPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77acf1b52692f677278f400d1fc6aac28c4f4db4641fe9077e743d4105363c94)
+            type_hints = cached_type_hints(_typecheckingstub__77acf1b52692f677278f400d1fc6aac28c4f4db4641fe9077e743d4105363c94)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1056,9 +1045,9 @@ class CfnChannelPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="channelPolicyRef")
-    def channel_policy_ref(self) -> "_ChannelPolicyReference_17b43a81":
+    def channel_policy_ref(self) -> "_aws_mediatailor_60404695.ChannelPolicyReference":
         '''A reference to a ChannelPolicy resource.'''
-        return typing.cast("_ChannelPolicyReference_17b43a81", jsii.get(self, "channelPolicyRef"))
+        return typing.cast("_aws_mediatailor_60404695.ChannelPolicyReference", jsii.get(self, "channelPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -1069,7 +1058,7 @@ class CfnChannelPolicy(
     @channel_name.setter
     def channel_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33c69c2a3ec02545796ab2a280c6251e38cd027ef575f6e9b82b2238d613b8fb)
+            type_hints = cached_type_hints(_typecheckingstub__33c69c2a3ec02545796ab2a280c6251e38cd027ef575f6e9b82b2238d613b8fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
 
@@ -1082,7 +1071,7 @@ class CfnChannelPolicy(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d60990c1542e708efa866295766195f2b5035b80cea3aacc1e22a1d78dd31022)
+            type_hints = cached_type_hints(_typecheckingstub__d60990c1542e708efa866295766195f2b5035b80cea3aacc1e22a1d78dd31022)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -1116,7 +1105,7 @@ class CfnChannelPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d)
+            type_hints = cached_type_hints(_typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cfc228e7d)
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1178,14 +1167,14 @@ class CfnChannelProps:
         self,
         *,
         channel_name: builtins.str,
-        outputs: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.RequestOutputItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        outputs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.RequestOutputItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
         playback_mode: builtins.str,
         audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-        filler_slate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LogConfigurationForChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        filler_slate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.SlateSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.LogConfigurationForChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         tier: typing.Optional[builtins.str] = None,
-        time_shift_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimeShiftConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        time_shift_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnChannel.TimeShiftConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnChannel``.
 
@@ -1249,7 +1238,7 @@ class CfnChannelProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913)
+            type_hints = cached_type_hints(_typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913)
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
             check_type(argname="argument playback_mode", value=playback_mode, expected_type=type_hints["playback_mode"])
@@ -1290,14 +1279,14 @@ class CfnChannelProps:
     @builtins.property
     def outputs(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.RequestOutputItemProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RequestOutputItemProperty"]]]:
         '''The channel's output properties.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-outputs
         '''
         result = self._values.get("outputs")
         assert result is not None, "Required property 'outputs' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.RequestOutputItemProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.RequestOutputItemProperty"]]], result)
 
     @builtins.property
     def playback_mode(self) -> builtins.str:
@@ -1325,7 +1314,7 @@ class CfnChannelProps:
     @builtins.property
     def filler_slate(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SlateSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SlateSourceProperty"]]:
         '''The slate used to fill gaps between programs in the schedule.
 
         You must configure filler slate if your channel uses the ``LINEAR`` ``PlaybackMode`` . MediaTailor doesn't support filler slate for channels using the ``LOOP`` ``PlaybackMode`` .
@@ -1333,21 +1322,21 @@ class CfnChannelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-fillerslate
         '''
         result = self._values.get("filler_slate")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.SlateSourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.SlateSourceProperty"]], result)
 
     @builtins.property
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LogConfigurationForChannelProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LogConfigurationForChannelProperty"]]:
         '''The log configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-logconfiguration
         '''
         result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.LogConfigurationForChannelProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.LogConfigurationForChannelProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the channel.
 
         Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
@@ -1355,7 +1344,7 @@ class CfnChannelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def tier(self) -> typing.Optional[builtins.str]:
@@ -1371,13 +1360,13 @@ class CfnChannelProps:
     @builtins.property
     def time_shift_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimeShiftConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TimeShiftConfigurationProperty"]]:
         '''The configuration for time-shifted viewing.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-channel.html#cfn-mediatailor-channel-timeshiftconfiguration
         '''
         result = self._values.get("time_shift_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimeShiftConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnChannel.TimeShiftConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1391,9 +1380,9 @@ class CfnChannelProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILiveSourceRef_aff5e4da, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.ILiveSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLiveSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnLiveSource",
 ):
@@ -1432,10 +1421,10 @@ class CfnLiveSource(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        http_package_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLiveSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        http_package_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLiveSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         live_source_name: builtins.str,
         source_location_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::LiveSource``.
 
@@ -1447,7 +1436,7 @@ class CfnLiveSource(
         :param tags: The tags assigned to the live source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__caad9e925cf2074f54088c0241999fdbc5c194736555867b7765527f3cac0b4a)
+            type_hints = cached_type_hints(_typecheckingstub__caad9e925cf2074f54088c0241999fdbc5c194736555867b7765527f3cac0b4a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLiveSourceProps(
@@ -1461,12 +1450,15 @@ class CfnLiveSource(
 
     @jsii.member(jsii_name="arnForLiveSource")
     @builtins.classmethod
-    def arn_for_live_source(cls, resource: "_ILiveSourceRef_aff5e4da") -> builtins.str:
+    def arn_for_live_source(
+        cls,
+        resource: "_aws_mediatailor_60404695.ILiveSourceRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b2b664e7ed5590505b220acf48fbfff98a521078fb4767ee5949f9cbd9c0e6a)
+            type_hints = cached_type_hints(_typecheckingstub__6b2b664e7ed5590505b220acf48fbfff98a521078fb4767ee5949f9cbd9c0e6a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLiveSource", [resource]))
 
@@ -1478,18 +1470,18 @@ class CfnLiveSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c51a8418725bfba543ac688a7eb06834d4a3743f7a11753f15ed105923071e2)
+            type_hints = cached_type_hints(_typecheckingstub__0c51a8418725bfba543ac688a7eb06834d4a3743f7a11753f15ed105923071e2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLiveSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed469803ff91fff7fc3040fc3d0bb3fa9a21fd4b59da12961328098a4c73f954)
+            type_hints = cached_type_hints(_typecheckingstub__ed469803ff91fff7fc3040fc3d0bb3fa9a21fd4b59da12961328098a4c73f954)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1502,7 +1494,7 @@ class CfnLiveSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a52884dbe2ce928f779cdf8bd2581daa116db94102e6bf411658389d41cc6b49)
+            type_hints = cached_type_hints(_typecheckingstub__a52884dbe2ce928f779cdf8bd2581daa116db94102e6bf411658389d41cc6b49)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1522,9 +1514,9 @@ class CfnLiveSource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1538,25 +1530,25 @@ class CfnLiveSource(
 
     @builtins.property
     @jsii.member(jsii_name="liveSourceRef")
-    def live_source_ref(self) -> "_LiveSourceReference_4942d98c":
+    def live_source_ref(self) -> "_aws_mediatailor_60404695.LiveSourceReference":
         '''A reference to a LiveSource resource.'''
-        return typing.cast("_LiveSourceReference_4942d98c", jsii.get(self, "liveSourceRef"))
+        return typing.cast("_aws_mediatailor_60404695.LiveSourceReference", jsii.get(self, "liveSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpPackageConfigurations")
     def http_package_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLiveSource.HttpPackageConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLiveSource.HttpPackageConfigurationProperty"]]]:
         '''The HTTP package configurations for the live source.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLiveSource.HttpPackageConfigurationProperty"]]], jsii.get(self, "httpPackageConfigurations"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLiveSource.HttpPackageConfigurationProperty"]]], jsii.get(self, "httpPackageConfigurations"))
 
     @http_package_configurations.setter
     def http_package_configurations(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLiveSource.HttpPackageConfigurationProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLiveSource.HttpPackageConfigurationProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fa182da40e12286d6ab8a5538c3092bd85a8ea141d3aa51a69178e242b53eb9)
+            type_hints = cached_type_hints(_typecheckingstub__3fa182da40e12286d6ab8a5538c3092bd85a8ea141d3aa51a69178e242b53eb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpPackageConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -1569,7 +1561,7 @@ class CfnLiveSource(
     @live_source_name.setter
     def live_source_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac1795bf7c4263fcfbd30da5a955ba17d73ac00d7a1fcf627458bef546932345)
+            type_hints = cached_type_hints(_typecheckingstub__ac1795bf7c4263fcfbd30da5a955ba17d73ac00d7a1fcf627458bef546932345)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "liveSourceName", value) # pyright: ignore[reportArgumentType]
 
@@ -1582,20 +1574,23 @@ class CfnLiveSource(
     @source_location_name.setter
     def source_location_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00b7526b80803bba8c5dd84e954c48ba46ef9972bfff2752568fcf3f83123cdf)
+            type_hints = cached_type_hints(_typecheckingstub__00b7526b80803bba8c5dd84e954c48ba46ef9972bfff2752568fcf3f83123cdf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceLocationName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the live source.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b020567a78e7c965d540da779a72d64a6ce4c5d0070398ae50aae2bb69a1b916)
+            type_hints = cached_type_hints(_typecheckingstub__b020567a78e7c965d540da779a72d64a6ce4c5d0070398ae50aae2bb69a1b916)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -1634,7 +1629,7 @@ class CfnLiveSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13f0630b3469ba702929b845c7fafefb841b9e63dd48246c3a1e4880161e80e4)
+                type_hints = cached_type_hints(_typecheckingstub__13f0630b3469ba702929b845c7fafefb841b9e63dd48246c3a1e4880161e80e4)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument source_group", value=source_group, expected_type=type_hints["source_group"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1706,10 +1701,10 @@ class CfnLiveSourceProps:
     def __init__(
         self,
         *,
-        http_package_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLiveSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        http_package_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLiveSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         live_source_name: builtins.str,
         source_location_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLiveSource``.
 
@@ -1745,7 +1740,7 @@ class CfnLiveSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079)
+            type_hints = cached_type_hints(_typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079)
             check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
             check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
@@ -1761,14 +1756,14 @@ class CfnLiveSourceProps:
     @builtins.property
     def http_package_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLiveSource.HttpPackageConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLiveSource.HttpPackageConfigurationProperty"]]]:
         '''The HTTP package configurations for the live source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-httppackageconfigurations
         '''
         result = self._values.get("http_package_configurations")
         assert result is not None, "Required property 'http_package_configurations' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLiveSource.HttpPackageConfigurationProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLiveSource.HttpPackageConfigurationProperty"]]], result)
 
     @builtins.property
     def live_source_name(self) -> builtins.str:
@@ -1791,7 +1786,7 @@ class CfnLiveSourceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the live source.
 
         Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
@@ -1799,7 +1794,7 @@ class CfnLiveSourceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-livesource.html#cfn-mediatailor-livesource-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1813,9 +1808,9 @@ class CfnLiveSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPlaybackConfigurationRef_12fbcfb6, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IPlaybackConfigurationRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPlaybackConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration",
 ):
@@ -1921,22 +1916,22 @@ class CfnPlaybackConfiguration(
         ad_decision_server_url: builtins.str,
         name: builtins.str,
         video_content_source_url: builtins.str,
-        ad_conditioning_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ad_decision_server_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        avail_suppression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bumper: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cdn_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]] = None,
-        dash_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        function_mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        hls_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ad_conditioning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ad_decision_server_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        dash_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        function_mapping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        hls_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         insertion_mode: typing.Optional[builtins.str] = None,
-        live_pre_roll_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        manifest_processing_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        live_pre_roll_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_processing_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
         slate_ad_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transcode_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::PlaybackConfiguration``.
@@ -1965,7 +1960,7 @@ class CfnPlaybackConfiguration(
         :param transcode_profile_name: The name that is used to associate this playback configuration with a custom transcode profile. This overrides the dynamic transcoding defaults of MediaTailor. Use this only if you have already set up custom profiles with the help of AWS Support.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad6fb6911)
+            type_hints = cached_type_hints(_typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad6fb6911)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPlaybackConfigurationProps(
@@ -1997,13 +1992,13 @@ class CfnPlaybackConfiguration(
     @builtins.classmethod
     def arn_for_playback_configuration(
         cls,
-        resource: "_IPlaybackConfigurationRef_12fbcfb6",
+        resource: "_aws_mediatailor_60404695.IPlaybackConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3335a30b563b424b55efc3fb3fba650a85702c1595cf9e59fff9aeeca795f023)
+            type_hints = cached_type_hints(_typecheckingstub__3335a30b563b424b55efc3fb3fba650a85702c1595cf9e59fff9aeeca795f023)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPlaybackConfiguration", [resource]))
 
@@ -2015,18 +2010,18 @@ class CfnPlaybackConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b043c094b53206253d6d432de9db2a20fbb0b231bb418d502fed6f0f4914378f)
+            type_hints = cached_type_hints(_typecheckingstub__b043c094b53206253d6d432de9db2a20fbb0b231bb418d502fed6f0f4914378f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPlaybackConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e8d0bace48ee23b08adfc8cf00f58f43f86ed9fc0b465a4b9dcfaf76c4a0da6)
+            type_hints = cached_type_hints(_typecheckingstub__6e8d0bace48ee23b08adfc8cf00f58f43f86ed9fc0b465a4b9dcfaf76c4a0da6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2039,7 +2034,7 @@ class CfnPlaybackConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2663bd7b40c241aeca662815955b87975e8fe4bc363957cbc451c0b30548ea05)
+            type_hints = cached_type_hints(_typecheckingstub__2663bd7b40c241aeca662815955b87975e8fe4bc363957cbc451c0b30548ea05)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2112,15 +2107,17 @@ class CfnPlaybackConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="playbackConfigurationRef")
-    def playback_configuration_ref(self) -> "_PlaybackConfigurationReference_5fac9ece":
+    def playback_configuration_ref(
+        self,
+    ) -> "_aws_mediatailor_60404695.PlaybackConfigurationReference":
         '''A reference to a PlaybackConfiguration resource.'''
-        return typing.cast("_PlaybackConfigurationReference_5fac9ece", jsii.get(self, "playbackConfigurationRef"))
+        return typing.cast("_aws_mediatailor_60404695.PlaybackConfigurationReference", jsii.get(self, "playbackConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="adDecisionServerUrl")
@@ -2131,7 +2128,7 @@ class CfnPlaybackConfiguration(
     @ad_decision_server_url.setter
     def ad_decision_server_url(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4b56f24629d4c9547e0b37415660678e3944b62d46a1e55902b5e6c66efe7c6)
+            type_hints = cached_type_hints(_typecheckingstub__b4b56f24629d4c9547e0b37415660678e3944b62d46a1e55902b5e6c66efe7c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adDecisionServerUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -2144,7 +2141,7 @@ class CfnPlaybackConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77c686fa09a4612a1bcc44cf669fb2ff9905ec398da89167e8b0280d8f86750d)
+            type_hints = cached_type_hints(_typecheckingstub__77c686fa09a4612a1bcc44cf669fb2ff9905ec398da89167e8b0280d8f86750d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2157,7 +2154,7 @@ class CfnPlaybackConfiguration(
     @video_content_source_url.setter
     def video_content_source_url(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75b50d6fe13101dc70996fb19d5c8a163f6176ddcd37a0ebe0b08f5f768c4caf)
+            type_hints = cached_type_hints(_typecheckingstub__75b50d6fe13101dc70996fb19d5c8a163f6176ddcd37a0ebe0b08f5f768c4caf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "videoContentSourceUrl", value) # pyright: ignore[reportArgumentType]
 
@@ -2165,17 +2162,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="adConditioningConfiguration")
     def ad_conditioning_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
         '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], jsii.get(self, "adConditioningConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], jsii.get(self, "adConditioningConfiguration"))
 
     @ad_conditioning_configuration.setter
     def ad_conditioning_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273a1bbc94)
+            type_hints = cached_type_hints(_typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273a1bbc94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adConditioningConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2183,17 +2180,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="adDecisionServerConfiguration")
     def ad_decision_server_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]]:
         '''The configuration for the request to the specified Ad Decision Server URL.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]], jsii.get(self, "adDecisionServerConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]], jsii.get(self, "adDecisionServerConfiguration"))
 
     @ad_decision_server_configuration.setter
     def ad_decision_server_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22beebeb31ad301089cab0d08fffbf7d70892dcdea0070ebbc8c036efa8475c2)
+            type_hints = cached_type_hints(_typecheckingstub__22beebeb31ad301089cab0d08fffbf7d70892dcdea0070ebbc8c036efa8475c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adDecisionServerConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2201,17 +2198,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="availSuppression")
     def avail_suppression(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AvailSuppressionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]]:
         '''The configuration for avail suppression, also known as ad suppression.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AvailSuppressionProperty"]], jsii.get(self, "availSuppression"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]], jsii.get(self, "availSuppression"))
 
     @avail_suppression.setter
     def avail_suppression(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AvailSuppressionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ace1eb1809c3c05a0b25523b0f61020aa7d5a69057cdffb522c74d7881b0c1c8)
+            type_hints = cached_type_hints(_typecheckingstub__ace1eb1809c3c05a0b25523b0f61020aa7d5a69057cdffb522c74d7881b0c1c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availSuppression", value) # pyright: ignore[reportArgumentType]
 
@@ -2219,17 +2216,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="bumper")
     def bumper(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.BumperProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BumperProperty"]]:
         '''The configuration for bumpers.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.BumperProperty"]], jsii.get(self, "bumper"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BumperProperty"]], jsii.get(self, "bumper"))
 
     @bumper.setter
     def bumper(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.BumperProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BumperProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9796c91ff0edc4be04998ed524be6012eae7fa3574e5c120fe393fab79a2a12)
+            type_hints = cached_type_hints(_typecheckingstub__e9796c91ff0edc4be04998ed524be6012eae7fa3574e5c120fe393fab79a2a12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bumper", value) # pyright: ignore[reportArgumentType]
 
@@ -2237,17 +2234,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="cdnConfiguration")
     def cdn_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.CdnConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.CdnConfigurationProperty"]]:
         '''The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.CdnConfigurationProperty"]], jsii.get(self, "cdnConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.CdnConfigurationProperty"]], jsii.get(self, "cdnConfiguration"))
 
     @cdn_configuration.setter
     def cdn_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.CdnConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.CdnConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8cdb9ae7c7cff86d16687474d65af7b5ddb86256dce88926d439a4c82e07acf)
+            type_hints = cached_type_hints(_typecheckingstub__a8cdb9ae7c7cff86d16687474d65af7b5ddb86256dce88926d439a4c82e07acf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cdnConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2255,17 +2252,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="configurationAliases")
     def configuration_aliases(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The player parameters and aliases used as dynamic variables during session initialization.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]], jsii.get(self, "configurationAliases"))
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "configurationAliases"))
 
     @configuration_aliases.setter
     def configuration_aliases(
         self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e98fdfcc661f8c91728f46bbafe4c5c1160d075338a4b6e66789b7147006439)
+            type_hints = cached_type_hints(_typecheckingstub__5e98fdfcc661f8c91728f46bbafe4c5c1160d075338a4b6e66789b7147006439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configurationAliases", value) # pyright: ignore[reportArgumentType]
 
@@ -2273,17 +2270,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="dashConfiguration")
     def dash_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.DashConfigurationProperty"]]:
         '''The configuration for a DASH source.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]], jsii.get(self, "dashConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.DashConfigurationProperty"]], jsii.get(self, "dashConfiguration"))
 
     @dash_configuration.setter
     def dash_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.DashConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1528a1dd277ec2643ed08e71e4d817660b15a7515d36800d1a4c45be4bdd944)
+            type_hints = cached_type_hints(_typecheckingstub__e1528a1dd277ec2643ed08e71e4d817660b15a7515d36800d1a4c45be4bdd944)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2291,17 +2288,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="functionMapping")
     def function_mapping(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of event names to function identifiers for custom processing during session lifecycle events.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "functionMapping"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "functionMapping"))
 
     @function_mapping.setter
     def function_mapping(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ce9f9a164e16917763fbfce05ef66083a15fe183466a65359b9714cccd1b42c)
+            type_hints = cached_type_hints(_typecheckingstub__7ce9f9a164e16917763fbfce05ef66083a15fe183466a65359b9714cccd1b42c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "functionMapping", value) # pyright: ignore[reportArgumentType]
 
@@ -2309,17 +2306,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="hlsConfiguration")
     def hls_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HlsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HlsConfigurationProperty"]]:
         '''The configuration for HLS content.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HlsConfigurationProperty"]], jsii.get(self, "hlsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HlsConfigurationProperty"]], jsii.get(self, "hlsConfiguration"))
 
     @hls_configuration.setter
     def hls_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HlsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HlsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c53800db93b8d74956b4a23e4372e79b770aeb9e98d1001196859bcb54e01d0)
+            type_hints = cached_type_hints(_typecheckingstub__8c53800db93b8d74956b4a23e4372e79b770aeb9e98d1001196859bcb54e01d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hlsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2332,7 +2329,7 @@ class CfnPlaybackConfiguration(
     @insertion_mode.setter
     def insertion_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8db08ab0a15b5e71226bad5d4d94682032ded680bfe3f777d4f4ef02bad39cbf)
+            type_hints = cached_type_hints(_typecheckingstub__8db08ab0a15b5e71226bad5d4d94682032ded680bfe3f777d4f4ef02bad39cbf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insertionMode", value) # pyright: ignore[reportArgumentType]
 
@@ -2340,17 +2337,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="livePreRollConfiguration")
     def live_pre_roll_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]]:
         '''The configuration for pre-roll ad insertion.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]], jsii.get(self, "livePreRollConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]], jsii.get(self, "livePreRollConfiguration"))
 
     @live_pre_roll_configuration.setter
     def live_pre_roll_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d20db08db40dad827f8fdbbfd9ec60bdd03cf18a0cf5f764aedb5ed9040d782f)
+            type_hints = cached_type_hints(_typecheckingstub__d20db08db40dad827f8fdbbfd9ec60bdd03cf18a0cf5f764aedb5ed9040d782f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "livePreRollConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2358,17 +2355,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="logConfiguration")
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
         '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LogConfigurationProperty"]], jsii.get(self, "logConfiguration"))
 
     @log_configuration.setter
     def log_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LogConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LogConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6fbfb7358fa4aedc54b5bb197d51ad46d862c18709b40e671060ad3ab400894)
+            type_hints = cached_type_hints(_typecheckingstub__a6fbfb7358fa4aedc54b5bb197d51ad46d862c18709b40e671060ad3ab400894)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2376,17 +2373,17 @@ class CfnPlaybackConfiguration(
     @jsii.member(jsii_name="manifestProcessingRules")
     def manifest_processing_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]]:
         '''The configuration for manifest processing rules.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]], jsii.get(self, "manifestProcessingRules"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]], jsii.get(self, "manifestProcessingRules"))
 
     @manifest_processing_rules.setter
     def manifest_processing_rules(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ef2be3172d1df94da8603df93c79aa68aa713132917a7f79ee5d67eca13bdc5)
+            type_hints = cached_type_hints(_typecheckingstub__7ef2be3172d1df94da8603df93c79aa68aa713132917a7f79ee5d67eca13bdc5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "manifestProcessingRules", value) # pyright: ignore[reportArgumentType]
 
@@ -2402,7 +2399,7 @@ class CfnPlaybackConfiguration(
         value: typing.Optional[jsii.Number],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf4368b8d6051e265005679584bc63cae740383861026b06e26c9de1f0954cee)
+            type_hints = cached_type_hints(_typecheckingstub__cf4368b8d6051e265005679584bc63cae740383861026b06e26c9de1f0954cee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "personalizationThresholdSeconds", value) # pyright: ignore[reportArgumentType]
 
@@ -2415,20 +2412,23 @@ class CfnPlaybackConfiguration(
     @slate_ad_url.setter
     def slate_ad_url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__905f1e5f55e6f998cb17136c0f4a82bcebc656a336f14fbf28f45aab3b7ab881)
+            type_hints = cached_type_hints(_typecheckingstub__905f1e5f55e6f998cb17136c0f4a82bcebc656a336f14fbf28f45aab3b7ab881)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "slateAdUrl", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the playback configuration.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d76f0247a7421af76c87f40a095ad78f3c6ad9b0a567e02e8daca4c67eee9302)
+            type_hints = cached_type_hints(_typecheckingstub__d76f0247a7421af76c87f40a095ad78f3c6ad9b0a567e02e8daca4c67eee9302)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2441,7 +2441,7 @@ class CfnPlaybackConfiguration(
     @transcode_profile_name.setter
     def transcode_profile_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab6a880d781d782bb5f703943747735b9af031af290dd1ad2e9ebe2732d26c2d)
+            type_hints = cached_type_hints(_typecheckingstub__ab6a880d781d782bb5f703943747735b9af031af290dd1ad2e9ebe2732d26c2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transcodeProfileName", value) # pyright: ignore[reportArgumentType]
 
@@ -2472,7 +2472,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b203c711ea)
+                type_hints = cached_type_hints(_typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b203c711ea)
                 check_type(argname="argument streaming_media_file_conditioning", value=streaming_media_file_conditioning, expected_type=type_hints["streaming_media_file_conditioning"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "streaming_media_file_conditioning": streaming_media_file_conditioning,
@@ -2510,7 +2510,7 @@ class CfnPlaybackConfiguration(
         def __init__(
             self,
             *,
-            http_request: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.HttpRequestProperty", typing.Dict[builtins.str, typing.Any]]],
+            http_request: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HttpRequestProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The configuration for the request to the specified Ad Decision Server URL.
 
@@ -2537,7 +2537,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383)
+                type_hints = cached_type_hints(_typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383)
                 check_type(argname="argument http_request", value=http_request, expected_type=type_hints["http_request"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "http_request": http_request,
@@ -2546,14 +2546,14 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def http_request(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HttpRequestProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"]:
             '''The configuration for the request to the Ad Decision Server URL.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverconfiguration-httprequest
             '''
             result = self._values.get("http_request")
             assert result is not None, "Required property 'http_request' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HttpRequestProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HttpRequestProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2575,7 +2575,7 @@ class CfnPlaybackConfiguration(
         def __init__(
             self,
             *,
-            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''For HLS, when set to ``true`` , MediaTailor passes through ``EXT-X-CUE-IN`` , ``EXT-X-CUE-OUT`` , and ``EXT-X-SPLICEPOINT-SCTE35`` ad markers from the origin manifest to the MediaTailor personalized manifest.
 
@@ -2597,7 +2597,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c84cc8c470c35ea1870d24a6e58a722cc2d0952d699c858000349755866ccea6)
+                type_hints = cached_type_hints(_typecheckingstub__c84cc8c470c35ea1870d24a6e58a722cc2d0952d699c858000349755866ccea6)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if enabled is not None:
@@ -2606,13 +2606,13 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Enables ad marker passthrough for your configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-admarkerpassthrough.html#cfn-mediatailor-playbackconfiguration-admarkerpassthrough-enabled
             '''
             result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2662,7 +2662,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__325f2da032e4a3f14a765ea1c946c8707bfd649b7df813a9bf9d270b2edfcd0f)
+                type_hints = cached_type_hints(_typecheckingstub__325f2da032e4a3f14a765ea1c946c8707bfd649b7df813a9bf9d270b2edfcd0f)
                 check_type(argname="argument exclude_event_types", value=exclude_event_types, expected_type=type_hints["exclude_event_types"])
                 check_type(argname="argument publish_opt_in_event_types", value=publish_opt_in_event_types, expected_type=type_hints["publish_opt_in_event_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2739,7 +2739,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8b4195a89a44a68af7fade1bdaaea19a0b3104ca5fc40a34ac2c5440a8d5f1d0)
+                type_hints = cached_type_hints(_typecheckingstub__8b4195a89a44a68af7fade1bdaaea19a0b3104ca5fc40a34ac2c5440a8d5f1d0)
                 check_type(argname="argument fill_policy", value=fill_policy, expected_type=type_hints["fill_policy"])
                 check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2829,7 +2829,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4d8e62c25a38e7667cc4c7f67e131b03585a6b02ccb1e6956572e91491c2565)
+                type_hints = cached_type_hints(_typecheckingstub__d4d8e62c25a38e7667cc4c7f67e131b03585a6b02ccb1e6956572e91491c2565)
                 check_type(argname="argument end_url", value=end_url, expected_type=type_hints["end_url"])
                 check_type(argname="argument start_url", value=start_url, expected_type=type_hints["start_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2902,7 +2902,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__11ed9c00b014872bf1ce7a32f613cee3497f59c3a8f8ed7c34d59e731f7a30a1)
+                type_hints = cached_type_hints(_typecheckingstub__11ed9c00b014872bf1ce7a32f613cee3497f59c3a8f8ed7c34d59e731f7a30a1)
                 check_type(argname="argument ad_segment_url_prefix", value=ad_segment_url_prefix, expected_type=type_hints["ad_segment_url_prefix"])
                 check_type(argname="argument content_segment_url_prefix", value=content_segment_url_prefix, expected_type=type_hints["content_segment_url_prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2983,7 +2983,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed436176dc8bad043834221f15764e2997c06a895bb8dc9c71dc24d9d4c62fe8)
+                type_hints = cached_type_hints(_typecheckingstub__ed436176dc8bad043834221f15764e2997c06a895bb8dc9c71dc24d9d4c62fe8)
                 check_type(argname="argument manifest_endpoint_prefix", value=manifest_endpoint_prefix, expected_type=type_hints["manifest_endpoint_prefix"])
                 check_type(argname="argument mpd_location", value=mpd_location, expected_type=type_hints["mpd_location"])
                 check_type(argname="argument origin_manifest_type", value=origin_manifest_type, expected_type=type_hints["origin_manifest_type"])
@@ -3068,7 +3068,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc73c21d5b8ef9a10443ded7266b5dc44c0980daadbc5f8f5a49b9793967e1ed)
+                type_hints = cached_type_hints(_typecheckingstub__cc73c21d5b8ef9a10443ded7266b5dc44c0980daadbc5f8f5a49b9793967e1ed)
                 check_type(argname="argument manifest_endpoint_prefix", value=manifest_endpoint_prefix, expected_type=type_hints["manifest_endpoint_prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if manifest_endpoint_prefix is not None:
@@ -3112,7 +3112,7 @@ class CfnPlaybackConfiguration(
             *,
             body: typing.Optional[builtins.str] = None,
             compress_request: typing.Optional[builtins.str] = None,
-            headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             http_method: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration for the request to the Ad Decision Server URL.
@@ -3141,7 +3141,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7a1a27fdd711151047a9a372fb7f330c24afc446e3e97dd914e66a4a4a637017)
+                type_hints = cached_type_hints(_typecheckingstub__7a1a27fdd711151047a9a372fb7f330c24afc446e3e97dd914e66a4a4a637017)
                 check_type(argname="argument body", value=body, expected_type=type_hints["body"])
                 check_type(argname="argument compress_request", value=compress_request, expected_type=type_hints["compress_request"])
                 check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
@@ -3181,7 +3181,7 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def headers(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The headers in the request sent to the Ad Decision Server URL.
 
             The max length is 10,000 characters.
@@ -3189,7 +3189,7 @@ class CfnPlaybackConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-httprequest.html#cfn-mediatailor-playbackconfiguration-httprequest-headers
             '''
             result = self._values.get("headers")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def http_method(self) -> typing.Optional[builtins.str]:
@@ -3246,7 +3246,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a48d1a93)
+                type_hints = cached_type_hints(_typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a48d1a93)
                 check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
                 check_type(argname="argument max_duration_seconds", value=max_duration_seconds, expected_type=type_hints["max_duration_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3303,9 +3303,9 @@ class CfnPlaybackConfiguration(
             self,
             *,
             percent_enabled: jsii.Number,
-            ads_interaction_log: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdsInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ads_interaction_log: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             enabled_logging_strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
-            manifest_service_interaction_log: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            manifest_service_interaction_log: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
 
@@ -3338,7 +3338,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0b1a16aa41d90a41939aee256096b129464d60c87f4e8ac32c6ce9c43de9dcfd)
+                type_hints = cached_type_hints(_typecheckingstub__0b1a16aa41d90a41939aee256096b129464d60c87f4e8ac32c6ce9c43de9dcfd)
                 check_type(argname="argument percent_enabled", value=percent_enabled, expected_type=type_hints["percent_enabled"])
                 check_type(argname="argument ads_interaction_log", value=ads_interaction_log, expected_type=type_hints["ads_interaction_log"])
                 check_type(argname="argument enabled_logging_strategies", value=enabled_logging_strategies, expected_type=type_hints["enabled_logging_strategies"])
@@ -3370,13 +3370,13 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def ads_interaction_log(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdsInteractionLogProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsInteractionLogProperty"]]:
             '''Settings for customizing what events are included in logs for interactions with the ad decision server (ADS).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-adsinteractionlog
             '''
             result = self._values.get("ads_interaction_log")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdsInteractionLogProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdsInteractionLogProperty"]], result)
 
         @builtins.property
         def enabled_logging_strategies(
@@ -3394,13 +3394,13 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def manifest_service_interaction_log(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]]:
             '''Settings for customizing what events are included in logs for interactions with the origin server.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-logconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration-manifestserviceinteractionlog
             '''
             result = self._values.get("manifest_service_interaction_log")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3422,7 +3422,7 @@ class CfnPlaybackConfiguration(
         def __init__(
             self,
             *,
-            ad_marker_passthrough: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdMarkerPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ad_marker_passthrough: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdMarkerPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration for manifest processing rules.
 
@@ -3446,7 +3446,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ef5bb7a5b9697fa8ca9b867a5d8f7f8c6041a353ed9fad8ec9b06f14fd300d73)
+                type_hints = cached_type_hints(_typecheckingstub__ef5bb7a5b9697fa8ca9b867a5d8f7f8c6041a353ed9fad8ec9b06f14fd300d73)
                 check_type(argname="argument ad_marker_passthrough", value=ad_marker_passthrough, expected_type=type_hints["ad_marker_passthrough"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ad_marker_passthrough is not None:
@@ -3455,7 +3455,7 @@ class CfnPlaybackConfiguration(
         @builtins.property
         def ad_marker_passthrough(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdMarkerPassthroughProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdMarkerPassthroughProperty"]]:
             '''For HLS, when set to ``true`` , MediaTailor passes through ``EXT-X-CUE-IN`` , ``EXT-X-CUE-OUT`` , and ``EXT-X-SPLICEPOINT-SCTE35`` ad markers from the origin manifest to the MediaTailor personalized manifest.
 
             No logic is applied to these ad markers. For example, if ``EXT-X-CUE-OUT`` has a value of ``60`` , but no ads are filled for that ad break, MediaTailor will not set the value to ``0`` .
@@ -3463,7 +3463,7 @@ class CfnPlaybackConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-manifestprocessingrules.html#cfn-mediatailor-playbackconfiguration-manifestprocessingrules-admarkerpassthrough
             '''
             result = self._values.get("ad_marker_passthrough")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdMarkerPassthroughProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdMarkerPassthroughProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3507,7 +3507,7 @@ class CfnPlaybackConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5facd5374)
+                type_hints = cached_type_hints(_typecheckingstub__877d8a60ce1cb5812848b2604b2ff4a34e5662596f05cca7a6a335a5facd5374)
                 check_type(argname="argument exclude_event_types", value=exclude_event_types, expected_type=type_hints["exclude_event_types"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if exclude_event_types is not None:
@@ -3567,22 +3567,22 @@ class CfnPlaybackConfigurationProps:
         ad_decision_server_url: builtins.str,
         name: builtins.str,
         video_content_source_url: builtins.str,
-        ad_conditioning_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ad_decision_server_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        avail_suppression: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        bumper: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cdn_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]] = None,
-        dash_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        function_mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        hls_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ad_conditioning_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ad_decision_server_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        dash_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        function_mapping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        hls_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         insertion_mode: typing.Optional[builtins.str] = None,
-        live_pre_roll_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        manifest_processing_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        live_pre_roll_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_processing_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.ManifestProcessingRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
         slate_ad_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transcode_profile_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPlaybackConfiguration``.
@@ -3699,7 +3699,7 @@ class CfnPlaybackConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8)
+            type_hints = cached_type_hints(_typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c011539346f8)
             check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument video_content_source_url", value=video_content_source_url, expected_type=type_hints["video_content_source_url"])
@@ -3797,29 +3797,29 @@ class CfnPlaybackConfigurationProps:
     @builtins.property
     def ad_conditioning_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
         '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adconditioningconfiguration
         '''
         result = self._values.get("ad_conditioning_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], result)
 
     @builtins.property
     def ad_decision_server_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]]:
         '''The configuration for the request to the specified Ad Decision Server URL.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-addecisionserverconfiguration
         '''
         result = self._values.get("ad_decision_server_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty"]], result)
 
     @builtins.property
     def avail_suppression(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AvailSuppressionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]]:
         '''The configuration for avail suppression, also known as ad suppression.
 
         For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
@@ -3827,12 +3827,12 @@ class CfnPlaybackConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-availsuppression
         '''
         result = self._values.get("avail_suppression")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.AvailSuppressionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]], result)
 
     @builtins.property
     def bumper(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.BumperProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BumperProperty"]]:
         '''The configuration for bumpers.
 
         Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
@@ -3840,23 +3840,23 @@ class CfnPlaybackConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-bumper
         '''
         result = self._values.get("bumper")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.BumperProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BumperProperty"]], result)
 
     @builtins.property
     def cdn_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.CdnConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.CdnConfigurationProperty"]]:
         '''The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-cdnconfiguration
         '''
         result = self._values.get("cdn_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.CdnConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.CdnConfigurationProperty"]], result)
 
     @builtins.property
     def configuration_aliases(
         self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
         '''The player parameters and aliases used as dynamic variables during session initialization.
 
         For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
@@ -3864,40 +3864,40 @@ class CfnPlaybackConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-configurationaliases
         '''
         result = self._values.get("configuration_aliases")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def dash_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.DashConfigurationProperty"]]:
         '''The configuration for a DASH source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-dashconfiguration
         '''
         result = self._values.get("dash_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.DashConfigurationProperty"]], result)
 
     @builtins.property
     def function_mapping(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of event names to function identifiers for custom processing during session lifecycle events.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-functionmapping
         '''
         result = self._values.get("function_mapping")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def hls_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HlsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HlsConfigurationProperty"]]:
         '''The configuration for HLS content.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-hlsconfiguration
         '''
         result = self._values.get("hls_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.HlsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.HlsConfigurationProperty"]], result)
 
     @builtins.property
     def insertion_mode(self) -> typing.Optional[builtins.str]:
@@ -3913,29 +3913,29 @@ class CfnPlaybackConfigurationProps:
     @builtins.property
     def live_pre_roll_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]]:
         '''The configuration for pre-roll ad insertion.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-liveprerollconfiguration
         '''
         result = self._values.get("live_pre_roll_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LivePreRollConfigurationProperty"]], result)
 
     @builtins.property
     def log_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LogConfigurationProperty"]]:
         '''Defines where AWS Elemental MediaTailor sends logs for the playback configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-logconfiguration
         '''
         result = self._values.get("log_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.LogConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.LogConfigurationProperty"]], result)
 
     @builtins.property
     def manifest_processing_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]]:
         '''The configuration for manifest processing rules.
 
         Manifest processing rules enable customization of the personalized manifests created by MediaTailor.
@@ -3943,7 +3943,7 @@ class CfnPlaybackConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-manifestprocessingrules
         '''
         result = self._values.get("manifest_processing_rules")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ManifestProcessingRulesProperty"]], result)
 
     @builtins.property
     def personalization_threshold_seconds(self) -> typing.Optional[jsii.Number]:
@@ -3968,7 +3968,7 @@ class CfnPlaybackConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags to assign to the playback configuration.
 
         Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
@@ -3976,7 +3976,7 @@ class CfnPlaybackConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def transcode_profile_name(self) -> typing.Optional[builtins.str]:
@@ -4001,9 +4001,9 @@ class CfnPlaybackConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISourceLocationRef_240f0e28, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.ISourceLocationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSourceLocation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnSourceLocation",
 ):
@@ -4056,12 +4056,12 @@ class CfnSourceLocation(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        http_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.HttpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        http_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.HttpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         source_location_name: builtins.str,
-        access_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.AccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        default_segment_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        segment_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.SegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        access_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.AccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_segment_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.SegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::SourceLocation``.
 
@@ -4075,7 +4075,7 @@ class CfnSourceLocation(
         :param tags: The tags assigned to the source location. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f5f7e59d)
+            type_hints = cached_type_hints(_typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f5f7e59d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSourceLocationProps(
@@ -4093,15 +4093,57 @@ class CfnSourceLocation(
     @builtins.classmethod
     def arn_for_source_location(
         cls,
-        resource: "_ISourceLocationRef_240f0e28",
+        resource: "_aws_mediatailor_60404695.ISourceLocationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616)
+            type_hints = cached_type_hints(_typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceLocation", [resource]))
+
+    @jsii.member(jsii_name="fromSourceLocationArn")
+    @builtins.classmethod
+    def from_source_location_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_mediatailor_60404695.ISourceLocationRef":
+        '''Creates a new ISourceLocationRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_mediatailor_60404695.ISourceLocationRef", jsii.sinvoke(cls, "fromSourceLocationArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromSourceLocationName")
+    @builtins.classmethod
+    def from_source_location_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        source_location_name: builtins.str,
+    ) -> "_aws_mediatailor_60404695.ISourceLocationRef":
+        '''Creates a new ISourceLocationRef from a sourceLocationName.
+
+        :param scope: -
+        :param id: -
+        :param source_location_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+        return typing.cast("_aws_mediatailor_60404695.ISourceLocationRef", jsii.sinvoke(cls, "fromSourceLocationName", [scope, id, source_location_name]))
 
     @jsii.member(jsii_name="isCfnSourceLocation")
     @builtins.classmethod
@@ -4111,18 +4153,18 @@ class CfnSourceLocation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28b271fcaa782dcce30289b4d3e9cd1597cc2e403d5decad01698ce3810fc642)
+            type_hints = cached_type_hints(_typecheckingstub__28b271fcaa782dcce30289b4d3e9cd1597cc2e403d5decad01698ce3810fc642)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSourceLocation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8a67b4bd9eabe7dff32771e3855c5f4b09c52cc321708cd63f64f1f290488c1)
+            type_hints = cached_type_hints(_typecheckingstub__a8a67b4bd9eabe7dff32771e3855c5f4b09c52cc321708cd63f64f1f290488c1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4135,7 +4177,7 @@ class CfnSourceLocation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9c819cfa165355742944ead86f157d5e4fe520ec150ce7cb7367ac66b39c700)
+            type_hints = cached_type_hints(_typecheckingstub__d9c819cfa165355742944ead86f157d5e4fe520ec150ce7cb7367ac66b39c700)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4155,9 +4197,9 @@ class CfnSourceLocation(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4171,25 +4213,27 @@ class CfnSourceLocation(
 
     @builtins.property
     @jsii.member(jsii_name="sourceLocationRef")
-    def source_location_ref(self) -> "_SourceLocationReference_17b19686":
+    def source_location_ref(
+        self,
+    ) -> "_aws_mediatailor_60404695.SourceLocationReference":
         '''A reference to a SourceLocation resource.'''
-        return typing.cast("_SourceLocationReference_17b19686", jsii.get(self, "sourceLocationRef"))
+        return typing.cast("_aws_mediatailor_60404695.SourceLocationReference", jsii.get(self, "sourceLocationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpConfiguration")
     def http_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.HttpConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.HttpConfigurationProperty"]:
         '''The HTTP configuration for the source location.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.HttpConfigurationProperty"], jsii.get(self, "httpConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.HttpConfigurationProperty"], jsii.get(self, "httpConfiguration"))
 
     @http_configuration.setter
     def http_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.HttpConfigurationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.HttpConfigurationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be0faeec30de7aa74e972fa9be4f5ef1134314ff5984d14b00fc6e2596ceb488)
+            type_hints = cached_type_hints(_typecheckingstub__be0faeec30de7aa74e972fa9be4f5ef1134314ff5984d14b00fc6e2596ceb488)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4202,7 +4246,7 @@ class CfnSourceLocation(
     @source_location_name.setter
     def source_location_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3bd8c206592bff1adae3d34013e03de975c95df7847310b70d730fb7b9498b6)
+            type_hints = cached_type_hints(_typecheckingstub__f3bd8c206592bff1adae3d34013e03de975c95df7847310b70d730fb7b9498b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceLocationName", value) # pyright: ignore[reportArgumentType]
 
@@ -4210,17 +4254,17 @@ class CfnSourceLocation(
     @jsii.member(jsii_name="accessConfiguration")
     def access_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.AccessConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.AccessConfigurationProperty"]]:
         '''The access configuration for the source location.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.AccessConfigurationProperty"]], jsii.get(self, "accessConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.AccessConfigurationProperty"]], jsii.get(self, "accessConfiguration"))
 
     @access_configuration.setter
     def access_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.AccessConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.AccessConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1bc53fb2d4148510df3244898b3da3e4ac17d9faee3835bc73da5ad63931214)
+            type_hints = cached_type_hints(_typecheckingstub__c1bc53fb2d4148510df3244898b3da3e4ac17d9faee3835bc73da5ad63931214)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4228,17 +4272,17 @@ class CfnSourceLocation(
     @jsii.member(jsii_name="defaultSegmentDeliveryConfiguration")
     def default_segment_delivery_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]]:
         '''The default segment delivery configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]], jsii.get(self, "defaultSegmentDeliveryConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]], jsii.get(self, "defaultSegmentDeliveryConfiguration"))
 
     @default_segment_delivery_configuration.setter
     def default_segment_delivery_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b431a09702c35ab502bf465075ac7a7d86895d1cc20d16caec630b4e0a366dc)
+            type_hints = cached_type_hints(_typecheckingstub__7b431a09702c35ab502bf465075ac7a7d86895d1cc20d16caec630b4e0a366dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultSegmentDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -4246,30 +4290,33 @@ class CfnSourceLocation(
     @jsii.member(jsii_name="segmentDeliveryConfigurations")
     def segment_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]]:
         '''The segment delivery configurations for the source location.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]], jsii.get(self, "segmentDeliveryConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]], jsii.get(self, "segmentDeliveryConfigurations"))
 
     @segment_delivery_configurations.setter
     def segment_delivery_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__725f16ab7057c1a2a01a0de087479721b15670cf708ed95838c4271ad45c009a)
+            type_hints = cached_type_hints(_typecheckingstub__725f16ab7057c1a2a01a0de087479721b15670cf708ed95838c4271ad45c009a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "segmentDeliveryConfigurations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the source location.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af85fa3fdd92d33488c46dc70861bcea3919f31a13ab83bd91920e11557a0620)
+            type_hints = cached_type_hints(_typecheckingstub__af85fa3fdd92d33488c46dc70861bcea3919f31a13ab83bd91920e11557a0620)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -4286,7 +4333,7 @@ class CfnSourceLocation(
             self,
             *,
             access_type: typing.Optional[builtins.str] = None,
-            secrets_manager_access_token_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets_manager_access_token_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Access configuration parameters.
 
@@ -4312,7 +4359,7 @@ class CfnSourceLocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__df138d384fef8104d70a1dae201bed1b055b8ef01c97ffa764008d6423001711)
+                type_hints = cached_type_hints(_typecheckingstub__df138d384fef8104d70a1dae201bed1b055b8ef01c97ffa764008d6423001711)
                 check_type(argname="argument access_type", value=access_type, expected_type=type_hints["access_type"])
                 check_type(argname="argument secrets_manager_access_token_configuration", value=secrets_manager_access_token_configuration, expected_type=type_hints["secrets_manager_access_token_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4343,13 +4390,13 @@ class CfnSourceLocation(
         @builtins.property
         def secrets_manager_access_token_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty"]]:
             '''AWS Secrets Manager access token configuration parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-sourcelocation-accessconfiguration.html#cfn-mediatailor-sourcelocation-accessconfiguration-secretsmanageraccesstokenconfiguration
             '''
             result = self._values.get("secrets_manager_access_token_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4389,7 +4436,7 @@ class CfnSourceLocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c8f2bdbcfd97bfab31281eb19a1cb75bcd15849095da44b410f2703593facdc)
+                type_hints = cached_type_hints(_typecheckingstub__7c8f2bdbcfd97bfab31281eb19a1cb75bcd15849095da44b410f2703593facdc)
                 check_type(argname="argument base_url", value=base_url, expected_type=type_hints["base_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if base_url is not None:
@@ -4442,7 +4489,7 @@ class CfnSourceLocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a880194f274158b8a0b3d6dab7716d3a29cb93edfb1f5ef3e8b507eb8379c18a)
+                type_hints = cached_type_hints(_typecheckingstub__a880194f274158b8a0b3d6dab7716d3a29cb93edfb1f5ef3e8b507eb8379c18a)
                 check_type(argname="argument base_url", value=base_url, expected_type=type_hints["base_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "base_url": base_url,
@@ -4512,7 +4559,7 @@ class CfnSourceLocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2feb4b5d75163b5824572e2ce3caac3c88483a5919f3648703d571fb23723c19)
+                type_hints = cached_type_hints(_typecheckingstub__2feb4b5d75163b5824572e2ce3caac3c88483a5919f3648703d571fb23723c19)
                 check_type(argname="argument header_name", value=header_name, expected_type=type_hints["header_name"])
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
                 check_type(argname="argument secret_string_key", value=secret_string_key, expected_type=type_hints["secret_string_key"])
@@ -4594,7 +4641,7 @@ class CfnSourceLocation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__383b15aa1a1faec4ed8f2f0982e5ba8e88dfe9184d36b17c3b787e66a0c45076)
+                type_hints = cached_type_hints(_typecheckingstub__383b15aa1a1faec4ed8f2f0982e5ba8e88dfe9184d36b17c3b787e66a0c45076)
                 check_type(argname="argument base_url", value=base_url, expected_type=type_hints["base_url"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4651,12 +4698,12 @@ class CfnSourceLocationProps:
     def __init__(
         self,
         *,
-        http_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.HttpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        http_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.HttpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         source_location_name: builtins.str,
-        access_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.AccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        default_segment_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        segment_delivery_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSourceLocation.SegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        access_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.AccessConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_segment_delivery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_delivery_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSourceLocation.SegmentDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSourceLocation``.
 
@@ -4706,7 +4753,7 @@ class CfnSourceLocationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c)
+            type_hints = cached_type_hints(_typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c)
             check_type(argname="argument http_configuration", value=http_configuration, expected_type=type_hints["http_configuration"])
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
             check_type(argname="argument access_configuration", value=access_configuration, expected_type=type_hints["access_configuration"])
@@ -4729,14 +4776,14 @@ class CfnSourceLocationProps:
     @builtins.property
     def http_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.HttpConfigurationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.HttpConfigurationProperty"]:
         '''The HTTP configuration for the source location.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-httpconfiguration
         '''
         result = self._values.get("http_configuration")
         assert result is not None, "Required property 'http_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.HttpConfigurationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.HttpConfigurationProperty"], result)
 
     @builtins.property
     def source_location_name(self) -> builtins.str:
@@ -4751,38 +4798,38 @@ class CfnSourceLocationProps:
     @builtins.property
     def access_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.AccessConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.AccessConfigurationProperty"]]:
         '''The access configuration for the source location.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-accessconfiguration
         '''
         result = self._values.get("access_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.AccessConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.AccessConfigurationProperty"]], result)
 
     @builtins.property
     def default_segment_delivery_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]]:
         '''The default segment delivery configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-defaultsegmentdeliveryconfiguration
         '''
         result = self._values.get("default_segment_delivery_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty"]], result)
 
     @builtins.property
     def segment_delivery_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]]:
         '''The segment delivery configurations for the source location.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-segmentdeliveryconfigurations
         '''
         result = self._values.get("segment_delivery_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSourceLocation.SegmentDeliveryConfigurationProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the source location.
 
         Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
@@ -4790,7 +4837,7 @@ class CfnSourceLocationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-sourcelocation.html#cfn-mediatailor-sourcelocation-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4804,9 +4851,9 @@ class CfnSourceLocationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVodSourceRef_6ec4c083, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_mediatailor_60404695.IVodSourceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnVodSource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_mediatailor.CfnVodSource",
 ):
@@ -4845,10 +4892,10 @@ class CfnVodSource(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        http_package_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVodSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        http_package_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVodSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         source_location_name: builtins.str,
         vod_source_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaTailor::VodSource``.
 
@@ -4860,7 +4907,7 @@ class CfnVodSource(
         :param tags: The tags assigned to the VOD source. Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__456acf01c6ad372c9c8ba7c229fe88f13ceaab57f8599ae26cb522443527fd9d)
+            type_hints = cached_type_hints(_typecheckingstub__456acf01c6ad372c9c8ba7c229fe88f13ceaab57f8599ae26cb522443527fd9d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVodSourceProps(
@@ -4874,12 +4921,15 @@ class CfnVodSource(
 
     @jsii.member(jsii_name="arnForVodSource")
     @builtins.classmethod
-    def arn_for_vod_source(cls, resource: "_IVodSourceRef_6ec4c083") -> builtins.str:
+    def arn_for_vod_source(
+        cls,
+        resource: "_aws_mediatailor_60404695.IVodSourceRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__224cd199576868d6ca76d7e26d603a6d1c6751f09853b7fb5b817a6eb612797a)
+            type_hints = cached_type_hints(_typecheckingstub__224cd199576868d6ca76d7e26d603a6d1c6751f09853b7fb5b817a6eb612797a)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVodSource", [resource]))
 
@@ -4891,18 +4941,18 @@ class CfnVodSource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9fef99885381928f7ba0e402481bee119922885242f232dbc479ebe8869d09e)
+            type_hints = cached_type_hints(_typecheckingstub__c9fef99885381928f7ba0e402481bee119922885242f232dbc479ebe8869d09e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVodSource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09f36c1aa9a889afe2053c87ff538aaf36dd3ae8b29c1a426f2f27df0c755587)
+            type_hints = cached_type_hints(_typecheckingstub__09f36c1aa9a889afe2053c87ff538aaf36dd3ae8b29c1a426f2f27df0c755587)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4915,7 +4965,7 @@ class CfnVodSource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fac6a9f7df2b2fa380098721a1683c1b80379d1bf38dc173b47c777a640cc87)
+            type_hints = cached_type_hints(_typecheckingstub__0fac6a9f7df2b2fa380098721a1683c1b80379d1bf38dc173b47c777a640cc87)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4935,9 +4985,9 @@ class CfnVodSource(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4951,25 +5001,25 @@ class CfnVodSource(
 
     @builtins.property
     @jsii.member(jsii_name="vodSourceRef")
-    def vod_source_ref(self) -> "_VodSourceReference_453b2a99":
+    def vod_source_ref(self) -> "_aws_mediatailor_60404695.VodSourceReference":
         '''A reference to a VodSource resource.'''
-        return typing.cast("_VodSourceReference_453b2a99", jsii.get(self, "vodSourceRef"))
+        return typing.cast("_aws_mediatailor_60404695.VodSourceReference", jsii.get(self, "vodSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="httpPackageConfigurations")
     def http_package_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVodSource.HttpPackageConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVodSource.HttpPackageConfigurationProperty"]]]:
         '''The HTTP package configurations for the VOD source.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVodSource.HttpPackageConfigurationProperty"]]], jsii.get(self, "httpPackageConfigurations"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVodSource.HttpPackageConfigurationProperty"]]], jsii.get(self, "httpPackageConfigurations"))
 
     @http_package_configurations.setter
     def http_package_configurations(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVodSource.HttpPackageConfigurationProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVodSource.HttpPackageConfigurationProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1be44ceb1280a35c91079ff378249f514c9df3469b3e1257c192599da563deef)
+            type_hints = cached_type_hints(_typecheckingstub__1be44ceb1280a35c91079ff378249f514c9df3469b3e1257c192599da563deef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "httpPackageConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -4982,7 +5032,7 @@ class CfnVodSource(
     @source_location_name.setter
     def source_location_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b024f23946c6a28358d006df405f270d55f1f6b4a70a5a588afc68d41cc70624)
+            type_hints = cached_type_hints(_typecheckingstub__b024f23946c6a28358d006df405f270d55f1f6b4a70a5a588afc68d41cc70624)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceLocationName", value) # pyright: ignore[reportArgumentType]
 
@@ -4995,20 +5045,23 @@ class CfnVodSource(
     @vod_source_name.setter
     def vod_source_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe11f723e58c9d9e3dfc9ccb7d7fd5b0cd8cb02c57d5f7a45f9877126b0d6460)
+            type_hints = cached_type_hints(_typecheckingstub__fe11f723e58c9d9e3dfc9ccb7d7fd5b0cd8cb02c57d5f7a45f9877126b0d6460)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vodSourceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the VOD source.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b30548ca419f7047c53d6514a5066199fd7138b99172f58964bdbf0d75d3395)
+            type_hints = cached_type_hints(_typecheckingstub__0b30548ca419f7047c53d6514a5066199fd7138b99172f58964bdbf0d75d3395)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -5047,7 +5100,7 @@ class CfnVodSource(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0eb3dfa97b84bfa86c7915674bc55816a5f4e9bec9047c683b97e5bd68f4d997)
+                type_hints = cached_type_hints(_typecheckingstub__0eb3dfa97b84bfa86c7915674bc55816a5f4e9bec9047c683b97e5bd68f4d997)
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument source_group", value=source_group, expected_type=type_hints["source_group"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -5119,10 +5172,10 @@ class CfnVodSourceProps:
     def __init__(
         self,
         *,
-        http_package_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVodSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        http_package_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnVodSource.HttpPackageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         source_location_name: builtins.str,
         vod_source_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnVodSource``.
 
@@ -5158,7 +5211,7 @@ class CfnVodSourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9)
+            type_hints = cached_type_hints(_typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9)
             check_type(argname="argument http_package_configurations", value=http_package_configurations, expected_type=type_hints["http_package_configurations"])
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
             check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])
@@ -5174,14 +5227,14 @@ class CfnVodSourceProps:
     @builtins.property
     def http_package_configurations(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVodSource.HttpPackageConfigurationProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVodSource.HttpPackageConfigurationProperty"]]]:
         '''The HTTP package configurations for the VOD source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-httppackageconfigurations
         '''
         result = self._values.get("http_package_configurations")
         assert result is not None, "Required property 'http_package_configurations' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnVodSource.HttpPackageConfigurationProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnVodSource.HttpPackageConfigurationProperty"]]], result)
 
     @builtins.property
     def source_location_name(self) -> builtins.str:
@@ -5204,7 +5257,7 @@ class CfnVodSourceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags assigned to the VOD source.
 
         Tags are key-value pairs that you can associate with Amazon resources to help with organization, access control, and cost tracking. For more information, see `Tagging AWS Elemental MediaTailor Resources <https://docs.aws.amazon.com/mediatailor/latest/ug/tagging.html>`_ .
@@ -5212,7 +5265,7 @@ class CfnVodSourceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-vodsource.html#cfn-mediatailor-vodsource-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5248,20 +5301,20 @@ def _typecheckingstub__95afc802641850838d7d754c58072c279165a93bff5fc055789c1090a
     id: builtins.str,
     *,
     channel_name: builtins.str,
-    outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    outputs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     playback_mode: builtins.str,
     audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-    filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filler_slate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     tier: typing.Optional[builtins.str] = None,
-    time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_shift_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__418fb2485d366f3c8a7b8a95c0dcf780cd3d97d1eacd74f40d7d10b930f2ab95(
-    resource: _IChannelRef_3696dd49,
+    resource: _aws_mediatailor_60404695.IChannelRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5289,7 +5342,7 @@ def _typecheckingstub__b40a7b4e84fbe554602e7462685b4c9b4a1175e608e5fd8e878b86fe3
     pass
 
 def _typecheckingstub__d632b023994803b26caa2590748766e0dabab5ba299874fe587fa9f37c926bda(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5307,7 +5360,7 @@ def _typecheckingstub__414356f19e6a1e142f58fb20d5aa3f44fd76f93ad6f9a944f9177c71e
     pass
 
 def _typecheckingstub__f6c205b75797f1a6f80dab721b03fc96335f8bd384f7c63aab656bd3136a90ed(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.RequestOutputItemProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.RequestOutputItemProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5325,19 +5378,19 @@ def _typecheckingstub__978734f277fe2347cb97632bb681ac7a90ce350df65be207f74234337
     pass
 
 def _typecheckingstub__bb99598f2b90f05f74078bf9dbab5d32c9f963ec0c7f60fc84c741cd7f7a72d5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.SlateSourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.SlateSourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__272cdcfa3dd55bace9d7517c474b5f20801108c57ec19149b84a6595215b1252(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.LogConfigurationForChannelProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.LogConfigurationForChannelProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3bde4918e4d23e04040b87adfc6739660dba537c84b0ca2f813daacbf009f298(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5349,7 +5402,7 @@ def _typecheckingstub__35198b30b0429365e601c60c11c6bb80791a3176a301d1fac563832c0
     pass
 
 def _typecheckingstub__5b3c40cad99c53a2773855f4cd98f257598efcf21fd51b6bb734064a33f180c7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.TimeShiftConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnChannel.TimeShiftConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5383,8 +5436,8 @@ def _typecheckingstub__f1d4c3a316ddc28d5db9dbd943c872960619d5643164875a0009ce4f4
     *,
     manifest_name: builtins.str,
     source_group: builtins.str,
-    dash_playlist_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DashPlaylistSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    hls_playlist_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.HlsPlaylistSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dash_playlist_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.DashPlaylistSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hls_playlist_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.HlsPlaylistSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5421,7 +5474,7 @@ def _typecheckingstub__abda8f12a5a6b5f01e1256783fdb08f119d1fa2429aa22f36113b5728
     pass
 
 def _typecheckingstub__9bb5c51872ae1d2e26ab60faf42e8f67d099d72d6182d14f72ac00d2820a1253(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5455,14 +5508,14 @@ def _typecheckingstub__0760e4c2515aab3aa0d5aa04febae58f777b0b8b02fe135798d73d9cf
 def _typecheckingstub__34f9c53dfc17c104058553b2c51bffbfeea7885ab9628618cedcaf8634562913(
     *,
     channel_name: builtins.str,
-    outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    outputs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.RequestOutputItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
     playback_mode: builtins.str,
     audiences: typing.Optional[typing.Sequence[builtins.str]] = None,
-    filler_slate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filler_slate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.SlateSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.LogConfigurationForChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     tier: typing.Optional[builtins.str] = None,
-    time_shift_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time_shift_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannel.TimeShiftConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5471,16 +5524,16 @@ def _typecheckingstub__caad9e925cf2074f54088c0241999fdbc5c194736555867b7765527f3
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    http_package_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     live_source_name: builtins.str,
     source_location_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6b2b664e7ed5590505b220acf48fbfff98a521078fb4767ee5949f9cbd9c0e6a(
-    resource: _ILiveSourceRef_aff5e4da,
+    resource: _aws_mediatailor_60404695.ILiveSourceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5492,7 +5545,7 @@ def _typecheckingstub__0c51a8418725bfba543ac688a7eb06834d4a3743f7a11753f15ed1059
     pass
 
 def _typecheckingstub__ed469803ff91fff7fc3040fc3d0bb3fa9a21fd4b59da12961328098a4c73f954(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5504,7 +5557,7 @@ def _typecheckingstub__a52884dbe2ce928f779cdf8bd2581daa116db94102e6bf411658389d4
     pass
 
 def _typecheckingstub__3fa182da40e12286d6ab8a5538c3092bd85a8ea141d3aa51a69178e242b53eb9(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLiveSource.HttpPackageConfigurationProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLiveSource.HttpPackageConfigurationProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5522,7 +5575,7 @@ def _typecheckingstub__00b7526b80803bba8c5dd84e954c48ba46ef9972bfff2752568fcf3f8
     pass
 
 def _typecheckingstub__b020567a78e7c965d540da779a72d64a6ce4c5d0070398ae50aae2bb69a1b916(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5538,10 +5591,10 @@ def _typecheckingstub__13f0630b3469ba702929b845c7fafefb841b9e63dd48246c3a1e48801
 
 def _typecheckingstub__adc89490043dd5c6acaa08c89f60f172168bb565829b267f04a07c3038db8079(
     *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    http_package_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLiveSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     live_source_name: builtins.str,
     source_location_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5553,29 +5606,29 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     ad_decision_server_url: builtins.str,
     name: builtins.str,
     video_content_source_url: builtins.str,
-    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ad_decision_server_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
-    dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    function_mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ad_conditioning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ad_decision_server_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
+    dash_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    function_mapping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    hls_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     insertion_mode: typing.Optional[builtins.str] = None,
-    live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    live_pre_roll_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_processing_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
     slate_ad_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transcode_profile_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3335a30b563b424b55efc3fb3fba650a85702c1595cf9e59fff9aeeca795f023(
-    resource: _IPlaybackConfigurationRef_12fbcfb6,
+    resource: _aws_mediatailor_60404695.IPlaybackConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5587,7 +5640,7 @@ def _typecheckingstub__b043c094b53206253d6d432de9db2a20fbb0b231bb418d502fed6f0f4
     pass
 
 def _typecheckingstub__6e8d0bace48ee23b08adfc8cf00f58f43f86ed9fc0b465a4b9dcfaf76c4a0da6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5617,55 +5670,55 @@ def _typecheckingstub__75b50d6fe13101dc70996fb19d5c8a163f6176ddcd37a0ebe0b08f5f7
     pass
 
 def _typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273a1bbc94(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__22beebeb31ad301089cab0d08fffbf7d70892dcdea0070ebbc8c036efa8475c2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ace1eb1809c3c05a0b25523b0f61020aa7d5a69057cdffb522c74d7881b0c1c8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AvailSuppressionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AvailSuppressionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e9796c91ff0edc4be04998ed524be6012eae7fa3574e5c120fe393fab79a2a12(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.BumperProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.BumperProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a8cdb9ae7c7cff86d16687474d65af7b5ddb86256dce88926d439a4c82e07acf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.CdnConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.CdnConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5e98fdfcc661f8c91728f46bbafe4c5c1160d075338a4b6e66789b7147006439(
-    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e1528a1dd277ec2643ed08e71e4d817660b15a7515d36800d1a4c45be4bdd944(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.DashConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.DashConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7ce9f9a164e16917763fbfce05ef66083a15fe183466a65359b9714cccd1b42c(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8c53800db93b8d74956b4a23e4372e79b770aeb9e98d1001196859bcb54e01d0(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.HlsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.HlsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5677,19 +5730,19 @@ def _typecheckingstub__8db08ab0a15b5e71226bad5d4d94682032ded680bfe3f777d4f4ef02b
     pass
 
 def _typecheckingstub__d20db08db40dad827f8fdbbfd9ec60bdd03cf18a0cf5f764aedb5ed9040d782f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.LivePreRollConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a6fbfb7358fa4aedc54b5bb197d51ad46d862c18709b40e671060ad3ab400894(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.LogConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.LogConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7ef2be3172d1df94da8603df93c79aa68aa713132917a7f79ee5d67eca13bdc5(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.ManifestProcessingRulesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.ManifestProcessingRulesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5707,7 +5760,7 @@ def _typecheckingstub__905f1e5f55e6f998cb17136c0f4a82bcebc656a336f14fbf28f45aab3
     pass
 
 def _typecheckingstub__d76f0247a7421af76c87f40a095ad78f3c6ad9b0a567e02e8daca4c67eee9302(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5727,14 +5780,14 @@ def _typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b20
 
 def _typecheckingstub__be522b7afa0a40f87526bb5baa285488ee37ade9f2edd720c05a21cdcf1ba383(
     *,
-    http_request: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HttpRequestProperty, typing.Dict[builtins.str, typing.Any]]],
+    http_request: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HttpRequestProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c84cc8c470c35ea1870d24a6e58a722cc2d0952d699c858000349755866ccea6(
     *,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5792,7 +5845,7 @@ def _typecheckingstub__7a1a27fdd711151047a9a372fb7f330c24afc446e3e97dd914e66a4a4
     *,
     body: typing.Optional[builtins.str] = None,
     compress_request: typing.Optional[builtins.str] = None,
-    headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     http_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5809,16 +5862,16 @@ def _typecheckingstub__be1326ff9046a5c3b87adfaac42a0610149574f9d367d1c04949ccf8a
 def _typecheckingstub__0b1a16aa41d90a41939aee256096b129464d60c87f4e8ac32c6ce9c43de9dcfd(
     *,
     percent_enabled: jsii.Number,
-    ads_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdsInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ads_interaction_log: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     enabled_logging_strategies: typing.Optional[typing.Sequence[builtins.str]] = None,
-    manifest_service_interaction_log: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_service_interaction_log: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.ManifestServiceInteractionLogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ef5bb7a5b9697fa8ca9b867a5d8f7f8c6041a353ed9fad8ec9b06f14fd300d73(
     *,
-    ad_marker_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdMarkerPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ad_marker_passthrough: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdMarkerPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5835,22 +5888,22 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     ad_decision_server_url: builtins.str,
     name: builtins.str,
     video_content_source_url: builtins.str,
-    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ad_decision_server_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
-    dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    function_mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ad_conditioning_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ad_decision_server_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdDecisionServerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
+    dash_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    function_mapping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    hls_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     insertion_mode: typing.Optional[builtins.str] = None,
-    live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    manifest_processing_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    live_pre_roll_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_processing_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.ManifestProcessingRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     personalization_threshold_seconds: typing.Optional[jsii.Number] = None,
     slate_ad_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transcode_profile_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5860,18 +5913,34 @@ def _typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    http_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     source_location_name: builtins.str,
-    access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    access_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_segment_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616(
-    resource: _ISourceLocationRef_240f0e28,
+    resource: _aws_mediatailor_60404695.ISourceLocationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    source_location_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5883,7 +5952,7 @@ def _typecheckingstub__28b271fcaa782dcce30289b4d3e9cd1597cc2e403d5decad01698ce38
     pass
 
 def _typecheckingstub__a8a67b4bd9eabe7dff32771e3855c5f4b09c52cc321708cd63f64f1f290488c1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5895,7 +5964,7 @@ def _typecheckingstub__d9c819cfa165355742944ead86f157d5e4fe520ec150ce7cb7367ac66
     pass
 
 def _typecheckingstub__be0faeec30de7aa74e972fa9be4f5ef1134314ff5984d14b00fc6e2596ceb488(
-    value: typing.Union[_IResolvable_da3f097b, CfnSourceLocation.HttpConfigurationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSourceLocation.HttpConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5907,25 +5976,25 @@ def _typecheckingstub__f3bd8c206592bff1adae3d34013e03de975c95df7847310b70d730fb7
     pass
 
 def _typecheckingstub__c1bc53fb2d4148510df3244898b3da3e4ac17d9faee3835bc73da5ad63931214(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.AccessConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSourceLocation.AccessConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7b431a09702c35ab502bf465075ac7a7d86895d1cc20d16caec630b4e0a366dc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__725f16ab7057c1a2a01a0de087479721b15670cf708ed95838c4271ad45c009a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSourceLocation.SegmentDeliveryConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSourceLocation.SegmentDeliveryConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__af85fa3fdd92d33488c46dc70861bcea3919f31a13ab83bd91920e11557a0620(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5933,7 +6002,7 @@ def _typecheckingstub__af85fa3fdd92d33488c46dc70861bcea3919f31a13ab83bd91920e115
 def _typecheckingstub__df138d384fef8104d70a1dae201bed1b055b8ef01c97ffa764008d6423001711(
     *,
     access_type: typing.Optional[builtins.str] = None,
-    secrets_manager_access_token_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets_manager_access_token_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.SecretsManagerAccessTokenConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5971,12 +6040,12 @@ def _typecheckingstub__383b15aa1a1faec4ed8f2f0982e5ba8e88dfe9184d36b17c3b787e66a
 
 def _typecheckingstub__cb562c06ea390d62a28e2d88d462a731b39635f142da846f03422a25348fff7c(
     *,
-    http_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    http_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.HttpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     source_location_name: builtins.str,
-    access_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    default_segment_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    segment_delivery_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    access_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.AccessConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    default_segment_delivery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.DefaultSegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_delivery_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSourceLocation.SegmentDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5985,16 +6054,16 @@ def _typecheckingstub__456acf01c6ad372c9c8ba7c229fe88f13ceaab57f8599ae26cb522443
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    http_package_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     source_location_name: builtins.str,
     vod_source_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__224cd199576868d6ca76d7e26d603a6d1c6751f09853b7fb5b817a6eb612797a(
-    resource: _IVodSourceRef_6ec4c083,
+    resource: _aws_mediatailor_60404695.IVodSourceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6006,7 +6075,7 @@ def _typecheckingstub__c9fef99885381928f7ba0e402481bee119922885242f232dbc479ebe8
     pass
 
 def _typecheckingstub__09f36c1aa9a889afe2053c87ff538aaf36dd3ae8b29c1a426f2f27df0c755587(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6018,7 +6087,7 @@ def _typecheckingstub__0fac6a9f7df2b2fa380098721a1683c1b80379d1bf38dc173b47c777a
     pass
 
 def _typecheckingstub__1be44ceb1280a35c91079ff378249f514c9df3469b3e1257c192599da563deef(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnVodSource.HttpPackageConfigurationProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnVodSource.HttpPackageConfigurationProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6036,7 +6105,7 @@ def _typecheckingstub__fe11f723e58c9d9e3dfc9ccb7d7fd5b0cd8cb02c57d5f7a45f9877126
     pass
 
 def _typecheckingstub__0b30548ca419f7047c53d6514a5066199fd7138b99172f58964bdbf0d75d3395(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6052,10 +6121,10 @@ def _typecheckingstub__0eb3dfa97b84bfa86c7915674bc55816a5f4e9bec9047c683b97e5bd6
 
 def _typecheckingstub__4ff95c6173b55a15ec19a7b2a2215e5380dc3d4986fdb2e4c47b40fce1b625d9(
     *,
-    http_package_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    http_package_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVodSource.HttpPackageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
     source_location_name: builtins.str,
     vod_source_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

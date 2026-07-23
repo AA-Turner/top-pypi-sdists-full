@@ -104,6 +104,8 @@ tag_association.node.add_dependency(table)
 
 Additionally, you may need to use the lakeformation console to give permissions, particularly to give the cdk-exec-role tagging permissions.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -117,53 +119,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_lakeformation import (
-    DataCellsFilterReference as _DataCellsFilterReference_1943354f,
-    DataLakeSettingsReference as _DataLakeSettingsReference_5b5097ba,
-    IDataCellsFilterRef as _IDataCellsFilterRef_ab07b737,
-    IDataLakeSettingsRef as _IDataLakeSettingsRef_ebb6da67,
-    IPermissionsRef as _IPermissionsRef_36016707,
-    IPrincipalPermissionsRef as _IPrincipalPermissionsRef_dffaf2ff,
-    IResourceRef as _IResourceRef_8c770b78,
-    ITagAssociationRef as _ITagAssociationRef_44c9c652,
-    ITagRef as _ITagRef_2e4c8000,
-    PermissionsReference as _PermissionsReference_6a285a6e,
-    PrincipalPermissionsReference as _PrincipalPermissionsReference_a01708bf,
-    ResourceReference as _ResourceReference_b2b6af26,
-    TagAssociationReference as _TagAssociationReference_14f51cb8,
-    TagReference as _TagReference_a11c7075,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_lakeformation as _aws_lakeformation_2059f41a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_lakeformation_2059f41a = _LazyImport("aws_cdk.interfaces.aws_lakeformation")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataCellsFilterRef_ab07b737)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.IDataCellsFilterRef)
 class CfnDataCellsFilter(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataCellsFilter",
 ):
@@ -211,8 +196,8 @@ class CfnDataCellsFilter(
         table_catalog_id: builtins.str,
         table_name: builtins.str,
         column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        row_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        column_wildcard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        row_filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::LakeFormation::DataCellsFilter``.
 
@@ -227,7 +212,7 @@ class CfnDataCellsFilter(
         :param row_filter: A PartiQL predicate.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a9e0f2e2c8572da6300632b42930370bb203310961a1d82af3036a8c04fd788)
+            type_hints = cached_type_hints(_typecheckingstub__4a9e0f2e2c8572da6300632b42930370bb203310961a1d82af3036a8c04fd788)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataCellsFilterProps(
@@ -250,18 +235,18 @@ class CfnDataCellsFilter(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__064e96a955388eac684f181d198f459ef59fd2eadf5408df858fc22c20dc1dca)
+            type_hints = cached_type_hints(_typecheckingstub__064e96a955388eac684f181d198f459ef59fd2eadf5408df858fc22c20dc1dca)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataCellsFilter", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ec2c4ae3e05879746cc41d6b7ec6a03ba20902ffc48bd129aa397d1d5a70e7e)
+            type_hints = cached_type_hints(_typecheckingstub__4ec2c4ae3e05879746cc41d6b7ec6a03ba20902ffc48bd129aa397d1d5a70e7e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -274,7 +259,7 @@ class CfnDataCellsFilter(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7550823f808ffe201e6847b495d6892ddb995ec5519cee9493e2f6a540da733)
+            type_hints = cached_type_hints(_typecheckingstub__a7550823f808ffe201e6847b495d6892ddb995ec5519cee9493e2f6a540da733)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -296,9 +281,11 @@ class CfnDataCellsFilter(
 
     @builtins.property
     @jsii.member(jsii_name="dataCellsFilterRef")
-    def data_cells_filter_ref(self) -> "_DataCellsFilterReference_1943354f":
+    def data_cells_filter_ref(
+        self,
+    ) -> "_aws_lakeformation_2059f41a.DataCellsFilterReference":
         '''A reference to a DataCellsFilter resource.'''
-        return typing.cast("_DataCellsFilterReference_1943354f", jsii.get(self, "dataCellsFilterRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.DataCellsFilterReference", jsii.get(self, "dataCellsFilterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -309,7 +296,7 @@ class CfnDataCellsFilter(
     @database_name.setter
     def database_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc93dcc91058f9885e949d095cb9cbd4ebbf83657aef2c98bdbd7642aa2b641f)
+            type_hints = cached_type_hints(_typecheckingstub__cc93dcc91058f9885e949d095cb9cbd4ebbf83657aef2c98bdbd7642aa2b641f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
 
@@ -322,7 +309,7 @@ class CfnDataCellsFilter(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48e194f3f5e117b948f5fd8f39a3c23624f934ba178488c21dcbeb47739eb3d2)
+            type_hints = cached_type_hints(_typecheckingstub__48e194f3f5e117b948f5fd8f39a3c23624f934ba178488c21dcbeb47739eb3d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -335,7 +322,7 @@ class CfnDataCellsFilter(
     @table_catalog_id.setter
     def table_catalog_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a2c891466da3cee74414ca67472fd45c6fe92a42dbf54f91e90276b9db4a09d)
+            type_hints = cached_type_hints(_typecheckingstub__3a2c891466da3cee74414ca67472fd45c6fe92a42dbf54f91e90276b9db4a09d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableCatalogId", value) # pyright: ignore[reportArgumentType]
 
@@ -348,7 +335,7 @@ class CfnDataCellsFilter(
     @table_name.setter
     def table_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b9edb03eab58adb69826ccb4eeac83e17f956f28af214b840626176e3b23986)
+            type_hints = cached_type_hints(_typecheckingstub__6b9edb03eab58adb69826ccb4eeac83e17f956f28af214b840626176e3b23986)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
 
@@ -361,7 +348,7 @@ class CfnDataCellsFilter(
     @column_names.setter
     def column_names(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e63b539b5926a43d01e515712efb604ac6b3d1ede325bc1b9c5dffd65f6b333c)
+            type_hints = cached_type_hints(_typecheckingstub__e63b539b5926a43d01e515712efb604ac6b3d1ede325bc1b9c5dffd65f6b333c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "columnNames", value) # pyright: ignore[reportArgumentType]
 
@@ -369,17 +356,17 @@ class CfnDataCellsFilter(
     @jsii.member(jsii_name="columnWildcard")
     def column_wildcard(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
         '''A wildcard with exclusions.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]], jsii.get(self, "columnWildcard"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.ColumnWildcardProperty"]], jsii.get(self, "columnWildcard"))
 
     @column_wildcard.setter
     def column_wildcard(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.ColumnWildcardProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24e7504a12b1b5d7e26809268009dbec0ff8e5b821de877742f07891ecfccf10)
+            type_hints = cached_type_hints(_typecheckingstub__24e7504a12b1b5d7e26809268009dbec0ff8e5b821de877742f07891ecfccf10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "columnWildcard", value) # pyright: ignore[reportArgumentType]
 
@@ -387,17 +374,17 @@ class CfnDataCellsFilter(
     @jsii.member(jsii_name="rowFilter")
     def row_filter(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.RowFilterProperty"]]:
         '''A PartiQL predicate.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]], jsii.get(self, "rowFilter"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.RowFilterProperty"]], jsii.get(self, "rowFilter"))
 
     @row_filter.setter
     def row_filter(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.RowFilterProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f504934d13512b5f3bc876387b568ad7594bcf89c9905c5e36a7ab25137e38)
+            type_hints = cached_type_hints(_typecheckingstub__f9f504934d13512b5f3bc876387b568ad7594bcf89c9905c5e36a7ab25137e38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rowFilter", value) # pyright: ignore[reportArgumentType]
 
@@ -430,7 +417,7 @@ class CfnDataCellsFilter(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d84dab12def7ab74d756b3488b56485fbe9e3c5d2293a55ee2317a32e970e93a)
+                type_hints = cached_type_hints(_typecheckingstub__d84dab12def7ab74d756b3488b56485fbe9e3c5d2293a55ee2317a32e970e93a)
                 check_type(argname="argument excluded_column_names", value=excluded_column_names, expected_type=type_hints["excluded_column_names"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if excluded_column_names is not None:
@@ -495,7 +482,7 @@ class CfnDataCellsFilter(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7b949fde25ae1b3b377b26570479963a5dec16b47fe2674ce47b5ea088af049)
+                type_hints = cached_type_hints(_typecheckingstub__e7b949fde25ae1b3b377b26570479963a5dec16b47fe2674ce47b5ea088af049)
                 check_type(argname="argument all_rows_wildcard", value=all_rows_wildcard, expected_type=type_hints["all_rows_wildcard"])
                 check_type(argname="argument filter_expression", value=filter_expression, expected_type=type_hints["filter_expression"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -556,8 +543,8 @@ class CfnDataCellsFilterProps:
         table_catalog_id: builtins.str,
         table_name: builtins.str,
         column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        row_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        column_wildcard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataCellsFilter.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        row_filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataCellsFilter.RowFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataCellsFilter``.
 
@@ -598,7 +585,7 @@ class CfnDataCellsFilterProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8)
+            type_hints = cached_type_hints(_typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b6774fc6a8)
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
@@ -681,7 +668,7 @@ class CfnDataCellsFilterProps:
     @builtins.property
     def column_wildcard(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.ColumnWildcardProperty"]]:
         '''A wildcard with exclusions.
 
         You must specify either a ``ColumnNames`` list or the ``ColumnWildCard`` .
@@ -689,18 +676,18 @@ class CfnDataCellsFilterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-columnwildcard
         '''
         result = self._values.get("column_wildcard")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.ColumnWildcardProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.ColumnWildcardProperty"]], result)
 
     @builtins.property
     def row_filter(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.RowFilterProperty"]]:
         '''A PartiQL predicate.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datacellsfilter.html#cfn-lakeformation-datacellsfilter-rowfilter
         '''
         result = self._values.get("row_filter")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataCellsFilter.RowFilterProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataCellsFilter.RowFilterProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -714,9 +701,9 @@ class CfnDataCellsFilterProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDataLakeSettingsRef_ebb6da67)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.IDataLakeSettingsRef)
 class CfnDataLakeSettings(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnDataLakeSettings",
 ):
@@ -805,16 +792,16 @@ class CfnDataLakeSettings(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        admins: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_data_filtering_allow_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         mutation_type: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        read_only_admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        read_only_admins: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::LakeFormation::DataLakeSettings``.
@@ -834,7 +821,7 @@ class CfnDataLakeSettings(
         :param trusted_resource_owners: An array of UTF-8 strings. A list of the resource-owning account IDs that the caller's account can use to share their user access details (user ARNs). The user ARNs can be logged in the resource owner's CloudTrail log. You may want to specify this property when you are in a high-trust boundary, such as the same team or company.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f54d92319)
+            type_hints = cached_type_hints(_typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f54d92319)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataLakeSettingsProps(
@@ -861,18 +848,18 @@ class CfnDataLakeSettings(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8183d65f16c9622dd0f9f4baf30d0cc013e74660077cd751fe435b4e17410ed5)
+            type_hints = cached_type_hints(_typecheckingstub__8183d65f16c9622dd0f9f4baf30d0cc013e74660077cd751fe435b4e17410ed5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataLakeSettings", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45022e2f75497dc5031de0534471b774f37d3e0163dd1cf0944a879956918611)
+            type_hints = cached_type_hints(_typecheckingstub__45022e2f75497dc5031de0534471b774f37d3e0163dd1cf0944a879956918611)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -885,7 +872,7 @@ class CfnDataLakeSettings(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__638c6babf62b74da5a2cf7141e8d1f010dd75138406d16700684bff77834fdb5)
+            type_hints = cached_type_hints(_typecheckingstub__638c6babf62b74da5a2cf7141e8d1f010dd75138406d16700684bff77834fdb5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -915,9 +902,11 @@ class CfnDataLakeSettings(
 
     @builtins.property
     @jsii.member(jsii_name="dataLakeSettingsRef")
-    def data_lake_settings_ref(self) -> "_DataLakeSettingsReference_5b5097ba":
+    def data_lake_settings_ref(
+        self,
+    ) -> "_aws_lakeformation_2059f41a.DataLakeSettingsReference":
         '''A reference to a DataLakeSettings resource.'''
-        return typing.cast("_DataLakeSettingsReference_5b5097ba", jsii.get(self, "dataLakeSettingsRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.DataLakeSettingsReference", jsii.get(self, "dataLakeSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -928,7 +917,7 @@ class CfnDataLakeSettings(
     @parameters.setter
     def parameters(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
+            type_hints = cached_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
@@ -936,17 +925,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="admins")
     def admins(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of AWS Lake Formation principals.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "admins"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "admins"))
 
     @admins.setter
     def admins(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df68ab1ab5b6831a2e0f48c47e111909fcae53ceb431cf9876b2a6b3ee4895a8)
+            type_hints = cached_type_hints(_typecheckingstub__df68ab1ab5b6831a2e0f48c47e111909fcae53ceb431cf9876b2a6b3ee4895a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "admins", value) # pyright: ignore[reportArgumentType]
 
@@ -954,17 +943,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="allowExternalDataFiltering")
     def allow_external_data_filtering(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowExternalDataFiltering"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowExternalDataFiltering"))
 
     @allow_external_data_filtering.setter
     def allow_external_data_filtering(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad4d063925881a74c4f1073af94f569441bb4b8f7c58ee42383196bbb4e64aad)
+            type_hints = cached_type_hints(_typecheckingstub__ad4d063925881a74c4f1073af94f569441bb4b8f7c58ee42383196bbb4e64aad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowExternalDataFiltering", value) # pyright: ignore[reportArgumentType]
 
@@ -972,17 +961,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="allowFullTableExternalDataAccess")
     def allow_full_table_external_data_access(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowFullTableExternalDataAccess"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowFullTableExternalDataAccess"))
 
     @allow_full_table_external_data_access.setter
     def allow_full_table_external_data_access(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd742952d98269b8002ba10662034f93cd9f5539a1e7f5e8835e8ab1b222c85d)
+            type_hints = cached_type_hints(_typecheckingstub__cd742952d98269b8002ba10662034f93cd9f5539a1e7f5e8835e8ab1b222c85d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowFullTableExternalDataAccess", value) # pyright: ignore[reportArgumentType]
 
@@ -1000,7 +989,7 @@ class CfnDataLakeSettings(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd0547c17046b539f4cc757ea06d70b24e27b41611578b3219bd0ca23fe6ecd0)
+            type_hints = cached_type_hints(_typecheckingstub__dd0547c17046b539f4cc757ea06d70b24e27b41611578b3219bd0ca23fe6ecd0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authorizedSessionTagValueList", value) # pyright: ignore[reportArgumentType]
 
@@ -1008,17 +997,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="createDatabaseDefaultPermissions")
     def create_database_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createDatabaseDefaultPermissions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createDatabaseDefaultPermissions"))
 
     @create_database_default_permissions.setter
     def create_database_default_permissions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__436b96d2708f96f391be82ba6eaa6481bbecd3b17c06354069035866187d1b45)
+            type_hints = cached_type_hints(_typecheckingstub__436b96d2708f96f391be82ba6eaa6481bbecd3b17c06354069035866187d1b45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "createDatabaseDefaultPermissions", value) # pyright: ignore[reportArgumentType]
 
@@ -1026,17 +1015,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="createTableDefaultPermissions")
     def create_table_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createTableDefaultPermissions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], jsii.get(self, "createTableDefaultPermissions"))
 
     @create_table_default_permissions.setter
     def create_table_default_permissions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60f9c70a917c1c3ef84f9fe5f53041f2cdd59022a7255ab1c017bbfc4891f92f)
+            type_hints = cached_type_hints(_typecheckingstub__60f9c70a917c1c3ef84f9fe5f53041f2cdd59022a7255ab1c017bbfc4891f92f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "createTableDefaultPermissions", value) # pyright: ignore[reportArgumentType]
 
@@ -1044,17 +1033,17 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="externalDataFilteringAllowList")
     def external_data_filtering_allow_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "externalDataFilteringAllowList"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "externalDataFilteringAllowList"))
 
     @external_data_filtering_allow_list.setter
     def external_data_filtering_allow_list(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeb2f0e282d2dada4492c1a03ccdd85cb8e0865b8f5fc9d4efeee92270845ca4)
+            type_hints = cached_type_hints(_typecheckingstub__eeb2f0e282d2dada4492c1a03ccdd85cb8e0865b8f5fc9d4efeee92270845ca4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "externalDataFilteringAllowList", value) # pyright: ignore[reportArgumentType]
 
@@ -1067,7 +1056,7 @@ class CfnDataLakeSettings(
     @mutation_type.setter
     def mutation_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d08ef4c4)
+            type_hints = cached_type_hints(_typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d08ef4c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mutationType", value) # pyright: ignore[reportArgumentType]
 
@@ -1075,16 +1064,16 @@ class CfnDataLakeSettings(
     @jsii.member(jsii_name="readOnlyAdmins")
     def read_only_admins(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "readOnlyAdmins"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "readOnlyAdmins"))
 
     @read_only_admins.setter
     def read_only_admins(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f)
+            type_hints = cached_type_hints(_typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readOnlyAdmins", value) # pyright: ignore[reportArgumentType]
 
@@ -1100,7 +1089,7 @@ class CfnDataLakeSettings(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__674387b8d4744b1214561eb77053527136809ff4a2e9cd1a69f2ab7af63d2bce)
+            type_hints = cached_type_hints(_typecheckingstub__674387b8d4744b1214561eb77053527136809ff4a2e9cd1a69f2ab7af63d2bce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "trustedResourceOwners", value) # pyright: ignore[reportArgumentType]
 
@@ -1129,7 +1118,7 @@ class CfnDataLakeSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2170e5a67ab80501cee1e7b138e885605f96762aa99d98fe439758c186de8147)
+                type_hints = cached_type_hints(_typecheckingstub__2170e5a67ab80501cee1e7b138e885605f96762aa99d98fe439758c186de8147)
                 check_type(argname="argument data_lake_principal_identifier", value=data_lake_principal_identifier, expected_type=type_hints["data_lake_principal_identifier"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "data_lake_principal_identifier": data_lake_principal_identifier,
@@ -1166,7 +1155,7 @@ class CfnDataLakeSettings(
             self,
             *,
             permissions: typing.Sequence[builtins.str],
-            principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+            principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Permissions granted to a principal.
 
@@ -1190,7 +1179,7 @@ class CfnDataLakeSettings(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__71d0279f7a0c8de462002223da529999b8cfab83d83a4f5d4c771f0df4712e5f)
+                type_hints = cached_type_hints(_typecheckingstub__71d0279f7a0c8de462002223da529999b8cfab83d83a4f5d4c771f0df4712e5f)
                 check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
                 check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1211,14 +1200,14 @@ class CfnDataLakeSettings(
         @builtins.property
         def principal(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]:
             '''The principal who is granted permissions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-datalakesettings-principalpermissions.html#cfn-lakeformation-datalakesettings-principalpermissions-principal
             '''
             result = self._values.get("principal")
             assert result is not None, "Required property 'principal' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1253,16 +1242,16 @@ class CfnDataLakeSettingsProps:
     def __init__(
         self,
         *,
-        admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        admins: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_data_filtering_allow_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         mutation_type: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        read_only_admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        read_only_admins: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataLakeSettings``.
@@ -1356,7 +1345,7 @@ class CfnDataLakeSettingsProps:
             tag_association.node.add_dependency(table)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d)
+            type_hints = cached_type_hints(_typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d)
             check_type(argname="argument admins", value=admins, expected_type=type_hints["admins"])
             check_type(argname="argument allow_external_data_filtering", value=allow_external_data_filtering, expected_type=type_hints["allow_external_data_filtering"])
             check_type(argname="argument allow_full_table_external_data_access", value=allow_full_table_external_data_access, expected_type=type_hints["allow_full_table_external_data_access"])
@@ -1395,18 +1384,18 @@ class CfnDataLakeSettingsProps:
     @builtins.property
     def admins(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of AWS Lake Formation principals.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-admins
         '''
         result = self._values.get("admins")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
 
     @builtins.property
     def allow_external_data_filtering(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to allow Amazon EMR clusters or other third-party query engines to access data managed by Lake Formation .
 
         If set to true, you allow Amazon EMR clusters or other third-party engines to access data in Amazon S3 locations that are registered with Lake Formation .
@@ -1418,12 +1407,12 @@ class CfnDataLakeSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowexternaldatafiltering
         '''
         result = self._values.get("allow_external_data_filtering")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def allow_full_table_external_data_access(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether query engines and applications can get credentials without IAM session tags if the user has full table access.
 
         It provides query engines and applications performance benefits as well as simplifies data access. Amazon EMR on Amazon EC2 is able to leverage this setting.
@@ -1433,7 +1422,7 @@ class CfnDataLakeSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-allowfulltableexternaldataaccess
         '''
         result = self._values.get("allow_full_table_external_data_access")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def authorized_session_tag_value_list(
@@ -1451,7 +1440,7 @@ class CfnDataLakeSettingsProps:
     @builtins.property
     def create_database_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created database is managed by Lake Formation permissions or exclusively by IAM permissions.
 
         A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicates that the user's IAM permissions determine the access to the database. This is referred to as the setting "Use only IAM access control," and is to support backward compatibility with the AWS Glue permission model implemented by IAM permissions.
@@ -1463,12 +1452,12 @@ class CfnDataLakeSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createdatabasedefaultpermissions
         '''
         result = self._values.get("create_database_default_permissions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
 
     @builtins.property
     def create_table_default_permissions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]]:
         '''Specifies whether access control on a newly created table is managed by Lake Formation permissions or exclusively by IAM permissions.
 
         A null value indicates that the access is controlled by Lake Formation permissions. ``ALL`` permissions assigned to ``IAM_ALLOWED_PRINCIPALS`` group indicate that the user's IAM permissions determine the access to the table. This is referred to as the setting "Use only IAM access control," and is to support the backward compatibility with the AWS Glue permission model implemented by IAM permissions.
@@ -1480,18 +1469,18 @@ class CfnDataLakeSettingsProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-createtabledefaultpermissions
         '''
         result = self._values.get("create_table_default_permissions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.PrincipalPermissionsProperty"]]]], result)
 
     @builtins.property
     def external_data_filtering_allow_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''A list of the account IDs of AWS accounts with Amazon EMR clusters or third-party engines that are allwed to perform data filtering.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-externaldatafilteringallowlist
         '''
         result = self._values.get("external_data_filtering_allow_list")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
 
     @builtins.property
     def mutation_type(self) -> typing.Optional[builtins.str]:
@@ -1520,12 +1509,12 @@ class CfnDataLakeSettingsProps:
     @builtins.property
     def read_only_admins(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-readonlyadmins
         '''
         result = self._values.get("read_only_admins")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
 
     @builtins.property
     def trusted_resource_owners(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1550,9 +1539,9 @@ class CfnDataLakeSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPermissionsRef_36016707)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.IPermissionsRef)
 class CfnPermissions(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnPermissions",
 ):
@@ -1614,8 +1603,8 @@ class CfnPermissions(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        data_lake_principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        data_lake_principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -1629,7 +1618,7 @@ class CfnPermissions(
         :param permissions_with_grant_option: Indicates the ability to grant permissions (as a subset of permissions granted).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66f9b8220129009f27ac675ce32ccf618706bd509a2bdf99308bcd0b7a7ecb36)
+            type_hints = cached_type_hints(_typecheckingstub__66f9b8220129009f27ac675ce32ccf618706bd509a2bdf99308bcd0b7a7ecb36)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPermissionsProps(
@@ -1649,18 +1638,18 @@ class CfnPermissions(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30e9daa976fe3c57815179bba7587796a9ab833ef0acec30f955639019073981)
+            type_hints = cached_type_hints(_typecheckingstub__30e9daa976fe3c57815179bba7587796a9ab833ef0acec30f955639019073981)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPermissions", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e596145285f2a793cf97360dcf20f6bff154e42d413389fa60459a8fee6d280)
+            type_hints = cached_type_hints(_typecheckingstub__1e596145285f2a793cf97360dcf20f6bff154e42d413389fa60459a8fee6d280)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1673,7 +1662,7 @@ class CfnPermissions(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee971ab2aceb77af8d182ab99af94a6965b16a2c3d0275e663cdf73637933bf)
+            type_hints = cached_type_hints(_typecheckingstub__1ee971ab2aceb77af8d182ab99af94a6965b16a2c3d0275e663cdf73637933bf)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1704,25 +1693,25 @@ class CfnPermissions(
 
     @builtins.property
     @jsii.member(jsii_name="permissionsRef")
-    def permissions_ref(self) -> "_PermissionsReference_6a285a6e":
+    def permissions_ref(self) -> "_aws_lakeformation_2059f41a.PermissionsReference":
         '''A reference to a Permissions resource.'''
-        return typing.cast("_PermissionsReference_6a285a6e", jsii.get(self, "permissionsRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.PermissionsReference", jsii.get(self, "permissionsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataLakePrincipal")
     def data_lake_principal(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLakePrincipalProperty"]:
         '''The AWS Lake Formation principal.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"], jsii.get(self, "dataLakePrincipal"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLakePrincipalProperty"], jsii.get(self, "dataLakePrincipal"))
 
     @data_lake_principal.setter
     def data_lake_principal(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLakePrincipalProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b52466eba74fe39a155b91afd467a62a59fd8b7da0cdf280f844dfae547c7e88)
+            type_hints = cached_type_hints(_typecheckingstub__b52466eba74fe39a155b91afd467a62a59fd8b7da0cdf280f844dfae547c7e88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataLakePrincipal", value) # pyright: ignore[reportArgumentType]
 
@@ -1730,17 +1719,17 @@ class CfnPermissions(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ResourceProperty"]:
         '''A structure for the resource.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ResourceProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8d760390e3b2e9ed402ee340c7169bf72a75fca3b15a45103c7e0e6e61a5b9)
+            type_hints = cached_type_hints(_typecheckingstub__2a8d760390e3b2e9ed402ee340c7169bf72a75fca3b15a45103c7e0e6e61a5b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
 
@@ -1753,7 +1742,7 @@ class CfnPermissions(
     @permissions.setter
     def permissions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1c9d158fab35ea7c0a56ddd6ec2e6b9628418e53bc9a07544a2abaf1f18dacb)
+            type_hints = cached_type_hints(_typecheckingstub__a1c9d158fab35ea7c0a56ddd6ec2e6b9628418e53bc9a07544a2abaf1f18dacb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissions", value) # pyright: ignore[reportArgumentType]
 
@@ -1771,7 +1760,7 @@ class CfnPermissions(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81251fb4fda47174588bc5781a51e64b3d055e355f7a6b70ecb93007b4046366)
+            type_hints = cached_type_hints(_typecheckingstub__81251fb4fda47174588bc5781a51e64b3d055e355f7a6b70ecb93007b4046366)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsWithGrantOption", value) # pyright: ignore[reportArgumentType]
 
@@ -1804,7 +1793,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf52b2441eb8a74ff7018cce9b6068a2ae059867acbdf38dce8ace97c7cb1145)
+                type_hints = cached_type_hints(_typecheckingstub__cf52b2441eb8a74ff7018cce9b6068a2ae059867acbdf38dce8ace97c7cb1145)
                 check_type(argname="argument excluded_column_names", value=excluded_column_names, expected_type=type_hints["excluded_column_names"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if excluded_column_names is not None:
@@ -1861,7 +1850,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__80d8592bcc661e98e594ef066a2f224d8bd0d848c79b77076a27b690bc10264a)
+                type_hints = cached_type_hints(_typecheckingstub__80d8592bcc661e98e594ef066a2f224d8bd0d848c79b77076a27b690bc10264a)
                 check_type(argname="argument data_lake_principal_identifier", value=data_lake_principal_identifier, expected_type=type_hints["data_lake_principal_identifier"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if data_lake_principal_identifier is not None:
@@ -1919,7 +1908,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__143e8666ee32b6c4cfaf593713c8528521c39e68a778350ee9a6abbc28f00afd)
+                type_hints = cached_type_hints(_typecheckingstub__143e8666ee32b6c4cfaf593713c8528521c39e68a778350ee9a6abbc28f00afd)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument s3_resource", value=s3_resource, expected_type=type_hints["s3_resource"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1991,7 +1980,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b97daaaad005292df9c62b56d08c4c1f07af2aa89f795fc5055f09c33dc04502)
+                type_hints = cached_type_hints(_typecheckingstub__b97daaaad005292df9c62b56d08c4c1f07af2aa89f795fc5055f09c33dc04502)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2047,10 +2036,10 @@ class CfnPermissions(
         def __init__(
             self,
             *,
-            database_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_location_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_location_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns_resource: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -2095,7 +2084,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7e873d4ebccabb106e53e74b5438b8f89e526a4874c703f025c42839ae30566d)
+                type_hints = cached_type_hints(_typecheckingstub__7e873d4ebccabb106e53e74b5438b8f89e526a4874c703f025c42839ae30566d)
                 check_type(argname="argument database_resource", value=database_resource, expected_type=type_hints["database_resource"])
                 check_type(argname="argument data_location_resource", value=data_location_resource, expected_type=type_hints["data_location_resource"])
                 check_type(argname="argument table_resource", value=table_resource, expected_type=type_hints["table_resource"])
@@ -2113,29 +2102,29 @@ class CfnPermissions(
         @builtins.property
         def database_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DatabaseResourceProperty"]]:
             '''A structure for the database object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-databaseresource
             '''
             result = self._values.get("database_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def data_location_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLocationResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLocationResourceProperty"]]:
             '''A structure for a data location object where permissions are granted or revoked.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-datalocationresource
             '''
             result = self._values.get("data_location_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLocationResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLocationResourceProperty"]], result)
 
         @builtins.property
         def table_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableResourceProperty"]]:
             '''A structure for the table object.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -2143,12 +2132,12 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-tableresource
             '''
             result = self._values.get("table_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns_resource(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableWithColumnsResourceProperty"]]:
             '''A structure for a table with columns object.
 
             This object is only used when granting a SELECT permission.
@@ -2156,7 +2145,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-resource.html#cfn-lakeformation-permissions-resource-tablewithcolumnsresource
             '''
             result = self._values.get("table_with_columns_resource")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2186,7 +2175,7 @@ class CfnPermissions(
             catalog_id: typing.Optional[builtins.str] = None,
             database_name: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
-            table_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.TableWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_wildcard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.TableWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the table object.
 
@@ -2214,7 +2203,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__25c68a645287e81e1ea32708958d371278c40c2510ffac671ba40eeea7fe444e)
+                type_hints = cached_type_hints(_typecheckingstub__25c68a645287e81e1ea32708958d371278c40c2510ffac671ba40eeea7fe444e)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2263,7 +2252,7 @@ class CfnPermissions(
         @builtins.property
         def table_wildcard(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableWildcardProperty"]]:
             '''An empty object representing all tables under a database.
 
             If this field is specified instead of the ``Name`` field, all tables under ``DatabaseName`` will have permission changes applied.
@@ -2271,7 +2260,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-tableresource.html#cfn-lakeformation-permissions-tableresource-tablewildcard
             '''
             result = self._values.get("table_wildcard")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.TableWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.TableWildcardProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2333,7 +2322,7 @@ class CfnPermissions(
             *,
             catalog_id: typing.Optional[builtins.str] = None,
             column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            column_wildcard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             database_name: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2367,7 +2356,7 @@ class CfnPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd66e1173aa0d6dbdb98124297f83efdbc21cf4278fca711775ba212a19929c4)
+                type_hints = cached_type_hints(_typecheckingstub__fd66e1173aa0d6dbdb98124297f83efdbc21cf4278fca711775ba212a19929c4)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument column_names", value=column_names, expected_type=type_hints["column_names"])
                 check_type(argname="argument column_wildcard", value=column_wildcard, expected_type=type_hints["column_wildcard"])
@@ -2410,7 +2399,7 @@ class CfnPermissions(
         @builtins.property
         def column_wildcard(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.ColumnWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ColumnWildcardProperty"]]:
             '''A wildcard specified by a ``ColumnWildcard`` object.
 
             At least one of ``ColumnNames`` or ``ColumnWildcard`` is required.
@@ -2418,7 +2407,7 @@ class CfnPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-permissions-tablewithcolumnsresource.html#cfn-lakeformation-permissions-tablewithcolumnsresource-columnwildcard
             '''
             result = self._values.get("column_wildcard")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPermissions.ColumnWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ColumnWildcardProperty"]], result)
 
         @builtins.property
         def database_name(self) -> typing.Optional[builtins.str]:
@@ -2468,8 +2457,8 @@ class CfnPermissionsProps:
     def __init__(
         self,
         *,
-        data_lake_principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        data_lake_principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -2525,7 +2514,7 @@ class CfnPermissionsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1)
+            type_hints = cached_type_hints(_typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1)
             check_type(argname="argument data_lake_principal", value=data_lake_principal, expected_type=type_hints["data_lake_principal"])
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -2542,26 +2531,26 @@ class CfnPermissionsProps:
     @builtins.property
     def data_lake_principal(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLakePrincipalProperty"]:
         '''The AWS Lake Formation principal.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-datalakeprincipal
         '''
         result = self._values.get("data_lake_principal")
         assert result is not None, "Required property 'data_lake_principal' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.DataLakePrincipalProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.DataLakePrincipalProperty"], result)
 
     @builtins.property
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ResourceProperty"]:
         '''A structure for the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-permissions.html#cfn-lakeformation-permissions-resource
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPermissions.ResourceProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPermissions.ResourceProperty"], result)
 
     @builtins.property
     def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2595,9 +2584,9 @@ class CfnPermissionsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPrincipalPermissionsRef_dffaf2ff)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.IPrincipalPermissionsRef)
 class CfnPrincipalPermissions(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnPrincipalPermissions",
 ):
@@ -2686,8 +2675,8 @@ class CfnPrincipalPermissions(
         *,
         permissions: typing.Sequence[builtins.str],
         permissions_with_grant_option: typing.Sequence[builtins.str],
-        principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         catalog: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::LakeFormation::PrincipalPermissions``.
@@ -2701,7 +2690,7 @@ class CfnPrincipalPermissions(
         :param catalog: The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your Lake Formation environment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb5d81db38bf28121ba5fc7c8223b5f9b99138c19ff95a360f576c85eee776b)
+            type_hints = cached_type_hints(_typecheckingstub__2eb5d81db38bf28121ba5fc7c8223b5f9b99138c19ff95a360f576c85eee776b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPrincipalPermissionsProps(
@@ -2722,18 +2711,18 @@ class CfnPrincipalPermissions(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__480d6886b3d44eb0c73f8c7acfff55c7f4d10c20fe05abd284e8787102e77ddd)
+            type_hints = cached_type_hints(_typecheckingstub__480d6886b3d44eb0c73f8c7acfff55c7f4d10c20fe05abd284e8787102e77ddd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPrincipalPermissions", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19bcd0e8fdbb5452a744983c0bca1e00952558553e30a4edad79228574b0871f)
+            type_hints = cached_type_hints(_typecheckingstub__19bcd0e8fdbb5452a744983c0bca1e00952558553e30a4edad79228574b0871f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2746,7 +2735,7 @@ class CfnPrincipalPermissions(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22b65ac740c32d3048bd381021c49a684f9331531de0a8d324a618515c95ed01)
+            type_hints = cached_type_hints(_typecheckingstub__22b65ac740c32d3048bd381021c49a684f9331531de0a8d324a618515c95ed01)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2790,9 +2779,11 @@ class CfnPrincipalPermissions(
 
     @builtins.property
     @jsii.member(jsii_name="principalPermissionsRef")
-    def principal_permissions_ref(self) -> "_PrincipalPermissionsReference_a01708bf":
+    def principal_permissions_ref(
+        self,
+    ) -> "_aws_lakeformation_2059f41a.PrincipalPermissionsReference":
         '''A reference to a PrincipalPermissions resource.'''
-        return typing.cast("_PrincipalPermissionsReference_a01708bf", jsii.get(self, "principalPermissionsRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.PrincipalPermissionsReference", jsii.get(self, "principalPermissionsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="permissions")
@@ -2803,7 +2794,7 @@ class CfnPrincipalPermissions(
     @permissions.setter
     def permissions(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f09e32f0f3382686a05ba58d341882cae134bae9543b28783028d3a2e39e825b)
+            type_hints = cached_type_hints(_typecheckingstub__f09e32f0f3382686a05ba58d341882cae134bae9543b28783028d3a2e39e825b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissions", value) # pyright: ignore[reportArgumentType]
 
@@ -2816,7 +2807,7 @@ class CfnPrincipalPermissions(
     @permissions_with_grant_option.setter
     def permissions_with_grant_option(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__209371d03e969c4e61d2a38660dbb7441ca9c5e81a7ef95333acdd87a14ddd0e)
+            type_hints = cached_type_hints(_typecheckingstub__209371d03e969c4e61d2a38660dbb7441ca9c5e81a7ef95333acdd87a14ddd0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsWithGrantOption", value) # pyright: ignore[reportArgumentType]
 
@@ -2824,17 +2815,17 @@ class CfnPrincipalPermissions(
     @jsii.member(jsii_name="principal")
     def principal(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
         '''The principal to be granted a permission.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"], jsii.get(self, "principal"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLakePrincipalProperty"], jsii.get(self, "principal"))
 
     @principal.setter
     def principal(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLakePrincipalProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1a6247a71b5100a75980e912dd96720cd90892a708b86881a36004028079dd5)
+            type_hints = cached_type_hints(_typecheckingstub__a1a6247a71b5100a75980e912dd96720cd90892a708b86881a36004028079dd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
 
@@ -2842,17 +2833,17 @@ class CfnPrincipalPermissions(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ResourceProperty"]:
         '''The resource to be granted or revoked permissions.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ResourceProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2cdd4778f3b42b1dbeec69000654d251230f2d8c9b50b55439c66ca17567ad3)
+            type_hints = cached_type_hints(_typecheckingstub__d2cdd4778f3b42b1dbeec69000654d251230f2d8c9b50b55439c66ca17567ad3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
 
@@ -2865,7 +2856,7 @@ class CfnPrincipalPermissions(
     @catalog.setter
     def catalog(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d30f0e637fa1c5ffeca70a22e3d7a1083c596f26d2b181bb4f54624dba336c8)
+            type_hints = cached_type_hints(_typecheckingstub__1d30f0e637fa1c5ffeca70a22e3d7a1083c596f26d2b181bb4f54624dba336c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "catalog", value) # pyright: ignore[reportArgumentType]
 
@@ -2898,7 +2889,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3c2462e1081a2c39e7bf1727f3edf2e24354c2a890e9dd0028ce66f6d0577e20)
+                type_hints = cached_type_hints(_typecheckingstub__3c2462e1081a2c39e7bf1727f3edf2e24354c2a890e9dd0028ce66f6d0577e20)
                 check_type(argname="argument excluded_column_names", value=excluded_column_names, expected_type=type_hints["excluded_column_names"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if excluded_column_names is not None:
@@ -2969,7 +2960,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33ec037517e7c5996eee712eb67decb6b3d04aa964f155335bb0a4730b194be7)
+                type_hints = cached_type_hints(_typecheckingstub__33ec037517e7c5996eee712eb67decb6b3d04aa964f155335bb0a4730b194be7)
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument table_catalog_id", value=table_catalog_id, expected_type=type_hints["table_catalog_id"])
@@ -3061,7 +3052,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de361ca366cfcbb9bf826b663d0cfa9926ca81d247442348669309b4fc05c64e)
+                type_hints = cached_type_hints(_typecheckingstub__de361ca366cfcbb9bf826b663d0cfa9926ca81d247442348669309b4fc05c64e)
                 check_type(argname="argument data_lake_principal_identifier", value=data_lake_principal_identifier, expected_type=type_hints["data_lake_principal_identifier"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if data_lake_principal_identifier is not None:
@@ -3119,7 +3110,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ef403264bd2d9619e7538638731036dd217c08886e8a889112aaec3f409612f)
+                type_hints = cached_type_hints(_typecheckingstub__2ef403264bd2d9619e7538638731036dd217c08886e8a889112aaec3f409612f)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3185,7 +3176,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__140938f79b31a570727d46b681bf0dbe828eab77f52f9cdaa5caecbcf61c8537)
+                type_hints = cached_type_hints(_typecheckingstub__140938f79b31a570727d46b681bf0dbe828eab77f52f9cdaa5caecbcf61c8537)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3267,7 +3258,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1609270b64a1dfa63f7d47e0aa35028ab7fe44e010c798dbfd732fe2815564f9)
+                type_hints = cached_type_hints(_typecheckingstub__1609270b64a1dfa63f7d47e0aa35028ab7fe44e010c798dbfd732fe2815564f9)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
                 check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
@@ -3332,7 +3323,7 @@ class CfnPrincipalPermissions(
             self,
             *,
             catalog_id: builtins.str,
-            expression: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            expression: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.LFTagProperty", typing.Dict[builtins.str, typing.Any]]]]],
             resource_type: builtins.str,
         ) -> None:
             '''A list of LF-tag conditions that define a resource's LF-tag policy.
@@ -3362,7 +3353,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__283f469e66d16220abd50df44457c58f1e228a52182f63247acce003afecb253)
+                type_hints = cached_type_hints(_typecheckingstub__283f469e66d16220abd50df44457c58f1e228a52182f63247acce003afecb253)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
@@ -3387,14 +3378,14 @@ class CfnPrincipalPermissions(
         @builtins.property
         def expression(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagProperty"]]]:
             '''A list of LF-tag conditions that apply to the resource's LF-tag policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-lftagpolicyresource.html#cfn-lakeformation-principalpermissions-lftagpolicyresource-expression
             '''
             result = self._values.get("expression")
             assert result is not None, "Required property 'expression' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagProperty"]]], result)
 
         @builtins.property
         def resource_type(self) -> builtins.str:
@@ -3449,7 +3440,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc281e3f1ec44de3ce5ecf6071d61be4884986556a50643b2eb54c6b136660e8)
+                type_hints = cached_type_hints(_typecheckingstub__bc281e3f1ec44de3ce5ecf6071d61be4884986556a50643b2eb54c6b136660e8)
                 check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
                 check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3506,13 +3497,13 @@ class CfnPrincipalPermissions(
             self,
             *,
             catalog: typing.Any = None,
-            database: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_cells_filter: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataCellsFilterResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            data_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lf_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagKeyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lf_tag_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.LFTagPolicyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_cells_filter: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.DataCellsFilterResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.DataLocationResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lf_tag: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.LFTagKeyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lf_tag_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.LFTagPolicyResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -3588,7 +3579,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e592c3f53e78e6beb0a0b9195318c2f90921f0d62b7646b0963a8f90306a02df)
+                type_hints = cached_type_hints(_typecheckingstub__e592c3f53e78e6beb0a0b9195318c2f90921f0d62b7646b0963a8f90306a02df)
                 check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
                 check_type(argname="argument database", value=database, expected_type=type_hints["database"])
                 check_type(argname="argument data_cells_filter", value=data_cells_filter, expected_type=type_hints["data_cells_filter"])
@@ -3629,7 +3620,7 @@ class CfnPrincipalPermissions(
         @builtins.property
         def database(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DatabaseResourceProperty"]]:
             '''The database for the resource.
 
             Unique to the Data Catalog. A database is a set of associated table definitions organized into a logical group. You can Grant and Revoke database permissions to a principal.
@@ -3637,56 +3628,56 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-database
             '''
             result = self._values.get("database")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def data_cells_filter(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]]:
             '''A data cell filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-datacellsfilter
             '''
             result = self._values.get("data_cells_filter")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataCellsFilterResourceProperty"]], result)
 
         @builtins.property
         def data_location(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLocationResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLocationResourceProperty"]]:
             '''The location of an Amazon S3 path where permissions are granted or revoked.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-datalocation
             '''
             result = self._values.get("data_location")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLocationResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLocationResourceProperty"]], result)
 
         @builtins.property
         def lf_tag(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]]:
             '''The LF-tag key and values attached to a resource.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-lftag
             '''
             result = self._values.get("lf_tag")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagKeyResourceProperty"]], result)
 
         @builtins.property
         def lf_tag_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]]:
             '''A list of LF-tag conditions that define a resource's LF-tag policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-lftagpolicy
             '''
             result = self._values.get("lf_tag_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.LFTagPolicyResourceProperty"]], result)
 
         @builtins.property
         def table(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.TableResourceProperty"]]:
             '''The table for the resource.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -3694,12 +3685,12 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-table
             '''
             result = self._values.get("table")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]]:
             '''The table with columns for the resource.
 
             A principal with permissions to this resource can select metadata from the columns of a table in the Data Catalog and the underlying data in Amazon S3.
@@ -3707,7 +3698,7 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-resource.html#cfn-lakeformation-principalpermissions-resource-tablewithcolumns
             '''
             result = self._values.get("table_with_columns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3769,7 +3760,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__460697d12e9edf8f8a085b7d266b08a9ca2a4e1a30fba2179bbe92d989da93bc)
+                type_hints = cached_type_hints(_typecheckingstub__460697d12e9edf8f8a085b7d266b08a9ca2a4e1a30fba2179bbe92d989da93bc)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3857,7 +3848,7 @@ class CfnPrincipalPermissions(
             database_name: builtins.str,
             name: builtins.str,
             column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            column_wildcard: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            column_wildcard: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.ColumnWildcardProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for a table with columns object. This object is only used when granting a SELECT permission.
 
@@ -3891,7 +3882,7 @@ class CfnPrincipalPermissions(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__03b5f72824b5f84378a1881d387545e376b17c9fad070955cb027ed54682496f)
+                type_hints = cached_type_hints(_typecheckingstub__03b5f72824b5f84378a1881d387545e376b17c9fad070955cb027ed54682496f)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3955,7 +3946,7 @@ class CfnPrincipalPermissions(
         @builtins.property
         def column_wildcard(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ColumnWildcardProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ColumnWildcardProperty"]]:
             '''A wildcard specified by a ``ColumnWildcard`` object.
 
             At least one of ``ColumnNames`` or ``ColumnWildcard`` is required.
@@ -3963,7 +3954,7 @@ class CfnPrincipalPermissions(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-principalpermissions-tablewithcolumnsresource.html#cfn-lakeformation-principalpermissions-tablewithcolumnsresource-columnwildcard
             '''
             result = self._values.get("column_wildcard")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ColumnWildcardProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ColumnWildcardProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3994,8 +3985,8 @@ class CfnPrincipalPermissionsProps:
         *,
         permissions: typing.Sequence[builtins.str],
         permissions_with_grant_option: typing.Sequence[builtins.str],
-        principal: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        principal: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPrincipalPermissions.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
         catalog: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPrincipalPermissions``.
@@ -4079,7 +4070,7 @@ class CfnPrincipalPermissionsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89)
+            type_hints = cached_type_hints(_typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b2d90a89)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument permissions_with_grant_option", value=permissions_with_grant_option, expected_type=type_hints["permissions_with_grant_option"])
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
@@ -4117,26 +4108,26 @@ class CfnPrincipalPermissionsProps:
     @builtins.property
     def principal(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLakePrincipalProperty"]:
         '''The principal to be granted a permission.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-principal
         '''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.DataLakePrincipalProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.DataLakePrincipalProperty"], result)
 
     @builtins.property
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ResourceProperty"]:
         '''The resource to be granted or revoked permissions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-principalpermissions.html#cfn-lakeformation-principalpermissions-resource
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPrincipalPermissions.ResourceProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPrincipalPermissions.ResourceProperty"], result)
 
     @builtins.property
     def catalog(self) -> typing.Optional[builtins.str]:
@@ -4161,9 +4152,9 @@ class CfnPrincipalPermissionsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourceRef_8c770b78)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.IResourceRef)
 class CfnResource(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnResource",
 ):
@@ -4198,10 +4189,10 @@ class CfnResource(
         id: builtins.str,
         *,
         resource_arn: builtins.str,
-        use_service_linked_role: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_service_linked_role: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        with_federation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        with_federation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::LakeFormation::Resource``.
 
@@ -4214,7 +4205,7 @@ class CfnResource(
         :param with_federation: Allows Lake Formation to assume a role to access tables in a federated database.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77f160cc137d98ca347392fcb58c5f304f21bc0d6002a000296781efbc738d18)
+            type_hints = cached_type_hints(_typecheckingstub__77f160cc137d98ca347392fcb58c5f304f21bc0d6002a000296781efbc738d18)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourceProps(
@@ -4235,18 +4226,18 @@ class CfnResource(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__196331f54ce54a6ea74da954f3089c80351010d1404d3319fefae91a372dd5b6)
+            type_hints = cached_type_hints(_typecheckingstub__196331f54ce54a6ea74da954f3089c80351010d1404d3319fefae91a372dd5b6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResource", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c6da1642c1089cadccd989e51a5e96bb970a8075cf3f6b966626c7f45b326a9)
+            type_hints = cached_type_hints(_typecheckingstub__1c6da1642c1089cadccd989e51a5e96bb970a8075cf3f6b966626c7f45b326a9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4259,7 +4250,7 @@ class CfnResource(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3d3a65816f635df590bcd7d17914e0fdc91a78e7ee100e397268c2086de3767)
+            type_hints = cached_type_hints(_typecheckingstub__b3d3a65816f635df590bcd7d17914e0fdc91a78e7ee100e397268c2086de3767)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4290,9 +4281,9 @@ class CfnResource(
 
     @builtins.property
     @jsii.member(jsii_name="resourceRef")
-    def resource_ref(self) -> "_ResourceReference_b2b6af26":
+    def resource_ref(self) -> "_aws_lakeformation_2059f41a.ResourceReference":
         '''A reference to a Resource resource.'''
-        return typing.cast("_ResourceReference_b2b6af26", jsii.get(self, "resourceRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.ResourceReference", jsii.get(self, "resourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -4303,7 +4294,7 @@ class CfnResource(
     @resource_arn.setter
     def resource_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__350838b588f5ff4a75f92a0fcad91ca84447a413b308fa046a6cf1130366f421)
+            type_hints = cached_type_hints(_typecheckingstub__350838b588f5ff4a75f92a0fcad91ca84447a413b308fa046a6cf1130366f421)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4311,17 +4302,17 @@ class CfnResource(
     @jsii.member(jsii_name="useServiceLinkedRole")
     def use_service_linked_role(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "useServiceLinkedRole"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "useServiceLinkedRole"))
 
     @use_service_linked_role.setter
     def use_service_linked_role(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__323f8924235b86ebffca643b12a93c3311bed500c9739d5c3c0662d0382eb023)
+            type_hints = cached_type_hints(_typecheckingstub__323f8924235b86ebffca643b12a93c3311bed500c9739d5c3c0662d0382eb023)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "useServiceLinkedRole", value) # pyright: ignore[reportArgumentType]
 
@@ -4329,17 +4320,17 @@ class CfnResource(
     @jsii.member(jsii_name="hybridAccessEnabled")
     def hybrid_access_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "hybridAccessEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "hybridAccessEnabled"))
 
     @hybrid_access_enabled.setter
     def hybrid_access_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24ac80235487ae39163a3d93180bbbb5f30ecf3b622cccd507708e1d1dc5f3ae)
+            type_hints = cached_type_hints(_typecheckingstub__24ac80235487ae39163a3d93180bbbb5f30ecf3b622cccd507708e1d1dc5f3ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hybridAccessEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -4352,7 +4343,7 @@ class CfnResource(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8729c424eda1d70b20b2af7a8d47b5b0907bc502a826742bc55e79595b679331)
+            type_hints = cached_type_hints(_typecheckingstub__8729c424eda1d70b20b2af7a8d47b5b0907bc502a826742bc55e79595b679331)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4360,17 +4351,17 @@ class CfnResource(
     @jsii.member(jsii_name="withFederation")
     def with_federation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Allows Lake Formation to assume a role to access tables in a federated database.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "withFederation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "withFederation"))
 
     @with_federation.setter
     def with_federation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd1781c80)
+            type_hints = cached_type_hints(_typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd1781c80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "withFederation", value) # pyright: ignore[reportArgumentType]
 
@@ -4391,10 +4382,10 @@ class CfnResourceProps:
         self,
         *,
         resource_arn: builtins.str,
-        use_service_linked_role: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_service_linked_role: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        with_federation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        with_federation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResource``.
 
@@ -4424,7 +4415,7 @@ class CfnResourceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb)
+            type_hints = cached_type_hints(_typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb)
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument use_service_linked_role", value=use_service_linked_role, expected_type=type_hints["use_service_linked_role"])
             check_type(argname="argument hybrid_access_enabled", value=hybrid_access_enabled, expected_type=type_hints["hybrid_access_enabled"])
@@ -4454,25 +4445,25 @@ class CfnResourceProps:
     @builtins.property
     def use_service_linked_role(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Designates a trusted caller, an IAM principal, by registering this caller with the Data Catalog .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-useservicelinkedrole
         '''
         result = self._values.get("use_service_linked_role")
         assert result is not None, "Required property 'use_service_linked_role' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def hybrid_access_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether the data access of tables pointing to the location can be managed by both Lake Formation permissions as well as Amazon S3 bucket policies.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-hybridaccessenabled
         '''
         result = self._values.get("hybrid_access_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
@@ -4486,13 +4477,13 @@ class CfnResourceProps:
     @builtins.property
     def with_federation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Allows Lake Formation to assume a role to access tables in a federated database.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-resource.html#cfn-lakeformation-resource-withfederation
         '''
         result = self._values.get("with_federation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4506,9 +4497,9 @@ class CfnResourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITagRef_2e4c8000)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.ITagRef)
 class CfnTag(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnTag",
 ):
@@ -4612,7 +4603,7 @@ class CfnTag(
         :param catalog_id: Catalog id string, not less than 1 or more than 255 bytes long, matching the `single-line string pattern <https://docs.aws.amazon.com/lake-formation/latest/dg/aws-lake-formation-api-aws-lake-formation-api-common.html>`_ . The identifier for the Data Catalog . By default, the account ID. The Data Catalog is the persistent metadata store. It contains database definitions, table definitions, and other control information to manage your AWS Lake Formation environment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ab4580d70a54262a22e42ccbe6c6594abcec37e5afe9b1cbfd0fd0418c59431)
+            type_hints = cached_type_hints(_typecheckingstub__6ab4580d70a54262a22e42ccbe6c6594abcec37e5afe9b1cbfd0fd0418c59431)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTagProps(
@@ -4629,18 +4620,18 @@ class CfnTag(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8b275cf4c632524587effe92142678987a325e631bbbaa33aefdd13e8123e35)
+            type_hints = cached_type_hints(_typecheckingstub__c8b275cf4c632524587effe92142678987a325e631bbbaa33aefdd13e8123e35)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTag", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47f77c7bbae5ea15c764cb3abc0b58d8d821b05b5a80784e220180cca6fe9b66)
+            type_hints = cached_type_hints(_typecheckingstub__47f77c7bbae5ea15c764cb3abc0b58d8d821b05b5a80784e220180cca6fe9b66)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4653,7 +4644,7 @@ class CfnTag(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8b40d308d7873c493f391a63e731eda50f65145c94c11b22d61188745d1a945)
+            type_hints = cached_type_hints(_typecheckingstub__d8b40d308d7873c493f391a63e731eda50f65145c94c11b22d61188745d1a945)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4675,9 +4666,9 @@ class CfnTag(
 
     @builtins.property
     @jsii.member(jsii_name="tagRef")
-    def tag_ref(self) -> "_TagReference_a11c7075":
+    def tag_ref(self) -> "_aws_lakeformation_2059f41a.TagReference":
         '''A reference to a Tag resource.'''
-        return typing.cast("_TagReference_a11c7075", jsii.get(self, "tagRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.TagReference", jsii.get(self, "tagRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tagKey")
@@ -4688,7 +4679,7 @@ class CfnTag(
     @tag_key.setter
     def tag_key(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fbcb72975cf0ee3620990532676c33868b098cf53b559c6194a08d201b95f31)
+            type_hints = cached_type_hints(_typecheckingstub__8fbcb72975cf0ee3620990532676c33868b098cf53b559c6194a08d201b95f31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagKey", value) # pyright: ignore[reportArgumentType]
 
@@ -4701,7 +4692,7 @@ class CfnTag(
     @tag_values.setter
     def tag_values(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80bb5fbcbd5307f3df5ee1986a32e2f5aae66630f974eb64d2978d496fdeae5b)
+            type_hints = cached_type_hints(_typecheckingstub__80bb5fbcbd5307f3df5ee1986a32e2f5aae66630f974eb64d2978d496fdeae5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagValues", value) # pyright: ignore[reportArgumentType]
 
@@ -4714,14 +4705,14 @@ class CfnTag(
     @catalog_id.setter
     def catalog_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eaa84342ed3778234e50b59a7902fe1ae5969963910f0840f7acd48fe3ca02c6)
+            type_hints = cached_type_hints(_typecheckingstub__eaa84342ed3778234e50b59a7902fe1ae5969963910f0840f7acd48fe3ca02c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "catalogId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, _ITagAssociationRef_44c9c652)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_lakeformation_2059f41a.ITagAssociationRef)
 class CfnTagAssociation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lakeformation.CfnTagAssociation",
 ):
@@ -4812,8 +4803,8 @@ class CfnTagAssociation(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        lf_tags: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        lf_tags: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Create a new ``AWS::LakeFormation::TagAssociation``.
 
@@ -4823,7 +4814,7 @@ class CfnTagAssociation(
         :param resource: UTF-8 string (valid values: ``DATABASE | TABLE`` ). The resource for which the LF-tag policy applies.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8acf5bb30936a1aadf20248378b13173f88c413c53b86f2704c297fa991785bc)
+            type_hints = cached_type_hints(_typecheckingstub__8acf5bb30936a1aadf20248378b13173f88c413c53b86f2704c297fa991785bc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTagAssociationProps(lf_tags=lf_tags, resource=resource)
@@ -4838,18 +4829,18 @@ class CfnTagAssociation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc193ffcf90f7f7be9090bc5c9e0fac2d65710bfa79c78714967a74ca8c9303d)
+            type_hints = cached_type_hints(_typecheckingstub__dc193ffcf90f7f7be9090bc5c9e0fac2d65710bfa79c78714967a74ca8c9303d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTagAssociation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00d30fbfb4d7717f03913b6b2047fe6cf92a306a188af90335580e81820be66c)
+            type_hints = cached_type_hints(_typecheckingstub__00d30fbfb4d7717f03913b6b2047fe6cf92a306a188af90335580e81820be66c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4862,7 +4853,7 @@ class CfnTagAssociation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8f0ff7d007fdb5ff1ddd156412e54a73afa92ab5d67c2ab9a7462a935f46a2a)
+            type_hints = cached_type_hints(_typecheckingstub__f8f0ff7d007fdb5ff1ddd156412e54a73afa92ab5d67c2ab9a7462a935f46a2a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4909,25 +4900,27 @@ class CfnTagAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="tagAssociationRef")
-    def tag_association_ref(self) -> "_TagAssociationReference_14f51cb8":
+    def tag_association_ref(
+        self,
+    ) -> "_aws_lakeformation_2059f41a.TagAssociationReference":
         '''A reference to a TagAssociation resource.'''
-        return typing.cast("_TagAssociationReference_14f51cb8", jsii.get(self, "tagAssociationRef"))
+        return typing.cast("_aws_lakeformation_2059f41a.TagAssociationReference", jsii.get(self, "tagAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="lfTags")
     def lf_tags(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.LFTagPairProperty"]]]:
         '''A structure containing an LF-tag key-value pair.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]], jsii.get(self, "lfTags"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.LFTagPairProperty"]]], jsii.get(self, "lfTags"))
 
     @lf_tags.setter
     def lf_tags(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.LFTagPairProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6d1db075ec83dde76f00266e6cddc3b420dada457caaa5e255b18058750a857)
+            type_hints = cached_type_hints(_typecheckingstub__a6d1db075ec83dde76f00266e6cddc3b420dada457caaa5e255b18058750a857)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lfTags", value) # pyright: ignore[reportArgumentType]
 
@@ -4935,17 +4928,17 @@ class CfnTagAssociation(
     @jsii.member(jsii_name="resource")
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.ResourceProperty"]:
         '''UTF-8 string (valid values: ``DATABASE | TABLE`` ).'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"], jsii.get(self, "resource"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.ResourceProperty"], jsii.get(self, "resource"))
 
     @resource.setter
     def resource(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.ResourceProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45383055be449cd404e72feac8314eeb81ef7af09ed2a6c6e17e69427732ffaf)
+            type_hints = cached_type_hints(_typecheckingstub__45383055be449cd404e72feac8314eeb81ef7af09ed2a6c6e17e69427732ffaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
 
@@ -4976,7 +4969,7 @@ class CfnTagAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cf7b16670051c00dca24a5e711cb16c069679831729ad63136417fa6945427e1)
+                type_hints = cached_type_hints(_typecheckingstub__cf7b16670051c00dca24a5e711cb16c069679831729ad63136417fa6945427e1)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5119,7 +5112,7 @@ class CfnTagAssociation(
                 tag_association.node.add_dependency(table)
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24d317a6afba0c688fa3e820b1a80b841aa146ae55a11f9764e992bb67b53e6a)
+                type_hints = cached_type_hints(_typecheckingstub__24d317a6afba0c688fa3e820b1a80b841aa146ae55a11f9764e992bb67b53e6a)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
                 check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
@@ -5187,9 +5180,9 @@ class CfnTagAssociation(
             self,
             *,
             catalog: typing.Any = None,
-            database: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_with_columns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            database: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.DatabaseResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.TableResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_with_columns: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.TableWithColumnsResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure for the resource.
 
@@ -5233,7 +5226,7 @@ class CfnTagAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__771be53d4223909a565deac2ac8cca767eba62a46e3a94374ec9c62981bfe3f4)
+                type_hints = cached_type_hints(_typecheckingstub__771be53d4223909a565deac2ac8cca767eba62a46e3a94374ec9c62981bfe3f4)
                 check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
                 check_type(argname="argument database", value=database, expected_type=type_hints["database"])
                 check_type(argname="argument table", value=table, expected_type=type_hints["table"])
@@ -5262,7 +5255,7 @@ class CfnTagAssociation(
         @builtins.property
         def database(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.DatabaseResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.DatabaseResourceProperty"]]:
             '''The database for the resource.
 
             Unique to the Data Catalog. A database is a set of associated table definitions organized into a logical group. You can Grant and Revoke database permissions to a principal.
@@ -5270,12 +5263,12 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-database
             '''
             result = self._values.get("database")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.DatabaseResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.DatabaseResourceProperty"]], result)
 
         @builtins.property
         def table(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.TableResourceProperty"]]:
             '''The table for the resource.
 
             A table is a metadata definition that represents your data. You can Grant and Revoke table privileges to a principal.
@@ -5283,12 +5276,12 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-table
             '''
             result = self._values.get("table")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.TableResourceProperty"]], result)
 
         @builtins.property
         def table_with_columns(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableWithColumnsResourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.TableWithColumnsResourceProperty"]]:
             '''The table with columns for the resource.
 
             A principal with permissions to this resource can select metadata from the columns of a table in the Data Catalog and the underlying data in Amazon S3.
@@ -5296,7 +5289,7 @@ class CfnTagAssociation(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lakeformation-tagassociation-resource.html#cfn-lakeformation-tagassociation-resource-tablewithcolumns
             '''
             result = self._values.get("table_with_columns")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.TableWithColumnsResourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.TableWithColumnsResourceProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5358,7 +5351,7 @@ class CfnTagAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b74bf73d38244ebadbafb317c7161d0c2460899853927afac0594e09c3bd2b6b)
+                type_hints = cached_type_hints(_typecheckingstub__b74bf73d38244ebadbafb317c7161d0c2460899853927afac0594e09c3bd2b6b)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5472,7 +5465,7 @@ class CfnTagAssociation(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dbfafd4ff73d1cb58139774825c816ddf21d5913087c696e01ca730edd773afc)
+                type_hints = cached_type_hints(_typecheckingstub__dbfafd4ff73d1cb58139774825c816ddf21d5913087c696e01ca730edd773afc)
                 check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
                 check_type(argname="argument column_names", value=column_names, expected_type=type_hints["column_names"])
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
@@ -5553,8 +5546,8 @@ class CfnTagAssociationProps:
     def __init__(
         self,
         *,
-        lf_tags: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        resource: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        lf_tags: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.LFTagPairProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        resource: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTagAssociation.ResourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''Properties for defining a ``CfnTagAssociation``.
 
@@ -5638,7 +5631,7 @@ class CfnTagAssociationProps:
             tag_association.node.add_dependency(table)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c)
+            type_hints = cached_type_hints(_typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c)
             check_type(argname="argument lf_tags", value=lf_tags, expected_type=type_hints["lf_tags"])
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5649,19 +5642,19 @@ class CfnTagAssociationProps:
     @builtins.property
     def lf_tags(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.LFTagPairProperty"]]]:
         '''A structure containing an LF-tag key-value pair.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-tagassociation.html#cfn-lakeformation-tagassociation-lftags
         '''
         result = self._values.get("lf_tags")
         assert result is not None, "Required property 'lf_tags' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.LFTagPairProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.LFTagPairProperty"]]], result)
 
     @builtins.property
     def resource(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.ResourceProperty"]:
         '''UTF-8 string (valid values: ``DATABASE | TABLE`` ).
 
         The resource for which the LF-tag policy applies.
@@ -5670,7 +5663,7 @@ class CfnTagAssociationProps:
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTagAssociation.ResourceProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTagAssociation.ResourceProperty"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5784,7 +5777,7 @@ class CfnTagProps:
             tag_association.node.add_dependency(table)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6)
+            type_hints = cached_type_hints(_typecheckingstub__890263379fd065da90f35db0e5851466b70a7f3ccd4b91729cf24539c9e70fa6)
             check_type(argname="argument tag_key", value=tag_key, expected_type=type_hints["tag_key"])
             check_type(argname="argument tag_values", value=tag_values, expected_type=type_hints["tag_values"])
             check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
@@ -5870,8 +5863,8 @@ def _typecheckingstub__4a9e0f2e2c8572da6300632b42930370bb203310961a1d82af3036a8c
     table_catalog_id: builtins.str,
     table_name: builtins.str,
     column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    column_wildcard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    row_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5883,7 +5876,7 @@ def _typecheckingstub__064e96a955388eac684f181d198f459ef59fd2eadf5408df858fc22c2
     pass
 
 def _typecheckingstub__4ec2c4ae3e05879746cc41d6b7ec6a03ba20902ffc48bd129aa397d1d5a70e7e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5925,13 +5918,13 @@ def _typecheckingstub__e63b539b5926a43d01e515712efb604ac6b3d1ede325bc1b9c5dffd65
     pass
 
 def _typecheckingstub__24e7504a12b1b5d7e26809268009dbec0ff8e5b821de877742f07891ecfccf10(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataCellsFilter.ColumnWildcardProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataCellsFilter.ColumnWildcardProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f9f504934d13512b5f3bc876387b568ad7594bcf89c9905c5e36a7ab25137e38(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataCellsFilter.RowFilterProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataCellsFilter.RowFilterProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5958,8 +5951,8 @@ def _typecheckingstub__3a431cb2c88a63c9acd6913435bb5a3f7e689fea9c26e811a77582b67
     table_catalog_id: builtins.str,
     table_name: builtins.str,
     column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    row_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    column_wildcard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataCellsFilter.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    row_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataCellsFilter.RowFilterProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5968,16 +5961,16 @@ def _typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f5
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    admins: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_database_default_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_table_default_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    external_data_filtering_allow_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     mutation_type: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    read_only_admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    read_only_admins: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5990,7 +5983,7 @@ def _typecheckingstub__8183d65f16c9622dd0f9f4baf30d0cc013e74660077cd751fe435b4e1
     pass
 
 def _typecheckingstub__45022e2f75497dc5031de0534471b774f37d3e0163dd1cf0944a879956918611(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6008,19 +6001,19 @@ def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d115
     pass
 
 def _typecheckingstub__df68ab1ab5b6831a2e0f48c47e111909fcae53ceb431cf9876b2a6b3ee4895a8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ad4d063925881a74c4f1073af94f569441bb4b8f7c58ee42383196bbb4e64aad(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd742952d98269b8002ba10662034f93cd9f5539a1e7f5e8835e8ab1b222c85d(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6032,19 +6025,19 @@ def _typecheckingstub__dd0547c17046b539f4cc757ea06d70b24e27b41611578b3219bd0ca23
     pass
 
 def _typecheckingstub__436b96d2708f96f391be82ba6eaa6481bbecd3b17c06354069035866187d1b45(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.PrincipalPermissionsProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataLakeSettings.PrincipalPermissionsProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__60f9c70a917c1c3ef84f9fe5f53041f2cdd59022a7255ab1c017bbfc4891f92f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.PrincipalPermissionsProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataLakeSettings.PrincipalPermissionsProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eeb2f0e282d2dada4492c1a03ccdd85cb8e0865b8f5fc9d4efeee92270845ca4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6056,7 +6049,7 @@ def _typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d
     pass
 
 def _typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6077,23 +6070,23 @@ def _typecheckingstub__2170e5a67ab80501cee1e7b138e885605f96762aa99d98fe439758c18
 def _typecheckingstub__71d0279f7a0c8de462002223da529999b8cfab83d83a4f5d4c771f0df4712e5f(
     *,
     permissions: typing.Sequence[builtins.str],
-    principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0cc7613d(
     *,
-    admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    admins: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allow_external_data_filtering: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    allow_full_table_external_data_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     authorized_session_tag_value_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_database_default_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_table_default_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    external_data_filtering_allow_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     mutation_type: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    read_only_admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    read_only_admins: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6103,8 +6096,8 @@ def _typecheckingstub__66f9b8220129009f27ac675ce32ccf618706bd509a2bdf99308bcd0b7
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    data_lake_principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -6118,7 +6111,7 @@ def _typecheckingstub__30e9daa976fe3c57815179bba7587796a9ab833ef0acec30f95563901
     pass
 
 def _typecheckingstub__1e596145285f2a793cf97360dcf20f6bff154e42d413389fa60459a8fee6d280(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6130,13 +6123,13 @@ def _typecheckingstub__1ee971ab2aceb77af8d182ab99af94a6965b16a2c3d0275e663cdf736
     pass
 
 def _typecheckingstub__b52466eba74fe39a155b91afd467a62a59fd8b7da0cdf280f844dfae547c7e88(
-    value: typing.Union[_IResolvable_da3f097b, CfnPermissions.DataLakePrincipalProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPermissions.DataLakePrincipalProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2a8d760390e3b2e9ed402ee340c7169bf72a75fca3b15a45103c7e0e6e61a5b9(
-    value: typing.Union[_IResolvable_da3f097b, CfnPermissions.ResourceProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPermissions.ResourceProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6185,10 +6178,10 @@ def _typecheckingstub__b97daaaad005292df9c62b56d08c4c1f07af2aa89f795fc5055f09c33
 
 def _typecheckingstub__7e873d4ebccabb106e53e74b5438b8f89e526a4874c703f025c42839ae30566d(
     *,
-    database_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_location_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DataLocationResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_with_columns_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    database_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_location_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.DataLocationResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_with_columns_resource: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6198,7 +6191,7 @@ def _typecheckingstub__25c68a645287e81e1ea32708958d371278c40c2510ffac671ba40eeea
     catalog_id: typing.Optional[builtins.str] = None,
     database_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    table_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.TableWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_wildcard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.TableWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6207,7 +6200,7 @@ def _typecheckingstub__fd66e1173aa0d6dbdb98124297f83efdbc21cf4278fca711775ba212a
     *,
     catalog_id: typing.Optional[builtins.str] = None,
     column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    column_wildcard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     database_name: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6216,8 +6209,8 @@ def _typecheckingstub__fd66e1173aa0d6dbdb98124297f83efdbc21cf4278fca711775ba212a
 
 def _typecheckingstub__5fb762048f92dd06746b23564061560f03db7ad3a9de2ed4abd1fe22d6b087f1(
     *,
-    data_lake_principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    data_lake_principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions_with_grant_option: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -6230,8 +6223,8 @@ def _typecheckingstub__2eb5d81db38bf28121ba5fc7c8223b5f9b99138c19ff95a360f576c85
     *,
     permissions: typing.Sequence[builtins.str],
     permissions_with_grant_option: typing.Sequence[builtins.str],
-    principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     catalog: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6244,7 +6237,7 @@ def _typecheckingstub__480d6886b3d44eb0c73f8c7acfff55c7f4d10c20fe05abd284e878710
     pass
 
 def _typecheckingstub__19bcd0e8fdbb5452a744983c0bca1e00952558553e30a4edad79228574b0871f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6268,13 +6261,13 @@ def _typecheckingstub__209371d03e969c4e61d2a38660dbb7441ca9c5e81a7ef95333acdd87a
     pass
 
 def _typecheckingstub__a1a6247a71b5100a75980e912dd96720cd90892a708b86881a36004028079dd5(
-    value: typing.Union[_IResolvable_da3f097b, CfnPrincipalPermissions.DataLakePrincipalProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrincipalPermissions.DataLakePrincipalProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d2cdd4778f3b42b1dbeec69000654d251230f2d8c9b50b55439c66ca17567ad3(
-    value: typing.Union[_IResolvable_da3f097b, CfnPrincipalPermissions.ResourceProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPrincipalPermissions.ResourceProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6337,7 +6330,7 @@ def _typecheckingstub__1609270b64a1dfa63f7d47e0aa35028ab7fe44e010c798dbfd732fe28
 def _typecheckingstub__283f469e66d16220abd50df44457c58f1e228a52182f63247acce003afecb253(
     *,
     catalog_id: builtins.str,
-    expression: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.LFTagProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    expression: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.LFTagProperty, typing.Dict[builtins.str, typing.Any]]]]],
     resource_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -6354,13 +6347,13 @@ def _typecheckingstub__bc281e3f1ec44de3ce5ecf6071d61be4884986556a50643b2eb54c6b1
 def _typecheckingstub__e592c3f53e78e6beb0a0b9195318c2f90921f0d62b7646b0963a8f90306a02df(
     *,
     catalog: typing.Any = None,
-    database: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_cells_filter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataCellsFilterResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    data_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLocationResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lf_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.LFTagKeyResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lf_tag_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.LFTagPolicyResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_with_columns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    database: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_cells_filter: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.DataCellsFilterResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.DataLocationResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lf_tag: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.LFTagKeyResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lf_tag_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.LFTagPolicyResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_with_columns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6381,7 +6374,7 @@ def _typecheckingstub__03b5f72824b5f84378a1881d387545e376b17c9fad070955cb027ed54
     database_name: builtins.str,
     name: builtins.str,
     column_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    column_wildcard: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    column_wildcard: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.ColumnWildcardProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6390,8 +6383,8 @@ def _typecheckingstub__73e7e8136a697c9d74a8f4c0e960e0b7f194ff011d73f2543cdd3c12b
     *,
     permissions: typing.Sequence[builtins.str],
     permissions_with_grant_option: typing.Sequence[builtins.str],
-    principal: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    principal: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPrincipalPermissions.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
     catalog: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6402,10 +6395,10 @@ def _typecheckingstub__77f160cc137d98ca347392fcb58c5f304f21bc0d6002a000296781efb
     id: builtins.str,
     *,
     resource_arn: builtins.str,
-    use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_service_linked_role: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    with_federation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6417,7 +6410,7 @@ def _typecheckingstub__196331f54ce54a6ea74da954f3089c80351010d1404d3319fefae91a3
     pass
 
 def _typecheckingstub__1c6da1642c1089cadccd989e51a5e96bb970a8075cf3f6b966626c7f45b326a9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6435,13 +6428,13 @@ def _typecheckingstub__350838b588f5ff4a75f92a0fcad91ca84447a413b308fa046a6cf1130
     pass
 
 def _typecheckingstub__323f8924235b86ebffca643b12a93c3311bed500c9739d5c3c0662d0382eb023(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24ac80235487ae39163a3d93180bbbb5f30ecf3b622cccd507708e1d1dc5f3ae(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6453,7 +6446,7 @@ def _typecheckingstub__8729c424eda1d70b20b2af7a8d47b5b0907bc502a826742bc55e79595
     pass
 
 def _typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd1781c80(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6461,10 +6454,10 @@ def _typecheckingstub__43ad1f5c90ca783dfc3845f6c844b5bd7bae99947226262f5e38e22cd
 def _typecheckingstub__03d17976afc3de932d23406856f83d1dc703649c384d479735a5b9747442d0cb(
     *,
     resource_arn: builtins.str,
-    use_service_linked_role: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_service_linked_role: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    hybrid_access_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    with_federation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    with_federation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6487,7 +6480,7 @@ def _typecheckingstub__c8b275cf4c632524587effe92142678987a325e631bbbaa33aefdd13e
     pass
 
 def _typecheckingstub__47f77c7bbae5ea15c764cb3abc0b58d8d821b05b5a80784e220180cca6fe9b66(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6520,8 +6513,8 @@ def _typecheckingstub__8acf5bb30936a1aadf20248378b13173f88c413c53b86f2704c297fa9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    lf_tags: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6533,7 +6526,7 @@ def _typecheckingstub__dc193ffcf90f7f7be9090bc5c9e0fac2d65710bfa79c78714967a74ca
     pass
 
 def _typecheckingstub__00d30fbfb4d7717f03913b6b2047fe6cf92a306a188af90335580e81820be66c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6545,13 +6538,13 @@ def _typecheckingstub__f8f0ff7d007fdb5ff1ddd156412e54a73afa92ab5d67c2ab9a7462a93
     pass
 
 def _typecheckingstub__a6d1db075ec83dde76f00266e6cddc3b420dada457caaa5e255b18058750a857(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTagAssociation.LFTagPairProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTagAssociation.LFTagPairProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45383055be449cd404e72feac8314eeb81ef7af09ed2a6c6e17e69427732ffaf(
-    value: typing.Union[_IResolvable_da3f097b, CfnTagAssociation.ResourceProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTagAssociation.ResourceProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6576,9 +6569,9 @@ def _typecheckingstub__24d317a6afba0c688fa3e820b1a80b841aa146ae55a11f9764e992bb6
 def _typecheckingstub__771be53d4223909a565deac2ac8cca767eba62a46e3a94374ec9c62981bfe3f4(
     *,
     catalog: typing.Any = None,
-    database: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_with_columns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    database: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.DatabaseResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.TableResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_with_columns: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.TableWithColumnsResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6605,8 +6598,8 @@ def _typecheckingstub__dbfafd4ff73d1cb58139774825c816ddf21d5913087c696e01ca730ed
 
 def _typecheckingstub__09609047193647568d1de78d490fc80cb1cdf61bef98c0fb3e950dab1637872c(
     *,
-    lf_tags: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    resource: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    lf_tags: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.LFTagPairProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTagAssociation.ResourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

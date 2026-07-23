@@ -26,14 +26,26 @@ inlined into the spec.
 """
 
 from dreadnode.airt.targets.factory import build_target
+from dreadnode.airt.targets.prediction import (
+    Prediction,
+    PredictionTargetSpec,
+    build_prediction_target,
+    predict_call,
+    predict_many,
+)
 from dreadnode.airt.targets.spec import AuthType, TargetAuth, TargetSpec, Transport
 from dreadnode.airt.targets.streaming import nova_sonic_target
 
 __all__ = [
     "AuthType",
+    "Prediction",
+    "PredictionTargetSpec",
     "TargetAuth",
     "TargetSpec",
     "Transport",
+    "build_prediction_target",
     "build_target",
     "nova_sonic_target",
+    "predict_call",
+    "predict_many",
 ]

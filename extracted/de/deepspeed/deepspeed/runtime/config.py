@@ -518,17 +518,29 @@ def get_expert_data_topo_config(param_dict):
 
 def get_eigenvalue_config(param_dict):
     if get_quantize_enabled(param_dict):
-        param_dict = param_dict[QUANTIZE_TRAINING]
-        assert not get_eigenvalue_enabled(param_dict), "Eigenvalue based MoQ is temporarily disabled"
+        quantize_training_params = param_dict.get('quantize_training')
+        if quantize_training_params is None:
+            return (
+                EIGENVALUE_ENABLED_DEFAULT,
+                EIGENVALUE_VERBOSE_DEFAULT,
+                EIGENVALUE_MAX_ITER_DEFAULT,
+                EIGENVALUE_TOL_DEFAULT,
+                EIGENVALUE_STABILITY_DEFAULT,
+                EIGENVALUE_GAS_BOUNDARY_RESOLUTION_DEFAULT,
+                EIGENVALUE_LAYER_NAME_DEFAULT,
+                EIGENVALUE_LAYER_NUM_DEFAULT,
+            )
+
+        assert not get_eigenvalue_enabled(quantize_training_params), "Eigenvalue based MoQ is temporarily disabled"
         return (
-            get_eigenvalue_enabled(param_dict),
-            get_eigenvalue_verbose(param_dict),
-            get_eigenvalue_max_iter(param_dict),
-            get_eigenvalue_tol(param_dict),
-            get_eigenvalue_stability(param_dict),
-            get_eigenvalue_gas_boundary_resolution(param_dict),
-            get_eigenvalue_layer_name(param_dict),
-            get_eigenvalue_layer_num(param_dict),
+            get_eigenvalue_enabled(quantize_training_params),
+            get_eigenvalue_verbose(quantize_training_params),
+            get_eigenvalue_max_iter(quantize_training_params),
+            get_eigenvalue_tol(quantize_training_params),
+            get_eigenvalue_stability(quantize_training_params),
+            get_eigenvalue_gas_boundary_resolution(quantize_training_params),
+            get_eigenvalue_layer_name(quantize_training_params),
+            get_eigenvalue_layer_num(quantize_training_params),
         )
     else:
         return (
@@ -637,6 +649,10 @@ def get_dataloader_drop_last(param_dict):
     return get_scalar_param(param_dict, DATALOADER_DROP_LAST, DATALOADER_DROP_LAST_DEFAULT)
 
 
+def get_log_level(param_dict):
+    return get_scalar_param(param_dict, LOG_LEVEL, LOG_LEVEL_DEFAULT)
+
+
 '''Write deepspeed config files by modifying basic templates.
 Can be used for quickly changing parameters via command line parameters.'''
 
@@ -690,7 +706,7 @@ class DeepSpeedConfig(object):
                     self.world_size = dist.get_world_size() / config["sequence_parallel_size"]
                 else:
                     self.world_size = dist.get_world_size()
-        except Exception:
+        except (RuntimeError, AssertionError, AttributeError):
             self.global_rank = 0
             self.world_size = 1
         logger.info(f"Config mesh_device {mesh_device} world_size = {self.world_size}")
@@ -872,6 +888,8 @@ class DeepSpeedConfig(object):
         self.aio_config = get_aio_config(param_dict)
 
         self.dataloader_drop_last = get_dataloader_drop_last(param_dict)
+
+        self.log_level = get_log_level(param_dict)
 
         self.nebula_config = DeepSpeedNebulaConfig(param_dict)
         self.datastates_config = DeepSpeedDataStatesConfig(param_dict)

@@ -886,6 +886,9 @@ class _AppSessionsContext:
     def report_url(self, session_id: str) -> str | None:
         return self._app._build_monitoring_url(session_id, view="reports")
 
+    def agent_output_url(self, project: str | None) -> str | None:
+        return self._app._build_agent_output_url(project)
+
 
 @dataclass(slots=True)
 class _AppSessionsTransport:
@@ -1330,6 +1333,9 @@ class _AppTurnActions:
     def session_turn_state(self, session_id: str) -> t.Any:
         return self._app._sessions_manager.session_turn_state(session_id)
 
+    def notify_agent_output_available(self, session_id: str) -> None:
+        self._app._write_agent_output_pointer(session_id)
+
     def abort_running_tools(self, session_id: str) -> None:
         self._app._sessions_manager.abort_running_tools(session_id)
 
@@ -1565,6 +1571,7 @@ class DreadnodeTextualApp(App[None]):
         capability_flags: list[str] | None = None,
         system_prompt: str | None = None,
         initial_policy: dict[str, t.Any] | None = None,
+        project_memory_preload_limit: int = 20,
     ) -> None:
         super().__init__()
         self.server_url = server_url
@@ -1580,6 +1587,7 @@ class DreadnodeTextualApp(App[None]):
         self._initial_agent = initial_agent
         self._initial_prompt = initial_prompt
         self._initial_policy = initial_policy
+        self._project_memory_preload_limit = project_memory_preload_limit
         self.model: str = initial_model or self._model_from_profile(profile)
         self._model_explicitly_set: bool = initial_model is not None
         from dreadnode.app.tui.connection import RuntimeConnectionManager
@@ -2724,6 +2732,35 @@ class DreadnodeTextualApp(App[None]):
             url += f"&view={view}"
         return url
 
+    def _build_agent_output_url(self, project: str | None) -> str | None:
+        """Build a deep-link to the platform's Agent Output page.
+
+        Points users at where the structured output their agents emit (via the
+        ``report_item`` tool — findings, assets, capability types) actually
+        lands. The page filters by workspace + project, so the caller passes
+        the ``project`` the session reported into (``SessionInfo.project``) —
+        not whatever project happens to be selected now — so reopening an old
+        session still links to the right place. Falls back to the current
+        default project only when the session recorded none. Workspace is not
+        stored per session, so it comes from the live connection context.
+
+        Returns ``None`` when no platform context is available (no auth, no
+        workspace) so callers degrade to no link. The route path lives only
+        here, so a future nav rename is a one-line change.
+        """
+        cm = self._connection_manager
+        api = cm._api_client
+        org = cm._org
+        workspace = cm._workspace
+        if api is None or not org or not workspace:
+            return None
+        url = f"{api.server_root_url}/{org}/agents/agent-outputs?workspace={workspace}"
+        profile = self._current_profile
+        resolved_project = project or (profile.default_project if profile else None)
+        if resolved_project:
+            url += f"&project={resolved_project}"
+        return url
+
     def _handle_picker_session_deleted(self, session_id: str) -> None:
         """Sync the app's session map after a delete inside the picker.
 
@@ -2805,6 +2842,7 @@ class DreadnodeTextualApp(App[None]):
             model=self.model,
             generate_params_extra=self.generate_params_extra or None,
             policy=resolved_policy,
+            project_memory_preload_limit=self._project_memory_preload_limit,
         )
         # Leave ``title`` unset: the table view, sidebar, and context bar
         # render through ``SessionRecord.display_title()`` which falls back
@@ -2872,6 +2910,7 @@ class DreadnodeTextualApp(App[None]):
                 model=self.model,
                 generate_params_extra=self.generate_params_extra or None,
                 policy={"name": "headless", "max_steps": 30},
+                project_memory_preload_limit=self._project_memory_preload_limit,
             )
         except Exception as exc:
             logger.opt(exception=True).warning("Background session create failed")
@@ -3446,6 +3485,9 @@ class DreadnodeTextualApp(App[None]):
         if len(matches) == 1:
             self.active_session_id = matches[0]
             self._sessions_manager.clear_session_unread(matches[0])
+            restored_model = self.sessions[matches[0]].model
+            if restored_model != self.model:
+                self._on_model_changed(restored_model)
             await self._sessions_manager.load_transcript(self.active_session_id)
             self._dismiss_welcome()
             await self._sync_runtime_session_subscriptions()
@@ -4428,6 +4470,49 @@ class DreadnodeTextualApp(App[None]):
             message,
             style=color,
         )
+
+    def _write_agent_output_pointer(self, session_id: str) -> None:
+        """Drop a clickable end-of-turn pointer to the web Agent Output page
+        when the just-finished turn reported any structured items.
+
+        Skips silently when the turn reported nothing, when the session isn't
+        the visible one (the line would land in a hidden conversation), or
+        when there's no platform link to offer (local / unauthenticated). The
+        per-row links scroll away in a long session; this leaves one standing
+        pointer at the foot of the turn that produced output.
+        """
+        if session_id != self.active_session_id:
+            return
+        state = self._sessions_manager.session_turn_state(session_id)
+        if state is None:
+            return
+        reported = sum(
+            1
+            for run in state.tool_runs.values()
+            if run.tool_name == "report_item" and run.status == "completed"
+        )
+        if reported == 0:
+            return
+        record = self.sessions.get(session_id)
+        project = record.info.project if record else None
+        url = self._build_agent_output_url(project)
+        if url is None:
+            return
+
+        from rich.style import Style
+        from rich.text import Text
+
+        from dreadnode.app.tui.widgets.tool import AGENT_OUTPUT_URL_LABEL
+
+        noun = "item" if reported == 1 else "items"
+        text = Text()
+        text.append("↗ ", style=FG_MUTED)
+        text.append(f"{reported} {noun} reported · ", style=FG_MUTED)
+        text.append(
+            AGENT_OUTPUT_URL_LABEL,
+            style=Style.from_meta({"@click": f"open_url({url!r})"}),
+        )
+        self.query_one("#conversation", ConversationView).write(text)
 
     def _show_help(self) -> None:
         """Write help content inline into the conversation view."""

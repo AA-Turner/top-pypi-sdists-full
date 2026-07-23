@@ -71,6 +71,8 @@ CfnOutput(self, "DNS",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -84,41 +86,37 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import Duration as _Duration_4839e8c3
-from ..aws_cognito import (
-    IUserPool as _IUserPool_1f1029e2,
-    IUserPoolClient as _IUserPoolClient_75623ba4,
-    IUserPoolDomain as _IUserPoolDomain_72b6a019,
-)
-from ..aws_elasticloadbalancingv2 import (
-    IApplicationListener as _IApplicationListener_60f2beb6,
-    ListenerAction as _ListenerAction_1aa94a29,
-    UnauthenticatedAction as _UnauthenticatedAction_161c1c21,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_cognito as _aws_cognito_4f282b4c
+    import aws_cdk.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1d9af53a
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_cognito_4f282b4c = _LazyImport("aws_cdk.aws_cognito")
+    _aws_elasticloadbalancingv2_1d9af53a = _LazyImport("aws_cdk.aws_elasticloadbalancingv2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class AuthenticateCognitoAction(
-    _ListenerAction_1aa94a29,
+    _aws_elasticloadbalancingv2_1d9af53a.ListenerAction,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2_actions.AuthenticateCognitoAction",
 ):
@@ -190,16 +188,16 @@ class AuthenticateCognitoAction(
     def __init__(
         self,
         *,
-        next: "_ListenerAction_1aa94a29",
-        user_pool: "_IUserPool_1f1029e2",
-        user_pool_client: "_IUserPoolClient_75623ba4",
-        user_pool_domain: "_IUserPoolDomain_72b6a019",
+        next: "_aws_elasticloadbalancingv2_1d9af53a.ListenerAction",
+        user_pool: "_aws_cognito_4f282b4c.IUserPool",
+        user_pool_client: "_aws_cognito_4f282b4c.IUserPoolClient",
+        user_pool_domain: "_aws_cognito_4f282b4c.IUserPoolDomain",
         allow_https_outbound: typing.Optional[builtins.bool] = None,
         authentication_request_extra_params: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        on_unauthenticated_request: typing.Optional["_UnauthenticatedAction_161c1c21"] = None,
+        on_unauthenticated_request: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.UnauthenticatedAction"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        session_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Authenticate using an identity provide (IdP) that is compliant with OpenID Connect (OIDC).
 
@@ -233,7 +231,7 @@ class AuthenticateCognitoAction(
     def bind(
         self,
         scope: "_constructs_77d1e7e8.Construct",
-        listener: "_IApplicationListener_60f2beb6",
+        listener: "_aws_elasticloadbalancingv2_1d9af53a.IApplicationListener",
         associating_construct: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
     ) -> None:
         '''Called when the action is being used in a listener.
@@ -243,7 +241,7 @@ class AuthenticateCognitoAction(
         :param associating_construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bc3eb6404cff5f4823a81d288aa2f8f33304af132480d1da5002465c19b0135)
+            type_hints = cached_type_hints(_typecheckingstub__0bc3eb6404cff5f4823a81d288aa2f8f33304af132480d1da5002465c19b0135)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
             check_type(argname="argument associating_construct", value=associating_construct, expected_type=type_hints["associating_construct"])
@@ -270,16 +268,16 @@ class AuthenticateCognitoActionProps:
     def __init__(
         self,
         *,
-        next: "_ListenerAction_1aa94a29",
-        user_pool: "_IUserPool_1f1029e2",
-        user_pool_client: "_IUserPoolClient_75623ba4",
-        user_pool_domain: "_IUserPoolDomain_72b6a019",
+        next: "_aws_elasticloadbalancingv2_1d9af53a.ListenerAction",
+        user_pool: "_aws_cognito_4f282b4c.IUserPool",
+        user_pool_client: "_aws_cognito_4f282b4c.IUserPoolClient",
+        user_pool_domain: "_aws_cognito_4f282b4c.IUserPoolDomain",
         allow_https_outbound: typing.Optional[builtins.bool] = None,
         authentication_request_extra_params: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        on_unauthenticated_request: typing.Optional["_UnauthenticatedAction_161c1c21"] = None,
+        on_unauthenticated_request: typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.UnauthenticatedAction"] = None,
         scope: typing.Optional[builtins.str] = None,
         session_cookie_name: typing.Optional[builtins.str] = None,
-        session_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        session_timeout: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Properties for AuthenticateCognitoAction.
 
@@ -357,7 +355,7 @@ class AuthenticateCognitoActionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f707ac4cf7f0537132d260696b832b492dc909a54e5c1c96afb0f7072f1b7b2)
+            type_hints = cached_type_hints(_typecheckingstub__7f707ac4cf7f0537132d260696b832b492dc909a54e5c1c96afb0f7072f1b7b2)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument user_pool_client", value=user_pool_client, expected_type=type_hints["user_pool_client"])
@@ -388,7 +386,7 @@ class AuthenticateCognitoActionProps:
             self._values["session_timeout"] = session_timeout
 
     @builtins.property
-    def next(self) -> "_ListenerAction_1aa94a29":
+    def next(self) -> "_aws_elasticloadbalancingv2_1d9af53a.ListenerAction":
         '''What action to execute next.
 
         Multiple actions form a linked chain; the chain must always terminate in a
@@ -396,28 +394,28 @@ class AuthenticateCognitoActionProps:
         '''
         result = self._values.get("next")
         assert result is not None, "Required property 'next' is missing"
-        return typing.cast("_ListenerAction_1aa94a29", result)
+        return typing.cast("_aws_elasticloadbalancingv2_1d9af53a.ListenerAction", result)
 
     @builtins.property
-    def user_pool(self) -> "_IUserPool_1f1029e2":
+    def user_pool(self) -> "_aws_cognito_4f282b4c.IUserPool":
         '''The Amazon Cognito user pool.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPool_1f1029e2", result)
+        return typing.cast("_aws_cognito_4f282b4c.IUserPool", result)
 
     @builtins.property
-    def user_pool_client(self) -> "_IUserPoolClient_75623ba4":
+    def user_pool_client(self) -> "_aws_cognito_4f282b4c.IUserPoolClient":
         '''The Amazon Cognito user pool client.'''
         result = self._values.get("user_pool_client")
         assert result is not None, "Required property 'user_pool_client' is missing"
-        return typing.cast("_IUserPoolClient_75623ba4", result)
+        return typing.cast("_aws_cognito_4f282b4c.IUserPoolClient", result)
 
     @builtins.property
-    def user_pool_domain(self) -> "_IUserPoolDomain_72b6a019":
+    def user_pool_domain(self) -> "_aws_cognito_4f282b4c.IUserPoolDomain":
         '''The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.'''
         result = self._values.get("user_pool_domain")
         assert result is not None, "Required property 'user_pool_domain' is missing"
-        return typing.cast("_IUserPoolDomain_72b6a019", result)
+        return typing.cast("_aws_cognito_4f282b4c.IUserPoolDomain", result)
 
     @builtins.property
     def allow_https_outbound(self) -> typing.Optional[builtins.bool]:
@@ -448,13 +446,13 @@ class AuthenticateCognitoActionProps:
     @builtins.property
     def on_unauthenticated_request(
         self,
-    ) -> typing.Optional["_UnauthenticatedAction_161c1c21"]:
+    ) -> typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.UnauthenticatedAction"]:
         '''The behavior if the user is not authenticated.
 
         :default: UnauthenticatedAction.AUTHENTICATE
         '''
         result = self._values.get("on_unauthenticated_request")
-        return typing.cast(typing.Optional["_UnauthenticatedAction_161c1c21"], result)
+        return typing.cast(typing.Optional["_aws_elasticloadbalancingv2_1d9af53a.UnauthenticatedAction"], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
@@ -477,13 +475,13 @@ class AuthenticateCognitoActionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def session_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def session_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum duration of the authentication session.
 
         :default: Duration.days(7)
         '''
         result = self._values.get("session_timeout")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -506,7 +504,7 @@ publication.publish()
 
 def _typecheckingstub__0bc3eb6404cff5f4823a81d288aa2f8f33304af132480d1da5002465c19b0135(
     scope: _constructs_77d1e7e8.Construct,
-    listener: _IApplicationListener_60f2beb6,
+    listener: _aws_elasticloadbalancingv2_1d9af53a.IApplicationListener,
     associating_construct: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
 ) -> None:
     """Type checking stubs"""
@@ -514,16 +512,16 @@ def _typecheckingstub__0bc3eb6404cff5f4823a81d288aa2f8f33304af132480d1da5002465c
 
 def _typecheckingstub__7f707ac4cf7f0537132d260696b832b492dc909a54e5c1c96afb0f7072f1b7b2(
     *,
-    next: _ListenerAction_1aa94a29,
-    user_pool: _IUserPool_1f1029e2,
-    user_pool_client: _IUserPoolClient_75623ba4,
-    user_pool_domain: _IUserPoolDomain_72b6a019,
+    next: _aws_elasticloadbalancingv2_1d9af53a.ListenerAction,
+    user_pool: _aws_cognito_4f282b4c.IUserPool,
+    user_pool_client: _aws_cognito_4f282b4c.IUserPoolClient,
+    user_pool_domain: _aws_cognito_4f282b4c.IUserPoolDomain,
     allow_https_outbound: typing.Optional[builtins.bool] = None,
     authentication_request_extra_params: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    on_unauthenticated_request: typing.Optional[_UnauthenticatedAction_161c1c21] = None,
+    on_unauthenticated_request: typing.Optional[_aws_elasticloadbalancingv2_1d9af53a.UnauthenticatedAction] = None,
     scope: typing.Optional[builtins.str] = None,
     session_cookie_name: typing.Optional[builtins.str] = None,
-    session_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    session_timeout: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass

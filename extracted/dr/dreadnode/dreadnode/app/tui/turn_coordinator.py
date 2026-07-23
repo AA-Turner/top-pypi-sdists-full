@@ -173,6 +173,17 @@ class TurnCoordinatorActions(t.Protocol):
 
     def write_activity(self, message: str, *, style: str = "info") -> None: ...
 
+    def notify_agent_output_available(self, session_id: str) -> None:
+        """If the just-finished turn reported structured items, drop a
+        clickable end-of-turn pointer to the web Agent Output page.
+
+        No-op when the turn reported nothing, when the session isn't the
+        visible one, or when there's no platform link to offer (local /
+        unauthenticated). The per-row links scroll away in a long session;
+        this keeps one pointer at the foot of the turn.
+        """
+        ...
+
     def flash(self, message: str, *, severity: str = "info") -> None: ...
 
     # ------------------------------------------------------------------
@@ -619,6 +630,9 @@ class TurnCoordinator:
 
         self._actions.commit_draft_to_transcript(session_id)
         self._actions.query_tool_progress().hide_tool()
+        # After the turn's content is committed, nudge the user toward the web
+        # Agent Output page if this turn reported any structured items.
+        self._actions.notify_agent_output_available(session_id)
 
         # Best-effort count + metadata update for the session.
         count = self._actions.session_transcript_length(session_id)

@@ -38,11 +38,13 @@ from extra_platforms import ALL_IDS
 
 from . import context
 from .cli_wrapper import WrapperGroup, wrap as wrap_cmd
+from .commands import ColorizedCommand
 from .config import ClickExtraConfig, TestSuiteConfig, get_tool_config
 from .context import pass_context
 from .decorators import argument, command, group, jobs_option, option
 from .envvar import merge_envvar_ids
-from .parameters import missing_extra_message
+from .myst_converter import convert_directory, detect_source_package
+from .parameters import make_resilient_context, missing_extra_message
 from .prebake import (
     _find_dunder_str,
     discover_package_init_files,
@@ -57,7 +59,6 @@ from .spinner import (
 )
 from .spinner_presets import SPINNERS
 from .styling import _nearest_256
-from .table import print_table
 from .test_suite import (
     DEFAULT_TEST_SUITE,
     CLITestCase,
@@ -66,6 +67,7 @@ from .test_suite import (
     parse_test_suite,
     run_test_suite,
 )
+from .theme import BUILTIN_THEMES
 from .version import (
     GIT_FIELDS,
     GIT_RESOLVERS,
@@ -74,10 +76,10 @@ from .version import (
 
 
 def _resolve_paths(module: Path | None) -> list[Path]:
-    """Resolve target ``__init__.py`` paths.
+    """Resolve target `__init__.py` paths.
 
-    Precedence: an explicit ``--module``, then the ``[tool.click-extra.prebake]``
-    ``module`` config value, then ``[project.scripts]`` auto-discovery.
+    Precedence: an explicit `--module`, then the `[tool.click-extra.prebake]`
+    `module` config value, then `[project.scripts]` auto-discovery.
     """
     if module:
         return [module]
@@ -95,7 +97,7 @@ def _resolve_paths(module: Path | None) -> list[Path]:
 
 
 def _to_dunder(name: str) -> str:
-    """Ensure *name* has ``__`` prefix and suffix."""
+    """Ensure *name* has `__` prefix and suffix."""
     if not name.startswith("__"):
         name = f"__{name}"
     if not name.endswith("__"):
@@ -297,38 +299,85 @@ def refresh_directives_cmd(
     paths: tuple[Path, ...],
     check: bool,
 ) -> None:
-    """Refresh the self-updating directive blocks embedded in Markdown files.
+    """Refresh the self-updating blocks embedded in Markdown files.
 
     Walks each PATH (a Markdown file, or a directory scanned recursively for
-    Markdown sources) and regenerates the content of every supported
-    self-updating directive from its own options, rewriting the block in place.
-    Only blocks that already exist are refreshed: nothing is added or removed.
+    Markdown sources) and rewrites every supported self-updating block in
+    place:
+
+    - matrix blocks (directive fences and marker regions alike), regenerated
+      from the project git history;
+
+    - python:render blocks carrying the :mirror: flag, whose Python code is
+      executed to regenerate the mirrored region below the fence (inserted on
+      first refresh).
+
+    Examples nested inside longer code fences are never refreshed or executed.
 
     Pass --check to report stale blocks without writing; the command then exits
     with a non-zero status, so a continuous-integration job can fail on
     out-of-date documentation.
 
     Refreshing reads the project git history and needs the sphinx extra:
-    install it with click-extra[sphinx].
+    install it with click-extra[sphinx]. Beware: mirror blocks are arbitrary
+    Python executed with the privileges of this process, so only refresh
+    documentation you trust, exactly as you would only build trusted docs.
     """
     # Imported lazily so the sphinx extra stays optional: this is the only CLI
     # command that needs it. Importing it eagerly would break the rest of the
     # CLI when sphinx is absent, and slow every invocation with a heavy import.
     try:
         from .sphinx.matrix import update_matrix_blocks
+        from .sphinx.python import update_mirror_blocks
     except ImportError as error:
         raise ClickException(
             missing_extra_message("sphinx", subject="Refreshing directives"),
         ) from error
 
-    changed = update_matrix_blocks(paths, check=check)
-    for path in changed:
+    changed = set(update_matrix_blocks(paths, check=check))
+    changed.update(update_mirror_blocks(paths, check=check))
+    for path in sorted(changed):
         echo(f"{'would refresh' if check else 'refreshed'}: {path}")
     if check and changed:
         ctx.exit(1)
 
 
 demo.add_command(refresh_directives_cmd)
+
+
+@command(name="convert-to-myst")
+@argument("directory", required=False, default=None)
+def convert_to_myst_cmd(directory: str | None) -> None:
+    """Convert reST docstrings to MyST markdown in Python source files.
+
+    Transforms reST markup in docstrings and #: comment blocks to MyST. The
+    companion click_extra.sphinx.myst_docstrings Sphinx extension converts the
+    MyST back to reST at build time, so sphinx.ext.autodoc still works.
+
+    If DIRECTORY is not specified, auto-detects the source package directory
+    from the project's script entry points in pyproject.toml.
+
+    Safe to re-run: already-converted MyST syntax does not match the reST
+    patterns, so the conversion is idempotent.
+    """
+    if directory:
+        root = Path(directory)
+    else:
+        try:
+            root = detect_source_package()
+        except ValueError as error:
+            raise ClickException(str(error)) from error
+
+    if not root.is_dir():
+        raise ClickException(f"Not a directory: {root}")
+
+    changed = convert_directory(root)
+    for filepath in changed:
+        echo(f"  Converted: {filepath}")
+    echo(f"\n{len(changed)} file(s) converted.")
+
+
+demo.add_command(convert_to_myst_cmd)
 
 
 _ALL_STYLES = (
@@ -341,10 +390,10 @@ _ALL_STYLES = (
     "reverse",
     "strikethrough",
 )
-"""ANSI text style names supported by ``click.style()``."""
+"""ANSI text style names supported by `click.style()`."""
 
 _ALL_COLORS = sorted(Color._dict.values())  # type: ignore[attr-defined]
-"""All color names from ``click_extra.Color``."""
+"""All color names from `click_extra.Color`."""
 
 
 def _render_palette() -> str:
@@ -412,9 +461,9 @@ def _render_8color_table() -> str:
 def _render_gradient() -> str:
     """Render 24-bit RGB gradients alongside their 256-color quantized equivalents.
 
-    Each gradient is shown in two rows: the top row uses 24-bit ``SGR 38;2;r;g;b``
-    escape codes, the bottom row uses the quantized ``SGR 38;5;n`` index from
-    ``_nearest_256``. Visible stepping in the quantized row reveals the palette
+    Each gradient is shown in two rows: the top row uses 24-bit `SGR 38;2;r;g;b`
+    escape codes, the bottom row uses the quantized `SGR 38;5;n` index from
+    `_nearest_256`. Visible stepping in the quantized row reveals the palette
     resolution limits.
     """
     width = 72
@@ -457,23 +506,9 @@ def _render_gradient() -> str:
     return "\n".join(lines)
 
 
-def _find_print_table(ctx: click.Context):
-    """Walk up the context chain to find the table printer.
-
-    Falls back to the bare ``print_table`` for standalone invocation (like in
-    docs).
-    """
-    ancestor: click.Context | None = ctx
-    while ancestor:
-        if hasattr(ancestor, "print_table"):
-            return ancestor.print_table
-        ancestor = ancestor.parent
-    return print_table
-
-
 @demo.command(name="colors", section=_demo_section)
 @pass_context
-def demo_colors(ctx: click.Context) -> None:
+def demo_colors(ctx: context.Context) -> None:
     """Render every foreground color against every background color."""
     styled_headers = [style(c, bg=c) for c in _ALL_COLORS]
     headers = ["Foreground \u21b4 \\ Background \u2192"] + styled_headers
@@ -482,12 +517,12 @@ def demo_colors(ctx: click.Context) -> None:
         row = [style(fg, fg=fg)]
         row.extend(style(fg, fg=fg, bg=bg) for bg in _ALL_COLORS)
         table.append(row)
-    _find_print_table(ctx)(table, headers=headers)
+    ctx.print_table(table, headers=headers)
 
 
 @demo.command(name="styles", section=_demo_section)
 @pass_context
-def demo_styles(ctx: click.Context) -> None:
+def demo_styles(ctx: context.Context) -> None:
     """Render every color with each text style (bold, dim, italic, etc.)."""
     styled_headers = [style(s, **{s: True}) for s in _ALL_STYLES]
     headers = ["Color \u21b4 \\ Style \u2192"] + styled_headers
@@ -498,7 +533,7 @@ def demo_styles(ctx: click.Context) -> None:
             style(color_name, fg=color_name, **{prop: True}) for prop in _ALL_STYLES
         )
         table.append(row)
-    _find_print_table(ctx)(table, headers=headers)
+    ctx.print_table(table, headers=headers)
 
 
 @demo.command(name="palette", section=_demo_section)
@@ -549,7 +584,7 @@ def demo_gradient() -> None:
 )
 @pass_context
 def demo_spinner(
-    ctx: click.Context,
+    ctx: context.Context,
     every: bool,
     sample_size: int | None,
     names: str | None,
@@ -598,7 +633,7 @@ def demo_spinner(
                 f"{preset.interval}s",
                 f"{_tour_duration(preset):.1f}s",
             ])
-        _find_print_table(ctx)(
+        ctx.print_table(
             rows,
             headers=["Name", "Frames", "Interval", "Tour"],
             # Right-align Tour so its single-decimal values line up on the dot.
@@ -610,6 +645,66 @@ def demo_spinner(
     # --progress / --accessible. A no-op when captured or piped.
     if sys.stderr.isatty() and context.get(ctx, context.PROGRESS, True):
         _animate_spinners(selection)
+
+
+# A throwaway CLI used only by `demo themes` to showcase each palette on a real
+# help screen. Built on ColorizedCommand so it renders through the themed
+# HelpFormatter without inheriting the default_params that would bury the accent
+# colors under click-extra's own options. Its callback is never invoked (only
+# its help is rendered), and its example data is domain-neutral on purpose.
+@click.command(cls=ColorizedCommand, name="garden")
+@option(
+    "--rows",
+    type=int,
+    default=4,
+    show_default=True,
+    help="Number of planting rows to dig.",
+)
+@option(
+    "--crop",
+    type=Choice(["carrot", "tomato", "basil", "radish"]),
+    default="carrot",
+    show_default=True,
+    show_envvar=True,
+    envvar="GARDEN_CROP",
+    help="Which crop to sow.",
+)
+@option(
+    "--spacing",
+    type=IntRange(5, 40),
+    default=15,
+    show_default=True,
+    help="Centimetres between seeds.",
+)
+@option("--water/--no-water", default=True, help="Water the bed right after sowing.")
+@argument("plot")
+def _theme_gallery_sample(**_kwargs: object) -> None:
+    """Sow a crop into a garden PLOT and water it in."""
+
+
+@demo.command(name="themes", section=_demo_section)
+@pass_context
+def demo_themes(ctx: click.Context) -> None:
+    """Render a sample help screen under every built-in theme, one after another.
+
+    Each built-in palette is applied in turn to the same throwaway CLI so the
+    themes can be eyeballed back to back. A terminal keeps a single background,
+    so light-background themes (light, manpage) look washed out on a dark
+    terminal, and dark themes look washed out on a light one.
+    """
+    for name, theme in BUILTIN_THEMES.items():
+        # Point get_current_theme() at this palette by writing the same
+        # context.THEME meta ThemeOption sets from --theme; the HelpFormatter
+        # reads it back when it renders the sample below. Scoped to this
+        # context, so no process-global theme state leaks between invocations.
+        context.set(ctx, context.THEME, theme)
+        sample_ctx = make_resilient_context(_theme_gallery_sample, "garden")
+        sample_ctx.color = ctx.color
+        echo(style("─" * 60, fg="bright_black"), color=ctx.color)
+        echo("Theme: " + theme.heading(name), color=ctx.color)
+        echo()
+        echo(_theme_gallery_sample.get_help(sample_ctx), color=ctx.color)
+        echo()
 
 
 @demo.group()
@@ -626,12 +721,12 @@ def prebake():
 )
 @_module_option
 def version(git_hash: str | None, module: Path | None) -> None:
-    """Inject Git commit hash into ``__version__``.
+    """Inject Git commit hash into `__version__`.
 
     Appends the Git short hash as a PEP 440 local version identifier
-    (for example ``1.0.0.dev0`` becomes ``1.0.0.dev0+abc1234``).
+    (for example `1.0.0.dev0` becomes `1.0.0.dev0+abc1234`).
 
-    Only modifies ``.dev`` versions without an existing ``+`` suffix.
+    Only modifies `.dev` versions without an existing `+` suffix.
     Release versions and already pre-baked versions are left untouched.
     """
     if git_hash is None:
@@ -657,8 +752,8 @@ def version(git_hash: str | None, module: Path | None) -> None:
 def field(name: str, module: Path | None, value: str) -> None:
     """Replace an empty dunder variable with a value.
 
-    NAME is the template field name (like ``git_tag_sha``) or the full
-    dunder name (like ``__git_tag_sha__``). Double underscores are added
+    NAME is the template field name (like `git_tag_sha`) or the full
+    dunder name (like `__git_tag_sha__`). Double underscores are added
     automatically when missing.
 
     VALUE is the string to inject.
@@ -678,21 +773,21 @@ def field(name: str, module: Path | None, value: str) -> None:
 @prebake.command(name="all")
 @_module_option
 def all_fields(module: Path | None) -> None:
-    """Pre-bake ``__version__`` and all git fields in one pass.
+    """Pre-bake `__version__` and all git fields in one pass.
 
-    Scans each target file for empty ``__<field>__`` dunder placeholders,
+    Scans each target file for empty `__<field>__` dunder placeholders,
     resolves their values from the current Git state, and injects them.
 
-    Also appends the Git short hash to ``.dev`` versions in
-    ``__version__`` (same as ``prebake version``).
+    Also appends the Git short hash to `.dev` versions in
+    `__version__` (same as `prebake version`).
 
     \b
     Supported git fields:
         git_branch, git_long_hash, git_short_hash, git_date, git_tag
 
     \b
-    Additional computed fields (``__git_tag_sha__``, ``__git_distance__``,
-    ``__git_dirty__``) are baked if their dunder placeholder exists and a git
+    Additional computed fields (`__git_tag_sha__`, `__git_distance__`,
+    `__git_dirty__`) are baked if their dunder placeholder exists and a git
     resolution is available. Fields without a placeholder in the source file
     are skipped silently.
     """

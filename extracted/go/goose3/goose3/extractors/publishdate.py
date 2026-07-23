@@ -269,7 +269,7 @@ class PublishDateExtractor(BaseExtractor):
         if self.article.schema and "datePublished" in self.article.schema:
             date = self.article.schema["datePublished"]
 
-            if type(date) == int or type(date) == float:
+            if isinstance(date, (int, float)):
                 t = None
 
                 try:

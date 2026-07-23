@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,33 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resiliencehubv2.IPolicyRef")
 class IPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
@@ -57,7 +61,7 @@ class IPolicyRef(
 
 class _IPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
 
@@ -84,7 +88,7 @@ typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefP
 )
 class IServiceFunctionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceFunction.
@@ -104,7 +108,7 @@ class IServiceFunctionRef(
 
 class _IServiceFunctionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceFunction.
 
@@ -129,7 +133,7 @@ typing.cast(typing.Any, IServiceFunctionRef).__jsii_proxy_class__ = lambda : _IS
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resiliencehubv2.IServiceRef")
 class IServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
@@ -149,7 +153,7 @@ class IServiceRef(
 
 class _IServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
 
@@ -174,7 +178,7 @@ typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resiliencehubv2.ISystemRef")
 class ISystemRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a System.
@@ -194,7 +198,7 @@ class ISystemRef(
 
 class _ISystemRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a System.
 
@@ -219,7 +223,7 @@ typing.cast(typing.Any, ISystemRef).__jsii_proxy_class__ = lambda : _ISystemRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_resiliencehubv2.IUserJourneyRef")
 class IUserJourneyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserJourney.
@@ -239,7 +243,7 @@ class IUserJourneyRef(
 
 class _IUserJourneyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a UserJourney.
 
@@ -285,7 +289,7 @@ class PolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9a007d8e198e6f822e26c396ff3716496b7b041cded37b1f7f464e3b301c7fc)
+            type_hints = cached_type_hints(_typecheckingstub__a9a007d8e198e6f822e26c396ff3716496b7b041cded37b1f7f464e3b301c7fc)
             check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "policy_arn": policy_arn,
@@ -344,7 +348,7 @@ class ServiceFunctionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1286d322b3e1a516344aeac96ddfd9acb339feba042b5c929bd444cbb4e414d)
+            type_hints = cached_type_hints(_typecheckingstub__a1286d322b3e1a516344aeac96ddfd9acb339feba042b5c929bd444cbb4e414d)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument service_function_id", value=service_function_id, expected_type=type_hints["service_function_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -402,7 +406,7 @@ class ServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__611ac533e7d1aba1a0093f92ce8b75d27c931e9118288b4abb36126c806e72a9)
+            type_hints = cached_type_hints(_typecheckingstub__611ac533e7d1aba1a0093f92ce8b75d27c931e9118288b4abb36126c806e72a9)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_arn": service_arn,
@@ -451,7 +455,7 @@ class SystemReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__486ce6f06dbdc0e80607a818825851bfeb2233a8bc89f06744345ce20bd09d28)
+            type_hints = cached_type_hints(_typecheckingstub__486ce6f06dbdc0e80607a818825851bfeb2233a8bc89f06744345ce20bd09d28)
             check_type(argname="argument system_arn", value=system_arn, expected_type=type_hints["system_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "system_arn": system_arn,
@@ -510,7 +514,7 @@ class UserJourneyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9d6b2f843fd6d8785834a6a7ea16acb108739a88bb53e00691596a06b37124)
+            type_hints = cached_type_hints(_typecheckingstub__9c9d6b2f843fd6d8785834a6a7ea16acb108739a88bb53e00691596a06b37124)
             check_type(argname="argument system_identifier", value=system_identifier, expected_type=type_hints["system_identifier"])
             check_type(argname="argument user_journey_id", value=user_journey_id, expected_type=type_hints["user_journey_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

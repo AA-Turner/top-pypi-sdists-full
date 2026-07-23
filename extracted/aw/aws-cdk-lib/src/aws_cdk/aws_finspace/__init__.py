@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_finspace import (
-    EnvironmentReference as _EnvironmentReference_a51ccd8f,
-    IEnvironmentRef as _IEnvironmentRef_e735ced8,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_finspace as _aws_finspace_e7fd595c
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_finspace_e7fd595c = _LazyImport("aws_cdk.interfaces.aws_finspace")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentRef_e735ced8, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_finspace_e7fd595c.IEnvironmentRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnEnvironment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_finspace.CfnEnvironment",
 ):
@@ -132,10 +126,10 @@ class CfnEnvironment(
         data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         federation_mode: typing.Optional[builtins.str] = None,
-        federation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.FederationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federation_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.FederationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        superuser_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.SuperuserParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        superuser_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.SuperuserParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::FinSpace::Environment``.
 
@@ -151,7 +145,7 @@ class CfnEnvironment(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f57ac69116cda232b57cc77dd248367e34b3decfb4cc4cd606394bbf0afc629)
+            type_hints = cached_type_hints(_typecheckingstub__9f57ac69116cda232b57cc77dd248367e34b3decfb4cc4cd606394bbf0afc629)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentProps(
@@ -169,12 +163,15 @@ class CfnEnvironment(
 
     @jsii.member(jsii_name="arnForEnvironment")
     @builtins.classmethod
-    def arn_for_environment(cls, resource: "_IEnvironmentRef_e735ced8") -> builtins.str:
+    def arn_for_environment(
+        cls,
+        resource: "_aws_finspace_e7fd595c.IEnvironmentRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47cfdd4f5664b2860ba0729679bf45cfcf2e6699436980782a3d82a81d10483c)
+            type_hints = cached_type_hints(_typecheckingstub__47cfdd4f5664b2860ba0729679bf45cfcf2e6699436980782a3d82a81d10483c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironment", [resource]))
 
@@ -185,7 +182,7 @@ class CfnEnvironment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IEnvironmentRef_e735ced8":
+    ) -> "_aws_finspace_e7fd595c.IEnvironmentRef":
         '''Creates a new IEnvironmentRef from an ARN.
 
         :param scope: -
@@ -193,11 +190,11 @@ class CfnEnvironment(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92cbfe9da7a90cc72011038cb4559944d65e4b786f79dce53c9a3883abb1461)
+            type_hints = cached_type_hints(_typecheckingstub__b92cbfe9da7a90cc72011038cb4559944d65e4b786f79dce53c9a3883abb1461)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IEnvironmentRef_e735ced8", jsii.sinvoke(cls, "fromEnvironmentArn", [scope, id, arn]))
+        return typing.cast("_aws_finspace_e7fd595c.IEnvironmentRef", jsii.sinvoke(cls, "fromEnvironmentArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromEnvironmentId")
     @builtins.classmethod
@@ -206,7 +203,7 @@ class CfnEnvironment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         environment_id: builtins.str,
-    ) -> "_IEnvironmentRef_e735ced8":
+    ) -> "_aws_finspace_e7fd595c.IEnvironmentRef":
         '''Creates a new IEnvironmentRef from a environmentId.
 
         :param scope: -
@@ -214,11 +211,11 @@ class CfnEnvironment(
         :param environment_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39e2e2873628b8cd5af14e45814a46693e8e9fdce268762ba663b61f576effd2)
+            type_hints = cached_type_hints(_typecheckingstub__39e2e2873628b8cd5af14e45814a46693e8e9fdce268762ba663b61f576effd2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
-        return typing.cast("_IEnvironmentRef_e735ced8", jsii.sinvoke(cls, "fromEnvironmentId", [scope, id, environment_id]))
+        return typing.cast("_aws_finspace_e7fd595c.IEnvironmentRef", jsii.sinvoke(cls, "fromEnvironmentId", [scope, id, environment_id]))
 
     @jsii.member(jsii_name="isCfnEnvironment")
     @builtins.classmethod
@@ -228,18 +225,18 @@ class CfnEnvironment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59ac9c10ed2ef1b34bb8f56611e70c4205ce06076e0c0a5f0d4187c98602bfb9)
+            type_hints = cached_type_hints(_typecheckingstub__59ac9c10ed2ef1b34bb8f56611e70c4205ce06076e0c0a5f0d4187c98602bfb9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5d0b1b73afeaee7185b654d27df42d0dbc9a9ffc19dfc7b89de95cb1b73263f)
+            type_hints = cached_type_hints(_typecheckingstub__f5d0b1b73afeaee7185b654d27df42d0dbc9a9ffc19dfc7b89de95cb1b73263f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -252,7 +249,7 @@ class CfnEnvironment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7d8a6132b285fca7a1395881be5f6bb87ccef46183c2e359af4f3536994a26a)
+            type_hints = cached_type_hints(_typecheckingstub__c7d8a6132b285fca7a1395881be5f6bb87ccef46183c2e359af4f3536994a26a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -337,15 +334,15 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> "_EnvironmentReference_a51ccd8f":
+    def environment_ref(self) -> "_aws_finspace_e7fd595c.EnvironmentReference":
         '''A reference to a Environment resource.'''
-        return typing.cast("_EnvironmentReference_a51ccd8f", jsii.get(self, "environmentRef"))
+        return typing.cast("_aws_finspace_e7fd595c.EnvironmentReference", jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -356,7 +353,7 @@ class CfnEnvironment(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__860fff0651bca3c119a16e47c1a3f46c146ecb823b9d700ccac98d3840d1fc35)
+            type_hints = cached_type_hints(_typecheckingstub__860fff0651bca3c119a16e47c1a3f46c146ecb823b9d700ccac98d3840d1fc35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -374,7 +371,7 @@ class CfnEnvironment(
     @data_bundles.setter
     def data_bundles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57ab0a0c1f1d83aaa81471315d4997899f5373567d02d2bfe1ff01b795a6c19b)
+            type_hints = cached_type_hints(_typecheckingstub__57ab0a0c1f1d83aaa81471315d4997899f5373567d02d2bfe1ff01b795a6c19b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataBundles", value) # pyright: ignore[reportArgumentType]
 
@@ -387,7 +384,7 @@ class CfnEnvironment(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b587720e33bbfed6cdec09f6eaf823330533e5ec920a19a167a59df1be1ceb04)
+            type_hints = cached_type_hints(_typecheckingstub__b587720e33bbfed6cdec09f6eaf823330533e5ec920a19a167a59df1be1ceb04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -400,7 +397,7 @@ class CfnEnvironment(
     @federation_mode.setter
     def federation_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__698ca730d63538f9ab600b8c12223be75f649f38fea3601360e8c5f6e823c88d)
+            type_hints = cached_type_hints(_typecheckingstub__698ca730d63538f9ab600b8c12223be75f649f38fea3601360e8c5f6e823c88d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "federationMode", value) # pyright: ignore[reportArgumentType]
 
@@ -408,17 +405,17 @@ class CfnEnvironment(
     @jsii.member(jsii_name="federationParameters")
     def federation_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.FederationParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.FederationParametersProperty"]]:
         '''Configuration information when authentication mode is FEDERATED.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.FederationParametersProperty"]], jsii.get(self, "federationParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.FederationParametersProperty"]], jsii.get(self, "federationParameters"))
 
     @federation_parameters.setter
     def federation_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.FederationParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.FederationParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cca90468c4b1d8a076ea02e32a24ca04ce7d592d32ea406233dd210b7eaa423)
+            type_hints = cached_type_hints(_typecheckingstub__1cca90468c4b1d8a076ea02e32a24ca04ce7d592d32ea406233dd210b7eaa423)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "federationParameters", value) # pyright: ignore[reportArgumentType]
 
@@ -431,7 +428,7 @@ class CfnEnvironment(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__852fed3236b85f6d2b00ea193818d85950ae107536a7f50a2486ccc8b6f5381b)
+            type_hints = cached_type_hints(_typecheckingstub__852fed3236b85f6d2b00ea193818d85950ae107536a7f50a2486ccc8b6f5381b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -439,30 +436,33 @@ class CfnEnvironment(
     @jsii.member(jsii_name="superuserParameters")
     def superuser_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.SuperuserParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.SuperuserParametersProperty"]]:
         '''Configuration information for the superuser.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.SuperuserParametersProperty"]], jsii.get(self, "superuserParameters"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.SuperuserParametersProperty"]], jsii.get(self, "superuserParameters"))
 
     @superuser_parameters.setter
     def superuser_parameters(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.SuperuserParametersProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.SuperuserParametersProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f6516c69c8c2885eb602c5a32e8226805adc98ac19c7289e214f05c0825e6ef)
+            type_hints = cached_type_hints(_typecheckingstub__1f6516c69c8c2885eb602c5a32e8226805adc98ac19c7289e214f05c0825e6ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "superuserParameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6df014d0d715549eb062b878e03daf791b461fc8b0696c22784f904bd8c4fc9f)
+            type_hints = cached_type_hints(_typecheckingstub__6df014d0d715549eb062b878e03daf791b461fc8b0696c22784f904bd8c4fc9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -497,7 +497,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__80f6184c649d0ba535c7ea6ce515aad13f895ec1d4a0746e2ad918a6c0d5ebfd)
+                type_hints = cached_type_hints(_typecheckingstub__80f6184c649d0ba535c7ea6ce515aad13f895ec1d4a0746e2ad918a6c0d5ebfd)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -556,7 +556,7 @@ class CfnEnvironment(
             self,
             *,
             application_call_back_url: typing.Optional[builtins.str] = None,
-            attribute_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.AttributeMapItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            attribute_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.AttributeMapItemsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             federation_provider_name: typing.Optional[builtins.str] = None,
             federation_urn: typing.Optional[builtins.str] = None,
             saml_metadata_document: typing.Optional[builtins.str] = None,
@@ -593,7 +593,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94390d852a9fb25c0e9bf6a36878414124539d8bfebd99d35d44c2b338fa1cce)
+                type_hints = cached_type_hints(_typecheckingstub__94390d852a9fb25c0e9bf6a36878414124539d8bfebd99d35d44c2b338fa1cce)
                 check_type(argname="argument application_call_back_url", value=application_call_back_url, expected_type=type_hints["application_call_back_url"])
                 check_type(argname="argument attribute_map", value=attribute_map, expected_type=type_hints["attribute_map"])
                 check_type(argname="argument federation_provider_name", value=federation_provider_name, expected_type=type_hints["federation_provider_name"])
@@ -626,7 +626,7 @@ class CfnEnvironment(
         @builtins.property
         def attribute_map(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.AttributeMapItemsProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.AttributeMapItemsProperty"]]]]:
             '''SAML attribute name and value.
 
             The name must always be ``Email`` and the value should be set to the attribute definition in which user email is set. For example, name would be ``Email`` and value ``http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress`` . Please check your SAML 2.0 compliant identity provider (IdP) documentation for details.
@@ -634,7 +634,7 @@ class CfnEnvironment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-finspace-environment-federationparameters.html#cfn-finspace-environment-federationparameters-attributemap
             '''
             result = self._values.get("attribute_map")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.AttributeMapItemsProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.AttributeMapItemsProperty"]]]], result)
 
         @builtins.property
         def federation_provider_name(self) -> typing.Optional[builtins.str]:
@@ -724,7 +724,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30a1d9568bcc8c25bfd4568d72ee1d13dea0ac6eb1eeaac5c76a6db3d081ce9b)
+                type_hints = cached_type_hints(_typecheckingstub__30a1d9568bcc8c25bfd4568d72ee1d13dea0ac6eb1eeaac5c76a6db3d081ce9b)
                 check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
                 check_type(argname="argument first_name", value=first_name, expected_type=type_hints["first_name"])
                 check_type(argname="argument last_name", value=last_name, expected_type=type_hints["last_name"])
@@ -797,10 +797,10 @@ class CfnEnvironmentProps:
         data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         federation_mode: typing.Optional[builtins.str] = None,
-        federation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.FederationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        federation_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.FederationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        superuser_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.SuperuserParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        superuser_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.SuperuserParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironment``.
 
@@ -854,7 +854,7 @@ class CfnEnvironmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3)
+            type_hints = cached_type_hints(_typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f515bfa3)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument data_bundles", value=data_bundles, expected_type=type_hints["data_bundles"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -924,13 +924,13 @@ class CfnEnvironmentProps:
     @builtins.property
     def federation_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.FederationParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.FederationParametersProperty"]]:
         '''Configuration information when authentication mode is FEDERATED.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-federationparameters
         '''
         result = self._values.get("federation_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.FederationParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.FederationParametersProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -944,22 +944,22 @@ class CfnEnvironmentProps:
     @builtins.property
     def superuser_parameters(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.SuperuserParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.SuperuserParametersProperty"]]:
         '''Configuration information for the superuser.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-superuserparameters
         '''
         result = self._values.get("superuser_parameters")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.SuperuserParametersProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.SuperuserParametersProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-finspace-environment.html#cfn-finspace-environment-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -988,16 +988,16 @@ def _typecheckingstub__9f57ac69116cda232b57cc77dd248367e34b3decfb4cc4cd606394bbf
     data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     federation_mode: typing.Optional[builtins.str] = None,
-    federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federation_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    superuser_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47cfdd4f5664b2860ba0729679bf45cfcf2e6699436980782a3d82a81d10483c(
-    resource: _IEnvironmentRef_e735ced8,
+    resource: _aws_finspace_e7fd595c.IEnvironmentRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1025,7 +1025,7 @@ def _typecheckingstub__59ac9c10ed2ef1b34bb8f56611e70c4205ce06076e0c0a5f0d4187c98
     pass
 
 def _typecheckingstub__f5d0b1b73afeaee7185b654d27df42d0dbc9a9ffc19dfc7b89de95cb1b73263f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1061,7 +1061,7 @@ def _typecheckingstub__698ca730d63538f9ab600b8c12223be75f649f38fea3601360e8c5f6e
     pass
 
 def _typecheckingstub__1cca90468c4b1d8a076ea02e32a24ca04ce7d592d32ea406233dd210b7eaa423(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.FederationParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.FederationParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1073,13 +1073,13 @@ def _typecheckingstub__852fed3236b85f6d2b00ea193818d85950ae107536a7f50a2486ccc8b
     pass
 
 def _typecheckingstub__1f6516c69c8c2885eb602c5a32e8226805adc98ac19c7289e214f05c0825e6ef(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.SuperuserParametersProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.SuperuserParametersProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6df014d0d715549eb062b878e03daf791b461fc8b0696c22784f904bd8c4fc9f(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1095,7 +1095,7 @@ def _typecheckingstub__80f6184c649d0ba535c7ea6ce515aad13f895ec1d4a0746e2ad918a6c
 def _typecheckingstub__94390d852a9fb25c0e9bf6a36878414124539d8bfebd99d35d44c2b338fa1cce(
     *,
     application_call_back_url: typing.Optional[builtins.str] = None,
-    attribute_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.AttributeMapItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    attribute_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.AttributeMapItemsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     federation_provider_name: typing.Optional[builtins.str] = None,
     federation_urn: typing.Optional[builtins.str] = None,
     saml_metadata_document: typing.Optional[builtins.str] = None,
@@ -1119,10 +1119,10 @@ def _typecheckingstub__7911e58237794983de7a2bf4de8d169915a752d95d989dc00d660b43f
     data_bundles: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     federation_mode: typing.Optional[builtins.str] = None,
-    federation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    federation_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.FederationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    superuser_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    superuser_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.SuperuserParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -303,7 +303,11 @@ class TorchBackend(Backend[torch.Tensor]):
             dtype=source.dtype,
             sparse_dim=source.sparse_dim,
         )
-        out_shape = [d.get_dim_value() for d in out.dims]
+        # Build the reshape target from the source's (backed) raw shape plus -1 for the merged block.
+        # This avoids a get_dim_value() host sync on any dynamic dim
+        # (such a sync breaks CUDA-graph capture and forces a torch.compile graph break).
+        src_shape = source.raw_tensor.shape
+        out_shape = list(src_shape[: len(pre_dims)]) + [-1] + list(src_shape[len(pre_dims) + len(dims) :])
         out.raw_tensor = torch.reshape(source.raw_tensor, out_shape)
         if source.feature_dim is not None:
             if source.feature_dim in dims:
@@ -325,7 +329,17 @@ class TorchBackend(Backend[torch.Tensor]):
         assert pad_to_multiples in (None, False)  # not implemented
         axis_ = source.get_axis_from_description(axis)
         out_dims = source.dims[:axis_] + tuple(dims) + source.dims[axis_ + 1 :]
-        out_shape = [d.get_dim_value() for d in out_dims]
+        # Build the reshape target from the source's (backed) raw shape for the unchanged axes,
+        # plus the split dims' static sizes (-1 for a single unknown one) for the split axis.
+        # This avoids a get_dim_value() host sync on any dynamic unchanged dim
+        # (such a sync breaks CUDA-graph capture and forces a torch.compile graph break);
+        # the unchanged sizes read off the raw shape are identical to get_dim_value().
+        src_shape = source.raw_tensor.shape
+        split_sizes = [d.dimension if d.dimension is not None else -1 for d in dims]
+        if split_sizes.count(-1) > 1:
+            # more than one unknown split size cannot be expressed with a single -1; use explicit values
+            split_sizes = [d.get_dim_value() for d in dims]
+        out_shape = list(src_shape[:axis_]) + split_sizes + list(src_shape[axis_ + 1 :])
         out_raw = torch.reshape(source.raw_tensor, out_shape)
         out = Tensor(
             "split_dims",

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class AggregationAuthorizationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f475612b63168745aeaf0d7324ecb1c67eeb25f65b3d360fecc77d49f8706e41)
+            type_hints = cached_type_hints(_typecheckingstub__f475612b63168745aeaf0d7324ecb1c67eeb25f65b3d360fecc77d49f8706e41)
             check_type(argname="argument aggregation_authorization_arn", value=aggregation_authorization_arn, expected_type=type_hints["aggregation_authorization_arn"])
             check_type(argname="argument authorized_account_id", value=authorized_account_id, expected_type=type_hints["authorized_account_id"])
             check_type(argname="argument authorized_aws_region", value=authorized_aws_region, expected_type=type_hints["authorized_aws_region"])
@@ -149,7 +153,7 @@ class ConfigRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7bcc26b81961a1ca16b6a6b27418661f3859ae5eee0d9c655d69641ad34ebe0)
+            type_hints = cached_type_hints(_typecheckingstub__e7bcc26b81961a1ca16b6a6b27418661f3859ae5eee0d9c655d69641ad34ebe0)
             check_type(argname="argument config_rule_arn", value=config_rule_arn, expected_type=type_hints["config_rule_arn"])
             check_type(argname="argument config_rule_name", value=config_rule_name, expected_type=type_hints["config_rule_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -217,7 +221,7 @@ class ConfigurationAggregatorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4857da1b529671a1a7c545b945a1d22a77f03b0a279d1e47b82b9ac7cde5c7d)
+            type_hints = cached_type_hints(_typecheckingstub__b4857da1b529671a1a7c545b945a1d22a77f03b0a279d1e47b82b9ac7cde5c7d)
             check_type(argname="argument configuration_aggregator_arn", value=configuration_aggregator_arn, expected_type=type_hints["configuration_aggregator_arn"])
             check_type(argname="argument configuration_aggregator_name", value=configuration_aggregator_name, expected_type=type_hints["configuration_aggregator_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -275,7 +279,7 @@ class ConfigurationRecorderReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63416909aacc16f4b663be48b88e6851d224326d56dfd0b80c8619fd734ddf59)
+            type_hints = cached_type_hints(_typecheckingstub__63416909aacc16f4b663be48b88e6851d224326d56dfd0b80c8619fd734ddf59)
             check_type(argname="argument configuration_recorder_id", value=configuration_recorder_id, expected_type=type_hints["configuration_recorder_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_recorder_id": configuration_recorder_id,
@@ -324,7 +328,7 @@ class ConformancePackReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3d9ef7123d37db2269e5cdf462a02624d8d1913289786ec44f2e6bdf362833de)
+            type_hints = cached_type_hints(_typecheckingstub__3d9ef7123d37db2269e5cdf462a02624d8d1913289786ec44f2e6bdf362833de)
             check_type(argname="argument conformance_pack_name", value=conformance_pack_name, expected_type=type_hints["conformance_pack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "conformance_pack_name": conformance_pack_name,
@@ -345,6 +349,55 @@ class ConformancePackReference:
 
     def __repr__(self) -> str:
         return "ConformancePackReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_config.ConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"connector_arn": "connectorArn"},
+)
+class ConnectorReference:
+    def __init__(self, *, connector_arn: builtins.str) -> None:
+        '''A reference to a Connector resource.
+
+        :param connector_arn: The Arn of the Connector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_config as interfaces_config
+            
+            connector_reference = interfaces_config.ConnectorReference(
+                connector_arn="connectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8783b174b3cfb1a3e14858e0d757bd09a04da610058c3f99a1113ffe669b46db)
+            check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_arn": connector_arn,
+        }
+
+    @builtins.property
+    def connector_arn(self) -> builtins.str:
+        '''The Arn of the Connector resource.'''
+        result = self._values.get("connector_arn")
+        assert result is not None, "Required property 'connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectorReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -373,7 +426,7 @@ class DeliveryChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3b7dc081)
+            type_hints = cached_type_hints(_typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3b7dc081)
             check_type(argname="argument delivery_channel_id", value=delivery_channel_id, expected_type=type_hints["delivery_channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "delivery_channel_id": delivery_channel_id,
@@ -403,7 +456,7 @@ class DeliveryChannelReference:
 )
 class IAggregationAuthorizationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AggregationAuthorization.
@@ -423,7 +476,7 @@ class IAggregationAuthorizationRef(
 
 class _IAggregationAuthorizationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AggregationAuthorization.
 
@@ -448,7 +501,7 @@ typing.cast(typing.Any, IAggregationAuthorizationRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_config.IConfigRuleRef")
 class IConfigRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigRule.
@@ -468,7 +521,7 @@ class IConfigRuleRef(
 
 class _IConfigRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigRule.
 
@@ -495,7 +548,7 @@ typing.cast(typing.Any, IConfigRuleRef).__jsii_proxy_class__ = lambda : _IConfig
 )
 class IConfigurationAggregatorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationAggregator.
@@ -515,7 +568,7 @@ class IConfigurationAggregatorRef(
 
 class _IConfigurationAggregatorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationAggregator.
 
@@ -542,7 +595,7 @@ typing.cast(typing.Any, IConfigurationAggregatorRef).__jsii_proxy_class__ = lamb
 )
 class IConfigurationRecorderRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationRecorder.
@@ -562,7 +615,7 @@ class IConfigurationRecorderRef(
 
 class _IConfigurationRecorderRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfigurationRecorder.
 
@@ -587,7 +640,7 @@ typing.cast(typing.Any, IConfigurationRecorderRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_config.IConformancePackRef")
 class IConformancePackRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConformancePack.
@@ -607,7 +660,7 @@ class IConformancePackRef(
 
 class _IConformancePackRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConformancePack.
 
@@ -629,10 +682,55 @@ class _IConformancePackRefProxy(
 typing.cast(typing.Any, IConformancePackRef).__jsii_proxy_class__ = lambda : _IConformancePackRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_config.IConnectorRef")
+class IConnectorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> "ConnectorReference":
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_config.IConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> "ConnectorReference":
+        '''(experimental) A reference to a Connector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectorReference", jsii.get(self, "connectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnectorRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_config.IDeliveryChannelRef")
 class IDeliveryChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeliveryChannel.
@@ -652,7 +750,7 @@ class IDeliveryChannelRef(
 
 class _IDeliveryChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DeliveryChannel.
 
@@ -679,7 +777,7 @@ typing.cast(typing.Any, IDeliveryChannelRef).__jsii_proxy_class__ = lambda : _ID
 )
 class IOrganizationConfigRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationConfigRule.
@@ -699,7 +797,7 @@ class IOrganizationConfigRuleRef(
 
 class _IOrganizationConfigRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationConfigRule.
 
@@ -726,7 +824,7 @@ typing.cast(typing.Any, IOrganizationConfigRuleRef).__jsii_proxy_class__ = lambd
 )
 class IOrganizationConformancePackRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationConformancePack.
@@ -748,7 +846,7 @@ class IOrganizationConformancePackRef(
 
 class _IOrganizationConformancePackRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OrganizationConformancePack.
 
@@ -777,7 +875,7 @@ typing.cast(typing.Any, IOrganizationConformancePackRef).__jsii_proxy_class__ = 
 )
 class IRemediationConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RemediationConfiguration.
@@ -797,7 +895,7 @@ class IRemediationConfigurationRef(
 
 class _IRemediationConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RemediationConfiguration.
 
@@ -822,7 +920,7 @@ typing.cast(typing.Any, IRemediationConfigurationRef).__jsii_proxy_class__ = lam
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_config.IStoredQueryRef")
 class IStoredQueryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StoredQuery.
@@ -842,7 +940,7 @@ class IStoredQueryRef(
 
 class _IStoredQueryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StoredQuery.
 
@@ -888,7 +986,7 @@ class OrganizationConfigRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a9278368)
+            type_hints = cached_type_hints(_typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a9278368)
             check_type(argname="argument organization_config_rule_id", value=organization_config_rule_id, expected_type=type_hints["organization_config_rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "organization_config_rule_id": organization_config_rule_id,
@@ -939,7 +1037,7 @@ class OrganizationConformancePackReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f39373fa)
+            type_hints = cached_type_hints(_typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f39373fa)
             check_type(argname="argument organization_conformance_pack_name", value=organization_conformance_pack_name, expected_type=type_hints["organization_conformance_pack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "organization_conformance_pack_name": organization_conformance_pack_name,
@@ -967,13 +1065,13 @@ class OrganizationConformancePackReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.RemediationConfigurationReference",
     jsii_struct_bases=[],
-    name_mapping={"remediation_configuration_id": "remediationConfigurationId"},
+    name_mapping={"config_rule_name": "configRuleName"},
 )
 class RemediationConfigurationReference:
-    def __init__(self, *, remediation_configuration_id: builtins.str) -> None:
+    def __init__(self, *, config_rule_name: builtins.str) -> None:
         '''A reference to a RemediationConfiguration resource.
 
-        :param remediation_configuration_id: The Id of the RemediationConfiguration resource.
+        :param config_rule_name: The ConfigRuleName of the RemediationConfiguration resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -984,21 +1082,21 @@ class RemediationConfigurationReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             remediation_configuration_reference = interfaces_config.RemediationConfigurationReference(
-                remediation_configuration_id="remediationConfigurationId"
+                config_rule_name="configRuleName"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3aa8b82b87534836247bd222bc3affa2d1dbc927e8eef996b059f116a6d32def)
-            check_type(argname="argument remediation_configuration_id", value=remediation_configuration_id, expected_type=type_hints["remediation_configuration_id"])
+            type_hints = cached_type_hints(_typecheckingstub__3aa8b82b87534836247bd222bc3affa2d1dbc927e8eef996b059f116a6d32def)
+            check_type(argname="argument config_rule_name", value=config_rule_name, expected_type=type_hints["config_rule_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "remediation_configuration_id": remediation_configuration_id,
+            "config_rule_name": config_rule_name,
         }
 
     @builtins.property
-    def remediation_configuration_id(self) -> builtins.str:
-        '''The Id of the RemediationConfiguration resource.'''
-        result = self._values.get("remediation_configuration_id")
-        assert result is not None, "Required property 'remediation_configuration_id' is missing"
+    def config_rule_name(self) -> builtins.str:
+        '''The ConfigRuleName of the RemediationConfiguration resource.'''
+        result = self._values.get("config_rule_name")
+        assert result is not None, "Required property 'config_rule_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1037,7 +1135,7 @@ class StoredQueryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c93366677a5cf67294d183ffdb934354d0e522169238280163adf19f524e71af)
+            type_hints = cached_type_hints(_typecheckingstub__c93366677a5cf67294d183ffdb934354d0e522169238280163adf19f524e71af)
             check_type(argname="argument query_name", value=query_name, expected_type=type_hints["query_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "query_name": query_name,
@@ -1068,12 +1166,14 @@ __all__ = [
     "ConfigurationAggregatorReference",
     "ConfigurationRecorderReference",
     "ConformancePackReference",
+    "ConnectorReference",
     "DeliveryChannelReference",
     "IAggregationAuthorizationRef",
     "IConfigRuleRef",
     "IConfigurationAggregatorRef",
     "IConfigurationRecorderRef",
     "IConformancePackRef",
+    "IConnectorRef",
     "IDeliveryChannelRef",
     "IOrganizationConfigRuleRef",
     "IOrganizationConformancePackRef",
@@ -1126,6 +1226,13 @@ def _typecheckingstub__3d9ef7123d37db2269e5cdf462a02624d8d1913289786ec44f2e6bdf3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8783b174b3cfb1a3e14858e0d757bd09a04da610058c3f99a1113ffe669b46db(
+    *,
+    connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__472166aca23b37c534f827dac5b5eac75427b1c455eacd9bbddb8e1b3b7dc081(
     *,
     delivery_channel_id: builtins.str,
@@ -1149,7 +1256,7 @@ def _typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f
 
 def _typecheckingstub__3aa8b82b87534836247bd222bc3affa2d1dbc927e8eef996b059f116a6d32def(
     *,
-    remediation_configuration_id: builtins.str,
+    config_rule_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1161,5 +1268,5 @@ def _typecheckingstub__c93366677a5cf67294d183ffdb934354d0e522169238280163adf19f5
     """Type checking stubs"""
     pass
 
-for cls in [IAggregationAuthorizationRef, IConfigRuleRef, IConfigurationAggregatorRef, IConfigurationRecorderRef, IConformancePackRef, IDeliveryChannelRef, IOrganizationConfigRuleRef, IOrganizationConformancePackRef, IRemediationConfigurationRef, IStoredQueryRef]:
+for cls in [IAggregationAuthorizationRef, IConfigRuleRef, IConfigurationAggregatorRef, IConfigurationRecorderRef, IConformancePackRef, IConnectorRef, IDeliveryChannelRef, IOrganizationConfigRuleRef, IOrganizationConformancePackRef, IRemediationConfigurationRef, IStoredQueryRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

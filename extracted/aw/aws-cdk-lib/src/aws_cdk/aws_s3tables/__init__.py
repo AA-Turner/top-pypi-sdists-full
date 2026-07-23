@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,52 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_s3tables import (
-    INamespaceRef as _INamespaceRef_d181e3d7,
-    ITableBucketPolicyRef as _ITableBucketPolicyRef_3f1f8c44,
-    ITableBucketRef as _ITableBucketRef_26c8a832,
-    ITablePolicyRef as _ITablePolicyRef_0aed1a54,
-    ITableRef as _ITableRef_1d36a1c5,
-    NamespaceReference as _NamespaceReference_f0e554ce,
-    TableBucketPolicyReference as _TableBucketPolicyReference_a4627945,
-    TableBucketReference as _TableBucketReference_1fd2f743,
-    TablePolicyReference as _TablePolicyReference_a435d553,
-    TableReference as _TableReference_ab8e2ae7,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_s3tables as _aws_s3tables_8ca3fb7b
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_s3tables_8ca3fb7b = _LazyImport("aws_cdk.interfaces.aws_s3tables")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _INamespaceRef_d181e3d7)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3tables_8ca3fb7b.INamespaceRef)
 class CfnNamespace(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3tables.CfnNamespace",
 ):
@@ -142,7 +128,7 @@ class CfnNamespace(
         :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket to create the namespace in.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd79dcff4893fe1cd3464c1f48689d2a01ad4a5eed6acfd35e21266683ab1f1c)
+            type_hints = cached_type_hints(_typecheckingstub__fd79dcff4893fe1cd3464c1f48689d2a01ad4a5eed6acfd35e21266683ab1f1c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnNamespaceProps(
@@ -159,18 +145,18 @@ class CfnNamespace(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__295bf56d518b0fd610e3db75ec2ce0bc30b4144b11790d95753978b1a117dcb0)
+            type_hints = cached_type_hints(_typecheckingstub__295bf56d518b0fd610e3db75ec2ce0bc30b4144b11790d95753978b1a117dcb0)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNamespace", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dae368df5e118b03066ac5fbad3765e81aa23b31a7288aa2bb824379578614f)
+            type_hints = cached_type_hints(_typecheckingstub__0dae368df5e118b03066ac5fbad3765e81aa23b31a7288aa2bb824379578614f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -183,7 +169,7 @@ class CfnNamespace(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c772aad560ab6b4e840f54665ca3a18a9fcbf362512eb78423617db138b70b0)
+            type_hints = cached_type_hints(_typecheckingstub__2c772aad560ab6b4e840f54665ca3a18a9fcbf362512eb78423617db138b70b0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -205,9 +191,9 @@ class CfnNamespace(
 
     @builtins.property
     @jsii.member(jsii_name="namespaceRef")
-    def namespace_ref(self) -> "_NamespaceReference_f0e554ce":
+    def namespace_ref(self) -> "_aws_s3tables_8ca3fb7b.NamespaceReference":
         '''A reference to a Namespace resource.'''
-        return typing.cast("_NamespaceReference_f0e554ce", jsii.get(self, "namespaceRef"))
+        return typing.cast("_aws_s3tables_8ca3fb7b.NamespaceReference", jsii.get(self, "namespaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="namespace")
@@ -218,7 +204,7 @@ class CfnNamespace(
     @namespace.setter
     def namespace(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__083038783d9a592008992f105965913f4b10d8bc23252afb9a929c22e7cebd06)
+            type_hints = cached_type_hints(_typecheckingstub__083038783d9a592008992f105965913f4b10d8bc23252afb9a929c22e7cebd06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
 
@@ -231,7 +217,7 @@ class CfnNamespace(
     @table_bucket_arn.setter
     def table_bucket_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8560b7f29623bc1f753b1cf34442c874c6958096b39accf37244c9341879fd81)
+            type_hints = cached_type_hints(_typecheckingstub__8560b7f29623bc1f753b1cf34442c874c6958096b39accf37244c9341879fd81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -268,7 +254,7 @@ class CfnNamespaceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fdadc8758c9f96fac22200567c0d51cfd3e36c943cb9fa46e50cbf9abf25faf)
+            type_hints = cached_type_hints(_typecheckingstub__5fdadc8758c9f96fac22200567c0d51cfd3e36c943cb9fa46e50cbf9abf25faf)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -308,9 +294,9 @@ class CfnNamespaceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITableRef_1d36a1c5, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3tables_8ca3fb7b.ITableRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTable(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3tables.CfnTable",
 ):
@@ -438,11 +424,11 @@ class CfnTable(
         open_table_format: builtins.str,
         table_bucket_arn: builtins.str,
         table_name: builtins.str,
-        compaction: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.CompactionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iceberg_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_management: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compaction: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.CompactionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_management: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         without_metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::S3Tables::Table``.
@@ -461,7 +447,7 @@ class CfnTable(
         :param without_metadata: Indicates that you don't want to specify a schema for the table. This property is mutually exclusive to ``IcebergMetadata`` , and its only possible value is ``Yes`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cb6d8b27037c33c46017d3b0b00b52a14bbd8c0a922c03aca7fff9e327b1420)
+            type_hints = cached_type_hints(_typecheckingstub__9cb6d8b27037c33c46017d3b0b00b52a14bbd8c0a922c03aca7fff9e327b1420)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTableProps(
@@ -481,12 +467,15 @@ class CfnTable(
 
     @jsii.member(jsii_name="arnForTable")
     @builtins.classmethod
-    def arn_for_table(cls, resource: "_ITableRef_1d36a1c5") -> builtins.str:
+    def arn_for_table(
+        cls,
+        resource: "_aws_s3tables_8ca3fb7b.ITableRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90678bca5485582dd203485c7393151852489f6571bf2d72fc9fb12fc577a089)
+            type_hints = cached_type_hints(_typecheckingstub__90678bca5485582dd203485c7393151852489f6571bf2d72fc9fb12fc577a089)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTable", [resource]))
 
@@ -498,18 +487,18 @@ class CfnTable(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00e16efe404e37a7e831b6239054ba4d8d2c0d6396f13edb1491f10b51492493)
+            type_hints = cached_type_hints(_typecheckingstub__00e16efe404e37a7e831b6239054ba4d8d2c0d6396f13edb1491f10b51492493)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTable", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e9f0a1074447de044514c7c1b5b2cca167912d3e02c228b501f3cc4c1b09a6f)
+            type_hints = cached_type_hints(_typecheckingstub__8e9f0a1074447de044514c7c1b5b2cca167912d3e02c228b501f3cc4c1b09a6f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -522,7 +511,7 @@ class CfnTable(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a82da714fe9043c593e17c8af3ba9310ce4d043a6843c815aa933a3f004a6d5a)
+            type_hints = cached_type_hints(_typecheckingstub__a82da714fe9043c593e17c8af3ba9310ce4d043a6843c815aa933a3f004a6d5a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -561,9 +550,9 @@ class CfnTable(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -577,9 +566,9 @@ class CfnTable(
 
     @builtins.property
     @jsii.member(jsii_name="tableRef")
-    def table_ref(self) -> "_TableReference_ab8e2ae7":
+    def table_ref(self) -> "_aws_s3tables_8ca3fb7b.TableReference":
         '''A reference to a Table resource.'''
-        return typing.cast("_TableReference_ab8e2ae7", jsii.get(self, "tableRef"))
+        return typing.cast("_aws_s3tables_8ca3fb7b.TableReference", jsii.get(self, "tableRef"))
 
     @builtins.property
     @jsii.member(jsii_name="namespace")
@@ -590,7 +579,7 @@ class CfnTable(
     @namespace.setter
     def namespace(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb40731dfd6256164661895ce0f48c78b8e18c58fb7f27fbb73a3ce7c916c1df)
+            type_hints = cached_type_hints(_typecheckingstub__fb40731dfd6256164661895ce0f48c78b8e18c58fb7f27fbb73a3ce7c916c1df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
 
@@ -603,7 +592,7 @@ class CfnTable(
     @open_table_format.setter
     def open_table_format(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5892a05d87447cee97d5ab4f41ddb7d6837df87a8b4e6b9d577c79cfe927180a)
+            type_hints = cached_type_hints(_typecheckingstub__5892a05d87447cee97d5ab4f41ddb7d6837df87a8b4e6b9d577c79cfe927180a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openTableFormat", value) # pyright: ignore[reportArgumentType]
 
@@ -616,7 +605,7 @@ class CfnTable(
     @table_bucket_arn.setter
     def table_bucket_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ad6ac8e43e44c04006a5ef80e152c8effbbdb7bf127bd063a6b732c4ee1f9a9)
+            type_hints = cached_type_hints(_typecheckingstub__7ad6ac8e43e44c04006a5ef80e152c8effbbdb7bf127bd063a6b732c4ee1f9a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -629,7 +618,7 @@ class CfnTable(
     @table_name.setter
     def table_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f410c91375a77f7ed3b5736522dbfb254643b931cd30ea49af6d7d51d9c5ddc5)
+            type_hints = cached_type_hints(_typecheckingstub__f410c91375a77f7ed3b5736522dbfb254643b931cd30ea49af6d7d51d9c5ddc5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
 
@@ -637,17 +626,17 @@ class CfnTable(
     @jsii.member(jsii_name="compaction")
     def compaction(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.CompactionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.CompactionProperty"]]:
         '''Contains details about the compaction settings for an Iceberg table.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.CompactionProperty"]], jsii.get(self, "compaction"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.CompactionProperty"]], jsii.get(self, "compaction"))
 
     @compaction.setter
     def compaction(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.CompactionProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.CompactionProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ff6f95f778b64c53b87dfe6f8a117fa9d1583584d475eef7586c75859dcb219)
+            type_hints = cached_type_hints(_typecheckingstub__4ff6f95f778b64c53b87dfe6f8a117fa9d1583584d475eef7586c75859dcb219)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "compaction", value) # pyright: ignore[reportArgumentType]
 
@@ -655,17 +644,17 @@ class CfnTable(
     @jsii.member(jsii_name="icebergMetadata")
     def iceberg_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergMetadataProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergMetadataProperty"]]:
         '''Contains details about the metadata for an Iceberg table.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergMetadataProperty"]], jsii.get(self, "icebergMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergMetadataProperty"]], jsii.get(self, "icebergMetadata"))
 
     @iceberg_metadata.setter
     def iceberg_metadata(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergMetadataProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergMetadataProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f0509a656c9927b41c3ead9b58d6c83257863d2b8d1104c542e1a8435be4160)
+            type_hints = cached_type_hints(_typecheckingstub__6f0509a656c9927b41c3ead9b58d6c83257863d2b8d1104c542e1a8435be4160)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "icebergMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -673,17 +662,17 @@ class CfnTable(
     @jsii.member(jsii_name="snapshotManagement")
     def snapshot_management(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.SnapshotManagementProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SnapshotManagementProperty"]]:
         '''Contains details about the Iceberg snapshot management settings for the table.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.SnapshotManagementProperty"]], jsii.get(self, "snapshotManagement"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SnapshotManagementProperty"]], jsii.get(self, "snapshotManagement"))
 
     @snapshot_management.setter
     def snapshot_management(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.SnapshotManagementProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SnapshotManagementProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6c432f4785ee47d59f072204756d42650b9fc3dd3e85a79139ab4f11fb72a43)
+            type_hints = cached_type_hints(_typecheckingstub__c6c432f4785ee47d59f072204756d42650b9fc3dd3e85a79139ab4f11fb72a43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "snapshotManagement", value) # pyright: ignore[reportArgumentType]
 
@@ -691,30 +680,33 @@ class CfnTable(
     @jsii.member(jsii_name="storageClassConfiguration")
     def storage_class_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.StorageClassConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.StorageClassConfigurationProperty"]]:
         '''The configuration details for the storage class of tables or table buckets.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.StorageClassConfigurationProperty"]], jsii.get(self, "storageClassConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.StorageClassConfigurationProperty"]], jsii.get(self, "storageClassConfiguration"))
 
     @storage_class_configuration.setter
     def storage_class_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.StorageClassConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.StorageClassConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea3c2d362d15c7224a3738a3840e46d5cbefdc7e92912f6cd5b11579c5ccede3)
+            type_hints = cached_type_hints(_typecheckingstub__ea3c2d362d15c7224a3738a3840e46d5cbefdc7e92912f6cd5b11579c5ccede3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageClassConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the table.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__325161e5105ae7e0c745e5ef4817aaec57d30e105c6645c3b5269abbe859cdf2)
+            type_hints = cached_type_hints(_typecheckingstub__325161e5105ae7e0c745e5ef4817aaec57d30e105c6645c3b5269abbe859cdf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -727,7 +719,7 @@ class CfnTable(
     @without_metadata.setter
     def without_metadata(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5d21acaabd2bab58c6f59f334d1b06b0962eb6541244a042a933b5ce009a061)
+            type_hints = cached_type_hints(_typecheckingstub__e5d21acaabd2bab58c6f59f334d1b06b0962eb6541244a042a933b5ce009a061)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "withoutMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -763,7 +755,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f49118bb06f06baf9f7618e6cd633803a2486d06b541e59cab8801a6a0983fcc)
+                type_hints = cached_type_hints(_typecheckingstub__f49118bb06f06baf9f7618e6cd633803a2486d06b541e59cab8801a6a0983fcc)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument target_file_size_mb", value=target_file_size_mb, expected_type=type_hints["target_file_size_mb"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -816,11 +808,11 @@ class CfnTable(
         def __init__(
             self,
             *,
-            iceberg_partition_spec: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iceberg_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iceberg_schema_v2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaV2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
-            iceberg_sort_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            table_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            iceberg_partition_spec: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_schema_v2: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSchemaV2Property", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_sort_order: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''Contains details about the metadata for an Iceberg table.
 
@@ -898,7 +890,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a)
+                type_hints = cached_type_hints(_typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a)
                 check_type(argname="argument iceberg_partition_spec", value=iceberg_partition_spec, expected_type=type_hints["iceberg_partition_spec"])
                 check_type(argname="argument iceberg_schema", value=iceberg_schema, expected_type=type_hints["iceberg_schema"])
                 check_type(argname="argument iceberg_schema_v2", value=iceberg_schema_v2, expected_type=type_hints["iceberg_schema_v2"])
@@ -919,29 +911,29 @@ class CfnTable(
         @builtins.property
         def iceberg_partition_spec(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionSpecProperty"]]:
             '''Partition specification for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergpartitionspec
             '''
             result = self._values.get("iceberg_partition_spec")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionSpecProperty"]], result)
 
         @builtins.property
         def iceberg_schema(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSchemaProperty"]]:
             '''The schema for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergschema
             '''
             result = self._values.get("iceberg_schema")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSchemaProperty"]], result)
 
         @builtins.property
         def iceberg_schema_v2(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaV2Property"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSchemaV2Property"]]:
             '''Contains details about the schema version 2 (V2) for an Iceberg table that supports Apache Iceberg Nested Types (struct, list, map).
 
             Primitive types are also supported.
@@ -949,29 +941,29 @@ class CfnTable(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergschemav2
             '''
             result = self._values.get("iceberg_schema_v2")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaV2Property"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSchemaV2Property"]], result)
 
         @builtins.property
         def iceberg_sort_order(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortOrderProperty"]]:
             '''Sort order specification for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergsortorder
             '''
             result = self._values.get("iceberg_sort_order")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortOrderProperty"]], result)
 
         @builtins.property
         def table_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Iceberg table properties (e.g., format-version, write.parquet.compression-codec).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-tableproperties
             '''
             result = self._values.get("table_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1029,7 +1021,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__679b9f9b424f47edab87cd4b6cad466311960debebb534717fc0925ffe9efe85)
+                type_hints = cached_type_hints(_typecheckingstub__679b9f9b424f47edab87cd4b6cad466311960debebb534717fc0925ffe9efe85)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
                 check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
@@ -1101,7 +1093,7 @@ class CfnTable(
         def __init__(
             self,
             *,
-            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergPartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
             spec_id: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Partition specification for an Iceberg table.
@@ -1133,7 +1125,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b46844c28fe)
+                type_hints = cached_type_hints(_typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b46844c28fe)
                 check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
                 check_type(argname="argument spec_id", value=spec_id, expected_type=type_hints["spec_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1145,14 +1137,14 @@ class CfnTable(
         @builtins.property
         def fields(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionFieldProperty"]]]:
             '''List of partition fields for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionspec.html#cfn-s3tables-table-icebergpartitionspec-fields
             '''
             result = self._values.get("fields")
             assert result is not None, "Required property 'fields' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionFieldProperty"]]], result)
 
         @builtins.property
         def spec_id(self) -> typing.Optional[jsii.Number]:
@@ -1183,7 +1175,7 @@ class CfnTable(
         def __init__(
             self,
             *,
-            schema_field_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.SchemaFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            schema_field_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.SchemaFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains details about the schema for an Iceberg table.
 
@@ -1210,7 +1202,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3613cb002c55c4baeb2517f3445ed9e71396e5ee393d230544d3f1302b471205)
+                type_hints = cached_type_hints(_typecheckingstub__3613cb002c55c4baeb2517f3445ed9e71396e5ee393d230544d3f1302b471205)
                 check_type(argname="argument schema_field_list", value=schema_field_list, expected_type=type_hints["schema_field_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "schema_field_list": schema_field_list,
@@ -1219,14 +1211,14 @@ class CfnTable(
         @builtins.property
         def schema_field_list(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaFieldProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SchemaFieldProperty"]]]:
             '''The schema fields for the table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschema.html#cfn-s3tables-table-icebergschema-schemafieldlist
             '''
             result = self._values.get("schema_field_list")
             assert result is not None, "Required property 'schema_field_list' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaFieldProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SchemaFieldProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1253,9 +1245,9 @@ class CfnTable(
         def __init__(
             self,
             *,
-            schema_v2_field_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.SchemaV2FieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            schema_v2_field_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.SchemaV2FieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
             schema_v2_field_type: builtins.str,
-            identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
             schema_id: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Contains details about the schema version 2 (V2) for an Iceberg table that supports Apache Iceberg Nested Types (struct, list, map).
@@ -1296,7 +1288,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__56084758b0dca3cdee168a93f36f8d6e489f52256aa69d2dc3476605852557e5)
+                type_hints = cached_type_hints(_typecheckingstub__56084758b0dca3cdee168a93f36f8d6e489f52256aa69d2dc3476605852557e5)
                 check_type(argname="argument schema_v2_field_list", value=schema_v2_field_list, expected_type=type_hints["schema_v2_field_list"])
                 check_type(argname="argument schema_v2_field_type", value=schema_v2_field_type, expected_type=type_hints["schema_v2_field_type"])
                 check_type(argname="argument identifier_field_ids", value=identifier_field_ids, expected_type=type_hints["identifier_field_ids"])
@@ -1313,14 +1305,14 @@ class CfnTable(
         @builtins.property
         def schema_v2_field_list(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaV2FieldProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SchemaV2FieldProperty"]]]:
             '''List of schema fields that support nested types.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-schemav2fieldlist
             '''
             result = self._values.get("schema_v2_field_list")
             assert result is not None, "Required property 'schema_v2_field_list' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.SchemaV2FieldProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SchemaV2FieldProperty"]]], result)
 
         @builtins.property
         def schema_v2_field_type(self) -> builtins.str:
@@ -1335,7 +1327,7 @@ class CfnTable(
         @builtins.property
         def identifier_field_ids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A list of field IDs that are used as the identifier fields for the table.
 
             Identifier fields uniquely identify a row in the table.
@@ -1343,7 +1335,7 @@ class CfnTable(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergschemav2.html#cfn-s3tables-table-icebergschemav2-identifierfieldids
             '''
             result = self._values.get("identifier_field_ids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def schema_id(self) -> typing.Optional[jsii.Number]:
@@ -1408,7 +1400,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f66a803be114d90c4e838cc072f12b7394cc1d0e2ce9f128586effbc4963ed4b)
+                type_hints = cached_type_hints(_typecheckingstub__f66a803be114d90c4e838cc072f12b7394cc1d0e2ce9f128586effbc4963ed4b)
                 check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
                 check_type(argname="argument null_order", value=null_order, expected_type=type_hints["null_order"])
                 check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
@@ -1480,7 +1472,7 @@ class CfnTable(
         def __init__(
             self,
             *,
-            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            fields: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSortFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
             order_id: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Sort order specification for an Iceberg table.
@@ -1510,7 +1502,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__36093a774b631f19332c77b446f185d8c83b036f4cc317101f912b619121327b)
+                type_hints = cached_type_hints(_typecheckingstub__36093a774b631f19332c77b446f185d8c83b036f4cc317101f912b619121327b)
                 check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
                 check_type(argname="argument order_id", value=order_id, expected_type=type_hints["order_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1522,14 +1514,14 @@ class CfnTable(
         @builtins.property
         def fields(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortFieldProperty"]]]:
             '''List of sort fields for an Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortorder.html#cfn-s3tables-table-icebergsortorder-fields
             '''
             result = self._values.get("fields")
             assert result is not None, "Required property 'fields' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergSortFieldProperty"]]], result)
 
         @builtins.property
         def order_id(self) -> typing.Optional[jsii.Number]:
@@ -1568,7 +1560,7 @@ class CfnTable(
             name: builtins.str,
             type: builtins.str,
             id: typing.Optional[jsii.Number] = None,
-            required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Contains details about a schema field.
 
@@ -1596,7 +1588,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01ad6c1a29)
+                type_hints = cached_type_hints(_typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01ad6c1a29)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
@@ -1644,7 +1636,7 @@ class CfnTable(
         @builtins.property
         def required(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''A Boolean value that specifies whether values are required for each row in this field.
 
             By default, this is ``false`` and null values are allowed in the field. If this is ``true`` the field does not allow null values.
@@ -1652,7 +1644,7 @@ class CfnTable(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemafield.html#cfn-s3tables-table-schemafield-required
             '''
             result = self._values.get("required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1682,7 +1674,7 @@ class CfnTable(
             *,
             id: jsii.Number,
             name: builtins.str,
-            required: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            required: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             type: typing.Any,
             doc: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1716,7 +1708,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__62421cbb513a97e66b63f3192948d572b94886a8c3c4d417d6cdd4b5810517d2)
+                type_hints = cached_type_hints(_typecheckingstub__62421cbb513a97e66b63f3192948d572b94886a8c3c4d417d6cdd4b5810517d2)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument required", value=required, expected_type=type_hints["required"])
@@ -1752,14 +1744,16 @@ class CfnTable(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def required(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def required(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''A Boolean value that specifies whether values are required for each row in this field.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemav2field.html#cfn-s3tables-table-schemav2field-required
             '''
             result = self._values.get("required")
             assert result is not None, "Required property 'required' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def type(self) -> typing.Any:
@@ -1831,7 +1825,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fa9c2ac7b8956daecf8522166700dd475625d08f131913fda8e01475215f3656)
+                type_hints = cached_type_hints(_typecheckingstub__fa9c2ac7b8956daecf8522166700dd475625d08f131913fda8e01475215f3656)
                 check_type(argname="argument max_snapshot_age_hours", value=max_snapshot_age_hours, expected_type=type_hints["max_snapshot_age_hours"])
                 check_type(argname="argument min_snapshots_to_keep", value=min_snapshots_to_keep, expected_type=type_hints["min_snapshots_to_keep"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -1912,7 +1906,7 @@ class CfnTable(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__563bcef7a3325307b864d89faec4254d09e33cd9621ad501254550469894b861)
+                type_hints = cached_type_hints(_typecheckingstub__563bcef7a3325307b864d89faec4254d09e33cd9621ad501254550469894b861)
                 check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if storage_class is not None:
@@ -1941,9 +1935,9 @@ class CfnTable(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITableBucketRef_26c8a832, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3tables_8ca3fb7b.ITableBucketRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnTableBucket(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket",
 ):
@@ -2012,12 +2006,12 @@ class CfnTableBucket(
         id: builtins.str,
         *,
         table_bucket_name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unreferenced_file_removal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        unreferenced_file_removal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::S3Tables::TableBucket``.
 
@@ -2032,7 +2026,7 @@ class CfnTableBucket(
         :param unreferenced_file_removal: The unreferenced file removal settings for your table bucket. Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the `*Amazon S3 User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19ce5af0e2)
+            type_hints = cached_type_hints(_typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19ce5af0e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTableBucketProps(
@@ -2051,13 +2045,13 @@ class CfnTableBucket(
     @builtins.classmethod
     def arn_for_table_bucket(
         cls,
-        resource: "_ITableBucketRef_26c8a832",
+        resource: "_aws_s3tables_8ca3fb7b.ITableBucketRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46becfbe2c3eb358572d1a3014e787d32a1317204ff9517a5402c4a1d15ba806)
+            type_hints = cached_type_hints(_typecheckingstub__46becfbe2c3eb358572d1a3014e787d32a1317204ff9517a5402c4a1d15ba806)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTableBucket", [resource]))
 
@@ -2069,18 +2063,18 @@ class CfnTableBucket(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6050bcddbffa02bcede6b44794564e77e723c3b4c9d43fe9d48f746176ee4f82)
+            type_hints = cached_type_hints(_typecheckingstub__6050bcddbffa02bcede6b44794564e77e723c3b4c9d43fe9d48f746176ee4f82)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTableBucket", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40da426af74874eef485654394ab5db25ba5f82e8490b96bd68d9f6318b6654e)
+            type_hints = cached_type_hints(_typecheckingstub__40da426af74874eef485654394ab5db25ba5f82e8490b96bd68d9f6318b6654e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2093,7 +2087,7 @@ class CfnTableBucket(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e15cdb1ab81b354e389c0debd6b2b9d760245945e38c20d735044cde53c3979)
+            type_hints = cached_type_hints(_typecheckingstub__8e15cdb1ab81b354e389c0debd6b2b9d760245945e38c20d735044cde53c3979)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2114,9 +2108,9 @@ class CfnTableBucket(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2130,9 +2124,9 @@ class CfnTableBucket(
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketRef")
-    def table_bucket_ref(self) -> "_TableBucketReference_1fd2f743":
+    def table_bucket_ref(self) -> "_aws_s3tables_8ca3fb7b.TableBucketReference":
         '''A reference to a TableBucket resource.'''
-        return typing.cast("_TableBucketReference_1fd2f743", jsii.get(self, "tableBucketRef"))
+        return typing.cast("_aws_s3tables_8ca3fb7b.TableBucketReference", jsii.get(self, "tableBucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketName")
@@ -2143,7 +2137,7 @@ class CfnTableBucket(
     @table_bucket_name.setter
     def table_bucket_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42ef5079e6a92822a2e6ccbb91b02661f493a7d44dc79dfba0916840dbe44863)
+            type_hints = cached_type_hints(_typecheckingstub__42ef5079e6a92822a2e6ccbb91b02661f493a7d44dc79dfba0916840dbe44863)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableBucketName", value) # pyright: ignore[reportArgumentType]
 
@@ -2151,17 +2145,17 @@ class CfnTableBucket(
     @jsii.member(jsii_name="encryptionConfiguration")
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]]:
         '''Configuration specifying how data should be encrypted.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
 
     @encryption_configuration.setter
     def encryption_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.EncryptionConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e099dd4a)
+            type_hints = cached_type_hints(_typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e099dd4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2169,17 +2163,17 @@ class CfnTableBucket(
     @jsii.member(jsii_name="metricsConfiguration")
     def metrics_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.MetricsConfigurationProperty"]]:
         '''Settings governing the Metric configuration for the table bucket.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]], jsii.get(self, "metricsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.MetricsConfigurationProperty"]], jsii.get(self, "metricsConfiguration"))
 
     @metrics_configuration.setter
     def metrics_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.MetricsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595)
+            type_hints = cached_type_hints(_typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metricsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2187,17 +2181,17 @@ class CfnTableBucket(
     @jsii.member(jsii_name="replicationConfiguration")
     def replication_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationConfigurationProperty"]]:
         '''Specifies replication configuration for the table bucket.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]], jsii.get(self, "replicationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationConfigurationProperty"]], jsii.get(self, "replicationConfiguration"))
 
     @replication_configuration.setter
     def replication_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7)
+            type_hints = cached_type_hints(_typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -2205,30 +2199,33 @@ class CfnTableBucket(
     @jsii.member(jsii_name="storageClassConfiguration")
     def storage_class_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.StorageClassConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.StorageClassConfigurationProperty"]]:
         '''The configuration details for the storage class of tables or table buckets.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.StorageClassConfigurationProperty"]], jsii.get(self, "storageClassConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.StorageClassConfigurationProperty"]], jsii.get(self, "storageClassConfiguration"))
 
     @storage_class_configuration.setter
     def storage_class_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.StorageClassConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.StorageClassConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81704c8fd77fa700477675d5b83302d93072b2e166550281993e154ea1ac1c36)
+            type_hints = cached_type_hints(_typecheckingstub__81704c8fd77fa700477675d5b83302d93072b2e166550281993e154ea1ac1c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageClassConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the table bucket.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bd32e36df516fe785d94d21a1dc923e712becb1b93de4a82fa887f57a6b4823)
+            type_hints = cached_type_hints(_typecheckingstub__3bd32e36df516fe785d94d21a1dc923e712becb1b93de4a82fa887f57a6b4823)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2236,17 +2233,17 @@ class CfnTableBucket(
     @jsii.member(jsii_name="unreferencedFileRemoval")
     def unreferenced_file_removal(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.UnreferencedFileRemovalProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.UnreferencedFileRemovalProperty"]]:
         '''The unreferenced file removal settings for your table bucket.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.UnreferencedFileRemovalProperty"]], jsii.get(self, "unreferencedFileRemoval"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.UnreferencedFileRemovalProperty"]], jsii.get(self, "unreferencedFileRemoval"))
 
     @unreferenced_file_removal.setter
     def unreferenced_file_removal(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.UnreferencedFileRemovalProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.UnreferencedFileRemovalProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02bf42691243dcbc8ea49c2499d3414260e70a80c4e38a371b64664c49f17e6e)
+            type_hints = cached_type_hints(_typecheckingstub__02bf42691243dcbc8ea49c2499d3414260e70a80c4e38a371b64664c49f17e6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "unreferencedFileRemoval", value) # pyright: ignore[reportArgumentType]
 
@@ -2284,7 +2281,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__659e946ab1ee4bc0eb13a519adc57d2cb4431347d47a9e6cb4d4086a87be1b2a)
+                type_hints = cached_type_hints(_typecheckingstub__659e946ab1ee4bc0eb13a519adc57d2cb4431347d47a9e6cb4d4086a87be1b2a)
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
                 check_type(argname="argument sse_algorithm", value=sse_algorithm, expected_type=type_hints["sse_algorithm"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2351,7 +2348,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a462a1fa51e0d85b1c1c751eb482494c139c2d0cdff10d84286172c932d17d6)
+                type_hints = cached_type_hints(_typecheckingstub__4a462a1fa51e0d85b1c1c751eb482494c139c2d0cdff10d84286172c932d17d6)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if status is not None:
@@ -2389,7 +2386,7 @@ class CfnTableBucket(
             self,
             *,
             role: builtins.str,
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies replication configuration for the table bucket.
 
@@ -2415,7 +2412,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e2186ff62db969914d25b4efdb80b80293d6f5f158f0ba2791c2ab968e033983)
+                type_hints = cached_type_hints(_typecheckingstub__e2186ff62db969914d25b4efdb80b80293d6f5f158f0ba2791c2ab968e033983)
                 check_type(argname="argument role", value=role, expected_type=type_hints["role"])
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2436,14 +2433,14 @@ class CfnTableBucket(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationRuleProperty"]]]:
             '''List of replication rules.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationconfiguration.html#cfn-s3tables-tablebucket-replicationconfiguration-rules
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2481,7 +2478,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8497604e9271923eb6550061b92e02210ba5c01bac7953fee25f6924d5ead53)
+                type_hints = cached_type_hints(_typecheckingstub__c8497604e9271923eb6550061b92e02210ba5c01bac7953fee25f6924d5ead53)
                 check_type(argname="argument destination_table_bucket_arn", value=destination_table_bucket_arn, expected_type=type_hints["destination_table_bucket_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "destination_table_bucket_arn": destination_table_bucket_arn,
@@ -2517,7 +2514,7 @@ class CfnTableBucket(
         def __init__(
             self,
             *,
-            destinations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            destinations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A replication rule for the table bucket.
 
@@ -2539,7 +2536,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d934241814)
+                type_hints = cached_type_hints(_typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d934241814)
                 check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "destinations": destinations,
@@ -2548,14 +2545,14 @@ class CfnTableBucket(
         @builtins.property
         def destinations(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationDestinationProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationDestinationProperty"]]]:
             '''List of replication destinations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-tablebucket-replicationrule.html#cfn-s3tables-tablebucket-replicationrule-destinations
             '''
             result = self._values.get("destinations")
             assert result is not None, "Required property 'destinations' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationDestinationProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationDestinationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2599,7 +2596,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ccca8ea96b1a2a505f25fdb95f88303626f2373f413d6009bc588849745e54f)
+                type_hints = cached_type_hints(_typecheckingstub__1ccca8ea96b1a2a505f25fdb95f88303626f2373f413d6009bc588849745e54f)
                 check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if storage_class is not None:
@@ -2668,7 +2665,7 @@ class CfnTableBucket(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e5a5e0b11a3cbe8be01a72f3ac6efc85af9472104c94585d26f630d3354c816b)
+                type_hints = cached_type_hints(_typecheckingstub__e5a5e0b11a3cbe8be01a72f3ac6efc85af9472104c94585d26f630d3354c816b)
                 check_type(argname="argument noncurrent_days", value=noncurrent_days, expected_type=type_hints["noncurrent_days"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument unreferenced_days", value=unreferenced_days, expected_type=type_hints["unreferenced_days"])
@@ -2719,9 +2716,9 @@ class CfnTableBucket(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITableBucketPolicyRef_3f1f8c44)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3tables_8ca3fb7b.ITableBucketPolicyRef)
 class CfnTableBucketPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucketPolicy",
 ):
@@ -2772,7 +2769,7 @@ class CfnTableBucketPolicy(
         :param table_bucket_arn: The Amazon Resource Name (ARN) of the table bucket.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e41d1f33249c074a27c8db71a0d74f7ec78216836901a699d5ff7dbdcfdcf89a)
+            type_hints = cached_type_hints(_typecheckingstub__e41d1f33249c074a27c8db71a0d74f7ec78216836901a699d5ff7dbdcfdcf89a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTableBucketPolicyProps(
@@ -2789,18 +2786,18 @@ class CfnTableBucketPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46c0cb49822dc46578f620da3ad60de7eabffc530b372777db6a993dc5320634)
+            type_hints = cached_type_hints(_typecheckingstub__46c0cb49822dc46578f620da3ad60de7eabffc530b372777db6a993dc5320634)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTableBucketPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a8346fde6b51dff587833e7cd68ccdd12e4f80b4b07e756c507ac9d8b81cfdb)
+            type_hints = cached_type_hints(_typecheckingstub__3a8346fde6b51dff587833e7cd68ccdd12e4f80b4b07e756c507ac9d8b81cfdb)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2813,7 +2810,7 @@ class CfnTableBucketPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32d2b3e7f152d93640c11f17b345fb2a9bf95efe6dd3c1235a1d9ca148caae1a)
+            type_hints = cached_type_hints(_typecheckingstub__32d2b3e7f152d93640c11f17b345fb2a9bf95efe6dd3c1235a1d9ca148caae1a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2835,9 +2832,11 @@ class CfnTableBucketPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketPolicyRef")
-    def table_bucket_policy_ref(self) -> "_TableBucketPolicyReference_a4627945":
+    def table_bucket_policy_ref(
+        self,
+    ) -> "_aws_s3tables_8ca3fb7b.TableBucketPolicyReference":
         '''A reference to a TableBucketPolicy resource.'''
-        return typing.cast("_TableBucketPolicyReference_a4627945", jsii.get(self, "tableBucketPolicyRef"))
+        return typing.cast("_aws_s3tables_8ca3fb7b.TableBucketPolicyReference", jsii.get(self, "tableBucketPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
@@ -2848,7 +2847,7 @@ class CfnTableBucketPolicy(
     @resource_policy.setter
     def resource_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60d686568fe0e9bc1be86d3585b33d6e6dcf5d8ec00b2b4b4ba9c5e48ea4cd82)
+            type_hints = cached_type_hints(_typecheckingstub__60d686568fe0e9bc1be86d3585b33d6e6dcf5d8ec00b2b4b4ba9c5e48ea4cd82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -2861,7 +2860,7 @@ class CfnTableBucketPolicy(
     @table_bucket_arn.setter
     def table_bucket_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9db770e8febae7602179359c1a5975b5ae8be6270348474fc3a1cca79c47ad2b)
+            type_hints = cached_type_hints(_typecheckingstub__9db770e8febae7602179359c1a5975b5ae8be6270348474fc3a1cca79c47ad2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
 
@@ -2903,7 +2902,7 @@ class CfnTableBucketPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df8972559ed3d0ff90d01d70d1cf8f77869398b91f03a408d49a7b5bee0615a0)
+            type_hints = cached_type_hints(_typecheckingstub__df8972559ed3d0ff90d01d70d1cf8f77869398b91f03a408d49a7b5bee0615a0)
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2961,12 +2960,12 @@ class CfnTableBucketProps:
         self,
         *,
         table_bucket_name: builtins.str,
-        encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        replication_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        unreferenced_file_removal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metrics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.MetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.ReplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        unreferenced_file_removal: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTableBucket.UnreferencedFileRemovalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTableBucket``.
 
@@ -3022,7 +3021,7 @@ class CfnTableBucketProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b628d20f3)
+            type_hints = cached_type_hints(_typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b628d20f3)
             check_type(argname="argument table_bucket_name", value=table_bucket_name, expected_type=type_hints["table_bucket_name"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument metrics_configuration", value=metrics_configuration, expected_type=type_hints["metrics_configuration"])
@@ -3059,7 +3058,7 @@ class CfnTableBucketProps:
     @builtins.property
     def encryption_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.EncryptionConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]]:
         '''Configuration specifying how data should be encrypted.
 
         This structure defines the encryption algorithm and optional KMS key to be used for server-side encryption.
@@ -3067,34 +3066,34 @@ class CfnTableBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-encryptionconfiguration
         '''
         result = self._values.get("encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.EncryptionConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def metrics_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.MetricsConfigurationProperty"]]:
         '''Settings governing the Metric configuration for the table bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-metricsconfiguration
         '''
         result = self._values.get("metrics_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.MetricsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.MetricsConfigurationProperty"]], result)
 
     @builtins.property
     def replication_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationConfigurationProperty"]]:
         '''Specifies replication configuration for the table bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-replicationconfiguration
         '''
         result = self._values.get("replication_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.ReplicationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.ReplicationConfigurationProperty"]], result)
 
     @builtins.property
     def storage_class_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.StorageClassConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.StorageClassConfigurationProperty"]]:
         '''The configuration details for the storage class of tables or table buckets.
 
         This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
@@ -3102,21 +3101,21 @@ class CfnTableBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-storageclassconfiguration
         '''
         result = self._values.get("storage_class_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.StorageClassConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.StorageClassConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the table bucket.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def unreferenced_file_removal(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.UnreferencedFileRemovalProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.UnreferencedFileRemovalProperty"]]:
         '''The unreferenced file removal settings for your table bucket.
 
         Unreferenced file removal identifies and deletes all objects that are not referenced by any table snapshots. For more information, see the `*Amazon S3 User Guide* <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html>`_ .
@@ -3124,7 +3123,7 @@ class CfnTableBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-tablebucket.html#cfn-s3tables-tablebucket-unreferencedfileremoval
         '''
         result = self._values.get("unreferenced_file_removal")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTableBucket.UnreferencedFileRemovalProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTableBucket.UnreferencedFileRemovalProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3138,9 +3137,9 @@ class CfnTableBucketProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITablePolicyRef_0aed1a54)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_s3tables_8ca3fb7b.ITablePolicyRef)
 class CfnTablePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_s3tables.CfnTablePolicy",
 ):
@@ -3191,7 +3190,7 @@ class CfnTablePolicy(
         :param table_arn: The Amazon Resource Name (ARN) of the table.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a411c2784ec9f97ff20ac6b524d48b9d66affbbc6dde8cf88f11829983b62656)
+            type_hints = cached_type_hints(_typecheckingstub__a411c2784ec9f97ff20ac6b524d48b9d66affbbc6dde8cf88f11829983b62656)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTablePolicyProps(
@@ -3208,18 +3207,18 @@ class CfnTablePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5344b9e00faee1a63c73bf77fe9ecf03bcbfd2ac55cc73899a33c2c80c50deef)
+            type_hints = cached_type_hints(_typecheckingstub__5344b9e00faee1a63c73bf77fe9ecf03bcbfd2ac55cc73899a33c2c80c50deef)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTablePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0a3947da1bdccb78be78c5e73ba6a761b9581cfdb6fde618a0c2e2cc24e62e6)
+            type_hints = cached_type_hints(_typecheckingstub__f0a3947da1bdccb78be78c5e73ba6a761b9581cfdb6fde618a0c2e2cc24e62e6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3232,7 +3231,7 @@ class CfnTablePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79081d3da496e49f8054cf224d3c19c14084df9686495715d7c13deb2b01f4e5)
+            type_hints = cached_type_hints(_typecheckingstub__79081d3da496e49f8054cf224d3c19c14084df9686495715d7c13deb2b01f4e5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3281,9 +3280,9 @@ class CfnTablePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="tablePolicyRef")
-    def table_policy_ref(self) -> "_TablePolicyReference_a435d553":
+    def table_policy_ref(self) -> "_aws_s3tables_8ca3fb7b.TablePolicyReference":
         '''A reference to a TablePolicy resource.'''
-        return typing.cast("_TablePolicyReference_a435d553", jsii.get(self, "tablePolicyRef"))
+        return typing.cast("_aws_s3tables_8ca3fb7b.TablePolicyReference", jsii.get(self, "tablePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
@@ -3294,7 +3293,7 @@ class CfnTablePolicy(
     @resource_policy.setter
     def resource_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5ff64cf2723b6c321a7dae00772c6657abff46b53f326cb7ef2461494ecaead)
+            type_hints = cached_type_hints(_typecheckingstub__e5ff64cf2723b6c321a7dae00772c6657abff46b53f326cb7ef2461494ecaead)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -3307,7 +3306,7 @@ class CfnTablePolicy(
     @table_arn.setter
     def table_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87d38159ba1fcdcd6a78891e84e79fef3b2492c5066559f8f91cd5cc6191efe4)
+            type_hints = cached_type_hints(_typecheckingstub__87d38159ba1fcdcd6a78891e84e79fef3b2492c5066559f8f91cd5cc6191efe4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tableArn", value) # pyright: ignore[reportArgumentType]
 
@@ -3341,7 +3340,7 @@ class CfnTablePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e4efe8d2b5f3164478497385240c6eecce420e07f634572b7fac929a357ad5f)
+            type_hints = cached_type_hints(_typecheckingstub__9e4efe8d2b5f3164478497385240c6eecce420e07f634572b7fac929a357ad5f)
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
             check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3405,11 +3404,11 @@ class CfnTableProps:
         open_table_format: builtins.str,
         table_bucket_arn: builtins.str,
         table_name: builtins.str,
-        compaction: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.CompactionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iceberg_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        snapshot_management: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        storage_class_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compaction: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.CompactionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iceberg_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        snapshot_management: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_class_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.StorageClassConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         without_metadata: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnTable``.
@@ -3519,7 +3518,7 @@ class CfnTableProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6346a05fb3e021dceca566705037999fa06de23c2e117b37dcdd3e46838b7bc6)
+            type_hints = cached_type_hints(_typecheckingstub__6346a05fb3e021dceca566705037999fa06de23c2e117b37dcdd3e46838b7bc6)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument open_table_format", value=open_table_format, expected_type=type_hints["open_table_format"])
             check_type(argname="argument table_bucket_arn", value=table_bucket_arn, expected_type=type_hints["table_bucket_arn"])
@@ -3592,40 +3591,40 @@ class CfnTableProps:
     @builtins.property
     def compaction(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.CompactionProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.CompactionProperty"]]:
         '''Contains details about the compaction settings for an Iceberg table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-table.html#cfn-s3tables-table-compaction
         '''
         result = self._values.get("compaction")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.CompactionProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.CompactionProperty"]], result)
 
     @builtins.property
     def iceberg_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergMetadataProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergMetadataProperty"]]:
         '''Contains details about the metadata for an Iceberg table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-table.html#cfn-s3tables-table-icebergmetadata
         '''
         result = self._values.get("iceberg_metadata")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergMetadataProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergMetadataProperty"]], result)
 
     @builtins.property
     def snapshot_management(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.SnapshotManagementProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SnapshotManagementProperty"]]:
         '''Contains details about the Iceberg snapshot management settings for the table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-table.html#cfn-s3tables-table-snapshotmanagement
         '''
         result = self._values.get("snapshot_management")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.SnapshotManagementProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.SnapshotManagementProperty"]], result)
 
     @builtins.property
     def storage_class_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.StorageClassConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.StorageClassConfigurationProperty"]]:
         '''The configuration details for the storage class of tables or table buckets.
 
         This allows you to optimize storage costs by selecting the appropriate storage class based on your access patterns and performance requirements.
@@ -3633,16 +3632,16 @@ class CfnTableProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-table.html#cfn-s3tables-table-storageclassconfiguration
         '''
         result = self._values.get("storage_class_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.StorageClassConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.StorageClassConfigurationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''User tags (key-value pairs) to associate with the table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3tables-table.html#cfn-s3tables-table-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def without_metadata(self) -> typing.Optional[builtins.str]:
@@ -3699,7 +3698,7 @@ def _typecheckingstub__295bf56d518b0fd610e3db75ec2ce0bc30b4144b11790d95753978b1a
     pass
 
 def _typecheckingstub__0dae368df5e118b03066ac5fbad3765e81aa23b31a7288aa2bb824379578614f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3738,18 +3737,18 @@ def _typecheckingstub__9cb6d8b27037c33c46017d3b0b00b52a14bbd8c0a922c03aca7fff9e3
     open_table_format: builtins.str,
     table_bucket_arn: builtins.str,
     table_name: builtins.str,
-    compaction: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.CompactionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snapshot_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compaction: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.CompactionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_management: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     without_metadata: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__90678bca5485582dd203485c7393151852489f6571bf2d72fc9fb12fc577a089(
-    resource: _ITableRef_1d36a1c5,
+    resource: _aws_s3tables_8ca3fb7b.ITableRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3761,7 +3760,7 @@ def _typecheckingstub__00e16efe404e37a7e831b6239054ba4d8d2c0d6396f13edb1491f10b5
     pass
 
 def _typecheckingstub__8e9f0a1074447de044514c7c1b5b2cca167912d3e02c228b501f3cc4c1b09a6f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3797,31 +3796,31 @@ def _typecheckingstub__f410c91375a77f7ed3b5736522dbfb254643b931cd30ea49af6d7d51d
     pass
 
 def _typecheckingstub__4ff6f95f778b64c53b87dfe6f8a117fa9d1583584d475eef7586c75859dcb219(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.CompactionProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.CompactionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6f0509a656c9927b41c3ead9b58d6c83257863d2b8d1104c542e1a8435be4160(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.IcebergMetadataProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.IcebergMetadataProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c6c432f4785ee47d59f072204756d42650b9fc3dd3e85a79139ab4f11fb72a43(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.SnapshotManagementProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.SnapshotManagementProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ea3c2d362d15c7224a3738a3840e46d5cbefdc7e92912f6cd5b11579c5ccede3(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTable.StorageClassConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTable.StorageClassConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__325161e5105ae7e0c745e5ef4817aaec57d30e105c6645c3b5269abbe859cdf2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3842,11 +3841,11 @@ def _typecheckingstub__f49118bb06f06baf9f7618e6cd633803a2486d06b541e59cab8801a6a
 
 def _typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a(
     *,
-    iceberg_partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_schema_v2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaV2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_sort_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    table_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    iceberg_partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_schema_v2: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSchemaV2Property, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_sort_order: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3863,7 +3862,7 @@ def _typecheckingstub__679b9f9b424f47edab87cd4b6cad466311960debebb534717fc0925ff
 
 def _typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b46844c28fe(
     *,
-    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    fields: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergPartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
     spec_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3871,16 +3870,16 @@ def _typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b468
 
 def _typecheckingstub__3613cb002c55c4baeb2517f3445ed9e71396e5ee393d230544d3f1302b471205(
     *,
-    schema_field_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    schema_field_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.SchemaFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__56084758b0dca3cdee168a93f36f8d6e489f52256aa69d2dc3476605852557e5(
     *,
-    schema_v2_field_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SchemaV2FieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    schema_v2_field_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.SchemaV2FieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
     schema_v2_field_type: builtins.str,
-    identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    identifier_field_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
     schema_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3898,7 +3897,7 @@ def _typecheckingstub__f66a803be114d90c4e838cc072f12b7394cc1d0e2ce9f128586effbc4
 
 def _typecheckingstub__36093a774b631f19332c77b446f185d8c83b036f4cc317101f912b619121327b(
     *,
-    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    fields: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSortFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
     order_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3909,7 +3908,7 @@ def _typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01a
     name: builtins.str,
     type: builtins.str,
     id: typing.Optional[jsii.Number] = None,
-    required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3918,7 +3917,7 @@ def _typecheckingstub__62421cbb513a97e66b63f3192948d572b94886a8c3c4d417d6cdd4b58
     *,
     id: jsii.Number,
     name: builtins.str,
-    required: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    required: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     type: typing.Any,
     doc: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3946,18 +3945,18 @@ def _typecheckingstub__de433918cd34eecbcaab0e81b6a287f71a48dd308c2f4d42e07a0e19c
     id: builtins.str,
     *,
     table_bucket_name: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unreferenced_file_removal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unreferenced_file_removal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__46becfbe2c3eb358572d1a3014e787d32a1317204ff9517a5402c4a1d15ba806(
-    resource: _ITableBucketRef_26c8a832,
+    resource: _aws_s3tables_8ca3fb7b.ITableBucketRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3969,7 +3968,7 @@ def _typecheckingstub__6050bcddbffa02bcede6b44794564e77e723c3b4c9d43fe9d48f74617
     pass
 
 def _typecheckingstub__40da426af74874eef485654394ab5db25ba5f82e8490b96bd68d9f6318b6654e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3987,37 +3986,37 @@ def _typecheckingstub__42ef5079e6a92822a2e6ccbb91b02661f493a7d44dc79dfba0916840d
     pass
 
 def _typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e099dd4a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.EncryptionConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.MetricsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.MetricsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.ReplicationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.ReplicationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__81704c8fd77fa700477675d5b83302d93072b2e166550281993e154ea1ac1c36(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.StorageClassConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.StorageClassConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3bd32e36df516fe785d94d21a1dc923e712becb1b93de4a82fa887f57a6b4823(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__02bf42691243dcbc8ea49c2499d3414260e70a80c4e38a371b64664c49f17e6e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTableBucket.UnreferencedFileRemovalProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTableBucket.UnreferencedFileRemovalProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4040,7 +4039,7 @@ def _typecheckingstub__4a462a1fa51e0d85b1c1c751eb482494c139c2d0cdff10d84286172c9
 def _typecheckingstub__e2186ff62db969914d25b4efdb80b80293d6f5f158f0ba2791c2ab968e033983(
     *,
     role: builtins.str,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4054,7 +4053,7 @@ def _typecheckingstub__c8497604e9271923eb6550061b92e02210ba5c01bac7953fee25f6924
 
 def _typecheckingstub__de4e958b803528aedb746b10caacd5f29c89f93e4c34021e1c1323d934241814(
     *,
-    destinations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    destinations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4092,7 +4091,7 @@ def _typecheckingstub__46c0cb49822dc46578f620da3ad60de7eabffc530b372777db6a993dc
     pass
 
 def _typecheckingstub__3a8346fde6b51dff587833e7cd68ccdd12e4f80b4b07e756c507ac9d8b81cfdb(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4126,12 +4125,12 @@ def _typecheckingstub__df8972559ed3d0ff90d01d70d1cf8f77869398b91f03a408d49a7b5be
 def _typecheckingstub__6fb9342a13c0e9f7b21679814e793d7ccc0964ccfe53bc5e0916676b628d20f3(
     *,
     table_bucket_name: builtins.str,
-    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    replication_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    unreferenced_file_removal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metrics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.MetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.ReplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    unreferenced_file_removal: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTableBucket.UnreferencedFileRemovalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4153,7 +4152,7 @@ def _typecheckingstub__5344b9e00faee1a63c73bf77fe9ecf03bcbfd2ac55cc73899a33c2c80
     pass
 
 def _typecheckingstub__f0a3947da1bdccb78be78c5e73ba6a761b9581cfdb6fde618a0c2e2cc24e62e6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4190,11 +4189,11 @@ def _typecheckingstub__6346a05fb3e021dceca566705037999fa06de23c2e117b37dcdd3e468
     open_table_format: builtins.str,
     table_bucket_arn: builtins.str,
     table_name: builtins.str,
-    compaction: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.CompactionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iceberg_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snapshot_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    storage_class_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compaction: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.CompactionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snapshot_management: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_class_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.StorageClassConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     without_metadata: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

@@ -2239,6 +2239,9 @@ class GetFilterResponseTypeDef(TypedDict):
     Rank: int
     FindingCriteria: FindingCriteriaOutputTypeDef
     Tags: dict[str, str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    Version: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 FindingCriteriaUnionTypeDef = Union[FindingCriteriaTypeDef, FindingCriteriaOutputTypeDef]

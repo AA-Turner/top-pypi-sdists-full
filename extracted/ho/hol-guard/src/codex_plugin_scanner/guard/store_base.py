@@ -703,40 +703,17 @@ class SystemKeyringSecretStore:
     def _get_secret_without_macos_ui(self, secret_id: str) -> str | None:
         if not self._supports_native_macos_security_reads():
             return None
-        set_interaction_allowed = None
-        interaction_state = None
         data = None
         try:
-            from ctypes import byref, c_ubyte
+            from ctypes import byref
 
             macos_keyring_api = self._load_macos_keyring_api_module()
             # The macOS keyring backend returns password bytes here but exposes
             # its decoder under the historical cfstr_to_str name.
             cfstr_to_str = getattr(macos_keyring_api, "cfstr_to_str", None)
             cf_release = getattr(macos_keyring_api, "CFRelease", None)
-            security_library = getattr(macos_keyring_api, "_sec", None)
-            get_interaction_allowed = (
-                getattr(security_library, "SecKeychainGetUserInteractionAllowed", None)
-                if security_library is not None
-                else None
-            )
-            set_interaction_allowed = (
-                getattr(security_library, "SecKeychainSetUserInteractionAllowed", None)
-                if security_library is not None
-                else None
-            )
-            interaction_state: c_ubyte | None = None
-            if get_interaction_allowed is not None:
-                get_interaction_allowed.restype = macos_keyring_api.OS_status
-                get_interaction_allowed.argtypes = [ctypes.POINTER(c_ubyte)]
-                interaction_state = c_ubyte(1)
-                status = get_interaction_allowed(byref(interaction_state))
-                if status != 0:
-                    interaction_state = None
-            if set_interaction_allowed is not None:
-                set_interaction_allowed.restype = macos_keyring_api.OS_status
-                set_interaction_allowed.argtypes = [c_ubyte]
-                set_interaction_allowed(0)
+            # Keep prompt suppression scoped to this query. Disabling keychain
+            # interaction process-wide makes otherwise readable items fail auth.
             query = macos_keyring_api.create_query(
                 kSecClass=macos_keyring_api.k_("kSecClassGenericPassword"),
                 kSecMatchLimit=macos_keyring_api.k_("kSecMatchLimitOne"),
@@ -749,11 +726,6 @@ class SystemKeyringSecretStore:
             status = macos_keyring_api.SecItemCopyMatching(query, byref(data))
         except Exception:
             return None
-        finally:
-            if set_interaction_allowed is not None:
-                restore_value = interaction_state.value if interaction_state is not None else 1
-                with suppress(Exception):
-                    set_interaction_allowed(restore_value)
         if status == 0:
             if not callable(cfstr_to_str):
                 return None
@@ -777,18 +749,68 @@ class SystemKeyringSecretStore:
             return None
         return None  # unknown non-zero status
 
+    def _get_macos_secret_in_isolated_process(
+        self,
+        secret_id: str,
+        *,
+        timeout_seconds: float,
+    ) -> str | None:
+        """Read one Keychain item behind a killable process boundary.
+
+        Some macOS Keychain configurations can block inside
+        ``SecItemCopyMatching`` even with the query-local no-UI flag. A thread
+        timeout cannot recover from that native call, so passive Guard reads
+        run in a disposable interpreter and fail closed when the deadline
+        expires.
+        """
+
+        worker = (
+            "import json,sys;"
+            "from codex_plugin_scanner.guard.store_base import SystemKeyringSecretStore;"
+            "value=SystemKeyringSecretStore(service_name=sys.argv[1])."
+            "_get_secret_without_macos_ui(sys.argv[2]);"
+            "sys.stdout.write(json.dumps({'value':value},separators=(',',':')))"
+        )
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key in {"HOME", "LANG", "LC_ALL", "LOGNAME", "PATH", "TMPDIR", "USER"} or key.startswith("LC_")
+        }
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-I", "-c", worker, self.service_name, secret_id],
+                check=False,
+                capture_output=True,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                timeout=max(timeout_seconds, 0.1),
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        if completed.returncode != 0:
+            return None
+        try:
+            payload = json.loads(completed.stdout.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        value = payload.get("value") if isinstance(payload, dict) else None
+        return value if isinstance(value, str) and value else None
+
     def get_secret_with_timeout(self, secret_id: str, *, timeout_seconds: float = 0.0) -> str | None:
-        _ = timeout_seconds
         if sys.platform != "darwin" and self._test_keyring_module() is not None:
             return self.get_secret(secret_id)
         if sys.platform == "darwin":
             if (
                 self._test_keyring_module() is not None
-                and getattr(type(self)._get_secret_without_macos_ui, "__name__", "") == "_get_secret_without_macos_ui"
+                and getattr(type(self)._get_macos_secret_in_isolated_process, "__name__", "")
+                == "_get_macos_secret_in_isolated_process"
             ):
                 return self.get_secret(secret_id)
             if self._supports_native_macos_security_reads():
-                return self._get_secret_without_macos_ui(secret_id)
+                return self._get_macos_secret_in_isolated_process(
+                    secret_id,
+                    timeout_seconds=timeout_seconds,
+                )
             if self._test_keyring_module() is not None:
                 return self.get_secret(secret_id)
             if self.service_name == _POLICY_INTEGRITY_SERVICE_NAME:
@@ -1312,6 +1334,32 @@ def runtime_tool_action_exact_match_context(
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+def runtime_tool_action_portable_match_context(runtime_exact_match_context: str | None) -> str | None:
+    """Remove project location while retaining the exact executable action."""
+
+    if runtime_exact_match_context is None:
+        return None
+    try:
+        payload = json.loads(runtime_exact_match_context)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    raw_command_text = payload.get("raw_command_text")
+    if not isinstance(raw_command_text, str) or not raw_command_text:
+        return None
+    wrapper_chain = payload.get("wrapper_chain")
+    normalized_wrapper_chain = (
+        wrapper_chain if isinstance(wrapper_chain, Sequence) and not isinstance(wrapper_chain, str) else None
+    )
+    return runtime_tool_action_exact_match_context(
+        config_path=None,
+        source_scope=None,
+        raw_command_text=raw_command_text,
+        wrapper_chain=normalized_wrapper_chain,
+    )
+
+
 def browser_mcp_exact_match_context(
     *,
     intent: str | None,
@@ -1366,6 +1414,7 @@ def _scoped_runtime_row_requires_exact_match(
     requested_artifact_id: str | None,
     requested_artifact_hash: str | None = None,
     requested_runtime_exact_match_key: str | None = None,
+    requested_portable_exact_match_key: str | None = None,
 ) -> bool:
     if scope not in {"harness", "global"}:
         return False
@@ -1380,6 +1429,7 @@ def _scoped_runtime_row_requires_exact_match(
             requested_artifact_hash if _is_approval_context_token(requested_artifact_hash) else None,
             _runtime_scoped_exact_match_key(requested_artifact_id),
             requested_runtime_exact_match_key,
+            requested_portable_exact_match_key,
         )
         if key is not None
     }

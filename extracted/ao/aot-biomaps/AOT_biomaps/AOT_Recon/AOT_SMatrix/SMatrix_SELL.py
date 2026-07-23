@@ -209,8 +209,6 @@ class SMatrix_SELL(SMatrix):
             )
             cp.cuda.Stream.null.synchronize()
 
-        self.compute_norm_factor()
-
     def _allocate_cpu(self):
         """Allocate and fill the SELL matrix on CPU."""
         num_rows = int(self.N * self.T)
@@ -296,8 +294,6 @@ class SMatrix_SELL(SMatrix):
                 if pos < self.total_storage:
                     self.sell_values[pos] = 0.0 if not self.isComplexSMatrix else 0.0 + 0.0j
                     self.sell_colinds[pos] = 0
-
-        self.compute_norm_factor()
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """Perform forward projection: q = P^-1 * (A_sell * theta)."""
@@ -586,8 +582,106 @@ class SMatrix_SELL(SMatrix):
         else:
             warnings.warn("[AOT-biomaps] SELL Matrix not allocated, normalization impossible.")
             return
+        self.normalization_factor = max_val
 
         print(f"[AOT-biomaps] SELL Matrix normalized (Original absolute max: {max_val:.2e})")
         
         # Critical update of the normalization factors (preconditioners)
         self.compute_norm_factor()
+    
+    def compute_absolute_row_col_sums(self):
+        """
+        Compute row and column sums of absolute values for the Ehrhardt diagonal preconditioner,
+        taking into account the SELL-C-sigma row permutation.
+        """
+        ZX = self.Z * self.X
+        NT = self.N * self.T
+
+        # ==========================================================
+        # GPU
+        # ==========================================================
+        if check_gpu_available(self):
+            row_sums_sorted = cp.zeros(NT, dtype=cp.float32)
+            col_sums = cp.zeros(ZX, dtype=cp.float32)
+            threads = 256
+
+            # -----------------------------
+            # Column sums
+            # -----------------------------
+            blocks_col = (self.total_storage + threads - 1) // threads
+            kernel_col = self.sparse_mod.get_function(
+                "accumulate_abs_columns_atomic__COMPLEX"
+                if self.isComplexSMatrix
+                else "accumulate_abs_columns_atomic__REAL"
+            )
+            kernel_col(
+                grid=(blocks_col, 1, 1),
+                block=(threads, 1, 1),
+                args=[
+                    self.sell_values_gpu,
+                    self.sell_colinds_gpu,
+                    np.int64(self.total_storage),
+                    col_sums
+                ]
+            )
+
+            # -----------------------------
+            # Row sums (on sorted/permuted rows)
+            # -----------------------------
+            blocks_row = (NT + threads - 1) // threads
+            kernel_row = self.sparse_mod.get_function(
+                "accumulate_abs_rows__SELL__COMPLEX"
+                if self.isComplexSMatrix
+                else "accumulate_abs_rows__SELL__REAL"
+            )
+            kernel_row(
+                grid=(blocks_row, 1, 1),
+                block=(threads, 1, 1),
+                args=[
+                    self.sell_values_gpu,
+                    self.slice_ptr_gpu,
+                    self.slice_len_gpu,
+                    row_sums_sorted,
+                    np.int32(NT),
+                    np.int32(self.slice_height)
+                ]
+            )
+
+            cp.cuda.Stream.null.synchronize()
+
+            # CRITICAL FIX: Map sorted row sums back to physical row order using inv_row_perm
+            row_sums = row_sums_sorted[self.inv_row_perm_gpu]
+
+            return row_sums, col_sums
+
+        # ==========================================================
+        # CPU fallback
+        # ==========================================================
+        row_sums_sorted = np.zeros(NT, dtype=np.float32)
+        col_sums = np.zeros(ZX, dtype=np.float32)
+
+        for sorted_row in range(NT):
+            slice_id = sorted_row // self.slice_height
+            row_in_slice = sorted_row % self.slice_height
+            base = int(self.slice_ptr[slice_id])
+            length = int(self.slice_len[slice_id])
+            pos = base + row_in_slice
+
+            s = 0.0
+            for j in range(length):
+                idx = pos + j * self.slice_height
+                if idx >= self.total_storage:
+                    continue
+                value = np.abs(self.sell_values[idx])
+                if value == 0:
+                    continue
+                col = int(self.sell_colinds[idx])
+                s += value
+                col_sums[col] += value
+
+            row_sums_sorted[sorted_row] = s
+
+        # Map back to physical row order on CPU
+        row_sums = row_sums_sorted[self.inv_row_perm]
+
+        return row_sums, col_sums

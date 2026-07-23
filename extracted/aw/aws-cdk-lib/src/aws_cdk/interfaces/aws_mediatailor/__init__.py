@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ChannelPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f37e3165ac2608b7c2ff156f4a425a53d6485953bf8becaaebe7f54f07c8a588)
+            type_hints = cached_type_hints(_typecheckingstub__f37e3165ac2608b7c2ff156f4a425a53d6485953bf8becaaebe7f54f07c8a588)
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_name": channel_name,
@@ -114,7 +118,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__086dd4896fac32f634b3a32200eb3a76698c4796f218c2131a16e38813adaf31)
+            type_hints = cached_type_hints(_typecheckingstub__086dd4896fac32f634b3a32200eb3a76698c4796f218c2131a16e38813adaf31)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -151,7 +155,7 @@ class ChannelReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IChannelPolicyRef")
 class IChannelPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
@@ -171,7 +175,7 @@ class IChannelPolicyRef(
 
 class _IChannelPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ChannelPolicy.
 
@@ -196,7 +200,7 @@ typing.cast(typing.Any, IChannelPolicyRef).__jsii_proxy_class__ = lambda : _ICha
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -216,7 +220,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -241,7 +245,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ILiveSourceRef")
 class ILiveSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LiveSource.
@@ -261,7 +265,7 @@ class ILiveSourceRef(
 
 class _ILiveSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LiveSource.
 
@@ -288,7 +292,7 @@ typing.cast(typing.Any, ILiveSourceRef).__jsii_proxy_class__ = lambda : _ILiveSo
 )
 class IPlaybackConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackConfiguration.
@@ -308,7 +312,7 @@ class IPlaybackConfigurationRef(
 
 class _IPlaybackConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackConfiguration.
 
@@ -333,7 +337,7 @@ typing.cast(typing.Any, IPlaybackConfigurationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.ISourceLocationRef")
 class ISourceLocationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SourceLocation.
@@ -353,7 +357,7 @@ class ISourceLocationRef(
 
 class _ISourceLocationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SourceLocation.
 
@@ -378,7 +382,7 @@ typing.cast(typing.Any, ISourceLocationRef).__jsii_proxy_class__ = lambda : _ISo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediatailor.IVodSourceRef")
 class IVodSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VodSource.
@@ -398,7 +402,7 @@ class IVodSourceRef(
 
 class _IVodSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VodSource.
 
@@ -458,7 +462,7 @@ class LiveSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a564cf5f5dcac0d7efa00a183776f0f63bb3a946621e96d6ec491e8c4d2136bd)
+            type_hints = cached_type_hints(_typecheckingstub__a564cf5f5dcac0d7efa00a183776f0f63bb3a946621e96d6ec491e8c4d2136bd)
             check_type(argname="argument live_source_arn", value=live_source_arn, expected_type=type_hints["live_source_arn"])
             check_type(argname="argument live_source_name", value=live_source_name, expected_type=type_hints["live_source_name"])
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
@@ -535,7 +539,7 @@ class PlaybackConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf613545aa68f893fc0bd727d1eeee7017a21e18e95230dc9096d2f25abdac09)
+            type_hints = cached_type_hints(_typecheckingstub__bf613545aa68f893fc0bd727d1eeee7017a21e18e95230dc9096d2f25abdac09)
             check_type(argname="argument playback_configuration_arn", value=playback_configuration_arn, expected_type=type_hints["playback_configuration_arn"])
             check_type(argname="argument playback_configuration_name", value=playback_configuration_name, expected_type=type_hints["playback_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -603,7 +607,7 @@ class SourceLocationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58e44b714a33a6fdedacf6bb2020c3d928b4ae4ce7b026dc15f5b3d45016165f)
+            type_hints = cached_type_hints(_typecheckingstub__58e44b714a33a6fdedacf6bb2020c3d928b4ae4ce7b026dc15f5b3d45016165f)
             check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -675,7 +679,7 @@ class VodSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6a76b4e25fe3c65837b46020060418da7098205d91980c8a0d2168660ccb85d)
+            type_hints = cached_type_hints(_typecheckingstub__c6a76b4e25fe3c65837b46020060418da7098205d91980c8a0d2168660ccb85d)
             check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
             check_type(argname="argument vod_source_arn", value=vod_source_arn, expected_type=type_hints["vod_source_arn"])
             check_type(argname="argument vod_source_name", value=vod_source_name, expected_type=type_hints["vod_source_name"])

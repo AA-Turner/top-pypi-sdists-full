@@ -9,6 +9,7 @@ import contextlib
 import contextvars
 import json
 import os
+import time
 import typing as t
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -30,6 +31,7 @@ from dreadnode.app.client.transports import (
 )
 from dreadnode.app.env import read_env_with_deprecation
 from dreadnode.app.server.runtime_events import RuntimeEventEnvelope
+from dreadnode.app.server.runtime_token import read_runtime_token
 
 _SUBSCRIBE_RECONNECT_INITIAL_DELAY = 0.25
 _SUBSCRIBE_RECONNECT_MAX_DELAY = 15.0
@@ -58,13 +60,34 @@ def _default_runtime_url() -> str:
     return f"http://{host}:{port}"
 
 
-def _default_auth_token() -> str | None:
-    """Resolve the bearer token from env.
+class _RuntimeTokenAuth(httpx.Auth):
+    """Attach the current runtime bearer token per request, refreshing on 401.
 
-    Precedence: ``DREADNODE_RUNTIME_TOKEN`` > ``SANDBOX_AUTH_TOKEN`` (legacy,
-    warns once).
+    Resolving the token per request (instead of baking a header at client
+    construction) is what lets a *rotated* token reach a long-lived client — a
+    subprocess worker keeps calling back into the runtime across a reconnect
+    without being restarted. On a 401 the token is re-read once and the request
+    retried, covering a rotation that lands mid-request (just after the grace
+    window). A ``None`` resolver result sends the request unauthenticated, so a
+    server with auth disabled behaves as before.
     """
-    return read_env_with_deprecation("DREADNODE_RUNTIME_TOKEN", "SANDBOX_AUTH_TOKEN")
+
+    def __init__(self, resolve_token: "t.Callable[..., str | None]") -> None:
+        self._resolve_token = resolve_token
+
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> "t.Generator[httpx.Request, httpx.Response, None]":
+        token = self._resolve_token()
+        if token:
+            request.headers["Authorization"] = f"Bearer {token}"
+        response = yield request
+        if response.status_code == 401:
+            # Bypass the client cache on a 401 — the token may have just rotated.
+            retry_token = self._resolve_token(force=True)
+            if retry_token and retry_token != token:
+                request.headers["Authorization"] = f"Bearer {retry_token}"
+                yield request
 
 
 # Resolved at import; consumers that spawn the server subprocess need the
@@ -105,12 +128,20 @@ class RuntimeClient:
     ) -> None:
         # Resolve env lazily per instance so tests setting env after import still work.
         self.server_url = (server_url or _default_runtime_url()).rstrip("/")
-        self._auth_token = auth_token if auth_token is not None else _default_auth_token()
+        # A pinned token (explicitly passed, or set post-construction by
+        # ManagedRuntimeClient once it owns the socket) is used verbatim.
+        # Otherwise the token is resolved dynamically per request so a rotation
+        # of the sandbox's runtime token reaches this client without a restart.
+        self._auth_token = auth_token
+        # Small client-side cache so a long-lived worker doesn't stat+read the
+        # token file on every request; the 401 retry bypasses it (see auth flow).
+        self._token_cache: tuple[str | None, float] | None = None
+        self._token_cache_ttl = 1.0
         self._http_client = httpx.AsyncClient(
             base_url=self.server_url,
             timeout=None,  # noqa: S113 - long-lived runtime client intentionally disables global timeout
             transport=transport,
-            headers=self._build_auth_headers(),
+            auth=_RuntimeTokenAuth(self._current_token),
         )
         # Used as the fallback ``source`` on ``notify`` calls (CAP-WCLI-014).
         # Worker-hosted clients set this to ``capability.<name>``; standalone
@@ -147,9 +178,29 @@ class RuntimeClient:
         self._started = False
         self._interactive_transport: _RuntimeInteractiveTransport | None = None
 
+    def _current_token(self, *, force: bool = False) -> str | None:
+        """The bearer token to present now: the pinned one, else resolved live.
+
+        Reading it live (from the rotatable token file, falling back to env) is
+        what lets a token rotation reach this client — used for both REST (via
+        :class:`_RuntimeTokenAuth`) and each WebSocket (re)connect below. The
+        live read is cached briefly so a busy worker isn't doing a filesystem
+        read per request; ``force=True`` (used by the 401 retry) bypasses it.
+        """
+        if self._auth_token is not None:
+            return self._auth_token
+        now = time.monotonic()
+        cached = self._token_cache
+        if not force and cached is not None and (now - cached[1]) < self._token_cache_ttl:
+            return cached[0]
+        token = read_runtime_token()
+        self._token_cache = (token, now)
+        return token
+
     def _build_auth_headers(self) -> dict[str, str]:
-        if self._auth_token:
-            return {"Authorization": f"Bearer {self._auth_token}"}
+        token = self._current_token()
+        if token:
+            return {"Authorization": f"Bearer {token}"}
         return {}
 
     def _interactive_websocket_url(self) -> str:
@@ -487,6 +538,7 @@ class RuntimeClient:
         origin: str | None = None,
         project_memory_scope_kind: str | None = None,
         enable_project_memory_preload: bool | None = None,
+        project_memory_preload_limit: int | None = None,
     ) -> models.SessionInfo:
         """Create or resolve a session on the server.
 
@@ -544,6 +596,8 @@ class RuntimeClient:
             payload["project_memory_scope_kind"] = project_memory_scope_kind
         if enable_project_memory_preload is not None:
             payload["enable_project_memory_preload"] = enable_project_memory_preload
+        if project_memory_preload_limit is not None:
+            payload["project_memory_preload_limit"] = project_memory_preload_limit
         response = await self._http_client.post("/api/sessions", json=payload)
         response.raise_for_status()
         session = models.SessionInfo.from_dict(response.json())

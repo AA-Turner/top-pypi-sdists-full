@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class DBClusterParameterGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59ad0ed86fca2825742e2479fd25a959020db5a0431b40c09e95b63413733fd1)
+            type_hints = cached_type_hints(_typecheckingstub__59ad0ed86fca2825742e2479fd25a959020db5a0431b40c09e95b63413733fd1)
             check_type(argname="argument db_cluster_parameter_group_id", value=db_cluster_parameter_group_id, expected_type=type_hints["db_cluster_parameter_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_cluster_parameter_group_id": db_cluster_parameter_group_id,
@@ -107,7 +111,7 @@ class DBClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__682bd00486326ecd041d29352c5dcd0a2abf9cf2c96bf5a89e0fe205afefb73f)
+            type_hints = cached_type_hints(_typecheckingstub__682bd00486326ecd041d29352c5dcd0a2abf9cf2c96bf5a89e0fe205afefb73f)
             check_type(argname="argument db_cluster_id", value=db_cluster_id, expected_type=type_hints["db_cluster_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_cluster_id": db_cluster_id,
@@ -156,7 +160,7 @@ class DBInstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c13d32d14b52ba9e057053cdb7c67f20d9d269dab44a4960780f1c37ef94d63a)
+            type_hints = cached_type_hints(_typecheckingstub__c13d32d14b52ba9e057053cdb7c67f20d9d269dab44a4960780f1c37ef94d63a)
             check_type(argname="argument db_instance_id", value=db_instance_id, expected_type=type_hints["db_instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_instance_id": db_instance_id,
@@ -205,7 +209,7 @@ class DBSubnetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed49d8d68c7ea117d936be5f042ed3494a607b7eef69ae511b442f6c345e85f8)
+            type_hints = cached_type_hints(_typecheckingstub__ed49d8d68c7ea117d936be5f042ed3494a607b7eef69ae511b442f6c345e85f8)
             check_type(argname="argument db_subnet_group_id", value=db_subnet_group_id, expected_type=type_hints["db_subnet_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "db_subnet_group_id": db_subnet_group_id,
@@ -254,7 +258,7 @@ class EventSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d1757a2d0c92dd54faf578c5eecb7a2d61d57c75b45c13f8d31e21cf8f37f3)
+            type_hints = cached_type_hints(_typecheckingstub__48d1757a2d0c92dd54faf578c5eecb7a2d61d57c75b45c13f8d31e21cf8f37f3)
             check_type(argname="argument event_subscription_id", value=event_subscription_id, expected_type=type_hints["event_subscription_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_subscription_id": event_subscription_id,
@@ -313,7 +317,7 @@ class GlobalClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f4b6750c1d1f170fb4cb1010269a7c82a1590cfb80511cdc32f1dc9f14423d9)
+            type_hints = cached_type_hints(_typecheckingstub__8f4b6750c1d1f170fb4cb1010269a7c82a1590cfb80511cdc32f1dc9f14423d9)
             check_type(argname="argument global_cluster_arn", value=global_cluster_arn, expected_type=type_hints["global_cluster_arn"])
             check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -352,7 +356,7 @@ class GlobalClusterReference:
 )
 class IDBClusterParameterGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBClusterParameterGroup.
@@ -372,7 +376,7 @@ class IDBClusterParameterGroupRef(
 
 class _IDBClusterParameterGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBClusterParameterGroup.
 
@@ -397,7 +401,7 @@ typing.cast(typing.Any, IDBClusterParameterGroupRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdb.IDBClusterRef")
 class IDBClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBCluster.
@@ -417,7 +421,7 @@ class IDBClusterRef(
 
 class _IDBClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBCluster.
 
@@ -442,7 +446,7 @@ typing.cast(typing.Any, IDBClusterRef).__jsii_proxy_class__ = lambda : _IDBClust
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdb.IDBInstanceRef")
 class IDBInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBInstance.
@@ -462,7 +466,7 @@ class IDBInstanceRef(
 
 class _IDBInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBInstance.
 
@@ -487,7 +491,7 @@ typing.cast(typing.Any, IDBInstanceRef).__jsii_proxy_class__ = lambda : _IDBInst
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdb.IDBSubnetGroupRef")
 class IDBSubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBSubnetGroup.
@@ -507,7 +511,7 @@ class IDBSubnetGroupRef(
 
 class _IDBSubnetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DBSubnetGroup.
 
@@ -532,7 +536,7 @@ typing.cast(typing.Any, IDBSubnetGroupRef).__jsii_proxy_class__ = lambda : _IDBS
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdb.IEventSubscriptionRef")
 class IEventSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
@@ -552,7 +556,7 @@ class IEventSubscriptionRef(
 
 class _IEventSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
 
@@ -577,7 +581,7 @@ typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_docdb.IGlobalClusterRef")
 class IGlobalClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a GlobalCluster.
@@ -597,7 +601,7 @@ class IGlobalClusterRef(
 
 class _IGlobalClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a GlobalCluster.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -64,7 +68,7 @@ class ConfiguredModelAlgorithmAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c67966da22754716f0f9aa1f060506aef456c654648cc335612c655a0b436fe8)
+            type_hints = cached_type_hints(_typecheckingstub__c67966da22754716f0f9aa1f060506aef456c654648cc335612c655a0b436fe8)
             check_type(argname="argument configured_model_algorithm_association_arn", value=configured_model_algorithm_association_arn, expected_type=type_hints["configured_model_algorithm_association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configured_model_algorithm_association_arn": configured_model_algorithm_association_arn,
@@ -113,7 +117,7 @@ class ConfiguredModelAlgorithmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb4c9d651b129c3508fd0d411b20c60cc3610451f8356aad6a8fc2911636d2d7)
+            type_hints = cached_type_hints(_typecheckingstub__eb4c9d651b129c3508fd0d411b20c60cc3610451f8356aad6a8fc2911636d2d7)
             check_type(argname="argument configured_model_algorithm_arn", value=configured_model_algorithm_arn, expected_type=type_hints["configured_model_algorithm_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configured_model_algorithm_arn": configured_model_algorithm_arn,
@@ -143,7 +147,7 @@ class ConfiguredModelAlgorithmReference:
 )
 class IConfiguredModelAlgorithmAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredModelAlgorithmAssociation.
@@ -165,7 +169,7 @@ class IConfiguredModelAlgorithmAssociationRef(
 
 class _IConfiguredModelAlgorithmAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredModelAlgorithmAssociation.
 
@@ -194,7 +198,7 @@ typing.cast(typing.Any, IConfiguredModelAlgorithmAssociationRef).__jsii_proxy_cl
 )
 class IConfiguredModelAlgorithmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredModelAlgorithm.
@@ -214,7 +218,7 @@ class IConfiguredModelAlgorithmRef(
 
 class _IConfiguredModelAlgorithmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ConfiguredModelAlgorithm.
 
@@ -241,7 +245,7 @@ typing.cast(typing.Any, IConfiguredModelAlgorithmRef).__jsii_proxy_class__ = lam
 )
 class ITrainingDatasetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrainingDataset.
@@ -261,7 +265,7 @@ class ITrainingDatasetRef(
 
 class _ITrainingDatasetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TrainingDataset.
 
@@ -307,7 +311,7 @@ class TrainingDatasetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a27e18c1c530f885505e65eaef8080f9233bf44070ce8f18315805c24e608d9)
+            type_hints = cached_type_hints(_typecheckingstub__0a27e18c1c530f885505e65eaef8080f9233bf44070ce8f18315805c24e608d9)
             check_type(argname="argument training_dataset_arn", value=training_dataset_arn, expected_type=type_hints["training_dataset_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "training_dataset_arn": training_dataset_arn,

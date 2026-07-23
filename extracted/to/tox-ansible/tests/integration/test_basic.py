@@ -33,6 +33,7 @@ def test_ansible_environments(module_fixture_dir: Path, tox_bin: Path) -> None:
         print(exc.stderr)
         pytest.fail(exc.stderr)
     assert "integration" in proc.stdout
+    assert "molecule" in proc.stdout
     assert "sanity" in proc.stdout
     assert "unit" in proc.stdout
 
@@ -199,6 +200,30 @@ def test_setting_matrix_scope(
     structured = json.loads(proc.stdout)
     assert isinstance(structured, list)
     assert all(entry["name"].startswith("integration") for entry in structured)
+
+
+def test_matrix_scope_filters_environments(module_fixture_dir: Path, tox_bin: Path) -> None:
+    """Test matrix scope filters normal tox environment selection.
+
+    Args:
+        module_fixture_dir: Pytest fixture containing the test configuration.
+        tox_bin: Pytest fixture providing the tox executable.
+    """
+    cmd = (
+        tox_bin,
+        "-l",
+        "--ansible",
+        "--matrix-scope",
+        "sanity",
+        "--conf",
+        "tox-ansible.ini",
+    )
+    proc = run(cmd, cwd=module_fixture_dir, check=True, shell=False)
+
+    assert "sanity-" in proc.stdout
+    assert "galaxy " not in proc.stdout
+    assert "integration-" not in proc.stdout
+    assert "unit-" not in proc.stdout
 
 
 def test_action_not_output(

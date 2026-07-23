@@ -79,6 +79,7 @@ from langchain_aws.tools.nova_tools import NovaSystemTool
 from langchain_aws.utils import (
     count_tokens_api_supported_for_model,
     create_aws_client,
+    parse_model_provider,
     thinking_forced_tool_use_unsupported,
     thinking_in_params,
     trim_message_whitespace,
@@ -874,10 +875,7 @@ class ChatBedrockConverse(BaseChatModel):
                     "Model provider should be supplied when passing a model ARN "
                     "as model_id."
                 )
-            model_parts = model_id.split(".")
-            values["provider"] = (
-                model_parts[-2] if len(model_parts) > 1 else model_parts[0]
-            )
+            values["provider"] = parse_model_provider(model_id)
 
         provider = values["provider"]
 
@@ -888,23 +886,41 @@ class ChatBedrockConverse(BaseChatModel):
             raise ValueError("base_model_id, base_model, or model_id must be specified")
         model_id_lower = base_model_value.lower()
 
-        streaming_support = cls._get_streaming_support(provider, model_id_lower)
+        if "disable_streaming" not in values:
+            values["disable_streaming"] = cls._resolve_disable_streaming(
+                provider,
+                model_id_lower,
+                warn="application-inference-profile" not in model_id,
+            )
 
+        return values
+
+    @classmethod
+    def _resolve_disable_streaming(
+        cls, provider: str, model_id_lower: str, *, warn: bool = True
+    ) -> Union[bool, Literal["tool_calling"]]:
+        streaming_support = cls._get_streaming_support(provider, model_id_lower)
         # Set the disable_streaming flag accordingly:
         # - If streaming is supported (plain streaming),
         #       we want streaming enabled (i.e. disable_streaming == False).
         # - If the model supports streaming only in non-tool mode ("no_tools"),
         #       then we must force disable streaming when tools are used.
         # - Otherwise, if streaming is not supported, we set disable_streaming to True.
-        if "disable_streaming" not in values:
-            if not streaming_support:
-                values["disable_streaming"] = True
-            elif streaming_support == "no_tools":
-                values["disable_streaming"] = "tool_calling"
-            else:
-                values["disable_streaming"] = False
-
-        return values
+        if not streaming_support:
+            if warn:
+                logger.warning(
+                    "Streaming disabled for model '%s': provider '%s' is not "
+                    "verified as streaming-capable with ChatBedrockConverse, "
+                    "so calls will fall back to the non-streaming Converse "
+                    "API. If this model does support streaming, pass "
+                    "disable_streaming=False to override.",
+                    model_id_lower,
+                    provider,
+                )
+            return True
+        if streaming_support == "no_tools":
+            return "tool_calling"
+        return False
 
     def _get_effective_config(self) -> Any:
         """Merge timeout/max_retries into botocore Config if set."""
@@ -1081,15 +1097,9 @@ class ChatBedrockConverse(BaseChatModel):
         base_model = self._get_base_model()
         model_id_lower = base_model.lower()
 
-        streaming_support = self._get_streaming_support(self.provider, model_id_lower)
-
-        # Set the disable_streaming flag accordingly
-        if not streaming_support:
-            self.disable_streaming = True
-        elif streaming_support == "no_tools":
-            self.disable_streaming = "tool_calling"
-        else:
-            self.disable_streaming = False
+        self.disable_streaming = self._resolve_disable_streaming(
+            self.provider, model_id_lower
+        )
 
     def _validate_nova_reasoning_config(self) -> None:
         """Validate reasoning configuration for Nova 2 models.
@@ -1361,13 +1371,6 @@ class ChatBedrockConverse(BaseChatModel):
 
     # TODO: Add async support once there are async bedrock.converse methods.
 
-    def _is_thinking_enabled(self) -> bool:
-        """Check if extended thinking is enabled via additional_model_request_fields."""
-        thinking_params = (self.additional_model_request_fields or {}).get(
-            "thinking", {}
-        )
-        return thinking_params.get("type") == "enabled"
-
     def _resolve_tool_choice(
         self,
         tool_choice: Optional[Union[dict, str]],
@@ -1402,7 +1405,10 @@ class ChatBedrockConverse(BaseChatModel):
             return formatted
 
         # Thinking-enabled models: downgrade to auto instead of failing.
-        if self._is_thinking_enabled() and "auto" in supported:
+        if (
+            thinking_in_params(self.additional_model_request_fields or {})
+            and "auto" in supported
+        ):
             warnings.warn(
                 f"tool_choice={tool_choice!r} is not supported when thinking "
                 f"is enabled. Downgrading to tool_choice='auto'. The model "
@@ -2512,6 +2518,32 @@ def _format_data_content_block(block: dict) -> dict:
     return formatted_block
 
 
+def _format_search_result_block(block: dict) -> dict:
+    """Format a search_result block into a Bedrock SearchResultBlock."""
+    items = block.get("content") or []
+    for item in items:
+        if not (
+            isinstance(item, dict)
+            and item.get("type", "text") == "text"
+            and "text" in item
+        ):
+            error_message = (
+                "search_result 'content' items must be text blocks "
+                f'({{"type": "text", "text": ...}}); got: {item}'
+            )
+            raise ValueError(error_message)
+
+    search_result: Dict[str, Any] = {
+        "source": block["source"],
+        "title": block["title"],
+        "content": [{"text": item["text"]} for item in items],
+    }
+    citations_config = block.get("citations")
+    if isinstance(citations_config, dict) and "enabled" in citations_config:
+        search_result["citations"] = {"enabled": citations_config["enabled"]}
+    return {"searchResult": search_result}
+
+
 def _lc_content_to_bedrock(
     content: Union[str, List[Union[str, Dict[str, Any]]]],
 ) -> List[Dict[str, Any]]:
@@ -2541,12 +2573,34 @@ def _lc_content_to_bedrock(
                 bedrock_content.append({"text": EMPTY_CONTENT})
             else:
                 text_block = {"text": block["text"]}
+                citations = block.get("citations")
                 if (
-                    (citations := block.get("citations"))
+                    citations
                     and isinstance(citations, list)
                     and len(citations) > 0
                     and isinstance(citations[0], dict)
                     and "sourceContent" in citations[0]  # validate format
+                ):
+                    # We can't round-trip searchResultLocation citations, as Bedrock
+                    # internally omits the required "type": "search_result_location"
+                    # when translating back to Claude search result citations format.
+                    # Note that document citations specifically are NOT affected
+                    # TODO: restore search result citations once fixed on Bedrock side
+                    kept_citations = [
+                        c
+                        for c in citations
+                        if "searchResultLocation" not in c.get("location", {})
+                    ]
+                    if len(kept_citations) < len(citations):
+                        logger.debug(
+                            "Omitting %d search-result citation(s) from an "
+                            "outbound message: Bedrock cannot round-trip "
+                            "searchResultLocation citations for Anthropic models.",
+                            len(citations) - len(kept_citations),
+                        )
+                    citations = kept_citations
+                if citations and all(
+                    isinstance(c, dict) and "sourceContent" in c for c in citations
                 ):
                     bedrock_content.append(
                         {
@@ -2617,6 +2671,8 @@ def _lc_content_to_bedrock(
         elif block["type"] == "document":
             # Assume block in bedrock document format
             bedrock_content.append({"document": block["document"]})
+        elif block["type"] == "search_result":
+            bedrock_content.append(_format_search_result_block(block))
         elif block["type"] == "tool_use":
             tool_input = block["input"]
             if isinstance(tool_input, str):

@@ -1,14 +1,14 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """CLI commands for connector rollout operations.
 
-Commands:
+Commands (autopilot subcommands are listed in cron execution order):
     airbyte-ops cloud connector rollout list
+    airbyte-ops cloud connector rollout autopilot auto-triage-failed
+    airbyte-ops cloud connector rollout autopilot auto-rollback-failed
+    airbyte-ops cloud connector rollout autopilot auto-close
     airbyte-ops cloud connector rollout autopilot auto-start
     airbyte-ops cloud connector rollout autopilot auto-advance
     airbyte-ops cloud connector rollout autopilot auto-promote
-    airbyte-ops cloud connector rollout autopilot auto-supersede
-    airbyte-ops cloud connector rollout autopilot auto-triage-failed
-    airbyte-ops cloud connector rollout autopilot auto-rollback-failed
 """
 
 from __future__ import annotations
@@ -29,10 +29,10 @@ from airbyte_ops_mcp.cli.cloud import _resolve_cli_cloud_auth, connector_app
 from airbyte_ops_mcp.connector_ops.rollouts import (
     AutopilotResult,
     run_auto_advance,
+    run_auto_close,
     run_auto_promote,
     run_auto_rollback_failed,
     run_auto_start,
-    run_auto_supersede,
     run_auto_triage_failed,
 )
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
@@ -162,9 +162,15 @@ def auto_advance(
 ) -> None:
     """Advance IN_PROGRESS rollouts within their current tier.
 
-    Finds rollouts with `automated` strategy that haven't reached their
-    target percentage and advances them based on the configured strategy
-    pacing (`fast`/`slow`/`default`).
+    Advances `in_progress` rollouts that haven't reached their target
+    percentage based on the configured strategy pacing
+    (`fast`/`slow`/`default`).
+
+    Also recovers `workflow_started` rollouts: a rollout confirmed to have
+    zero eligible actors is finalized as `succeeded` (0-of-0 eligible is
+    complete, not stuck — promoting the RC to GA) instead of being left
+    wedged; one with a positive estimate is re-driven; an unavailable
+    estimate is skipped for a later retry.
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_advance(auth=auth, connector=connector, dry_run=dry_run)
@@ -186,9 +192,11 @@ def auto_promote(
 ) -> None:
     """Promote rollouts when at 100% of current tier.
 
-    Checks the `autopilotConfig.autoPromoteStages` gate. Currently
-    finalizes rollouts at ALL tier as succeeded (GA promotion).
-    Cross-tier promotion (TIER_2 -> TIER_1 -> ALL) is not yet implemented.
+    Checks the `autopilotConfig.autoPromoteStages` gate, then scans the tier
+    order forward for the next tier that has eligible actors and starts a
+    rollout there, skipping empty intermediate tiers. If no later customer
+    tier has actors (or the current tier is `ALL`), the current tier is
+    finalized as `succeeded` (GA promotion).
     """
     auth = _resolve_cli_cloud_auth()
     result = run_auto_promote(auth=auth, connector=connector, dry_run=dry_run)
@@ -219,8 +227,8 @@ def auto_triage_failed(
     _print_result(result)
 
 
-@autopilot_app.command(name="auto-supersede")
-def auto_supersede(
+@autopilot_app.command(name="auto-close")
+def auto_close(
     connector: Annotated[
         str | None,
         Parameter(
@@ -232,15 +240,15 @@ def auto_supersede(
         Parameter(help="Preview actions without executing them."),
     ] = False,
 ) -> None:
-    """Cancel older rollouts when a newer RC exists for the same connector.
+    """Close obsolete rollouts so only a connector's active candidate remains.
 
-    Detects connectors with multiple active rollouts at different RC versions.
-    Cancels older rollouts with `retain_pins_on_cancellation=True` so pinned
-    actors remain on the old version until the new rollout progressively
-    advances to include them.
+    Closes a rollout when a newer RC supersedes it, when its RC is already the
+    registry GA default, or when its RC is not the highest advertised release
+    candidate for the connector. Uses `retain_pins_on_cancellation=True` so
+    pinned actors are left undisturbed.
     """
     auth = _resolve_cli_cloud_auth()
-    result = run_auto_supersede(auth=auth, connector=connector, dry_run=dry_run)
+    result = run_auto_close(auth=auth, connector=connector, dry_run=dry_run)
     _print_result(result)
 
 

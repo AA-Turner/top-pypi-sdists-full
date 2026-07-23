@@ -1878,6 +1878,8 @@ class AlgebraicRecon(Recon):
         print("[AOT-biomaps] Building DENSE SMatrix") if isShowLogs else None
         SMatrix = SMatrix_DENSE(experiment=self.experiment, device=self.device, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
+        SMatrix.compute_norm_factor()
+        SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] DENSE SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
         return SMatrix
@@ -1890,6 +1892,8 @@ class AlgebraicRecon(Recon):
         print("[AOT-biomaps] Building CSR SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
         SMatrix = SMatrix_CSR(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
+        SMatrix.compute_norm_factor()
+        SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] CSR SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
             print(f"[AOT-biomaps] CSR sparse matrix density: {SMatrix.compute_density():.2f}%")
@@ -1903,6 +1907,8 @@ class AlgebraicRecon(Recon):
         print("[AOT-biomaps] Building SELL SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
         SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight, sigma=self.sigma_sell, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
+        SMatrix.compute_norm_factor()
+        SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] SELL SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
             print(f"[AOT-biomaps] SELL sparse matrix density: {SMatrix.compute_density():.2f}%")

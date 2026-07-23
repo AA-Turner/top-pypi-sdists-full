@@ -2,6 +2,7 @@ AUTH_BASE_URL = "https://identity.vaillant-group.com/auth/realms"
 LOGIN_URL = AUTH_BASE_URL + "/{realm}/login-actions/authenticate"
 AUTHENTICATE_URL = AUTH_BASE_URL + "/{realm}/protocol/openid-connect/auth"
 TOKEN_URL = AUTH_BASE_URL + "/{realm}/protocol/openid-connect/token"
+ALTCHA_CHALLENGE_URL = "https://identity.vaillant-group.com/api/altcha/challenge"
 API_URL_BASE = {
     "tli": "https://api.vaillant-group.com/service-connected-control/end-user-app-api/v1",
     "vrc700": "https://api.vaillant-group.com/service-connected-control/vrc700/v1",

@@ -63,7 +63,7 @@ def init_arq(sentry_init):
             integrations=[ArqIntegration()],
             traces_sample_rate=1.0,
             send_default_pii=True,
-            _experiments={"trace_lifecycle": "stream" if span_streaming else "static"},
+            trace_lifecycle="stream" if span_streaming else "static",
         )
 
         server = FakeRedis()
@@ -110,7 +110,7 @@ def init_arq_with_dict_settings(sentry_init):
             integrations=[ArqIntegration()],
             traces_sample_rate=1.0,
             send_default_pii=True,
-            _experiments={"trace_lifecycle": "stream" if span_streaming else "static"},
+            trace_lifecycle="stream" if span_streaming else "static",
         )
 
         server = FakeRedis()
@@ -160,7 +160,7 @@ def init_arq_with_kwarg_settings(sentry_init):
             integrations=[ArqIntegration()],
             traces_sample_rate=1.0,
             send_default_pii=True,
-            _experiments={"trace_lifecycle": "stream" if span_streaming else "static"},
+            trace_lifecycle="stream" if span_streaming else "static",
         )
 
         server = FakeRedis()
@@ -368,7 +368,7 @@ async def test_job_transaction(
         ]
 
         division_span = next(span for span in task_spans if span["name"] == "division")
-        assert division_span["attributes"]["sentry.span.source"] == "task"
+        assert division_span["attributes"]["sentry.segment.name.source"] == "task"
         assert (
             division_span["attributes"][SPANDATA.MESSAGING_DESTINATION_NAME]
             == worker.queue_name

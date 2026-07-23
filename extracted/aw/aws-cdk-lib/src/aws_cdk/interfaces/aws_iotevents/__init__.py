@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AlarmModelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951)
+            type_hints = cached_type_hints(_typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951)
             check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alarm_model_name": alarm_model_name,
@@ -107,7 +111,7 @@ class DetectorModelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a8998b12acad1694c766801dbc029eb3ebb0dd5fc872d69134a88ce04fc4b18)
+            type_hints = cached_type_hints(_typecheckingstub__1a8998b12acad1694c766801dbc029eb3ebb0dd5fc872d69134a88ce04fc4b18)
             check_type(argname="argument detector_model_name", value=detector_model_name, expected_type=type_hints["detector_model_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "detector_model_name": detector_model_name,
@@ -135,7 +139,7 @@ class DetectorModelReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotevents.IAlarmModelRef")
 class IAlarmModelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AlarmModel.
@@ -155,7 +159,7 @@ class IAlarmModelRef(
 
 class _IAlarmModelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AlarmModel.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IAlarmModelRef).__jsii_proxy_class__ = lambda : _IAlarmM
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotevents.IDetectorModelRef")
 class IDetectorModelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DetectorModel.
@@ -200,7 +204,7 @@ class IDetectorModelRef(
 
 class _IDetectorModelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DetectorModel.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IDetectorModelRef).__jsii_proxy_class__ = lambda : _IDet
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotevents.IInputRef")
 class IInputRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Input.
@@ -245,7 +249,7 @@ class IInputRef(
 
 class _IInputRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Input.
 
@@ -291,7 +295,7 @@ class InputReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92d11322c255495c3c986a6caebfb9f15d4066a0a881da36bca49fb7931f84aa)
+            type_hints = cached_type_hints(_typecheckingstub__92d11322c255495c3c986a6caebfb9f15d4066a0a881da36bca49fb7931f84aa)
             check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "input_name": input_name,

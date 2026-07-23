@@ -467,6 +467,8 @@ guaranteeing they are unique within your application.
 Without that parameter passed,
 instantiating `MyConstruct` twice in the same Stack would result in duplicated logical IDs.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -480,41 +482,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnCondition as _CfnCondition_ac3c7d25,
-    CfnElement as _CfnElement_8a9d213c,
-    CfnHook as _CfnHook_1d3dbe57,
-    CfnMapping as _CfnMapping_00f8fc17,
-    CfnOutput as _CfnOutput_7273f911,
-    CfnParameter as _CfnParameter_48fc1866,
-    CfnResource as _CfnResource_9df397a6,
-    CfnRule as _CfnRule_1d9ee4c6,
-    NestedStack as _NestedStack_dd393a45,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class CfnInclude(
-    _CfnElement_8a9d213c,
+    _aws_cdk_0cae9daa.CfnElement,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.cloudformation_include.CfnInclude",
 ):
@@ -555,7 +549,7 @@ class CfnInclude(
         :param preserve_logical_ids: Whether the resources should have the same logical IDs in the resulting CDK template as they did in the original CloudFormation template file. If you're vending a Construct using an existing CloudFormation template, make sure to pass this as ``false``. **Note**: regardless of whether this option is true or false, the ``CfnInclude.getResource`` and related methods always uses the original logical ID of the resource/element, as specified in the template file. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4185853ea24f6986c8394bfadb21bcc9f34dfbaabb091ba9acbe1da7d8f7c737)
+            type_hints = cached_type_hints(_typecheckingstub__4185853ea24f6986c8394bfadb21bcc9f34dfbaabb091ba9acbe1da7d8f7c737)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIncludeProps(
@@ -570,7 +564,10 @@ class CfnInclude(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="getCondition")
-    def get_condition(self, condition_name: builtins.str) -> "_CfnCondition_ac3c7d25":
+    def get_condition(
+        self,
+        condition_name: builtins.str,
+    ) -> "_aws_cdk_0cae9daa.CfnCondition":
         '''Returns the CfnCondition object from the 'Conditions' section of the CloudFormation template with the given name.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -581,12 +578,12 @@ class CfnInclude(
         :param condition_name: the name of the Condition in the CloudFormation template file.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfdc3baf6bf8e46f580841d902753af49289b342fdcbc7053c9314d63aa7eb72)
+            type_hints = cached_type_hints(_typecheckingstub__dfdc3baf6bf8e46f580841d902753af49289b342fdcbc7053c9314d63aa7eb72)
             check_type(argname="argument condition_name", value=condition_name, expected_type=type_hints["condition_name"])
-        return typing.cast("_CfnCondition_ac3c7d25", jsii.invoke(self, "getCondition", [condition_name]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnCondition", jsii.invoke(self, "getCondition", [condition_name]))
 
     @jsii.member(jsii_name="getHook")
-    def get_hook(self, hook_logical_id: builtins.str) -> "_CfnHook_1d3dbe57":
+    def get_hook(self, hook_logical_id: builtins.str) -> "_aws_cdk_0cae9daa.CfnHook":
         '''Returns the CfnHook object from the 'Hooks' section of the included CloudFormation template with the given logical ID.
 
         Any modifications performed on the returned object will be reflected in the resulting CDK template.
@@ -597,12 +594,12 @@ class CfnInclude(
         :param hook_logical_id: the logical ID of the Hook in the included CloudFormation template's 'Hooks' section.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25c5b6f4b9e985a3ca491693f4edbc7c23e5ef3a820220ed3b121e47cec61047)
+            type_hints = cached_type_hints(_typecheckingstub__25c5b6f4b9e985a3ca491693f4edbc7c23e5ef3a820220ed3b121e47cec61047)
             check_type(argname="argument hook_logical_id", value=hook_logical_id, expected_type=type_hints["hook_logical_id"])
-        return typing.cast("_CfnHook_1d3dbe57", jsii.invoke(self, "getHook", [hook_logical_id]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnHook", jsii.invoke(self, "getHook", [hook_logical_id]))
 
     @jsii.member(jsii_name="getMapping")
-    def get_mapping(self, mapping_name: builtins.str) -> "_CfnMapping_00f8fc17":
+    def get_mapping(self, mapping_name: builtins.str) -> "_aws_cdk_0cae9daa.CfnMapping":
         '''Returns the CfnMapping object from the 'Mappings' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -613,9 +610,9 @@ class CfnInclude(
         :param mapping_name: the name of the Mapping in the template to retrieve.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fef39fd8f5ff4e76d8270fd817c9d8eb4a8d89399e7cd4ad3c1b426ecf5860e2)
+            type_hints = cached_type_hints(_typecheckingstub__fef39fd8f5ff4e76d8270fd817c9d8eb4a8d89399e7cd4ad3c1b426ecf5860e2)
             check_type(argname="argument mapping_name", value=mapping_name, expected_type=type_hints["mapping_name"])
-        return typing.cast("_CfnMapping_00f8fc17", jsii.invoke(self, "getMapping", [mapping_name]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnMapping", jsii.invoke(self, "getMapping", [mapping_name]))
 
     @jsii.member(jsii_name="getNestedStack")
     def get_nested_stack(self, logical_id: builtins.str) -> "IncludedNestedStack":
@@ -628,12 +625,12 @@ class CfnInclude(
         :param logical_id: the ID of the stack to retrieve, as it appears in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37a735b43816229ef0c9c743f6455422b50938ecaae7a978e10925cdf4f54885)
+            type_hints = cached_type_hints(_typecheckingstub__37a735b43816229ef0c9c743f6455422b50938ecaae7a978e10925cdf4f54885)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
         return typing.cast("IncludedNestedStack", jsii.invoke(self, "getNestedStack", [logical_id]))
 
     @jsii.member(jsii_name="getOutput")
-    def get_output(self, logical_id: builtins.str) -> "_CfnOutput_7273f911":
+    def get_output(self, logical_id: builtins.str) -> "_aws_cdk_0cae9daa.CfnOutput":
         '''Returns the CfnOutput object from the 'Outputs' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -644,12 +641,15 @@ class CfnInclude(
         :param logical_id: the name of the output to retrieve.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51feb7c844e6986c4703dc16d92978a639f0bef0e6fc677fd84625bedd25f1e0)
+            type_hints = cached_type_hints(_typecheckingstub__51feb7c844e6986c4703dc16d92978a639f0bef0e6fc677fd84625bedd25f1e0)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
-        return typing.cast("_CfnOutput_7273f911", jsii.invoke(self, "getOutput", [logical_id]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnOutput", jsii.invoke(self, "getOutput", [logical_id]))
 
     @jsii.member(jsii_name="getParameter")
-    def get_parameter(self, parameter_name: builtins.str) -> "_CfnParameter_48fc1866":
+    def get_parameter(
+        self,
+        parameter_name: builtins.str,
+    ) -> "_aws_cdk_0cae9daa.CfnParameter":
         '''Returns the CfnParameter object from the 'Parameters' section of the included template.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -660,12 +660,12 @@ class CfnInclude(
         :param parameter_name: the name of the parameter to retrieve.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c7269102b214cdeb3fcc3da004ae2f41866723648ea084e5eebea16e3c93ce2)
+            type_hints = cached_type_hints(_typecheckingstub__8c7269102b214cdeb3fcc3da004ae2f41866723648ea084e5eebea16e3c93ce2)
             check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-        return typing.cast("_CfnParameter_48fc1866", jsii.invoke(self, "getParameter", [parameter_name]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnParameter", jsii.invoke(self, "getParameter", [parameter_name]))
 
     @jsii.member(jsii_name="getResource")
-    def get_resource(self, logical_id: builtins.str) -> "_CfnResource_9df397a6":
+    def get_resource(self, logical_id: builtins.str) -> "_aws_cdk_0cae9daa.CfnResource":
         '''Returns the low-level CfnResource from the template with the given logical ID.
 
         Any modifications performed on that resource will be reflected in the resulting CDK template.
@@ -683,12 +683,12 @@ class CfnInclude(
         :param logical_id: the logical ID of the resource in the CloudFormation template file.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd3c5e46dcacf54cf69606d9e214b10ea546d33f5aec335f84c2e709e780df91)
+            type_hints = cached_type_hints(_typecheckingstub__fd3c5e46dcacf54cf69606d9e214b10ea546d33f5aec335f84c2e709e780df91)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
-        return typing.cast("_CfnResource_9df397a6", jsii.invoke(self, "getResource", [logical_id]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnResource", jsii.invoke(self, "getResource", [logical_id]))
 
     @jsii.member(jsii_name="getRule")
-    def get_rule(self, rule_name: builtins.str) -> "_CfnRule_1d9ee4c6":
+    def get_rule(self, rule_name: builtins.str) -> "_aws_cdk_0cae9daa.CfnRule":
         '''Returns the CfnRule object from the 'Rules' section of the CloudFormation template with the given name.
 
         Any modifications performed on that object will be reflected in the resulting CDK template.
@@ -699,9 +699,9 @@ class CfnInclude(
         :param rule_name: the name of the Rule in the CloudFormation template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20ba00e1d33346f6b5c5629a14e683c03700d80b4ef6dd86c6bb6077fe00c79e)
+            type_hints = cached_type_hints(_typecheckingstub__20ba00e1d33346f6b5c5629a14e683c03700d80b4ef6dd86c6bb6077fe00c79e)
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-        return typing.cast("_CfnRule_1d9ee4c6", jsii.invoke(self, "getRule", [rule_name]))
+        return typing.cast("_aws_cdk_0cae9daa.CfnRule", jsii.invoke(self, "getRule", [rule_name]))
 
     @jsii.member(jsii_name="loadNestedStack")
     def load_nested_stack(
@@ -733,7 +733,7 @@ class CfnInclude(
         :return: the same ``IncludedNestedStack`` object that ``getNestedStack`` returns for this logical ID
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de5dca9b9d136124e6e84c51950c6936c1c380a5f8a618f7f849bd32e499be6)
+            type_hints = cached_type_hints(_typecheckingstub__1de5dca9b9d136124e6e84c51950c6936c1c380a5f8a618f7f849bd32e499be6)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
         nested_stack_props = CfnIncludeProps(
             template_file=template_file,
@@ -793,7 +793,7 @@ class CfnIncludeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec894574320f1d1806f81c6bd6f030b31c90de46348de376f43cb70a72909217)
+            type_hints = cached_type_hints(_typecheckingstub__ec894574320f1d1806f81c6bd6f030b31c90de46348de376f43cb70a72909217)
             check_type(argname="argument template_file", value=template_file, expected_type=type_hints["template_file"])
             check_type(argname="argument allow_cyclical_references", value=allow_cyclical_references, expected_type=type_hints["allow_cyclical_references"])
             check_type(argname="argument dehydrated_resources", value=dehydrated_resources, expected_type=type_hints["dehydrated_resources"])
@@ -923,7 +923,7 @@ class IncludedNestedStack:
         self,
         *,
         included_template: "CfnInclude",
-        stack: "_NestedStack_dd393a45",
+        stack: "_aws_cdk_0cae9daa.NestedStack",
     ) -> None:
         '''The type returned from ``CfnInclude.getNestedStack``. Contains both the NestedStack object and CfnInclude representations of the child stack.
 
@@ -942,7 +942,7 @@ class IncludedNestedStack:
             child_template = included_child_stack.included_template
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88e7af25c222ba7dccf8297352c3a575d3d8de37e00247a88dab0bd7f7099fe3)
+            type_hints = cached_type_hints(_typecheckingstub__88e7af25c222ba7dccf8297352c3a575d3d8de37e00247a88dab0bd7f7099fe3)
             check_type(argname="argument included_template", value=included_template, expected_type=type_hints["included_template"])
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -958,11 +958,11 @@ class IncludedNestedStack:
         return typing.cast("CfnInclude", result)
 
     @builtins.property
-    def stack(self) -> "_NestedStack_dd393a45":
+    def stack(self) -> "_aws_cdk_0cae9daa.NestedStack":
         '''The NestedStack object which represents the scope of the template.'''
         result = self._values.get("stack")
         assert result is not None, "Required property 'stack' is missing"
-        return typing.cast("_NestedStack_dd393a45", result)
+        return typing.cast("_aws_cdk_0cae9daa.NestedStack", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1074,7 +1074,7 @@ def _typecheckingstub__ec894574320f1d1806f81c6bd6f030b31c90de46348de376f43cb70a7
 def _typecheckingstub__88e7af25c222ba7dccf8297352c3a575d3d8de37e00247a88dab0bd7f7099fe3(
     *,
     included_template: CfnInclude,
-    stack: _NestedStack_dd393a45,
+    stack: _aws_cdk_0cae9daa.NestedStack,
 ) -> None:
     """Type checking stubs"""
     pass

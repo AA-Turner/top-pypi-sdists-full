@@ -79,6 +79,8 @@ To have `HttpsRedirect` use the `Distribution` construct as the default
 created CloudFront distribution instead of the deprecated `CloudFrontWebDistribution`
 construct, enable the `@aws-cdk/aws-route53-patterns:useDistribution` [feature flag](https://docs.aws.amazon.com/cdk/latest/guide/featureflags.html).
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -92,30 +94,31 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from ..aws_route53 import IHostedZone as _IHostedZone_9a6907ad
-from ..interfaces.aws_certificatemanager import (
-    ICertificateRef as _ICertificateRef_1878d79b
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_route53 as _aws_route53_ea3eecac
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
+    _aws_route53_ea3eecac = _LazyImport("aws_cdk.aws_route53")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class HttpsRedirect(
@@ -147,8 +150,8 @@ class HttpsRedirect(
         id: builtins.str,
         *,
         target_domain: builtins.str,
-        zone: "_IHostedZone_9a6907ad",
-        certificate: typing.Optional["_ICertificateRef_1878d79b"] = None,
+        zone: "_aws_route53_ea3eecac.IHostedZone",
+        certificate: typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"] = None,
         record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -160,7 +163,7 @@ class HttpsRedirect(
         :param record_names: The domain names that will redirect to ``targetDomain``. Default: - the domain name of the hosted zone
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff68f7e0dc1eec5dad60ae4c71e2f21e862d0a1879bb52d096b24101764cf058)
+            type_hints = cached_type_hints(_typecheckingstub__ff68f7e0dc1eec5dad60ae4c71e2f21e862d0a1879bb52d096b24101764cf058)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpsRedirectProps(
@@ -188,8 +191,8 @@ class HttpsRedirectProps:
         self,
         *,
         target_domain: builtins.str,
-        zone: "_IHostedZone_9a6907ad",
-        certificate: typing.Optional["_ICertificateRef_1878d79b"] = None,
+        zone: "_aws_route53_ea3eecac.IHostedZone",
+        certificate: typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"] = None,
         record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties to configure an HTTPS Redirect.
@@ -213,7 +216,7 @@ class HttpsRedirectProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72f6f834d63b74800825b794cdf644f1464edeeadd63af405be3512f22b37c7d)
+            type_hints = cached_type_hints(_typecheckingstub__72f6f834d63b74800825b794cdf644f1464edeeadd63af405be3512f22b37c7d)
             check_type(argname="argument target_domain", value=target_domain, expected_type=type_hints["target_domain"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
@@ -240,7 +243,7 @@ class HttpsRedirectProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def zone(self) -> "_IHostedZone_9a6907ad":
+    def zone(self) -> "_aws_route53_ea3eecac.IHostedZone":
         '''Hosted zone of the domain which will be used to create alias record(s) from domain names in the hosted zone to the target domain.
 
         The hosted zone must
@@ -252,10 +255,12 @@ class HttpsRedirectProps:
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
-        return typing.cast("_IHostedZone_9a6907ad", result)
+        return typing.cast("_aws_route53_ea3eecac.IHostedZone", result)
 
     @builtins.property
-    def certificate(self) -> typing.Optional["_ICertificateRef_1878d79b"]:
+    def certificate(
+        self,
+    ) -> typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"]:
         '''The AWS Certificate Manager (ACM) certificate that will be associated with the CloudFront distribution that will be created.
 
         If provided, the certificate must be
@@ -264,7 +269,7 @@ class HttpsRedirectProps:
         :default: - A new certificate is created in us-east-1 (N. Virginia)
         '''
         result = self._values.get("certificate")
-        return typing.cast(typing.Optional["_ICertificateRef_1878d79b"], result)
+        return typing.cast(typing.Optional["_aws_certificatemanager_7969630d.ICertificateRef"], result)
 
     @builtins.property
     def record_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -299,8 +304,8 @@ def _typecheckingstub__ff68f7e0dc1eec5dad60ae4c71e2f21e862d0a1879bb52d096b241017
     id: builtins.str,
     *,
     target_domain: builtins.str,
-    zone: _IHostedZone_9a6907ad,
-    certificate: typing.Optional[_ICertificateRef_1878d79b] = None,
+    zone: _aws_route53_ea3eecac.IHostedZone,
+    certificate: typing.Optional[_aws_certificatemanager_7969630d.ICertificateRef] = None,
     record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -309,8 +314,8 @@ def _typecheckingstub__ff68f7e0dc1eec5dad60ae4c71e2f21e862d0a1879bb52d096b241017
 def _typecheckingstub__72f6f834d63b74800825b794cdf644f1464edeeadd63af405be3512f22b37c7d(
     *,
     target_domain: builtins.str,
-    zone: _IHostedZone_9a6907ad,
-    certificate: typing.Optional[_ICertificateRef_1878d79b] = None,
+    zone: _aws_route53_ea3eecac.IHostedZone,
+    certificate: typing.Optional[_aws_certificatemanager_7969630d.ICertificateRef] = None,
     record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

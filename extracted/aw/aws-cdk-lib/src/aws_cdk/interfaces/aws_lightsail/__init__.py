@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class AlarmReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__337db78caea804686655f59ca18d9b791d909166130cf6acd0d12c194333f0c2)
+            type_hints = cached_type_hints(_typecheckingstub__337db78caea804686655f59ca18d9b791d909166130cf6acd0d12c194333f0c2)
             check_type(argname="argument alarm_arn", value=alarm_arn, expected_type=type_hints["alarm_arn"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -120,7 +124,7 @@ class BucketReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dfc3535ced0257498de71d28519b6135ff8f0011c01d7ca3dbb35006683b40d)
+            type_hints = cached_type_hints(_typecheckingstub__4dfc3535ced0257498de71d28519b6135ff8f0011c01d7ca3dbb35006683b40d)
             check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -188,7 +192,7 @@ class CertificateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85079d2811b5a242a5ac3874f382d167649d814db74404924e6c368a4279aa68)
+            type_hints = cached_type_hints(_typecheckingstub__85079d2811b5a242a5ac3874f382d167649d814db74404924e6c368a4279aa68)
             check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -253,7 +257,7 @@ class ContainerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2efffe0c15cd40bc6850a2bea53cdf7dfbb4d18160dd7603e200d869ac45fc4a)
+            type_hints = cached_type_hints(_typecheckingstub__2efffe0c15cd40bc6850a2bea53cdf7dfbb4d18160dd7603e200d869ac45fc4a)
             check_type(argname="argument container_arn", value=container_arn, expected_type=type_hints["container_arn"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -321,7 +325,7 @@ class DatabaseReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70ccc827d1fd7d7e85890ebbac083c9ca9e853e21bdda3342eea1846876a1fbb)
+            type_hints = cached_type_hints(_typecheckingstub__70ccc827d1fd7d7e85890ebbac083c9ca9e853e21bdda3342eea1846876a1fbb)
             check_type(argname="argument database_arn", value=database_arn, expected_type=type_hints["database_arn"])
             check_type(argname="argument relational_database_name", value=relational_database_name, expected_type=type_hints["relational_database_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -389,7 +393,7 @@ class DatabaseSnapshotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__502d7f0d341a4f9923c01b4d2389b077e255ea4beef655b8efc3498fa2ded806)
+            type_hints = cached_type_hints(_typecheckingstub__502d7f0d341a4f9923c01b4d2389b077e255ea4beef655b8efc3498fa2ded806)
             check_type(argname="argument database_snapshot_arn", value=database_snapshot_arn, expected_type=type_hints["database_snapshot_arn"])
             check_type(argname="argument relational_database_snapshot_name", value=relational_database_snapshot_name, expected_type=type_hints["relational_database_snapshot_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -449,7 +453,7 @@ class DiskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d411b3610244e9363a0cc69ad0c7a7390c87c80f57f88aefac603d40e1f6523)
+            type_hints = cached_type_hints(_typecheckingstub__8d411b3610244e9363a0cc69ad0c7a7390c87c80f57f88aefac603d40e1f6523)
             check_type(argname="argument disk_arn", value=disk_arn, expected_type=type_hints["disk_arn"])
             check_type(argname="argument disk_name", value=disk_name, expected_type=type_hints["disk_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -517,7 +521,7 @@ class DiskSnapshotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972211f0d06a11bf7c410ddec0712399cab822fca0b46f74a95ab48068278f65)
+            type_hints = cached_type_hints(_typecheckingstub__972211f0d06a11bf7c410ddec0712399cab822fca0b46f74a95ab48068278f65)
             check_type(argname="argument disk_snapshot_arn", value=disk_snapshot_arn, expected_type=type_hints["disk_snapshot_arn"])
             check_type(argname="argument disk_snapshot_name", value=disk_snapshot_name, expected_type=type_hints["disk_snapshot_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -585,7 +589,7 @@ class DistributionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b247d312271c3bfbb9c42e90def612cd292f008d73422668b44ace152e12d4c2)
+            type_hints = cached_type_hints(_typecheckingstub__b247d312271c3bfbb9c42e90def612cd292f008d73422668b44ace152e12d4c2)
             check_type(argname="argument distribution_arn", value=distribution_arn, expected_type=type_hints["distribution_arn"])
             check_type(argname="argument distribution_name", value=distribution_name, expected_type=type_hints["distribution_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -645,7 +649,7 @@ class DomainReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1937efb4450a1e8a57eda9cc5f774d90626a974013ce20020bc4d13173e99968)
+            type_hints = cached_type_hints(_typecheckingstub__1937efb4450a1e8a57eda9cc5f774d90626a974013ce20020bc4d13173e99968)
             check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -682,7 +686,7 @@ class DomainReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IAlarmRef")
 class IAlarmRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alarm.
@@ -702,7 +706,7 @@ class IAlarmRef(
 
 class _IAlarmRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Alarm.
 
@@ -727,7 +731,7 @@ typing.cast(typing.Any, IAlarmRef).__jsii_proxy_class__ = lambda : _IAlarmRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IBucketRef")
 class IBucketRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
@@ -747,7 +751,7 @@ class IBucketRef(
 
 class _IBucketRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Bucket.
 
@@ -772,7 +776,7 @@ typing.cast(typing.Any, IBucketRef).__jsii_proxy_class__ = lambda : _IBucketRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.ICertificateRef")
 class ICertificateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
@@ -792,7 +796,7 @@ class ICertificateRef(
 
 class _ICertificateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Certificate.
 
@@ -817,7 +821,7 @@ typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICerti
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IContainerRef")
 class IContainerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Container.
@@ -837,7 +841,7 @@ class IContainerRef(
 
 class _IContainerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Container.
 
@@ -862,7 +866,7 @@ typing.cast(typing.Any, IContainerRef).__jsii_proxy_class__ = lambda : _IContain
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDatabaseRef")
 class IDatabaseRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Database.
@@ -882,7 +886,7 @@ class IDatabaseRef(
 
 class _IDatabaseRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Database.
 
@@ -907,7 +911,7 @@ typing.cast(typing.Any, IDatabaseRef).__jsii_proxy_class__ = lambda : _IDatabase
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDatabaseSnapshotRef")
 class IDatabaseSnapshotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DatabaseSnapshot.
@@ -927,7 +931,7 @@ class IDatabaseSnapshotRef(
 
 class _IDatabaseSnapshotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DatabaseSnapshot.
 
@@ -952,7 +956,7 @@ typing.cast(typing.Any, IDatabaseSnapshotRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDiskRef")
 class IDiskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Disk.
@@ -972,7 +976,7 @@ class IDiskRef(
 
 class _IDiskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Disk.
 
@@ -997,7 +1001,7 @@ typing.cast(typing.Any, IDiskRef).__jsii_proxy_class__ = lambda : _IDiskRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDiskSnapshotRef")
 class IDiskSnapshotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DiskSnapshot.
@@ -1017,7 +1021,7 @@ class IDiskSnapshotRef(
 
 class _IDiskSnapshotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DiskSnapshot.
 
@@ -1042,7 +1046,7 @@ typing.cast(typing.Any, IDiskSnapshotRef).__jsii_proxy_class__ = lambda : _IDisk
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDistributionRef")
 class IDistributionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Distribution.
@@ -1062,7 +1066,7 @@ class IDistributionRef(
 
 class _IDistributionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Distribution.
 
@@ -1087,7 +1091,7 @@ typing.cast(typing.Any, IDistributionRef).__jsii_proxy_class__ = lambda : _IDist
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IDomainRef")
 class IDomainRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Domain.
@@ -1107,7 +1111,7 @@ class IDomainRef(
 
 class _IDomainRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Domain.
 
@@ -1132,7 +1136,7 @@ typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IInstanceRef")
 class IInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
@@ -1152,7 +1156,7 @@ class IInstanceRef(
 
 class _IInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
 
@@ -1177,7 +1181,7 @@ typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstance
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IInstanceSnapshotRef")
 class IInstanceSnapshotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceSnapshot.
@@ -1197,7 +1201,7 @@ class IInstanceSnapshotRef(
 
 class _IInstanceSnapshotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceSnapshot.
 
@@ -1222,7 +1226,7 @@ typing.cast(typing.Any, IInstanceSnapshotRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.ILoadBalancerRef")
 class ILoadBalancerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoadBalancer.
@@ -1242,7 +1246,7 @@ class ILoadBalancerRef(
 
 class _ILoadBalancerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoadBalancer.
 
@@ -1269,7 +1273,7 @@ typing.cast(typing.Any, ILoadBalancerRef).__jsii_proxy_class__ = lambda : _ILoad
 )
 class ILoadBalancerTlsCertificateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoadBalancerTlsCertificate.
@@ -1291,7 +1295,7 @@ class ILoadBalancerTlsCertificateRef(
 
 class _ILoadBalancerTlsCertificateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LoadBalancerTlsCertificate.
 
@@ -1318,7 +1322,7 @@ typing.cast(typing.Any, ILoadBalancerTlsCertificateRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_lightsail.IStaticIpRef")
 class IStaticIpRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StaticIp.
@@ -1338,7 +1342,7 @@ class IStaticIpRef(
 
 class _IStaticIpRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StaticIp.
 
@@ -1391,7 +1395,7 @@ class InstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85b90667ac9cbddb49fe221e03e2cd6ec629eee94042c2be1c21668e43461563)
+            type_hints = cached_type_hints(_typecheckingstub__85b90667ac9cbddb49fe221e03e2cd6ec629eee94042c2be1c21668e43461563)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument instance_name", value=instance_name, expected_type=type_hints["instance_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1459,7 +1463,7 @@ class InstanceSnapshotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b3213679b67a22b6852e10c45c601db59e53a196b542106afb013892505e18c)
+            type_hints = cached_type_hints(_typecheckingstub__4b3213679b67a22b6852e10c45c601db59e53a196b542106afb013892505e18c)
             check_type(argname="argument instance_snapshot_arn", value=instance_snapshot_arn, expected_type=type_hints["instance_snapshot_arn"])
             check_type(argname="argument instance_snapshot_name", value=instance_snapshot_name, expected_type=type_hints["instance_snapshot_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1527,7 +1531,7 @@ class LoadBalancerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab177296e991727275ec145c41e52a9bd1687398bb1b24d2e227a1cf24330a0a)
+            type_hints = cached_type_hints(_typecheckingstub__ab177296e991727275ec145c41e52a9bd1687398bb1b24d2e227a1cf24330a0a)
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_name", value=load_balancer_name, expected_type=type_hints["load_balancer_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1599,7 +1603,7 @@ class LoadBalancerTlsCertificateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bd56863ab18f7122120f527f43fdf9cc700fadf3ce8ecc453a6312ba11621fa)
+            type_hints = cached_type_hints(_typecheckingstub__6bd56863ab18f7122120f527f43fdf9cc700fadf3ce8ecc453a6312ba11621fa)
             check_type(argname="argument certificate_name", value=certificate_name, expected_type=type_hints["certificate_name"])
             check_type(argname="argument load_balancer_name", value=load_balancer_name, expected_type=type_hints["load_balancer_name"])
             check_type(argname="argument load_balancer_tls_certificate_arn", value=load_balancer_tls_certificate_arn, expected_type=type_hints["load_balancer_tls_certificate_arn"])
@@ -1673,7 +1677,7 @@ class StaticIpReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f2476e04990a2a193f7c9e6433f145827b121d8f492aee4e2e21896a06c8a59)
+            type_hints = cached_type_hints(_typecheckingstub__1f2476e04990a2a193f7c9e6433f145827b121d8f492aee4e2e21896a06c8a59)
             check_type(argname="argument static_ip_arn", value=static_ip_arn, expected_type=type_hints["static_ip_arn"])
             check_type(argname="argument static_ip_name", value=static_ip_name, expected_type=type_hints["static_ip_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

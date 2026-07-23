@@ -1,13 +1,13 @@
 [project]
 name = "flet-cli"
-version = "0.86.1"
+version = "0.86.2"
 description = "Flet CLI"
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "flet==0.86.1",
+    "flet==0.86.2",
     "watchdog >=4.0.0",
     "packaging >=25.0",
     "qrcode >=7.4.2",

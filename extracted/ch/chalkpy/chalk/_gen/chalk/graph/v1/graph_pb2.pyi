@@ -329,6 +329,7 @@ class NamedQuery(_message.Message):
         "source_file_reference",
         "additional_logged_features",
         "valid_plan_not_required",
+        "resource_groups",
     )
     class MetaEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -356,6 +357,16 @@ class NamedQuery(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class ResourceGroupsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: NamedQueryResourceGroups
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[NamedQueryResourceGroups, _Mapping]] = ...
+        ) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     INPUT_FIELD_NUMBER: _ClassVar[int]
@@ -371,6 +382,7 @@ class NamedQuery(_message.Message):
     SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     ADDITIONAL_LOGGED_FEATURES_FIELD_NUMBER: _ClassVar[int]
     VALID_PLAN_NOT_REQUIRED_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
     name: str
     query_version: str
     input: _containers.RepeatedScalarFieldContainer[str]
@@ -386,6 +398,7 @@ class NamedQuery(_message.Message):
     source_file_reference: SourceFileReference
     additional_logged_features: _containers.RepeatedScalarFieldContainer[str]
     valid_plan_not_required: bool
+    resource_groups: _containers.MessageMap[str, NamedQueryResourceGroups]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -403,7 +416,14 @@ class NamedQuery(_message.Message):
         source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
         additional_logged_features: _Optional[_Iterable[str]] = ...,
         valid_plan_not_required: bool = ...,
+        resource_groups: _Optional[_Mapping[str, NamedQueryResourceGroups]] = ...,
     ) -> None: ...
+
+class NamedQueryResourceGroups(_message.Message):
+    __slots__ = ("groups",)
+    GROUPS_FIELD_NUMBER: _ClassVar[int]
+    groups: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, groups: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class FeatureSet(_message.Message):
     __slots__ = (

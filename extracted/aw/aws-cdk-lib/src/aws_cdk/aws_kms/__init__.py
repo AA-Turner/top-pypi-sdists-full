@@ -330,6 +330,8 @@ ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
 effectively providing an ad-hoc way to extend the behavior of L1s to support grants the same way
 as L2s do.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -343,57 +345,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    IPrincipal as _IPrincipal_539bb2fd,
-    PolicyDocument as _PolicyDocument_3ac34393,
-    PolicyStatement as _PolicyStatement_0fe33853,
-    PrincipalBase as _PrincipalBase_b5077813,
-    PrincipalPolicyFragment as _PrincipalPolicyFragment_6a855d11,
-)
-from ..interfaces.aws_kms import (
-    AliasReference as _AliasReference_b94b5fd4,
-    IAliasRef as _IAliasRef_43fafabd,
-    IKeyRef as _IKeyRef_d4fc6ef3,
-    IReplicaKeyRef as _IReplicaKeyRef_61fa3e10,
-    KeyReference as _KeyReference_751b3d66,
-    ReplicaKeyReference as _ReplicaKeyReference_21781a17,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -424,7 +402,7 @@ class AliasAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4044a422b77633efb024676d8b64edc24f9f3e6dda3050cda6f5bb78c388993)
+            type_hints = cached_type_hints(_typecheckingstub__b4044a422b77633efb024676d8b64edc24f9f3e6dda3050cda6f5bb78c388993)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
             check_type(argname="argument alias_target_key", value=alias_target_key, expected_type=type_hints["alias_target_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -476,7 +454,7 @@ class AliasProps:
         *,
         alias_name: builtins.str,
         target_key: "IKey",
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''Construction properties for a KMS Key Alias object.
 
@@ -508,7 +486,7 @@ class AliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e903bf066a426ef7752d4c25658bc63605bb655d804e5468ef9fa75e0fe87f57)
+            type_hints = cached_type_hints(_typecheckingstub__e903bf066a426ef7752d4c25658bc63605bb655d804e5468ef9fa75e0fe87f57)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
             check_type(argname="argument target_key", value=target_key, expected_type=type_hints["target_key"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -544,13 +522,13 @@ class AliasProps:
         return typing.cast("IKey", result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the alias is removed from this stack.
 
         :default: - The alias will be deleted
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -564,9 +542,9 @@ class AliasProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAliasRef_43fafabd)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kms_18db7412.IAliasRef)
 class CfnAlias(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.CfnAlias",
 ):
@@ -611,7 +589,7 @@ class CfnAlias(
         id: builtins.str,
         *,
         alias_name: builtins.str,
-        target_key_id: typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"],
+        target_key_id: typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef", "_aws_kms_18db7412.IReplicaKeyRef"],
     ) -> None:
         '''Create a new ``AWS::KMS::Alias``.
 
@@ -621,7 +599,7 @@ class CfnAlias(
         :param target_key_id: Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region. A valid key ID is required. If you supply a null or empty string value, this operation returns an error. For help finding the key ID and ARN, see `Finding the key ID and ARN <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html#find-cmk-id-arn>`_ in the *AWS Key Management Service Developer Guide* . Specify the key ID or the key ARN of the KMS key. For example: - Key ID: ``1234abcd-12ab-34cd-56ef-1234567890ab`` - Key ARN: ``arn:aws:kms:us-east-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab`` To get the key ID and key ARN for a KMS key, use `ListKeys <https://docs.aws.amazon.com/kms/latest/APIReference/API_ListKeys.html>`_ or `DescribeKey <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc3551205)
+            type_hints = cached_type_hints(_typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc3551205)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAliasProps(alias_name=alias_name, target_key_id=target_key_id)
@@ -636,18 +614,18 @@ class CfnAlias(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e80558a98b03b885d95d989843060b9b93618c41f5f93432adc0b2fd67e7319)
+            type_hints = cached_type_hints(_typecheckingstub__5e80558a98b03b885d95d989843060b9b93618c41f5f93432adc0b2fd67e7319)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlias", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91d92bc86df739cdbb4a623f1bec0006f2c4e912b1d6817e7e5fc8fc28d6d61d)
+            type_hints = cached_type_hints(_typecheckingstub__91d92bc86df739cdbb4a623f1bec0006f2c4e912b1d6817e7e5fc8fc28d6d61d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -660,7 +638,7 @@ class CfnAlias(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be1861ad699c79ab6c6405435694534bc0b254bb6fe02fa309564e05b8ab5a6f)
+            type_hints = cached_type_hints(_typecheckingstub__be1861ad699c79ab6c6405435694534bc0b254bb6fe02fa309564e05b8ab5a6f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -672,9 +650,9 @@ class CfnAlias(
 
     @builtins.property
     @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> "_AliasReference_b94b5fd4":
+    def alias_ref(self) -> "_aws_kms_18db7412.AliasReference":
         '''A reference to a Alias resource.'''
-        return typing.cast("_AliasReference_b94b5fd4", jsii.get(self, "aliasRef"))
+        return typing.cast("_aws_kms_18db7412.AliasReference", jsii.get(self, "aliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -698,7 +676,7 @@ class CfnAlias(
     @alias_name.setter
     def alias_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__293c0aafbebd8a831d41848f3d7035971f2665e6401dfe8705989d1abae2c2c5)
+            type_hints = cached_type_hints(_typecheckingstub__293c0aafbebd8a831d41848f3d7035971f2665e6401dfe8705989d1abae2c2c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
 
@@ -711,7 +689,7 @@ class CfnAlias(
     @target_key_id.setter
     def target_key_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa393b6fb2)
+            type_hints = cached_type_hints(_typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa393b6fb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -726,7 +704,7 @@ class CfnAliasProps:
         self,
         *,
         alias_name: builtins.str,
-        target_key_id: typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"],
+        target_key_id: typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef", "_aws_kms_18db7412.IReplicaKeyRef"],
     ) -> None:
         '''Properties for defining a ``CfnAlias``.
 
@@ -748,7 +726,7 @@ class CfnAliasProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbfd3a4fafdacbfbfd8d6fce574bc924973ce57499da64b6659e12ea905b460f)
+            type_hints = cached_type_hints(_typecheckingstub__dbfd3a4fafdacbfbfd8d6fce574bc924973ce57499da64b6659e12ea905b460f)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
             check_type(argname="argument target_key_id", value=target_key_id, expected_type=type_hints["target_key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -775,7 +753,7 @@ class CfnAliasProps:
     @builtins.property
     def target_key_id(
         self,
-    ) -> typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"]:
+    ) -> typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef", "_aws_kms_18db7412.IReplicaKeyRef"]:
         '''Associates the alias with the specified `customer managed key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk>`_ . The KMS key must be in the same AWS account and Region.
 
         A valid key ID is required. If you supply a null or empty string value, this operation returns an error.
@@ -795,7 +773,7 @@ class CfnAliasProps:
         '''
         result = self._values.get("target_key_id")
         assert result is not None, "Required property 'target_key_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IKeyRef_d4fc6ef3", "_IReplicaKeyRef_61fa3e10"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef", "_aws_kms_18db7412.IReplicaKeyRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -809,9 +787,9 @@ class CfnAliasProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IKeyRef_d4fc6ef3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kms_18db7412.IKeyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.CfnKey",
 ):
@@ -891,18 +869,18 @@ class CfnKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         key_policy: typing.Any = None,
         key_spec: typing.Optional[builtins.str] = None,
         key_usage: typing.Optional[builtins.str] = None,
-        multi_region: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_region: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         origin: typing.Optional[builtins.str] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
         rotation_period_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KMS::Key``.
 
@@ -922,7 +900,7 @@ class CfnKey(
         :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in AWS , see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ in the *AWS Key Management Service Developer Guide* . For information about tags in CloudFormation, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e196d8783c)
+            type_hints = cached_type_hints(_typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e196d8783c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnKeyProps(
@@ -944,12 +922,12 @@ class CfnKey(
 
     @jsii.member(jsii_name="arnForKey")
     @builtins.classmethod
-    def arn_for_key(cls, resource: "_IKeyRef_d4fc6ef3") -> builtins.str:
+    def arn_for_key(cls, resource: "_aws_kms_18db7412.IKeyRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0e1d5b4f549c0607d9643ccfe53af7d2dd89011c40d52dc462eb598c7b26187)
+            type_hints = cached_type_hints(_typecheckingstub__b0e1d5b4f549c0607d9643ccfe53af7d2dd89011c40d52dc462eb598c7b26187)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForKey", [resource]))
 
@@ -960,7 +938,7 @@ class CfnKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IKeyRef_d4fc6ef3":
+    ) -> "_aws_kms_18db7412.IKeyRef":
         '''Creates a new IKeyRef from an ARN.
 
         :param scope: -
@@ -968,11 +946,11 @@ class CfnKey(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__717dcad4d9cbf2639e4a7706f2520822fc3c58d7d28a72e3e2c89cd6ecd9ec77)
+            type_hints = cached_type_hints(_typecheckingstub__717dcad4d9cbf2639e4a7706f2520822fc3c58d7d28a72e3e2c89cd6ecd9ec77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IKeyRef_d4fc6ef3", jsii.sinvoke(cls, "fromKeyArn", [scope, id, arn]))
+        return typing.cast("_aws_kms_18db7412.IKeyRef", jsii.sinvoke(cls, "fromKeyArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromKeyId")
     @builtins.classmethod
@@ -981,7 +959,7 @@ class CfnKey(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         key_id: builtins.str,
-    ) -> "_IKeyRef_d4fc6ef3":
+    ) -> "_aws_kms_18db7412.IKeyRef":
         '''Creates a new IKeyRef from a keyId.
 
         :param scope: -
@@ -989,11 +967,11 @@ class CfnKey(
         :param key_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__017d6fb56914db7b54b414d0535f40acc821857d39e3de53a3749ea5b44c245a)
+            type_hints = cached_type_hints(_typecheckingstub__017d6fb56914db7b54b414d0535f40acc821857d39e3de53a3749ea5b44c245a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-        return typing.cast("_IKeyRef_d4fc6ef3", jsii.sinvoke(cls, "fromKeyId", [scope, id, key_id]))
+        return typing.cast("_aws_kms_18db7412.IKeyRef", jsii.sinvoke(cls, "fromKeyId", [scope, id, key_id]))
 
     @jsii.member(jsii_name="isCfnKey")
     @builtins.classmethod
@@ -1003,18 +981,18 @@ class CfnKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89642e771ba2a812f40a717a96d411721a80787ba9dc32888fe3f5c03f286fac)
+            type_hints = cached_type_hints(_typecheckingstub__89642e771ba2a812f40a717a96d411721a80787ba9dc32888fe3f5c03f286fac)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6311cde99d8265c1aa77cad19077d4dc11fa11a16a0a5d601158013e78b4de6)
+            type_hints = cached_type_hints(_typecheckingstub__c6311cde99d8265c1aa77cad19077d4dc11fa11a16a0a5d601158013e78b4de6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1027,7 +1005,7 @@ class CfnKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7468635e1eaf46c92748f2c14a3230215aa887e54ed03c370eee59b7ed05117b)
+            type_hints = cached_type_hints(_typecheckingstub__7468635e1eaf46c92748f2c14a3230215aa887e54ed03c370eee59b7ed05117b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1071,15 +1049,15 @@ class CfnKey(
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "_KeyReference_751b3d66":
+    def key_ref(self) -> "_aws_kms_18db7412.KeyReference":
         '''A reference to a Key resource.'''
-        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
+        return typing.cast("_aws_kms_18db7412.KeyReference", jsii.get(self, "keyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="keyPolicy")
@@ -1090,7 +1068,7 @@ class CfnKey(
     @key_policy.setter
     def key_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
+            type_hints = cached_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -1098,20 +1076,20 @@ class CfnKey(
     @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheck")
     def bypass_policy_lockout_safety_check(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Skips ("bypasses") the key policy lockout safety check.
 
         The default value is false.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "bypassPolicyLockoutSafetyCheck"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "bypassPolicyLockoutSafetyCheck"))
 
     @bypass_policy_lockout_safety_check.setter
     def bypass_policy_lockout_safety_check(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443)
+            type_hints = cached_type_hints(_typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bypassPolicyLockoutSafetyCheck", value) # pyright: ignore[reportArgumentType]
 
@@ -1124,7 +1102,7 @@ class CfnKey(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f89ba8ef)
+            type_hints = cached_type_hints(_typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f89ba8ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1132,20 +1110,20 @@ class CfnKey(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the KMS key is enabled.
 
         Disabled KMS keys cannot be used in cryptographic operations.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56)
+            type_hints = cached_type_hints(_typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1153,17 +1131,17 @@ class CfnKey(
     @jsii.member(jsii_name="enableKeyRotation")
     def enable_key_rotation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables automatic rotation of the key material for the specified KMS key.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableKeyRotation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableKeyRotation"))
 
     @enable_key_rotation.setter
     def enable_key_rotation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
+            type_hints = cached_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableKeyRotation", value) # pyright: ignore[reportArgumentType]
 
@@ -1176,7 +1154,7 @@ class CfnKey(
     @key_spec.setter
     def key_spec(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00b8e7e0c6c26ba4d81ad2ec83a06ba02111a601de28c48a34e711a20bdb960d)
+            type_hints = cached_type_hints(_typecheckingstub__00b8e7e0c6c26ba4d81ad2ec83a06ba02111a601de28c48a34e711a20bdb960d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keySpec", value) # pyright: ignore[reportArgumentType]
 
@@ -1189,7 +1167,7 @@ class CfnKey(
     @key_usage.setter
     def key_usage(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a875776c68562)
+            type_hints = cached_type_hints(_typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a875776c68562)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyUsage", value) # pyright: ignore[reportArgumentType]
 
@@ -1197,17 +1175,17 @@ class CfnKey(
     @jsii.member(jsii_name="multiRegion")
     def multi_region(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Creates a multi-Region primary key that you can replicate in other AWS Regions .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiRegion"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "multiRegion"))
 
     @multi_region.setter
     def multi_region(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da)
+            type_hints = cached_type_hints(_typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
 
@@ -1220,7 +1198,7 @@ class CfnKey(
     @origin.setter
     def origin(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e82f572625e8bbed987a6ede9a751d501f7398289c234e243ea2f716f23608b)
+            type_hints = cached_type_hints(_typecheckingstub__4e82f572625e8bbed987a6ede9a751d501f7398289c234e243ea2f716f23608b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
 
@@ -1233,7 +1211,7 @@ class CfnKey(
     @pending_window_in_days.setter
     def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d3e524eda3827ec1d53e329afc207f3ef954caf7cf407b25faef721f3a2016d)
+            type_hints = cached_type_hints(_typecheckingstub__1d3e524eda3827ec1d53e329afc207f3ef954caf7cf407b25faef721f3a2016d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
 
@@ -1246,20 +1224,23 @@ class CfnKey(
     @rotation_period_in_days.setter
     def rotation_period_in_days(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92f2fbc59)
+            type_hints = cached_type_hints(_typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92f2fbc59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rotationPeriodInDays", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags to the replica key.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576)
+            type_hints = cached_type_hints(_typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1286,18 +1267,18 @@ class CfnKeyProps:
     def __init__(
         self,
         *,
-        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_key_rotation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         key_policy: typing.Any = None,
         key_spec: typing.Optional[builtins.str] = None,
         key_usage: typing.Optional[builtins.str] = None,
-        multi_region: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        multi_region: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         origin: typing.Optional[builtins.str] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
         rotation_period_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnKey``.
 
@@ -1345,7 +1326,7 @@ class CfnKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52751771c8b3e52917eaf0c78bad67c065fa3f95795e92f5eab3e92ce5051178)
+            type_hints = cached_type_hints(_typecheckingstub__52751771c8b3e52917eaf0c78bad67c065fa3f95795e92f5eab3e92ce5051178)
             check_type(argname="argument bypass_policy_lockout_safety_check", value=bypass_policy_lockout_safety_check, expected_type=type_hints["bypass_policy_lockout_safety_check"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -1387,7 +1368,7 @@ class CfnKeyProps:
     @builtins.property
     def bypass_policy_lockout_safety_check(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Skips ("bypasses") the key policy lockout safety check. The default value is false.
 
         .. epigraph::
@@ -1403,7 +1384,7 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-bypasspolicylockoutsafetycheck
         '''
         result = self._values.get("bypass_policy_lockout_safety_check")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1419,7 +1400,7 @@ class CfnKeyProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the KMS key is enabled. Disabled KMS keys cannot be used in cryptographic operations.
 
         When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` .
@@ -1431,12 +1412,12 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_key_rotation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables automatic rotation of the key material for the specified KMS key.
 
         By default, automatic key rotation is not enabled.
@@ -1450,7 +1431,7 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-enablekeyrotation
         '''
         result = self._values.get("enable_key_rotation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def key_policy(self) -> typing.Any:
@@ -1552,7 +1533,7 @@ class CfnKeyProps:
     @builtins.property
     def multi_region(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Creates a multi-Region primary key that you can replicate in other AWS Regions .
 
         You can't change the ``MultiRegion`` value after the KMS key is created.
@@ -1575,7 +1556,7 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-multiregion
         '''
         result = self._values.get("multi_region")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def origin(self) -> typing.Optional[builtins.str]:
@@ -1637,7 +1618,7 @@ class CfnKeyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags to the replica key.
 
         .. epigraph::
@@ -1649,7 +1630,7 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1663,9 +1644,9 @@ class CfnKeyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IReplicaKeyRef_61fa3e10, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kms_18db7412.IReplicaKeyRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnReplicaKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.CfnReplicaKey",
 ):
@@ -1721,9 +1702,9 @@ class CfnReplicaKey(
         key_policy: typing.Any,
         primary_key_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KMS::ReplicaKey``.
 
@@ -1737,7 +1718,7 @@ class CfnReplicaKey(
         :param tags: Assigns one or more tags to the replica key. .. epigraph:: Tagging or untagging a KMS key can allow or deny permission to the KMS key. For details, see `ABAC for AWS <https://docs.aws.amazon.com/kms/latest/developerguide/abac.html>`_ in the *AWS Key Management Service Developer Guide* . Tags are not a shared property of multi-Region keys. You can specify the same tags or different tags for each key in a set of related multi-Region keys. AWS does not synchronize this property. Each tag consists of a tag key and a tag value. Both the tag key and the tag value are required, but the tag value can be an empty (null) string. You cannot have more than one tag on a KMS key with the same tag key. If you specify an existing tag key with a different tag value, AWS replaces the current tag value with the specified one. When you assign tags to an AWS resource, AWS generates a cost allocation report with usage and costs aggregated by tags. Tags can also be used to control access to a KMS key. For details, see `Tagging keys <https://docs.aws.amazon.com/kms/latest/developerguide/tagging-keys.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ead30546b)
+            type_hints = cached_type_hints(_typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ead30546b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnReplicaKeyProps(
@@ -1753,12 +1734,15 @@ class CfnReplicaKey(
 
     @jsii.member(jsii_name="arnForReplicaKey")
     @builtins.classmethod
-    def arn_for_replica_key(cls, resource: "_IReplicaKeyRef_61fa3e10") -> builtins.str:
+    def arn_for_replica_key(
+        cls,
+        resource: "_aws_kms_18db7412.IReplicaKeyRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90ad819d0c1118f8ff47efe0445b43498a14541be2f7a7478db6658fb8d67ed1)
+            type_hints = cached_type_hints(_typecheckingstub__90ad819d0c1118f8ff47efe0445b43498a14541be2f7a7478db6658fb8d67ed1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicaKey", [resource]))
 
@@ -1770,18 +1754,18 @@ class CfnReplicaKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7044cd43ac1ad4bf8d0bcb243e6e605c2f4dc8f018e9e982b7ddfdf19831cf2)
+            type_hints = cached_type_hints(_typecheckingstub__a7044cd43ac1ad4bf8d0bcb243e6e605c2f4dc8f018e9e982b7ddfdf19831cf2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicaKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e24eab003d1d7413d435432417d9c001c3be699c66c07b278b9d5cb7ab69fec)
+            type_hints = cached_type_hints(_typecheckingstub__4e24eab003d1d7413d435432417d9c001c3be699c66c07b278b9d5cb7ab69fec)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1794,7 +1778,7 @@ class CfnReplicaKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__506b80402bbe68662639797e0c6aabbb40195789ec9827424d8c8b8a760fa7c3)
+            type_hints = cached_type_hints(_typecheckingstub__506b80402bbe68662639797e0c6aabbb40195789ec9827424d8c8b8a760fa7c3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1838,15 +1822,15 @@ class CfnReplicaKey(
 
     @builtins.property
     @jsii.member(jsii_name="replicaKeyRef")
-    def replica_key_ref(self) -> "_ReplicaKeyReference_21781a17":
+    def replica_key_ref(self) -> "_aws_kms_18db7412.ReplicaKeyReference":
         '''A reference to a ReplicaKey resource.'''
-        return typing.cast("_ReplicaKeyReference_21781a17", jsii.get(self, "replicaKeyRef"))
+        return typing.cast("_aws_kms_18db7412.ReplicaKeyReference", jsii.get(self, "replicaKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="keyPolicy")
@@ -1857,7 +1841,7 @@ class CfnReplicaKey(
     @key_policy.setter
     def key_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54fc1b22cb7e48927490c2ff73a5afea9bb5bb4dd8e62a2a6f805d4bb26f967d)
+            type_hints = cached_type_hints(_typecheckingstub__54fc1b22cb7e48927490c2ff73a5afea9bb5bb4dd8e62a2a6f805d4bb26f967d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -1870,7 +1854,7 @@ class CfnReplicaKey(
     @primary_key_arn.setter
     def primary_key_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15fbb1b757e713b4a793995a5eb68370a6a6f742705620d66815b734fa8b2547)
+            type_hints = cached_type_hints(_typecheckingstub__15fbb1b757e713b4a793995a5eb68370a6a6f742705620d66815b734fa8b2547)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "primaryKeyArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1883,7 +1867,7 @@ class CfnReplicaKey(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d272103112)
+            type_hints = cached_type_hints(_typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d272103112)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1891,20 +1875,20 @@ class CfnReplicaKey(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the replica key is enabled.
 
         Disabled KMS keys cannot be used in cryptographic operations.
         '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7)
+            type_hints = cached_type_hints(_typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
 
@@ -1917,20 +1901,23 @@ class CfnReplicaKey(
     @pending_window_in_days.setter
     def pending_window_in_days(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa84d85621)
+            type_hints = cached_type_hints(_typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa84d85621)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags to the replica key.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9)
+            type_hints = cached_type_hints(_typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1954,9 +1941,9 @@ class CfnReplicaKeyProps:
         key_policy: typing.Any,
         primary_key_arn: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         pending_window_in_days: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnReplicaKey``.
 
@@ -1994,7 +1981,7 @@ class CfnReplicaKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e439eab3a0ecab69adc7fd26c12adbbe28fdefe26f6d89d9b6429b95ea8ffb03)
+            type_hints = cached_type_hints(_typecheckingstub__e439eab3a0ecab69adc7fd26c12adbbe28fdefe26f6d89d9b6429b95ea8ffb03)
             check_type(argname="argument key_policy", value=key_policy, expected_type=type_hints["key_policy"])
             check_type(argname="argument primary_key_arn", value=primary_key_arn, expected_type=type_hints["primary_key_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2076,7 +2063,7 @@ class CfnReplicaKeyProps:
     @builtins.property
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether the replica key is enabled. Disabled KMS keys cannot be used in cryptographic operations.
 
         When ``Enabled`` is ``true`` , the *key state* of the KMS key is ``Enabled`` . When ``Enabled`` is ``false`` , the key state of the KMS key is ``Disabled`` . The default value is ``true`` .
@@ -2088,7 +2075,7 @@ class CfnReplicaKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html#cfn-kms-replicakey-enabled
         '''
         result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def pending_window_in_days(self) -> typing.Optional[jsii.Number]:
@@ -2112,7 +2099,7 @@ class CfnReplicaKeyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags to the replica key.
 
         .. epigraph::
@@ -2128,7 +2115,7 @@ class CfnReplicaKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-replicakey.html#cfn-kms-replicakey-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2143,7 +2130,11 @@ class CfnReplicaKeyProps:
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IKey")
-class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
+class IKey(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_kms_18db7412.IKeyRef,
+    typing_extensions.Protocol,
+):
     '''A KMS Key, either managed by this CDK app, or imported.
 
     This interface does double duty: it represents an actual KMS keys, but it
@@ -2179,9 +2170,9 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the KMS key resource policy.
 
         :param statement: The policy statement to add.
@@ -2192,9 +2183,9 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this key to the given principal.
 
         :param grantee: -
@@ -2203,7 +2194,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant decryption permissions using this key to the given principal.
 
         :param grantee: -
@@ -2211,7 +2205,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_encrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption permissions using this key to the given principal.
 
         :param grantee: -
@@ -2221,8 +2218,8 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
     @jsii.member(jsii_name="grantEncryptDecrypt")
     def grant_encrypt_decrypt(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption and decryption permissions using this key to the given principal.
 
         :param grantee: -
@@ -2230,7 +2227,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_generate_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to generating MACs to the given principal.
 
         :param grantee: -
@@ -2238,7 +2238,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign permissions using this key to the given principal.
 
         :param grantee: -
@@ -2246,7 +2249,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign and verify permissions using this key to the given principal.
 
         :param grantee: -
@@ -2254,7 +2260,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant verify permissions using this key to the given principal.
 
         :param grantee: -
@@ -2262,7 +2271,10 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to verifying MACs to the given principal.
 
         :param grantee: -
@@ -2271,8 +2283,8 @@ class IKey(_IResource_c80c4260, _IKeyRef_d4fc6ef3, typing_extensions.Protocol):
 
 
 class _IKeyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IKeyRef_d4fc6ef3), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_kms_18db7412.IKeyRef), # type: ignore[misc]
 ):
     '''A KMS Key, either managed by this CDK app, or imported.
 
@@ -2307,134 +2319,155 @@ class _IKeyProxy(
         :param alias: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ffddf2bf6b08c78a62cc0dfd610a5f18de25ac8525da51ce3683ae56ea6333)
+            type_hints = cached_type_hints(_typecheckingstub__d2ffddf2bf6b08c78a62cc0dfd610a5f18de25ac8525da51ce3683ae56ea6333)
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
         return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias]))
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the KMS key resource policy.
 
         :param statement: The policy statement to add.
         :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49ab7698d2a79e6b83d905354157adf61cc66dcdc514e2f6586029179411a56c)
+            type_hints = cached_type_hints(_typecheckingstub__49ab7698d2a79e6b83d905354157adf61cc66dcdc514e2f6586029179411a56c)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this key to the given principal.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e75995ff61f7b73643112ecb31c0f51795b9a98794730d4be368915f8c2593c2)
+            type_hints = cached_type_hints(_typecheckingstub__e75995ff61f7b73643112ecb31c0f51795b9a98794730d4be368915f8c2593c2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant decryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39902b1c75983f537dc01c509a72cacad7b1f7eac41eb11b78961dad89057e68)
+            type_hints = cached_type_hints(_typecheckingstub__39902b1c75983f537dc01c509a72cacad7b1f7eac41eb11b78961dad89057e68)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_encrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19d45c86cc60f7439a524a94d75c39b726b3b12a4723b2d320f194039f842fcd)
+            type_hints = cached_type_hints(_typecheckingstub__19d45c86cc60f7439a524a94d75c39b726b3b12a4723b2d320f194039f842fcd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncryptDecrypt")
     def grant_encrypt_decrypt(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption and decryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f2582b1d436c32b0e7fbd6af00bad050f74f9e18f1406e20625022b2a13d294)
+            type_hints = cached_type_hints(_typecheckingstub__1f2582b1d436c32b0e7fbd6af00bad050f74f9e18f1406e20625022b2a13d294)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_generate_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to generating MACs to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__678d44f30b3f7854df209779d1ab6c27a0eac432204e7f4ac90a02792d307f03)
+            type_hints = cached_type_hints(_typecheckingstub__678d44f30b3f7854df209779d1ab6c27a0eac432204e7f4ac90a02792d307f03)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantGenerateMac", [grantee]))
 
     @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17bf7cf2a33c9cdda910f2942efab62c58f1c1a7a7dd9458dde25eeca2f4682d)
+            type_hints = cached_type_hints(_typecheckingstub__17bf7cf2a33c9cdda910f2942efab62c58f1c1a7a7dd9458dde25eeca2f4682d)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSign", [grantee]))
 
     @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign and verify permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c990d684da172804daae0cf29edc7427216184b33a70a020885b86aa21a224d2)
+            type_hints = cached_type_hints(_typecheckingstub__c990d684da172804daae0cf29edc7427216184b33a70a020885b86aa21a224d2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSignVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant verify permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f56ca61f2a3a6b4719a05ed3f1c1897c7b914146a2f92ae8dd0313130d7111c)
+            type_hints = cached_type_hints(_typecheckingstub__5f56ca61f2a3a6b4719a05ed3f1c1897c7b914146a2f92ae8dd0313130d7111c)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to verifying MACs to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e10fb25b1b8146054e097c61432d71d4ae4493eb15e2a482f90f513e686b24ee)
+            type_hints = cached_type_hints(_typecheckingstub__e10fb25b1b8146054e097c61432d71d4ae4493eb15e2a482f90f513e686b24ee)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerifyMac", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IKey).__jsii_proxy_class__ = lambda : _IKeyProxy
@@ -2442,7 +2475,7 @@ typing.cast(typing.Any, IKey).__jsii_proxy_class__ = lambda : _IKeyProxy
 
 @jsii.implements(IKey)
 class Key(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.Key",
 ):
@@ -2475,7 +2508,7 @@ class Key(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        admins: typing.Optional[typing.Sequence["_IPrincipal_539bb2fd"]] = None,
+        admins: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IPrincipal"]] = None,
         alias: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
@@ -2483,10 +2516,10 @@ class Key(
         key_spec: typing.Optional["KeySpec"] = None,
         key_usage: typing.Optional["KeyUsage"] = None,
         multi_region: typing.Optional[builtins.bool] = None,
-        pending_window: typing.Optional["_Duration_4839e8c3"] = None,
-        policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        rotation_period: typing.Optional["_Duration_4839e8c3"] = None,
+        pending_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        policy: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        rotation_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -2505,7 +2538,7 @@ class Key(
         :param rotation_period: The period between each automatic rotation. Default: - set by CFN to 365 days.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a84dac7e)
+            type_hints = cached_type_hints(_typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a84dac7e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = KeyProps(
@@ -2542,7 +2575,7 @@ class Key(
         :param cfn_key: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44fb03a49b50ed40c1e4dfe9c0db8eb33dbd35e3ee425ee8f32dde09abc3287c)
+            type_hints = cached_type_hints(_typecheckingstub__44fb03a49b50ed40c1e4dfe9c0db8eb33dbd35e3ee425ee8f32dde09abc3287c)
             check_type(argname="argument cfn_key", value=cfn_key, expected_type=type_hints["cfn_key"])
         return typing.cast("IKey", jsii.sinvoke(cls, "fromCfnKey", [cfn_key]))
 
@@ -2561,7 +2594,7 @@ class Key(
         :param key_arn: the ARN of an existing KMS key.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9222dd19331f8774792b2f22b672882512022a23227af13133314719a32a929e)
+            type_hints = cached_type_hints(_typecheckingstub__9222dd19331f8774792b2f22b672882512022a23227af13133314719a32a929e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument key_arn", value=key_arn, expected_type=type_hints["key_arn"])
@@ -2607,7 +2640,7 @@ class Key(
         :param return_dummy_key_on_missing: Whether to return a dummy key if the key was not found. If it is set to ``true`` and the key was not found, a dummy key with a key id '1234abcd-12ab-34cd-56ef-1234567890ab' will be returned. The value of the dummy key id can also be referenced using the ``Key.DEFAULT_DUMMY_KEY_ID`` variable, and you can check if the key is a dummy key by using the ``Key.isLookupDummy()`` method. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86edbd4673)
+            type_hints = cached_type_hints(_typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86edbd4673)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = KeyLookupOptions(
@@ -2619,7 +2652,7 @@ class Key(
 
     @jsii.member(jsii_name="isLookupDummy")
     @builtins.classmethod
-    def is_lookup_dummy(cls, key: "_IKeyRef_d4fc6ef3") -> builtins.bool:
+    def is_lookup_dummy(cls, key: "_aws_kms_18db7412.IKeyRef") -> builtins.bool:
         '''Checks if the key returned by the ``Key.fromLookup()`` method is a dummy key, i.e., a key that was not found.
 
         This method can only be used if the ``returnDummyKeyOnMissing`` option
@@ -2628,7 +2661,7 @@ class Key(
         :param key: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0)
+            type_hints = cached_type_hints(_typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isLookupDummy", [key]))
 
@@ -2639,33 +2672,33 @@ class Key(
         :param alias_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c455c06c17802eaffea2f6642f95411cde639deb7ec10fa1d1e54bc6d7babe0)
+            type_hints = cached_type_hints(_typecheckingstub__3c455c06c17802eaffea2f6642f95411cde639deb7ec10fa1d1e54bc6d7babe0)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
         return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias_name]))
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the KMS key resource policy.
 
         :param statement: The policy statement to add.
         :param allow_no_op: If this is set to ``false`` and there is no policy defined (i.e. external key), the operation will fail. Otherwise, it will no-op.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20e8e11b4cff0f78acc743ad38d02a945f8e93be1f7bfc67153d317f711d06c)
+            type_hints = cached_type_hints(_typecheckingstub__f20e8e11b4cff0f78acc743ad38d02a945f8e93be1f7bfc67153d317f711d06c)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
 
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this key to the given principal.
 
         This modifies both the principal's policy as well as the resource policy,
@@ -2678,13 +2711,16 @@ class Key(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3078f1361f1b59b619c5946b92259b4d2eefa0ae12e2e3b01160eae5ce37ceed)
+            type_hints = cached_type_hints(_typecheckingstub__3078f1361f1b59b619c5946b92259b4d2eefa0ae12e2e3b01160eae5ce37ceed)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantAdmin")
-    def grant_admin(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_admin(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant admins permissions using this key to the given principal.
 
         Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
@@ -2695,12 +2731,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__767164803c663312dbd0dc562333e5aa71475360f03804af0d572d5e1e00b889)
+            type_hints = cached_type_hints(_typecheckingstub__767164803c663312dbd0dc562333e5aa71475360f03804af0d572d5e1e00b889)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantAdmin", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantAdmin", [grantee]))
 
     @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant decryption permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2708,12 +2747,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21f59a965699a16e14a1c50712dea7dfff44afb1561561c2ca8c3dc2d510da1d)
+            type_hints = cached_type_hints(_typecheckingstub__21f59a965699a16e14a1c50712dea7dfff44afb1561561c2ca8c3dc2d510da1d)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_encrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2721,15 +2763,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b813a815a19cfcc384a90657fd701837adf5051ac8297faee4ede086e7e8ce8)
+            type_hints = cached_type_hints(_typecheckingstub__8b813a815a19cfcc384a90657fd701837adf5051ac8297faee4ede086e7e8ce8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncryptDecrypt")
     def grant_encrypt_decrypt(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption and decryption permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2737,12 +2779,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14a8599a061fbde74d692dfefcfd2f5f92f1a86fc2beee05e7d53c877d7deb03)
+            type_hints = cached_type_hints(_typecheckingstub__14a8599a061fbde74d692dfefcfd2f5f92f1a86fc2beee05e7d53c877d7deb03)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_generate_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to generating MACs to the given principal.
 
         [disable-awslint:no-grants]
@@ -2750,12 +2795,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__440bf3733f200027c74618bbc6f89d59b060f4aa9d88bb6dbfb057771091f628)
+            type_hints = cached_type_hints(_typecheckingstub__440bf3733f200027c74618bbc6f89d59b060f4aa9d88bb6dbfb057771091f628)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantGenerateMac", [grantee]))
 
     @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2763,12 +2811,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6461815f1d37e6ba54e3cbf1944f9dfd4919e6778f163b7d761b4addf454e443)
+            type_hints = cached_type_hints(_typecheckingstub__6461815f1d37e6ba54e3cbf1944f9dfd4919e6778f163b7d761b4addf454e443)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSign", [grantee]))
 
     @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign and verify permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2776,12 +2827,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9dd17cfd9ba136ab5eb61bfd08f31dab5e9e96d93c1a2e94c0610a4b97524bd)
+            type_hints = cached_type_hints(_typecheckingstub__c9dd17cfd9ba136ab5eb61bfd08f31dab5e9e96d93c1a2e94c0610a4b97524bd)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSignVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant verify permissions using this key to the given principal.
 
         [disable-awslint:no-grants]
@@ -2789,12 +2843,15 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399ec6d8a6)
+            type_hints = cached_type_hints(_typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399ec6d8a6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to verifying MACs to the given principal.
 
         [disable-awslint:no-grants]
@@ -2802,9 +2859,9 @@ class Key(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538)
+            type_hints = cached_type_hints(_typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerifyMac", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_DUMMY_KEY_ID")
@@ -2842,9 +2899,9 @@ class Key(
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "_KeyReference_751b3d66":
+    def key_ref(self) -> "_aws_kms_18db7412.KeyReference":
         '''A reference to a Key resource.'''
-        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
+        return typing.cast("_aws_kms_18db7412.KeyReference", jsii.get(self, "keyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="trustAccountIdentities")
@@ -2859,13 +2916,13 @@ class Key(
 
     @builtins.property
     @jsii.member(jsii_name="policy")
-    def _policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+    def _policy(self) -> typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"]:
         '''Optional policy document that represents the resource policy of this key.
 
         If specified, addToResourcePolicy can be used to edit this policy.
         Otherwise this method will no-op.
         '''
-        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "policy"))
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"], jsii.get(self, "policy"))
 
 
 class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrants"):
@@ -2886,7 +2943,7 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
     @builtins.classmethod
     def from_key(
         cls,
-        resource: "_IKeyRef_d4fc6ef3",
+        resource: "_aws_kms_18db7412.IKeyRef",
         trust_account_identities: typing.Optional[builtins.bool] = None,
     ) -> "KeyGrants":
         '''Creates grants for an IKeyRef.
@@ -2895,7 +2952,7 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
         :param trust_account_identities: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95ad25ef7b)
+            type_hints = cached_type_hints(_typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95ad25ef7b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
             check_type(argname="argument trust_account_identities", value=trust_account_identities, expected_type=type_hints["trust_account_identities"])
         return typing.cast("KeyGrants", jsii.sinvoke(cls, "fromKey", [resource, trust_account_identities]))
@@ -2903,9 +2960,9 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
     @jsii.member(jsii_name="actions")
     def actions(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant the indicated permissions on this key to the given principal.
 
         This modifies both the principal's policy as well as the resource policy,
@@ -2916,13 +2973,16 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5)
+            type_hints = cached_type_hints(_typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "actions", [grantee, *actions]))
 
     @jsii.member(jsii_name="admin")
-    def admin(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def admin(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant admins permissions using this key to the given principal.
 
         Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
@@ -2931,102 +2991,126 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__205a8baae077b059e2efe3f8b9f7aa32f45f1b18ac57038f861489e2fa123b15)
+            type_hints = cached_type_hints(_typecheckingstub__205a8baae077b059e2efe3f8b9f7aa32f45f1b18ac57038f861489e2fa123b15)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "admin", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "admin", [grantee]))
 
     @jsii.member(jsii_name="decrypt")
-    def decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant decryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45adaee91cc8d54ac08e68ff777a0b27a97afa7734b0944bcb801cd00af7203f)
+            type_hints = cached_type_hints(_typecheckingstub__45adaee91cc8d54ac08e68ff777a0b27a97afa7734b0944bcb801cd00af7203f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "decrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "decrypt", [grantee]))
 
     @jsii.member(jsii_name="encrypt")
-    def encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def encrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__645b772e05c54b2a07b57f733d3935fdd5089e5d56a39826b4b91c5b7b6c7cac)
+            type_hints = cached_type_hints(_typecheckingstub__645b772e05c54b2a07b57f733d3935fdd5089e5d56a39826b4b91c5b7b6c7cac)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "encrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "encrypt", [grantee]))
 
     @jsii.member(jsii_name="encryptDecrypt")
-    def encrypt_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def encrypt_decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant encryption and decryption permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0f6aea767bb808e2f1f10e1ba74b4bc775b7855f592f4629abedabf97acc9d2)
+            type_hints = cached_type_hints(_typecheckingstub__e0f6aea767bb808e2f1f10e1ba74b4bc775b7855f592f4629abedabf97acc9d2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "encryptDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "encryptDecrypt", [grantee]))
 
     @jsii.member(jsii_name="generateMac")
-    def generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def generate_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to generating MACs to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7ced7c1ae9e426c781df0c5b506c4cd217d31ce9b9687120d7ed76b5a68001e)
+            type_hints = cached_type_hints(_typecheckingstub__c7ced7c1ae9e426c781df0c5b506c4cd217d31ce9b9687120d7ed76b5a68001e)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "generateMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "generateMac", [grantee]))
 
     @jsii.member(jsii_name="sign")
-    def sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def sign(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f859ed4093a1572119457784342815c76b88b60b8e757aea0120f0a70988bd67)
+            type_hints = cached_type_hints(_typecheckingstub__f859ed4093a1572119457784342815c76b88b60b8e757aea0120f0a70988bd67)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "sign", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "sign", [grantee]))
 
     @jsii.member(jsii_name="signVerify")
-    def sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def sign_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant sign and verify permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa94383b8110c581c8127a2fbccc93692922eedc43bf82db288bd648c766fddc)
+            type_hints = cached_type_hints(_typecheckingstub__aa94383b8110c581c8127a2fbccc93692922eedc43bf82db288bd648c766fddc)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "signVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "signVerify", [grantee]))
 
     @jsii.member(jsii_name="verify")
-    def verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant verify permissions using this key to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14bdce0970c2aedbe99ae8c5e5974fed4efd38b7975be707653838211e33a57a)
+            type_hints = cached_type_hints(_typecheckingstub__14bdce0970c2aedbe99ae8c5e5974fed4efd38b7975be707653838211e33a57a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "verify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "verify", [grantee]))
 
     @jsii.member(jsii_name="verifyMac")
-    def verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def verify_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grant permissions to verifying MACs to the given principal.
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c847f52116a9d36a26f92b6ec5505f92ac488aaa06906d7f3b88bf0eb734c152)
+            type_hints = cached_type_hints(_typecheckingstub__c847f52116a9d36a26f92b6ec5505f92ac488aaa06906d7f3b88bf0eb734c152)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "verifyMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "verifyMac", [grantee]))
 
     @builtins.property
     @jsii.member(jsii_name="resource")
-    def _resource(self) -> "_IKeyRef_d4fc6ef3":
-        return typing.cast("_IKeyRef_d4fc6ef3", jsii.get(self, "resource"))
+    def _resource(self) -> "_aws_kms_18db7412.IKeyRef":
+        return typing.cast("_aws_kms_18db7412.IKeyRef", jsii.get(self, "resource"))
 
 
 @jsii.data_type(
@@ -3063,7 +3147,7 @@ class KeyLookupOptions:
             my_key_lookup.grant_encrypt_decrypt(role)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f5a93b8499d8ef4842a85d33ca3d3de5edce426bd92f9899e4dcda2ebfcf7e0)
+            type_hints = cached_type_hints(_typecheckingstub__2f5a93b8499d8ef4842a85d33ca3d3de5edce426bd92f9899e4dcda2ebfcf7e0)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
             check_type(argname="argument return_dummy_key_on_missing", value=return_dummy_key_on_missing, expected_type=type_hints["return_dummy_key_on_missing"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3132,7 +3216,7 @@ class KeyProps:
     def __init__(
         self,
         *,
-        admins: typing.Optional[typing.Sequence["_IPrincipal_539bb2fd"]] = None,
+        admins: typing.Optional[typing.Sequence["_aws_iam_1f54b5e8.IPrincipal"]] = None,
         alias: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
@@ -3140,10 +3224,10 @@ class KeyProps:
         key_spec: typing.Optional["KeySpec"] = None,
         key_usage: typing.Optional["KeyUsage"] = None,
         multi_region: typing.Optional[builtins.bool] = None,
-        pending_window: typing.Optional["_Duration_4839e8c3"] = None,
-        policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
-        rotation_period: typing.Optional["_Duration_4839e8c3"] = None,
+        pending_window: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        policy: typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
+        rotation_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Construction properties for a KMS Key object.
 
@@ -3188,7 +3272,7 @@ class KeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae712d828)
+            type_hints = cached_type_hints(_typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae712d828)
             check_type(argname="argument admins", value=admins, expected_type=type_hints["admins"])
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3228,7 +3312,7 @@ class KeyProps:
             self._values["rotation_period"] = rotation_period
 
     @builtins.property
-    def admins(self) -> typing.Optional[typing.List["_IPrincipal_539bb2fd"]]:
+    def admins(self) -> typing.Optional[typing.List["_aws_iam_1f54b5e8.IPrincipal"]]:
         '''A list of principals to add as key administrators to the key policy.
 
         Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
@@ -3239,7 +3323,7 @@ class KeyProps:
         :default: []
         '''
         result = self._values.get("admins")
-        return typing.cast(typing.Optional[typing.List["_IPrincipal_539bb2fd"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_1f54b5e8.IPrincipal"]], result)
 
     @builtins.property
     def alias(self) -> typing.Optional[builtins.str]:
@@ -3324,7 +3408,7 @@ class KeyProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def pending_window(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def pending_window(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the number of days in the waiting period before AWS KMS deletes a CMK that has been removed from a CloudFormation stack.
 
         When you remove a customer master key (CMK) from a CloudFormation stack, AWS KMS schedules the CMK for deletion
@@ -3339,10 +3423,10 @@ class KeyProps:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kms-key.html#cfn-kms-key-pendingwindowindays
         '''
         result = self._values.get("pending_window")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+    def policy(self) -> typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"]:
         '''Custom policy document to attach to the KMS key.
 
         NOTE - If the ``@aws-cdk/aws-kms:defaultKeyPolicies`` feature flag is set (the default for new projects),
@@ -3355,10 +3439,10 @@ class KeyProps:
         administer the key will be created.
         '''
         result = self._values.get("policy")
-        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+        return typing.cast(typing.Optional["_aws_iam_1f54b5e8.PolicyDocument"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Whether the encryption key should be retained when it is removed from the Stack.
 
         This is useful when one wants to
@@ -3367,16 +3451,16 @@ class KeyProps:
         :default: RemovalPolicy.Retain
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
-    def rotation_period(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def rotation_period(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The period between each automatic rotation.
 
         :default: - set by CFN to 365 days.
         '''
         result = self._values.get("rotation_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3516,7 +3600,7 @@ class KeyUsage(enum.Enum):
 
 
 class ViaServicePrincipal(
-    _PrincipalBase_b5077813,
+    _aws_iam_1f54b5e8.PrincipalBase,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.ViaServicePrincipal",
 ):
@@ -3539,14 +3623,14 @@ class ViaServicePrincipal(
     def __init__(
         self,
         service_name: builtins.str,
-        base_principal: typing.Optional["_IPrincipal_539bb2fd"] = None,
+        base_principal: typing.Optional["_aws_iam_1f54b5e8.IPrincipal"] = None,
     ) -> None:
         '''
         :param service_name: -
         :param base_principal: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590dd135e934b0f55ab30f9bfcb69bed4ccb0a3ef22f6f3ee9850c4658e2e172)
+            type_hints = cached_type_hints(_typecheckingstub__590dd135e934b0f55ab30f9bfcb69bed4ccb0a3ef22f6f3ee9850c4658e2e172)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
             check_type(argname="argument base_principal", value=base_principal, expected_type=type_hints["base_principal"])
         jsii.create(self.__class__, self, [service_name, base_principal])
@@ -3558,13 +3642,13 @@ class ViaServicePrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> "_PrincipalPolicyFragment_6a855d11":
+    def policy_fragment(self) -> "_aws_iam_1f54b5e8.PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast("_PrincipalPolicyFragment_6a855d11", jsii.get(self, "policyFragment"))
+        return typing.cast("_aws_iam_1f54b5e8.PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kms.IAlias")
-class IAlias(IKey, _IAliasRef_43fafabd, typing_extensions.Protocol):
+class IAlias(IKey, _aws_kms_18db7412.IAliasRef, typing_extensions.Protocol):
     '''A KMS Key alias.
 
     An alias can be used in all places that expect a key.
@@ -3591,7 +3675,7 @@ class IAlias(IKey, _IAliasRef_43fafabd, typing_extensions.Protocol):
 
 class _IAliasProxy(
     jsii.proxy_for(IKey), # type: ignore[misc]
-    jsii.proxy_for(_IAliasRef_43fafabd), # type: ignore[misc]
+    jsii.proxy_for(_aws_kms_18db7412.IAliasRef), # type: ignore[misc]
 ):
     '''A KMS Key alias.
 
@@ -3624,7 +3708,7 @@ typing.cast(typing.Any, IAlias).__jsii_proxy_class__ = lambda : _IAliasProxy
 
 @jsii.implements(IAlias)
 class Alias(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kms.Alias",
 ):
@@ -3669,7 +3753,7 @@ class Alias(
         *,
         alias_name: builtins.str,
         target_key: "IKey",
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3679,7 +3763,7 @@ class Alias(
         :param removal_policy: Policy to apply when the alias is removed from this stack. Default: - The alias will be deleted
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__082e4e34e1b8d1c0e2ca7a3f88ca2fd4db45a02c06b37aa49a92c334ec48b156)
+            type_hints = cached_type_hints(_typecheckingstub__082e4e34e1b8d1c0e2ca7a3f88ca2fd4db45a02c06b37aa49a92c334ec48b156)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AliasProps(
@@ -3706,7 +3790,7 @@ class Alias(
         :param alias_target_key: The customer master key (CMK) to which the Alias refers.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1aa4cb540c0255b690750a7c543fa0e6d01be800bf1f1a6d2e27a9ae9821eb9)
+            type_hints = cached_type_hints(_typecheckingstub__f1aa4cb540c0255b690750a7c543fa0e6d01be800bf1f1a6d2e27a9ae9821eb9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = AliasAttributes(
@@ -3739,7 +3823,7 @@ class Alias(
         :param alias_name: The full name of the KMS Alias (e.g., 'alias/aws/s3', 'alias/myKeyAlias').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f63f0eacb8d2b482050e953fb9bae15526c96706289c5ec85ff0005315101f4)
+            type_hints = cached_type_hints(_typecheckingstub__6f63f0eacb8d2b482050e953fb9bae15526c96706289c5ec85ff0005315101f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
@@ -3752,26 +3836,26 @@ class Alias(
         :param alias: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee86459b88002347db31460bea5798240197a80fb17a5bf97c67ed7482f84ae3)
+            type_hints = cached_type_hints(_typecheckingstub__ee86459b88002347db31460bea5798240197a80fb17a5bf97c67ed7482f84ae3)
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
         return typing.cast("Alias", jsii.invoke(self, "addAlias", [alias]))
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
         allow_no_op: typing.Optional[builtins.bool] = None,
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the KMS key resource policy.
 
         :param statement: -
         :param allow_no_op: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22b27f4615124191ddcb7d43f313a681be5bf126396931e72f2a8086f28d15d)
+            type_hints = cached_type_hints(_typecheckingstub__b22b27f4615124191ddcb7d43f313a681be5bf126396931e72f2a8086f28d15d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument allow_no_op", value=allow_no_op, expected_type=type_hints["allow_no_op"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement, allow_no_op]))
 
     @jsii.member(jsii_name="generatePhysicalName")
     def _generate_physical_name(self) -> builtins.str:
@@ -3780,110 +3864,131 @@ class Alias(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90c67882778cd60cf1af18413a9aaf1ca290ab5a87d50f8929fa64ac66b8923a)
+            type_hints = cached_type_hints(_typecheckingstub__90c67882778cd60cf1af18413a9aaf1ca290ab5a87d50f8929fa64ac66b8923a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantDecrypt")
-    def grant_decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_decrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76283f5eae879bc6cabdbf046c1d68b45cbf7e0222f84edb498c04a69b69ad79)
+            type_hints = cached_type_hints(_typecheckingstub__76283f5eae879bc6cabdbf046c1d68b45cbf7e0222f84edb498c04a69b69ad79)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncrypt")
-    def grant_encrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_encrypt(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1eddbd590dc8e102f7834fb50d2514218d6a3b73d838b34d7fa52ce858c2c8a)
+            type_hints = cached_type_hints(_typecheckingstub__a1eddbd590dc8e102f7834fb50d2514218d6a3b73d838b34d7fa52ce858c2c8a)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncrypt", [grantee]))
 
     @jsii.member(jsii_name="grantEncryptDecrypt")
     def grant_encrypt_decrypt(
         self,
-        grantee: "_IGrantable_71c4f5de",
-    ) -> "_Grant_a7ae64f8":
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__765b50233677797d65a2ccab14fdf25c84306d9da9ab54635a10428ed6a23546)
+            type_hints = cached_type_hints(_typecheckingstub__765b50233677797d65a2ccab14fdf25c84306d9da9ab54635a10428ed6a23546)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantEncryptDecrypt", [grantee]))
 
     @jsii.member(jsii_name="grantGenerateMac")
-    def grant_generate_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_generate_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a08117fd4a61f5dbdfb60de37f9aafd66666c36ccbd553402d5504cdd79a06f2)
+            type_hints = cached_type_hints(_typecheckingstub__a08117fd4a61f5dbdfb60de37f9aafd66666c36ccbd553402d5504cdd79a06f2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantGenerateMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantGenerateMac", [grantee]))
 
     @jsii.member(jsii_name="grantSign")
-    def grant_sign(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9930639ecbcd35ed216f2d886dc8190db34758bfddca534c0b1a15eec5b03bd4)
+            type_hints = cached_type_hints(_typecheckingstub__9930639ecbcd35ed216f2d886dc8190db34758bfddca534c0b1a15eec5b03bd4)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSign", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSign", [grantee]))
 
     @jsii.member(jsii_name="grantSignVerify")
-    def grant_sign_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_sign_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa123781beb7a446099dc1bd3f1e2905a09dd2781b09e4876768625072421ff6)
+            type_hints = cached_type_hints(_typecheckingstub__fa123781beb7a446099dc1bd3f1e2905a09dd2781b09e4876768625072421ff6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantSignVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantSignVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerify")
-    def grant_verify(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b324b24cb913496e78f2a43c74194efd7b11966ae5d2d3b1a5d17611af6d6fca)
+            type_hints = cached_type_hints(_typecheckingstub__b324b24cb913496e78f2a43c74194efd7b11966ae5d2d3b1a5d17611af6d6fca)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerify", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerify", [grantee]))
 
     @jsii.member(jsii_name="grantVerifyMac")
-    def grant_verify_mac(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_verify_mac(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__889887809ebfcb10b086b9443331082b607fe1c8b476e14ebc492583598f19a2)
+            type_hints = cached_type_hints(_typecheckingstub__889887809ebfcb10b086b9443331082b607fe1c8b476e14ebc492583598f19a2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantVerifyMac", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantVerifyMac", [grantee]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -3908,9 +4013,9 @@ class Alias(
 
     @builtins.property
     @jsii.member(jsii_name="aliasRef")
-    def alias_ref(self) -> "_AliasReference_b94b5fd4":
+    def alias_ref(self) -> "_aws_kms_18db7412.AliasReference":
         '''A reference to a Alias resource.'''
-        return typing.cast("_AliasReference_b94b5fd4", jsii.get(self, "aliasRef"))
+        return typing.cast("_aws_kms_18db7412.AliasReference", jsii.get(self, "aliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="aliasTargetKey")
@@ -3938,9 +4043,9 @@ class Alias(
 
     @builtins.property
     @jsii.member(jsii_name="keyRef")
-    def key_ref(self) -> "_KeyReference_751b3d66":
+    def key_ref(self) -> "_aws_kms_18db7412.KeyReference":
         '''A reference to a Key resource.'''
-        return typing.cast("_KeyReference_751b3d66", jsii.get(self, "keyRef"))
+        return typing.cast("_aws_kms_18db7412.KeyReference", jsii.get(self, "keyRef"))
 
 
 __all__ = [
@@ -3978,7 +4083,7 @@ def _typecheckingstub__e903bf066a426ef7752d4c25658bc63605bb655d804e5468ef9fa75e0
     *,
     alias_name: builtins.str,
     target_key: IKey,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3988,7 +4093,7 @@ def _typecheckingstub__9ed5a3924f89c3ad638de218f71940a644d4f9331e3a66f708de865cc
     id: builtins.str,
     *,
     alias_name: builtins.str,
-    target_key_id: typing.Union[builtins.str, _IKeyRef_d4fc6ef3, _IReplicaKeyRef_61fa3e10],
+    target_key_id: typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef, _aws_kms_18db7412.IReplicaKeyRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4000,7 +4105,7 @@ def _typecheckingstub__5e80558a98b03b885d95d989843060b9b93618c41f5f93432adc0b2fd
     pass
 
 def _typecheckingstub__91d92bc86df739cdbb4a623f1bec0006f2c4e912b1d6817e7e5fc8fc28d6d61d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4026,7 +4131,7 @@ def _typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa3
 def _typecheckingstub__dbfd3a4fafdacbfbfd8d6fce574bc924973ce57499da64b6659e12ea905b460f(
     *,
     alias_name: builtins.str,
-    target_key_id: typing.Union[builtins.str, _IKeyRef_d4fc6ef3, _IReplicaKeyRef_61fa3e10],
+    target_key_id: typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef, _aws_kms_18db7412.IReplicaKeyRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4035,24 +4140,24 @@ def _typecheckingstub__5ea678e9e5a947601d16e5bb11fec3683fbb15bba768bee0b88be7e19
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     key_policy: typing.Any = None,
     key_spec: typing.Optional[builtins.str] = None,
     key_usage: typing.Optional[builtins.str] = None,
-    multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     origin: typing.Optional[builtins.str] = None,
     pending_window_in_days: typing.Optional[jsii.Number] = None,
     rotation_period_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b0e1d5b4f549c0607d9643ccfe53af7d2dd89011c40d52dc462eb598c7b26187(
-    resource: _IKeyRef_d4fc6ef3,
+    resource: _aws_kms_18db7412.IKeyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4080,7 +4185,7 @@ def _typecheckingstub__89642e771ba2a812f40a717a96d411721a80787ba9dc32888fe3f5c03
     pass
 
 def _typecheckingstub__c6311cde99d8265c1aa77cad19077d4dc11fa11a16a0a5d601158013e78b4de6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4098,7 +4203,7 @@ def _typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538c
     pass
 
 def _typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4110,13 +4215,13 @@ def _typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f
     pass
 
 def _typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4134,7 +4239,7 @@ def _typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a87577
     pass
 
 def _typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4158,25 +4263,25 @@ def _typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92
     pass
 
 def _typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__52751771c8b3e52917eaf0c78bad67c065fa3f95795e92f5eab3e92ce5051178(
     *,
-    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    bypass_policy_lockout_safety_check: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_key_rotation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     key_policy: typing.Any = None,
     key_spec: typing.Optional[builtins.str] = None,
     key_usage: typing.Optional[builtins.str] = None,
-    multi_region: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     origin: typing.Optional[builtins.str] = None,
     pending_window_in_days: typing.Optional[jsii.Number] = None,
     rotation_period_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4188,15 +4293,15 @@ def _typecheckingstub__a43b13aecc4a6c9b9c5cce2bd96d2ececdc7c64b21c374cf96c4ab5ea
     key_policy: typing.Any,
     primary_key_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     pending_window_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__90ad819d0c1118f8ff47efe0445b43498a14541be2f7a7478db6658fb8d67ed1(
-    resource: _IReplicaKeyRef_61fa3e10,
+    resource: _aws_kms_18db7412.IReplicaKeyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4208,7 +4313,7 @@ def _typecheckingstub__a7044cd43ac1ad4bf8d0bcb243e6e605c2f4dc8f018e9e982b7ddfdf1
     pass
 
 def _typecheckingstub__4e24eab003d1d7413d435432417d9c001c3be699c66c07b278b9d5cb7ab69fec(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4238,7 +4343,7 @@ def _typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d27
     pass
 
 def _typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4250,7 +4355,7 @@ def _typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa8
     pass
 
 def _typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4260,9 +4365,9 @@ def _typecheckingstub__e439eab3a0ecab69adc7fd26c12adbbe28fdefe26f6d89d9b6429b95e
     key_policy: typing.Any,
     primary_key_arn: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     pending_window_in_days: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4274,63 +4379,63 @@ def _typecheckingstub__d2ffddf2bf6b08c78a62cc0dfd610a5f18de25ac8525da51ce3683ae5
     pass
 
 def _typecheckingstub__49ab7698d2a79e6b83d905354157adf61cc66dcdc514e2f6586029179411a56c(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
     allow_no_op: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e75995ff61f7b73643112ecb31c0f51795b9a98794730d4be368915f8c2593c2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__39902b1c75983f537dc01c509a72cacad7b1f7eac41eb11b78961dad89057e68(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__19d45c86cc60f7439a524a94d75c39b726b3b12a4723b2d320f194039f842fcd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1f2582b1d436c32b0e7fbd6af00bad050f74f9e18f1406e20625022b2a13d294(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__678d44f30b3f7854df209779d1ab6c27a0eac432204e7f4ac90a02792d307f03(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__17bf7cf2a33c9cdda910f2942efab62c58f1c1a7a7dd9458dde25eeca2f4682d(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c990d684da172804daae0cf29edc7427216184b33a70a020885b86aa21a224d2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5f56ca61f2a3a6b4719a05ed3f1c1897c7b914146a2f92ae8dd0313130d7111c(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e10fb25b1b8146054e097c61432d71d4ae4493eb15e2a482f90f513e686b24ee(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4339,7 +4444,7 @@ def _typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
+    admins: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IPrincipal]] = None,
     alias: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
@@ -4347,10 +4452,10 @@ def _typecheckingstub__2cde9534bdfe7c19d6e24354f8a0de8ca349632d3f565addcaed7e86a
     key_spec: typing.Optional[KeySpec] = None,
     key_usage: typing.Optional[KeyUsage] = None,
     multi_region: typing.Optional[builtins.bool] = None,
-    pending_window: typing.Optional[_Duration_4839e8c3] = None,
-    policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    rotation_period: typing.Optional[_Duration_4839e8c3] = None,
+    pending_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    policy: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    rotation_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4380,7 +4485,7 @@ def _typecheckingstub__54c731fe78f9388d4b31695080a02f67600ec386d3b55f25a7274b86e
     pass
 
 def _typecheckingstub__8a60ddf97e7bd93ce51bb72de0630a0a66c03edf9f9e5f71c93ad6e4563a7cb0(
-    key: _IKeyRef_d4fc6ef3,
+    key: _aws_kms_18db7412.IKeyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4392,137 +4497,137 @@ def _typecheckingstub__3c455c06c17802eaffea2f6642f95411cde639deb7ec10fa1d1e54bc6
     pass
 
 def _typecheckingstub__f20e8e11b4cff0f78acc743ad38d02a945f8e93be1f7bfc67153d317f711d06c(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
     allow_no_op: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3078f1361f1b59b619c5946b92259b4d2eefa0ae12e2e3b01160eae5ce37ceed(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__767164803c663312dbd0dc562333e5aa71475360f03804af0d572d5e1e00b889(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__21f59a965699a16e14a1c50712dea7dfff44afb1561561c2ca8c3dc2d510da1d(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__8b813a815a19cfcc384a90657fd701837adf5051ac8297faee4ede086e7e8ce8(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__14a8599a061fbde74d692dfefcfd2f5f92f1a86fc2beee05e7d53c877d7deb03(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__440bf3733f200027c74618bbc6f89d59b060f4aa9d88bb6dbfb057771091f628(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6461815f1d37e6ba54e3cbf1944f9dfd4919e6778f163b7d761b4addf454e443(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c9dd17cfd9ba136ab5eb61bfd08f31dab5e9e96d93c1a2e94c0610a4b97524bd(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6177dbf335c9d10ef7ab31fb9b38bda2e2a5301aaa124f44ce6112399ec6d8a6(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__de56bfcabbb83e3ba315f07ba084787bd71e82306a46ddc61555bc4f07b77538(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95ad25ef7b(
-    resource: _IKeyRef_d4fc6ef3,
+    resource: _aws_kms_18db7412.IKeyRef,
     trust_account_identities: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__205a8baae077b059e2efe3f8b9f7aa32f45f1b18ac57038f861489e2fa123b15(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__45adaee91cc8d54ac08e68ff777a0b27a97afa7734b0944bcb801cd00af7203f(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__645b772e05c54b2a07b57f733d3935fdd5089e5d56a39826b4b91c5b7b6c7cac(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e0f6aea767bb808e2f1f10e1ba74b4bc775b7855f592f4629abedabf97acc9d2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7ced7c1ae9e426c781df0c5b506c4cd217d31ce9b9687120d7ed76b5a68001e(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f859ed4093a1572119457784342815c76b88b60b8e757aea0120f0a70988bd67(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aa94383b8110c581c8127a2fbccc93692922eedc43bf82db288bd648c766fddc(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__14bdce0970c2aedbe99ae8c5e5974fed4efd38b7975be707653838211e33a57a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c847f52116a9d36a26f92b6ec5505f92ac488aaa06906d7f3b88bf0eb734c152(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4537,7 +4642,7 @@ def _typecheckingstub__2f5a93b8499d8ef4842a85d33ca3d3de5edce426bd92f9899e4dcda2e
 
 def _typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae712d828(
     *,
-    admins: typing.Optional[typing.Sequence[_IPrincipal_539bb2fd]] = None,
+    admins: typing.Optional[typing.Sequence[_aws_iam_1f54b5e8.IPrincipal]] = None,
     alias: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[builtins.bool] = None,
@@ -4545,17 +4650,17 @@ def _typecheckingstub__b3cbd21baa1113e5b2864ce6b440a0d87704642442943c3a554ab23ae
     key_spec: typing.Optional[KeySpec] = None,
     key_usage: typing.Optional[KeyUsage] = None,
     multi_region: typing.Optional[builtins.bool] = None,
-    pending_window: typing.Optional[_Duration_4839e8c3] = None,
-    policy: typing.Optional[_PolicyDocument_3ac34393] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
-    rotation_period: typing.Optional[_Duration_4839e8c3] = None,
+    pending_window: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    policy: typing.Optional[_aws_iam_1f54b5e8.PolicyDocument] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
+    rotation_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__590dd135e934b0f55ab30f9bfcb69bed4ccb0a3ef22f6f3ee9850c4658e2e172(
     service_name: builtins.str,
-    base_principal: typing.Optional[_IPrincipal_539bb2fd] = None,
+    base_principal: typing.Optional[_aws_iam_1f54b5e8.IPrincipal] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4566,7 +4671,7 @@ def _typecheckingstub__082e4e34e1b8d1c0e2ca7a3f88ca2fd4db45a02c06b37aa49a92c334e
     *,
     alias_name: builtins.str,
     target_key: IKey,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4596,63 +4701,63 @@ def _typecheckingstub__ee86459b88002347db31460bea5798240197a80fb17a5bf97c67ed748
     pass
 
 def _typecheckingstub__b22b27f4615124191ddcb7d43f313a681be5bf126396931e72f2a8086f28d15d(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
     allow_no_op: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__90c67882778cd60cf1af18413a9aaf1ca290ab5a87d50f8929fa64ac66b8923a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__76283f5eae879bc6cabdbf046c1d68b45cbf7e0222f84edb498c04a69b69ad79(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a1eddbd590dc8e102f7834fb50d2514218d6a3b73d838b34d7fa52ce858c2c8a(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__765b50233677797d65a2ccab14fdf25c84306d9da9ab54635a10428ed6a23546(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a08117fd4a61f5dbdfb60de37f9aafd66666c36ccbd553402d5504cdd79a06f2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9930639ecbcd35ed216f2d886dc8190db34758bfddca534c0b1a15eec5b03bd4(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fa123781beb7a446099dc1bd3f1e2905a09dd2781b09e4876768625072421ff6(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b324b24cb913496e78f2a43c74194efd7b11966ae5d2d3b1a5d17611af6d6fca(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__889887809ebfcb10b086b9443331082b607fe1c8b476e14ebc492583598f19a2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass

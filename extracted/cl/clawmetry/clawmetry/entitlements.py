@@ -5129,6 +5129,128 @@ def tiers_for_runtimes(runtimes) -> dict | None:
         }
 
 
+def tiers_for_features_batch(bundles) -> list[dict]:
+    """Per-bundle ladder-intersection for N caller-supplied feature bundles
+    in ONE round-trip.
+
+    Bundle-axis batch sibling of :func:`tiers_for_features` (which folds
+    ONE bundle to ONE ladder). Where the singular helper answers "which
+    tiers grant this whole bundle at once?", this answers the same question
+    for N distinct bundles so a pricing-matrix / upgrade-walkthrough
+    comparing several hypothetical configs ("Starter add-ons vs Pro add-ons
+    vs Enterprise add-ons") renders off ONE call instead of N calls to
+    :func:`tiers_for_features`.
+
+    Distinct from :func:`min_tier_for_features_batch`, which collapses each
+    bundle to a single cheapest tier: this returns the FULL ladder per
+    bundle so an "Available in: Starter, Cloud Pro, ..." tooltip can render
+    directly off each row without a follow-up call. Same relationship the
+    singular :func:`tiers_for_features` has to :func:`min_tier_for_features`.
+
+    Row shape mirrors :func:`tiers_for_features` exactly (per-bundle)::
+
+        {
+          "items":          ["fleet", "sso"],   # canonical known ids
+          "unknown":        ["bogus"],           # stripped+lowered ids
+          "kind":           "features",
+          "count":          <len(items)>,
+          "min_tier":       "enterprise" | None,
+          "min_tier_label": "Enterprise" | None,
+          "min_tier_rank":  <int> | None,
+          "tiers":          [<row>, ...],
+        }
+
+    Per-bundle normalisation is delegated to :func:`tiers_for_features` so
+    a batch row and the equivalent singular call return byte-identical
+    bodies. Empty / all-unknown bundles surface as the stable empty-shape
+    row (``tiers=[]``, ``min_tier=None``) -- distinguishes "caller asked
+    for nothing in this slot" from "caller asked and every token was a
+    typo".
+
+    Argument handling:
+
+    * ``bundles is None`` or non-iterable -- returns ``[]``.
+    * Each bundle may itself be ``None``, non-iterable, or empty -- the
+      helper emits the empty row shape rather than raising.
+
+    Decoupled from the resolved entitlement: delegates per-bundle to
+    :func:`tiers_for_features`, which walks the static per-tier feature
+    map, so grace vs enforce yields byte-identical rows. Never raises:
+    per-bundle failures short-circuit to the empty row shape so the batch
+    keeps building.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    empty_row = {
+        "items": [],
+        "unknown": [],
+        "kind": "features",
+        "count": 0,
+        "min_tier": None,
+        "min_tier_label": None,
+        "min_tier_rank": None,
+        "tiers": [],
+    }
+    for bundle in items:
+        try:
+            row = tiers_for_features(bundle if bundle is not None else [])
+        except Exception as exc:
+            logger.warning(
+                "entitlements: tiers_for_features_batch row failed: %s", exc
+            )
+            row = None
+        out.append(row if isinstance(row, dict) else dict(empty_row))
+    return out
+
+
+def tiers_for_runtimes_batch(bundles) -> list[dict]:
+    """Runtime-axis twin of :func:`tiers_for_features_batch`.
+
+    Same relationship to :func:`tiers_for_runtimes` that
+    :func:`tiers_for_features_batch` has to :func:`tiers_for_features`.
+    Per-bundle rows carry ``kind="runtimes"`` and the ``runtimes``-shape
+    ``items`` list; aliases (``claude-code`` -> ``claude_code``) canonicalise
+    the same way the singular helper does before intersection so a caller
+    posting either form gets the same ladder back.
+
+    Row shape mirrors :func:`tiers_for_runtimes` (``kind="runtimes"``).
+    Argument handling and never-raise contract match
+    :func:`tiers_for_features_batch` byte-for-byte.
+    """
+    try:
+        if bundles is None:
+            return []
+        items = list(bundles)
+    except TypeError:
+        return []
+    out: list[dict] = []
+    empty_row = {
+        "items": [],
+        "unknown": [],
+        "kind": "runtimes",
+        "count": 0,
+        "min_tier": None,
+        "min_tier_label": None,
+        "min_tier_rank": None,
+        "tiers": [],
+    }
+    for bundle in items:
+        try:
+            row = tiers_for_runtimes(bundle if bundle is not None else [])
+        except Exception as exc:
+            logger.warning(
+                "entitlements: tiers_for_runtimes_batch row failed: %s", exc
+            )
+            row = None
+        out.append(row if isinstance(row, dict) else dict(empty_row))
+    return out
+
+
 def tiers_for_features_at(
     perspective_tier: str, features
 ) -> dict | None:
@@ -5196,6 +5318,97 @@ def tiers_for_runtimes_at(
         return tiers_for_runtimes(runtimes)
     except Exception as exc:
         logger.warning("entitlements: tiers_for_runtimes_at failed: %s", exc)
+        return None
+
+
+def tiers_for_features_at_batch(
+    perspective_tier: str, bundles
+) -> list[dict] | None:
+    """Hypothetical-perspective sibling of :func:`tiers_for_features_batch`:
+    per-bundle full ladder-intersection for N caller-supplied feature bundles
+    in one round-trip, scoped by a caller-supplied ``perspective_tier``.
+
+    Same relationship to :func:`tiers_for_features_batch` that
+    :func:`tiers_for_features_at` has to :func:`tiers_for_features` and
+    :func:`min_tier_for_features_at_batch` has to
+    :func:`min_tier_for_features_batch`: the ``perspective_tier`` argument
+    tells the helper which resolver / plan the caller is answering from so
+    an ``_at`` endpoint URL can be uniform across the whole ``_at`` batch
+    family (every ``_at`` sibling accepts a ``tier=<perspective>`` query
+    arg), even though the underlying answer is inherently perspective-
+    independent -- :func:`tiers_for_features_batch` walks the static per-
+    tier feature map, so the per-row body does not depend on where the
+    caller is standing. A parity test pins ``tiers_for_features_at_batch(p,
+    bs) == tiers_for_features_batch(bs)`` for every ``p`` in
+    :data:`_TIER_ORDER` so the ``_at`` prefix cannot silently drift into
+    shaping rows.
+
+    Fills the ``_at`` slot on the bundle-axis batch tiers-for family
+    alongside :func:`min_tier_for_features_at_batch` (per-bundle cheapest
+    tier what-if), :func:`affordable_tiers_at_batch` (per-item plural
+    what-if) and :func:`tiers_for_features_at` (singular what-if) so a
+    pricing-matrix walkthrough can call ``X_at(perspective, ...)``
+    uniformly across the whole ``_at`` surface.
+
+    Row shape mirrors :func:`tiers_for_features_batch` exactly -- each row
+    is byte-identical to the equivalent :func:`tiers_for_features` body
+    for that bundle. Per-bundle normalisation (whitespace stripped,
+    lowercased, deduplicated preserving first-seen order; unknown ids
+    bucketed into the per-bundle ``unknown``) is inherited from
+    :func:`tiers_for_features_batch` unchanged. Empty / all-unknown bundles
+    surface as the stable empty-shape row (``tiers=[]``, ``min_tier=None``);
+    does NOT short-circuit the batch.
+
+    Perspective is validated against :data:`_TIER_ORDER` (including
+    :data:`TIER_TRIAL`); returns ``None`` for empty / unknown
+    ``perspective_tier`` (caller renders "unknown tier" / 404), matching
+    the ``None`` posture the rest of the ``_at_batch`` family uses for
+    the perspective-validation failure mode. Never raises: a delegation
+    failure logs a warning and returns ``None`` so a pricing-matrix
+    walkthrough keeps rendering.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_features_batch(bundles)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_features_at_batch failed: %s", exc
+        )
+        return None
+
+
+def tiers_for_runtimes_at_batch(
+    perspective_tier: str, bundles
+) -> list[dict] | None:
+    """Runtime-axis twin of :func:`tiers_for_features_at_batch`.
+
+    Same perspective contract, same never-raise posture, same
+    perspective-independence guarantee (delegates to
+    :func:`tiers_for_runtimes_batch`, which walks the static per-tier
+    runtime map). Runtime aliases (``claude-code`` -> ``claude_code``)
+    canonicalise per bundle exactly the way they do on the non-``_at``
+    sibling and the singular :func:`tiers_for_runtimes_at`.
+
+    Returns ``None`` for empty / unknown ``perspective_tier``; all other
+    semantics inherit from :func:`tiers_for_runtimes_batch`.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_ORDER:
+        return None
+    try:
+        return tiers_for_runtimes_batch(bundles)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: tiers_for_runtimes_at_batch failed: %s", exc
+        )
         return None
 
 

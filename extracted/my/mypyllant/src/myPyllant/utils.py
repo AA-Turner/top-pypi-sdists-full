@@ -1,6 +1,7 @@
 import argparse
 import base64
 import hashlib
+import json
 import random
 import re
 import string
@@ -8,6 +9,51 @@ from datetime import datetime, tzinfo, timezone, timedelta
 from enum import Enum
 
 from myPyllant.const import BRANDS, COUNTRIES, DEFAULT_BRAND, DEFAULT_HOLIDAY_DURATION
+
+
+def solve_altcha_challenge(challenge: dict) -> str:
+    """
+    Solves the ALTCHA proof-of-work challenge served by Vaillant's Keycloak login
+    page (identity.vaillant-group.com), then packages the solution the same way
+    the browser widget does, so it can be sent as the "altcha" login form field.
+
+    `challenge` is the JSON body returned by GET /api/altcha/challenge, e.g.
+    {"parameters": {"algorithm": "PBKDF2/SHA-256", "cost": 5000,
+    "keyLength": 32, "keyPrefix": "00", "nonce": "...", "salt": "..."},
+    "signature": "..."}
+    """
+    parameters = challenge["parameters"]
+    nonce_buf = bytes.fromhex(parameters["nonce"])
+    salt_buf = bytes.fromhex(parameters["salt"])
+    key_prefix_buf = bytes.fromhex(parameters["keyPrefix"])
+    cost = parameters["cost"]
+    key_length = parameters.get("keyLength", 32)
+    digest = {
+        "PBKDF2/SHA-512": "sha512",
+        "PBKDF2/SHA-384": "sha384",
+    }.get(parameters["algorithm"], "sha256")
+
+    counter = 0
+    while True:
+        password = nonce_buf + counter.to_bytes(4, byteorder="big")
+        derived = hashlib.pbkdf2_hmac(
+            digest, password, salt_buf, cost, dklen=key_length
+        )
+        if derived.startswith(key_prefix_buf):
+            solution = {"counter": counter, "derivedKey": derived.hex(), "time": 0}
+            break
+        counter += 1
+
+    payload = {
+        "challenge": {
+            "parameters": parameters,
+            "signature": challenge["signature"],
+        },
+        "solution": solution,
+    }
+    return base64.b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    ).decode("utf-8")
 
 
 def dict_to_snake_case(d):

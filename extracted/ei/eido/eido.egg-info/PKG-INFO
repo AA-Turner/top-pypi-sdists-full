@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eido
-Version: 0.2.5
+Version: 0.2.6
 Summary: A project metadata validator
 Home-page: https://github.com/pepkit/eido/
 Author: Michal Stolarczyk, Nathan Sheffield
@@ -18,7 +18,7 @@ License-File: LICENSE.txt
 Requires-Dist: importlib-metadata; python_version < "3.10"
 Requires-Dist: jsonschema>=3.0.1
 Requires-Dist: logmuse>=0.2.5
-Requires-Dist: pandas<3.0.0
+Requires-Dist: pandas
 Requires-Dist: peppy>=0.40.7
 Requires-Dist: ubiquerg>=0.5.2
 Dynamic: author

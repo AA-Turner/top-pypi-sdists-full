@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class FleetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c10993338f88da3005ff431bd1293ac217565719cf7233001fba0d736c42349)
+            type_hints = cached_type_hints(_typecheckingstub__7c10993338f88da3005ff431bd1293ac217565719cf7233001fba0d736c42349)
             check_type(argname="argument fleet_arn", value=fleet_arn, expected_type=type_hints["fleet_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "fleet_arn": fleet_arn,
@@ -86,7 +90,7 @@ class FleetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_robomaker.IFleetRef")
 class IFleetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
@@ -106,7 +110,7 @@ class IFleetRef(
 
 class _IFleetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Fleet.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IFleetRef).__jsii_proxy_class__ = lambda : _IFleetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_robomaker.IRobotApplicationRef")
 class IRobotApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RobotApplication.
@@ -151,7 +155,7 @@ class IRobotApplicationRef(
 
 class _IRobotApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RobotApplication.
 
@@ -178,7 +182,7 @@ typing.cast(typing.Any, IRobotApplicationRef).__jsii_proxy_class__ = lambda : _I
 )
 class IRobotApplicationVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RobotApplicationVersion.
@@ -198,7 +202,7 @@ class IRobotApplicationVersionRef(
 
 class _IRobotApplicationVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RobotApplicationVersion.
 
@@ -223,7 +227,7 @@ typing.cast(typing.Any, IRobotApplicationVersionRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_robomaker.IRobotRef")
 class IRobotRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Robot.
@@ -243,7 +247,7 @@ class IRobotRef(
 
 class _IRobotRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Robot.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IRobotRef).__jsii_proxy_class__ = lambda : _IRobotRefPro
 )
 class ISimulationApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SimulationApplication.
@@ -290,7 +294,7 @@ class ISimulationApplicationRef(
 
 class _ISimulationApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SimulationApplication.
 
@@ -317,7 +321,7 @@ typing.cast(typing.Any, ISimulationApplicationRef).__jsii_proxy_class__ = lambda
 )
 class ISimulationApplicationVersionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SimulationApplicationVersion.
@@ -339,7 +343,7 @@ class ISimulationApplicationVersionRef(
 
 class _ISimulationApplicationVersionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SimulationApplicationVersion.
 
@@ -387,7 +391,7 @@ class RobotApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d23a14f4bd33e81173681bcb6adceba86d56d1d45110a8a9a779ce4f79f197d1)
+            type_hints = cached_type_hints(_typecheckingstub__d23a14f4bd33e81173681bcb6adceba86d56d1d45110a8a9a779ce4f79f197d1)
             check_type(argname="argument robot_application_arn", value=robot_application_arn, expected_type=type_hints["robot_application_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "robot_application_arn": robot_application_arn,
@@ -436,7 +440,7 @@ class RobotApplicationVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b85f04a390b22ad72339608e4c5c5e994d9e507b908b4d4144275932c1c63c4)
+            type_hints = cached_type_hints(_typecheckingstub__0b85f04a390b22ad72339608e4c5c5e994d9e507b908b4d4144275932c1c63c4)
             check_type(argname="argument robot_application_version_arn", value=robot_application_version_arn, expected_type=type_hints["robot_application_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "robot_application_version_arn": robot_application_version_arn,
@@ -485,7 +489,7 @@ class RobotReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d56761450f42bbcda4d23cda262f89cd6605562342aa078b57ae7f3eef01dc8d)
+            type_hints = cached_type_hints(_typecheckingstub__d56761450f42bbcda4d23cda262f89cd6605562342aa078b57ae7f3eef01dc8d)
             check_type(argname="argument robot_arn", value=robot_arn, expected_type=type_hints["robot_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "robot_arn": robot_arn,
@@ -534,7 +538,7 @@ class SimulationApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c65622433df6db7b8e0e69e679efa8445482ea622b0fc2de89670155cc597724)
+            type_hints = cached_type_hints(_typecheckingstub__c65622433df6db7b8e0e69e679efa8445482ea622b0fc2de89670155cc597724)
             check_type(argname="argument simulation_application_arn", value=simulation_application_arn, expected_type=type_hints["simulation_application_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "simulation_application_arn": simulation_application_arn,
@@ -585,7 +589,7 @@ class SimulationApplicationVersionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__320cab997c649735c78587849b0c8b0fff36beca8328ce313fc35609cc8e5ef1)
+            type_hints = cached_type_hints(_typecheckingstub__320cab997c649735c78587849b0c8b0fff36beca8328ce313fc35609cc8e5ef1)
             check_type(argname="argument simulation_application_version_arn", value=simulation_application_version_arn, expected_type=type_hints["simulation_application_version_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "simulation_application_version_arn": simulation_application_version_arn,

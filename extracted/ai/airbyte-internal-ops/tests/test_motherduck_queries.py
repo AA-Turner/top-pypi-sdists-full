@@ -171,6 +171,71 @@ def test_process_query_row_completed_query() -> None:
     assert record.connection_id == "c-1"
 
 
+# A known source and its Sonar database name (hyphens -> underscores). The
+# record-building assertions below derive from these two values rather than
+# restating strings stuffed into the mock row.
+_SOURCE_ID = "2b1a9c40-5f3e-4c21-9d7a-8e6b0f1c2d3e"
+_DATABASE_NAME = f"postgres__{_SOURCE_ID.replace('-', '_')}"
+_ICEBERG_DDL = (
+    f'CREATE OR REPLACE TABLE "users" AS SELECT * FROM iceberg_scan('
+    f"'s3://ab-bucket/data/{_DATABASE_NAME}.db/users/metadata/v1.json')"
+)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "query_text, expected_database, expected_source",
+    [
+        pytest.param(_ICEBERG_DDL, _DATABASE_NAME, _SOURCE_ID, id="iceberg_ddl"),
+        pytest.param(
+            "SELECT count(*) FROM streams WHERE state = 'active'",
+            None,
+            None,
+            id="no_iceberg_path",
+        ),
+    ],
+)
+def test_process_query_row_populates_source(
+    query_text: str,
+    expected_database: str | None,
+    expected_source: str | None,
+) -> None:
+    """A full-reload DDL yields the source database + parsed UUID; else `None`.
+
+    The database comes from the raw `QUERY_TEXT` before treatment, so the
+    redacted `query_text` (with the S3 literal replaced) never carries it.
+    """
+    row: dict[str, Any] = {
+        "QUERY_ID": "q-1",
+        "QUERY_TEXT": query_text,
+        "QUERY_TYPE": "DDL",
+        "START_TIME": "2026-01-01T00:00:00Z",
+        "END_TIME": "2026-01-01T00:00:01Z",
+    }
+    record = _process_query_row(row, include_text=True, treatment=QueryTextTreatment())
+    assert record.database_name == expected_database
+    assert record.source_id == expected_source
+    assert record.query_text is not None
+    if expected_database is not None:
+        assert expected_database not in record.query_text
+
+
+@pytest.mark.unit
+def test_process_connection_row_populates_source_from_iceberg_ddl() -> None:
+    """Active connections carry the source too, even without returned text."""
+    row: dict[str, Any] = {
+        "client_connection_id": "conn-1",
+        "client_duckdb_id": "duck-1",
+        "client_query": _ICEBERG_DDL,
+    }
+    info = _process_connection_row(
+        row, include_text=False, treatment=QueryTextTreatment()
+    )
+    assert info.database_name == _DATABASE_NAME
+    assert info.source_id == _SOURCE_ID
+    assert info.client_query is None
+
+
 @pytest.mark.unit
 def test_process_query_row_reads_lowercase_columns() -> None:
     """MotherDuck's `MD_INFORMATION_SCHEMA` views return lower-case column keys.

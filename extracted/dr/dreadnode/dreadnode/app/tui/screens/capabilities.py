@@ -151,12 +151,19 @@ def _filter(items: list[dict[str, t.Any]], query: str) -> list[dict[str, t.Any]]
     return results
 
 
+# Display order for the summary line. Covers every ``ComponentKind`` except
+# ``capability``, which is the whole-capability load-failure sentinel rather
+# than a component — a kind missing here is invisible in the list and
+# unmatchable by the ``kind:`` filter, which reads this same summary.
+_KIND_DISPLAY_ORDER = ("agent", "skill", "tool", "mcp_server", "worker", "policy", "hook", "check")
+
+
 def _component_summary(item: dict[str, t.Any]) -> str:
     """One-line component summary: '3 skills · 1 agent · 2 tools'."""
     counts = item.get("component_counts", {})
     if counts:
         parts = []
-        for kind in ("agent", "skill", "tool", "mcp_server", "worker"):
+        for kind in _KIND_DISPLAY_ORDER:
             n = counts.get(kind, counts.get(f"{kind}s", 0))
             if n:
                 label = kind.replace("_", " ") + ("s" if n != 1 else "")
@@ -174,9 +181,15 @@ def _component_summary(item: dict[str, t.Any]) -> str:
         k = c.get("kind", "?") if isinstance(c, dict) else getattr(c, "kind", "?")
         if k == "agent":
             continue
+        # ``degraded``/``error`` entries describe components the loader found but
+        # never loaded. Counting them here would advertise a tool the agent can't
+        # call — the health summary is where those belong.
+        status = c.get("status", "ok") if isinstance(c, dict) else getattr(c, "status", "ok")
+        if status in ("degraded", "error"):
+            continue
         kind_counts[k] = kind_counts.get(k, 0) + 1
     parts = []
-    for kind in ("agent", "skill", "tool", "mcp_server", "worker"):
+    for kind in _KIND_DISPLAY_ORDER:
         n = kind_counts.get(kind, 0)
         if n:
             label = kind.replace("_", " ") + ("s" if n != 1 else "")

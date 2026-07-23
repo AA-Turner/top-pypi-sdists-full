@@ -1006,6 +1006,8 @@ instance_profile = iam.InstanceProfile.from_instance_profile_attributes(self, "I
   attached to IAM principals specify relevant resources, while policies attached to resources
   specify which IAM principals they apply to.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1019,76 +1021,33 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResolveContext as _IResolveContext_b2df1921,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces import IEnvironmentAware as _IEnvironmentAware_f39049ee
-from ..interfaces.aws_iam import (
-    AccessKeyReference as _AccessKeyReference_2bdfd122,
-    GroupPolicyReference as _GroupPolicyReference_d179b98e,
-    GroupReference as _GroupReference_cd6b1d81,
-    IAccessKeyRef as _IAccessKeyRef_e97ef40a,
-    IGroupPolicyRef as _IGroupPolicyRef_35f73c8c,
-    IGroupRef as _IGroupRef_aeb1d9f6,
-    IInstanceProfileRef as _IInstanceProfileRef_d6832c90,
-    IManagedPolicyRef as _IManagedPolicyRef_a7a65687,
-    IOIDCProviderRef as _IOIDCProviderRef_a866c7c8,
-    IPolicyRef as _IPolicyRef_5e74a0ba,
-    IRolePolicyRef as _IRolePolicyRef_26b13525,
-    IRoleRef as _IRoleRef_8400221f,
-    ISAMLProviderRef as _ISAMLProviderRef_6e369856,
-    IServerCertificateRef as _IServerCertificateRef_005ddfcc,
-    IServiceLinkedRoleRef as _IServiceLinkedRoleRef_ba92e11b,
-    IUserPolicyRef as _IUserPolicyRef_e6abac3e,
-    IUserRef as _IUserRef_b0ccca76,
-    IUserToGroupAdditionRef as _IUserToGroupAdditionRef_e1276f9a,
-    IVirtualMFADeviceRef as _IVirtualMFADeviceRef_fec1f13e,
-    InstanceProfileReference as _InstanceProfileReference_5eee4bbb,
-    ManagedPolicyReference as _ManagedPolicyReference_078bf7cb,
-    OIDCProviderReference as _OIDCProviderReference_9a12fabd,
-    PolicyReference as _PolicyReference_b83371a5,
-    RolePolicyReference as _RolePolicyReference_0cf19357,
-    RoleReference as _RoleReference_447077bb,
-    SAMLProviderReference as _SAMLProviderReference_08e1fac1,
-    ServerCertificateReference as _ServerCertificateReference_0e96ef93,
-    ServiceLinkedRoleReference as _ServiceLinkedRoleReference_863fd3da,
-    UserPolicyReference as _UserPolicyReference_4aa6daa0,
-    UserReference as _UserReference_6bf884c6,
-    UserToGroupAdditionReference as _UserToGroupAdditionReference_94731a73,
-    VirtualMFADeviceReference as _VirtualMFADeviceReference_dd7d7c2b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -1122,7 +1081,7 @@ class AccessKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7aec9396799d928b7043c068a165e3ad161cc590afe8defeb0ce4ae06ecd9ae)
+            type_hints = cached_type_hints(_typecheckingstub__f7aec9396799d928b7043c068a165e3ad161cc590afe8defeb0ce4ae06ecd9ae)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
             check_type(argname="argument serial", value=serial, expected_type=type_hints["serial"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -1239,7 +1198,7 @@ class AddToPrincipalPolicyResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c4bef18bd7824d787c934ed761d1626296453e8109e28b61a0c4634f48435dd)
+            type_hints = cached_type_hints(_typecheckingstub__7c4bef18bd7824d787c934ed761d1626296453e8109e28b61a0c4634f48435dd)
             check_type(argname="argument statement_added", value=statement_added, expected_type=type_hints["statement_added"])
             check_type(argname="argument policy_dependable", value=policy_dependable, expected_type=type_hints["policy_dependable"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1311,7 +1270,7 @@ class AddToResourcePolicyResult:
                 ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__828f1cacd29f05b4eed40f202f7b5da1fdf626701e78525463598fc447b5869a)
+            type_hints = cached_type_hints(_typecheckingstub__828f1cacd29f05b4eed40f202f7b5da1fdf626701e78525463598fc447b5869a)
             check_type(argname="argument statement_added", value=statement_added, expected_type=type_hints["statement_added"])
             check_type(argname="argument policy_dependable", value=policy_dependable, expected_type=type_hints["policy_dependable"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1351,9 +1310,9 @@ class AddToResourcePolicyResult:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAccessKeyRef_e97ef40a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IAccessKeyRef)
 class CfnAccessKey(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnAccessKey",
 ):
@@ -1403,7 +1362,7 @@ class CfnAccessKey(
         :param status: The status of the access key. ``Active`` means that the key is valid for API calls, while ``Inactive`` means it is not.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610)
+            type_hints = cached_type_hints(_typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAccessKeyProps(user_name=user_name, serial=serial, status=status)
@@ -1418,18 +1377,18 @@ class CfnAccessKey(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44af7447864a754d9df484db5d272901a378e9dd7da128a28741b73a5d53eb4a)
+            type_hints = cached_type_hints(_typecheckingstub__44af7447864a754d9df484db5d272901a378e9dd7da128a28741b73a5d53eb4a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessKey", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2)
+            type_hints = cached_type_hints(_typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1442,7 +1401,7 @@ class CfnAccessKey(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741)
+            type_hints = cached_type_hints(_typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1454,9 +1413,9 @@ class CfnAccessKey(
 
     @builtins.property
     @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> "_AccessKeyReference_2bdfd122":
+    def access_key_ref(self) -> "_aws_iam_632e20f6.AccessKeyReference":
         '''A reference to a AccessKey resource.'''
-        return typing.cast("_AccessKeyReference_2bdfd122", jsii.get(self, "accessKeyRef"))
+        return typing.cast("_aws_iam_632e20f6.AccessKeyReference", jsii.get(self, "accessKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1497,7 +1456,7 @@ class CfnAccessKey(
     @user_name.setter
     def user_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0)
+            type_hints = cached_type_hints(_typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -1510,7 +1469,7 @@ class CfnAccessKey(
     @serial.setter
     def serial(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b)
+            type_hints = cached_type_hints(_typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serial", value) # pyright: ignore[reportArgumentType]
 
@@ -1523,7 +1482,7 @@ class CfnAccessKey(
     @status.setter
     def status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d)
+            type_hints = cached_type_hints(_typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -1565,7 +1524,7 @@ class CfnAccessKeyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8155aca561d14186aae77c5658124546588f321eecca8d6e53a5467862dbddc5)
+            type_hints = cached_type_hints(_typecheckingstub__8155aca561d14186aae77c5658124546588f321eecca8d6e53a5467862dbddc5)
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
             check_type(argname="argument serial", value=serial, expected_type=type_hints["serial"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
@@ -1623,9 +1582,9 @@ class CfnAccessKeyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupRef_aeb1d9f6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IGroupRef)
 class CfnGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnGroup",
 ):
@@ -1662,9 +1621,9 @@ class CfnGroup(
         id: builtins.str,
         *,
         group_name: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::Group``.
 
@@ -1676,7 +1635,7 @@ class CfnGroup(
         :param policies: Adds or updates an inline policy document that is embedded in the specified IAM group. To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ . .. epigraph:: The name of each inline policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a group, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18)
+            type_hints = cached_type_hints(_typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupProps(
@@ -1690,12 +1649,12 @@ class CfnGroup(
 
     @jsii.member(jsii_name="arnForGroup")
     @builtins.classmethod
-    def arn_for_group(cls, resource: "_IGroupRef_aeb1d9f6") -> builtins.str:
+    def arn_for_group(cls, resource: "_aws_iam_632e20f6.IGroupRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3980f39025e91ce99b498701692fb8425cc9af4321db09d71dbd3368a8936555)
+            type_hints = cached_type_hints(_typecheckingstub__3980f39025e91ce99b498701692fb8425cc9af4321db09d71dbd3368a8936555)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGroup", [resource]))
 
@@ -1707,18 +1666,18 @@ class CfnGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__109520d0ac5eced5701e6bfb840752f4a4c55e5408f1fc48af017b584d08be03)
+            type_hints = cached_type_hints(_typecheckingstub__109520d0ac5eced5701e6bfb840752f4a4c55e5408f1fc48af017b584d08be03)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963)
+            type_hints = cached_type_hints(_typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1731,7 +1690,7 @@ class CfnGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258)
+            type_hints = cached_type_hints(_typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1764,9 +1723,9 @@ class CfnGroup(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_cd6b1d81":
+    def group_ref(self) -> "_aws_iam_632e20f6.GroupReference":
         '''A reference to a Group resource.'''
-        return typing.cast("_GroupReference_cd6b1d81", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_iam_632e20f6.GroupReference", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -1780,7 +1739,7 @@ class CfnGroup(
     @group_name.setter
     def group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51)
+            type_hints = cached_type_hints(_typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -1796,7 +1755,7 @@ class CfnGroup(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458)
+            type_hints = cached_type_hints(_typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
 
@@ -1812,7 +1771,7 @@ class CfnGroup(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca)
+            type_hints = cached_type_hints(_typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -1820,17 +1779,17 @@ class CfnGroup(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM group.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]], jsii.get(self, "policies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.PolicyProperty"]]]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.PolicyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e)
+            type_hints = cached_type_hints(_typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
@@ -1875,7 +1834,7 @@ class CfnGroup(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8)
+                type_hints = cached_type_hints(_typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8)
                 check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1915,9 +1874,9 @@ class CfnGroup(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IGroupPolicyRef_35f73c8c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IGroupPolicyRef)
 class CfnGroupPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnGroupPolicy",
 ):
@@ -1966,7 +1925,7 @@ class CfnGroupPolicy(
         :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348)
+            type_hints = cached_type_hints(_typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGroupPolicyProps(
@@ -1985,18 +1944,18 @@ class CfnGroupPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1f15a5e63e650cc6c55b8ec0153a01c2d4b292546026f27c56c750c214ff39)
+            type_hints = cached_type_hints(_typecheckingstub__2b1f15a5e63e650cc6c55b8ec0153a01c2d4b292546026f27c56c750c214ff39)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroupPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1)
+            type_hints = cached_type_hints(_typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2009,7 +1968,7 @@ class CfnGroupPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd)
+            type_hints = cached_type_hints(_typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2031,9 +1990,9 @@ class CfnGroupPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="groupPolicyRef")
-    def group_policy_ref(self) -> "_GroupPolicyReference_d179b98e":
+    def group_policy_ref(self) -> "_aws_iam_632e20f6.GroupPolicyReference":
         '''A reference to a GroupPolicy resource.'''
-        return typing.cast("_GroupPolicyReference_d179b98e", jsii.get(self, "groupPolicyRef"))
+        return typing.cast("_aws_iam_632e20f6.GroupPolicyReference", jsii.get(self, "groupPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -2044,7 +2003,7 @@ class CfnGroupPolicy(
     @group_name.setter
     def group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c)
+            type_hints = cached_type_hints(_typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -2057,7 +2016,7 @@ class CfnGroupPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4)
+            type_hints = cached_type_hints(_typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -2070,7 +2029,7 @@ class CfnGroupPolicy(
     @policy_name.setter
     def policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
+            type_hints = cached_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
@@ -2118,7 +2077,7 @@ class CfnGroupPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa640a2b964f19199ce54686b7fd65c710619c4f560d010f4b3ceaac824c022b)
+            type_hints = cached_type_hints(_typecheckingstub__fa640a2b964f19199ce54686b7fd65c710619c4f560d010f4b3ceaac824c022b)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
@@ -2197,9 +2156,9 @@ class CfnGroupProps:
         self,
         *,
         group_name: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGroup``.
 
@@ -2230,7 +2189,7 @@ class CfnGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83c00814903fe43cbe21eca7faddcd90dcea9ec971aac6d8d2daf6b50f845df0)
+            type_hints = cached_type_hints(_typecheckingstub__83c00814903fe43cbe21eca7faddcd90dcea9ec971aac6d8d2daf6b50f845df0)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument managed_policy_arns", value=managed_policy_arns, expected_type=type_hints["managed_policy_arns"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2267,7 +2226,7 @@ class CfnGroupProps:
     @builtins.property
     def managed_policy_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]]:
         '''The Amazon Resource Name (ARN) of the IAM policy you want to attach.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -2275,7 +2234,7 @@ class CfnGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html#cfn-iam-group-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -2293,7 +2252,7 @@ class CfnGroupProps:
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM group.
 
         To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ .
@@ -2306,7 +2265,7 @@ class CfnGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html#cfn-iam-group-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGroup.PolicyProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2320,9 +2279,9 @@ class CfnGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IInstanceProfileRef_d6832c90)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IInstanceProfileRef)
 class CfnInstanceProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnInstanceProfile",
 ):
@@ -2354,7 +2313,7 @@ class CfnInstanceProfile(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        roles: typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]],
+        roles: typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]],
         instance_profile_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2367,7 +2326,7 @@ class CfnInstanceProfile(
         :param path: The path to the instance profile. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4)
+            type_hints = cached_type_hints(_typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnInstanceProfileProps(
@@ -2380,13 +2339,13 @@ class CfnInstanceProfile(
     @builtins.classmethod
     def arn_for_instance_profile(
         cls,
-        resource: "_IInstanceProfileRef_d6832c90",
+        resource: "_aws_iam_632e20f6.IInstanceProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__511cf624861b94d053cb656d41bfb85226b39bae88821676b01740944f0811d9)
+            type_hints = cached_type_hints(_typecheckingstub__511cf624861b94d053cb656d41bfb85226b39bae88821676b01740944f0811d9)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstanceProfile", [resource]))
 
@@ -2398,18 +2357,18 @@ class CfnInstanceProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b593290cbc770e9142ad849fa0c3ac70ba9811f3da5475a95ec1753ed5e44a52)
+            type_hints = cached_type_hints(_typecheckingstub__b593290cbc770e9142ad849fa0c3ac70ba9811f3da5475a95ec1753ed5e44a52)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206)
+            type_hints = cached_type_hints(_typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2422,7 +2381,7 @@ class CfnInstanceProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5)
+            type_hints = cached_type_hints(_typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2457,9 +2416,9 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "_InstanceProfileReference_5eee4bbb":
+    def instance_profile_ref(self) -> "_aws_iam_632e20f6.InstanceProfileReference":
         '''A reference to a InstanceProfile resource.'''
-        return typing.cast("_InstanceProfileReference_5eee4bbb", jsii.get(self, "instanceProfileRef"))
+        return typing.cast("_aws_iam_632e20f6.InstanceProfileReference", jsii.get(self, "instanceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="roles")
@@ -2470,7 +2429,7 @@ class CfnInstanceProfile(
     @roles.setter
     def roles(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f)
+            type_hints = cached_type_hints(_typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
 
@@ -2483,7 +2442,7 @@ class CfnInstanceProfile(
     @instance_profile_name.setter
     def instance_profile_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba)
+            type_hints = cached_type_hints(_typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceProfileName", value) # pyright: ignore[reportArgumentType]
 
@@ -2496,7 +2455,7 @@ class CfnInstanceProfile(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4)
+            type_hints = cached_type_hints(_typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -2514,7 +2473,7 @@ class CfnInstanceProfileProps:
     def __init__(
         self,
         *,
-        roles: typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]],
+        roles: typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]],
         instance_profile_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2542,7 +2501,7 @@ class CfnInstanceProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13af24b231dab76416337b37eed1fc0eb441fa93214942c4f328be745d78987f)
+            type_hints = cached_type_hints(_typecheckingstub__13af24b231dab76416337b37eed1fc0eb441fa93214942c4f328be745d78987f)
             check_type(argname="argument roles", value=roles, expected_type=type_hints["roles"])
             check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -2555,7 +2514,9 @@ class CfnInstanceProfileProps:
             self._values["path"] = path
 
     @builtins.property
-    def roles(self) -> typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    def roles(
+        self,
+    ) -> typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The name of the role to associate with the instance profile.
 
         Only one role can be assigned to an EC2 instance at a time, and all applications on the instance share the same role and permissions.
@@ -2564,7 +2525,7 @@ class CfnInstanceProfileProps:
         '''
         result = self._values.get("roles")
         assert result is not None, "Required property 'roles' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     @builtins.property
     def instance_profile_name(self) -> typing.Optional[builtins.str]:
@@ -2604,9 +2565,9 @@ class CfnInstanceProfileProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IManagedPolicyRef_a7a65687)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IManagedPolicyRef)
 class CfnManagedPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnManagedPolicy",
 ):
@@ -2650,11 +2611,11 @@ class CfnManagedPolicy(
         *,
         policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
-        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]] = None,
+        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]] = None,
+        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IUserRef"]]] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::ManagedPolicy``.
 
@@ -2669,7 +2630,7 @@ class CfnManagedPolicy(
         :param users: The name (friendly name, not ARN) of the IAM user to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64)
+            type_hints = cached_type_hints(_typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnManagedPolicyProps(
@@ -2692,18 +2653,18 @@ class CfnManagedPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddaff230cd62363f571d1c69690fe7f8e88bd1b1eefa314ac6a2020c1a9d9a8c)
+            type_hints = cached_type_hints(_typecheckingstub__ddaff230cd62363f571d1c69690fe7f8e88bd1b1eefa314ac6a2020c1a9d9a8c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2)
+            type_hints = cached_type_hints(_typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2716,7 +2677,7 @@ class CfnManagedPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808)
+            type_hints = cached_type_hints(_typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2757,12 +2718,12 @@ class CfnManagedPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="attrIsAttachable")
-    def attr_is_attachable(self) -> "_IResolvable_da3f097b":
+    def attr_is_attachable(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Specifies whether the policy can be attached to an IAM user, group, or role.
 
         :cloudformationAttribute: IsAttachable
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsAttachable"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsAttachable"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPermissionsBoundaryUsageCount")
@@ -2820,9 +2781,9 @@ class CfnManagedPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> "_ManagedPolicyReference_078bf7cb":
+    def managed_policy_ref(self) -> "_aws_iam_632e20f6.ManagedPolicyReference":
         '''A reference to a ManagedPolicy resource.'''
-        return typing.cast("_ManagedPolicyReference_078bf7cb", jsii.get(self, "managedPolicyRef"))
+        return typing.cast("_aws_iam_632e20f6.ManagedPolicyReference", jsii.get(self, "managedPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -2833,7 +2794,7 @@ class CfnManagedPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8)
+            type_hints = cached_type_hints(_typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -2846,7 +2807,7 @@ class CfnManagedPolicy(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422)
+            type_hints = cached_type_hints(_typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -2859,7 +2820,7 @@ class CfnManagedPolicy(
     @groups.setter
     def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d)
+            type_hints = cached_type_hints(_typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
 
@@ -2872,7 +2833,7 @@ class CfnManagedPolicy(
     @managed_policy_name.setter
     def managed_policy_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886)
+            type_hints = cached_type_hints(_typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedPolicyName", value) # pyright: ignore[reportArgumentType]
 
@@ -2885,7 +2846,7 @@ class CfnManagedPolicy(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895)
+            type_hints = cached_type_hints(_typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -2898,7 +2859,7 @@ class CfnManagedPolicy(
     @roles.setter
     def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9)
+            type_hints = cached_type_hints(_typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
 
@@ -2911,7 +2872,7 @@ class CfnManagedPolicy(
     @users.setter
     def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843)
+            type_hints = cached_type_hints(_typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
@@ -2935,11 +2896,11 @@ class CfnManagedPolicyProps:
         *,
         policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
-        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]] = None,
+        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]] = None,
+        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IUserRef"]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnManagedPolicy``.
 
@@ -2975,7 +2936,7 @@ class CfnManagedPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7363835eb798096a2561a7a8a91d2914cb5cb1e71dbda6de66efc5952296bc7f)
+            type_hints = cached_type_hints(_typecheckingstub__7363835eb798096a2561a7a8a91d2914cb5cb1e71dbda6de66efc5952296bc7f)
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
@@ -3037,7 +2998,7 @@ class CfnManagedPolicyProps:
     @builtins.property
     def groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]]:
         '''The name (friendly name, not ARN) of the group to attach the policy to.
 
         This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
@@ -3045,7 +3006,7 @@ class CfnManagedPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-groups
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]], result)
 
     @builtins.property
     def managed_policy_name(self) -> typing.Optional[builtins.str]:
@@ -3088,7 +3049,7 @@ class CfnManagedPolicyProps:
     @builtins.property
     def roles(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]]:
         '''The name (friendly name, not ARN) of the role to attach the policy to.
 
         This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
@@ -3099,12 +3060,12 @@ class CfnManagedPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-roles
         '''
         result = self._values.get("roles")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]], result)
 
     @builtins.property
     def users(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IUserRef"]]]:
         '''The name (friendly name, not ARN) of the IAM user to attach the policy to.
 
         This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
@@ -3112,7 +3073,7 @@ class CfnManagedPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-users
         '''
         result = self._values.get("users")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IUserRef"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3126,9 +3087,9 @@ class CfnManagedPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOIDCProviderRef_a866c7c8, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IOIDCProviderRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnOIDCProvider(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnOIDCProvider",
 ):
@@ -3184,7 +3145,7 @@ class CfnOIDCProvider(
         id: builtins.str,
         *,
         client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         url: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3198,7 +3159,7 @@ class CfnOIDCProvider(
         :param url: The URL that the IAM OIDC provider resource object is associated with. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1)
+            type_hints = cached_type_hints(_typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOIDCProviderProps(
@@ -3214,13 +3175,13 @@ class CfnOIDCProvider(
     @builtins.classmethod
     def arn_for_oidc_provider(
         cls,
-        resource: "_IOIDCProviderRef_a866c7c8",
+        resource: "_aws_iam_632e20f6.IOIDCProviderRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fab4fe6f3e4db72e34d9bb9535a6cd4366d92f1c50e499ef665ae1a82c7cc813)
+            type_hints = cached_type_hints(_typecheckingstub__fab4fe6f3e4db72e34d9bb9535a6cd4366d92f1c50e499ef665ae1a82c7cc813)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOIDCProvider", [resource]))
 
@@ -3232,18 +3193,18 @@ class CfnOIDCProvider(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f5057f964f9bab1fcc32fce6ba173b262ffb5b477e91cae47ca4b093e0a2465)
+            type_hints = cached_type_hints(_typecheckingstub__7f5057f964f9bab1fcc32fce6ba173b262ffb5b477e91cae47ca4b093e0a2465)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOIDCProvider", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8)
+            type_hints = cached_type_hints(_typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3256,7 +3217,7 @@ class CfnOIDCProvider(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389)
+            type_hints = cached_type_hints(_typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3287,15 +3248,15 @@ class CfnOIDCProvider(
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
+    def oidc_provider_ref(self) -> "_aws_iam_632e20f6.OIDCProviderReference":
         '''A reference to a OIDCProvider resource.'''
-        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
+        return typing.cast("_aws_iam_632e20f6.OIDCProviderReference", jsii.get(self, "oidcProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="clientIdList")
@@ -3306,20 +3267,23 @@ class CfnOIDCProvider(
     @client_id_list.setter
     def client_id_list(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02)
+            type_hints = cached_type_hints(_typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientIdList", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the specified IAM OIDC provider.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70)
+            type_hints = cached_type_hints(_typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -3335,7 +3299,7 @@ class CfnOIDCProvider(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427)
+            type_hints = cached_type_hints(_typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "thumbprintList", value) # pyright: ignore[reportArgumentType]
 
@@ -3348,7 +3312,7 @@ class CfnOIDCProvider(
     @url.setter
     def url(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e)
+            type_hints = cached_type_hints(_typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "url", value) # pyright: ignore[reportArgumentType]
 
@@ -3368,7 +3332,7 @@ class CfnOIDCProviderProps:
         self,
         *,
         client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         url: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3400,7 +3364,7 @@ class CfnOIDCProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7712735ff8576b291ddb9c7e92ce8078bf6f1d87729109296c1be6414cb3532d)
+            type_hints = cached_type_hints(_typecheckingstub__7712735ff8576b291ddb9c7e92ce8078bf6f1d87729109296c1be6414cb3532d)
             check_type(argname="argument client_id_list", value=client_id_list, expected_type=type_hints["client_id_list"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument thumbprint_list", value=thumbprint_list, expected_type=type_hints["thumbprint_list"])
@@ -3427,7 +3391,7 @@ class CfnOIDCProviderProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the specified IAM OIDC provider.
 
         The returned list of tags is sorted by tag key. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -3435,7 +3399,7 @@ class CfnOIDCProviderProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-oidcprovider.html#cfn-iam-oidcprovider-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def thumbprint_list(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3473,9 +3437,9 @@ class CfnOIDCProviderProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPolicyRef_5e74a0ba)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IPolicyRef)
 class CfnPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnPolicy",
 ):
@@ -3541,7 +3505,7 @@ class CfnPolicy(
         :param users: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e)
+            type_hints = cached_type_hints(_typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPolicyProps(
@@ -3562,18 +3526,18 @@ class CfnPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ee23fc195087e9166c203ff6e5a0a6d7f961f5dee39d0ea4ad91b3bea8f9a36)
+            type_hints = cached_type_hints(_typecheckingstub__3ee23fc195087e9166c203ff6e5a0a6d7f961f5dee39d0ea4ad91b3bea8f9a36)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1)
+            type_hints = cached_type_hints(_typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3586,7 +3550,7 @@ class CfnPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73)
+            type_hints = cached_type_hints(_typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3619,9 +3583,9 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "_PolicyReference_b83371a5":
+    def policy_ref(self) -> "_aws_iam_632e20f6.PolicyReference":
         '''A reference to a Policy resource.'''
-        return typing.cast("_PolicyReference_b83371a5", jsii.get(self, "policyRef"))
+        return typing.cast("_aws_iam_632e20f6.PolicyReference", jsii.get(self, "policyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -3632,7 +3596,7 @@ class CfnPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d)
+            type_hints = cached_type_hints(_typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -3645,7 +3609,7 @@ class CfnPolicy(
     @policy_name.setter
     def policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5)
+            type_hints = cached_type_hints(_typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
@@ -3658,7 +3622,7 @@ class CfnPolicy(
     @groups.setter
     def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e)
+            type_hints = cached_type_hints(_typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
 
@@ -3671,7 +3635,7 @@ class CfnPolicy(
     @roles.setter
     def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14)
+            type_hints = cached_type_hints(_typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
 
@@ -3684,7 +3648,7 @@ class CfnPolicy(
     @users.setter
     def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100)
+            type_hints = cached_type_hints(_typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
@@ -3740,7 +3704,7 @@ class CfnPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__368d6e95de387252f469d8428e0a4cbe73ffdab170f90c7194b6f3e54f8b875c)
+            type_hints = cached_type_hints(_typecheckingstub__368d6e95de387252f469d8428e0a4cbe73ffdab170f90c7194b6f3e54f8b875c)
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
@@ -3835,9 +3799,9 @@ class CfnPolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRoleRef_8400221f, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IRoleRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRole(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnRole",
 ):
@@ -3887,13 +3851,13 @@ class CfnRole(
         *,
         assume_role_policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         max_session_duration: typing.Optional[jsii.Number] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::Role``.
 
@@ -3910,7 +3874,7 @@ class CfnRole(
         :param tags: A list of tags that are attached to the role. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32)
+            type_hints = cached_type_hints(_typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRoleProps(
@@ -3929,12 +3893,12 @@ class CfnRole(
 
     @jsii.member(jsii_name="arnForRole")
     @builtins.classmethod
-    def arn_for_role(cls, resource: "_IRoleRef_8400221f") -> builtins.str:
+    def arn_for_role(cls, resource: "_aws_iam_632e20f6.IRoleRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aed7930ffdab40f4113234c4ce249e72c7b8fb0328ee2238e91d57b3368ac29b)
+            type_hints = cached_type_hints(_typecheckingstub__aed7930ffdab40f4113234c4ce249e72c7b8fb0328ee2238e91d57b3368ac29b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRole", [resource]))
 
@@ -3946,18 +3910,18 @@ class CfnRole(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff3f97b4de0b51871305eb5dbe778f76bd225254ccf6a281eb5ad37441bd9365)
+            type_hints = cached_type_hints(_typecheckingstub__ff3f97b4de0b51871305eb5dbe778f76bd225254ccf6a281eb5ad37441bd9365)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRole", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546)
+            type_hints = cached_type_hints(_typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3970,7 +3934,7 @@ class CfnRole(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3)
+            type_hints = cached_type_hints(_typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4016,15 +3980,15 @@ class CfnRole(
 
     @builtins.property
     @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> "_RoleReference_447077bb":
+    def role_ref(self) -> "_aws_iam_632e20f6.RoleReference":
         '''A reference to a Role resource.'''
-        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
+        return typing.cast("_aws_iam_632e20f6.RoleReference", jsii.get(self, "roleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="assumeRolePolicyDocument")
@@ -4035,7 +3999,7 @@ class CfnRole(
     @assume_role_policy_document.setter
     def assume_role_policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237)
+            type_hints = cached_type_hints(_typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "assumeRolePolicyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -4048,7 +4012,7 @@ class CfnRole(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7)
+            type_hints = cached_type_hints(_typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -4064,7 +4028,7 @@ class CfnRole(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7)
+            type_hints = cached_type_hints(_typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
 
@@ -4077,7 +4041,7 @@ class CfnRole(
     @max_session_duration.setter
     def max_session_duration(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a)
+            type_hints = cached_type_hints(_typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maxSessionDuration", value) # pyright: ignore[reportArgumentType]
 
@@ -4093,7 +4057,7 @@ class CfnRole(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b)
+            type_hints = cached_type_hints(_typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -4106,7 +4070,7 @@ class CfnRole(
     @permissions_boundary.setter
     def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1)
+            type_hints = cached_type_hints(_typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
 
@@ -4114,17 +4078,17 @@ class CfnRole(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRole.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM role.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]], jsii.get(self, "policies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRole.PolicyProperty"]]]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRole.PolicyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f)
+            type_hints = cached_type_hints(_typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
@@ -4137,20 +4101,23 @@ class CfnRole(
     @role_name.setter
     def role_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef)
+            type_hints = cached_type_hints(_typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the role.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5)
+            type_hints = cached_type_hints(_typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -4195,7 +4162,7 @@ class CfnRole(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1)
+                type_hints = cached_type_hints(_typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1)
                 check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4237,9 +4204,9 @@ class CfnRole(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRolePolicyRef_26b13525)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IRolePolicyRef)
 class CfnRolePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnRolePolicy",
 ):
@@ -4290,7 +4257,7 @@ class CfnRolePolicy(
         :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3)
+            type_hints = cached_type_hints(_typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRolePolicyProps(
@@ -4309,18 +4276,18 @@ class CfnRolePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8728946f5288abc0306a5d628f001064b1d982cebea9643c6ac987974a032a61)
+            type_hints = cached_type_hints(_typecheckingstub__8728946f5288abc0306a5d628f001064b1d982cebea9643c6ac987974a032a61)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRolePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412)
+            type_hints = cached_type_hints(_typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4333,7 +4300,7 @@ class CfnRolePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641)
+            type_hints = cached_type_hints(_typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4355,9 +4322,9 @@ class CfnRolePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="rolePolicyRef")
-    def role_policy_ref(self) -> "_RolePolicyReference_0cf19357":
+    def role_policy_ref(self) -> "_aws_iam_632e20f6.RolePolicyReference":
         '''A reference to a RolePolicy resource.'''
-        return typing.cast("_RolePolicyReference_0cf19357", jsii.get(self, "rolePolicyRef"))
+        return typing.cast("_aws_iam_632e20f6.RolePolicyReference", jsii.get(self, "rolePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -4368,7 +4335,7 @@ class CfnRolePolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
+            type_hints = cached_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -4381,7 +4348,7 @@ class CfnRolePolicy(
     @policy_name.setter
     def policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373)
+            type_hints = cached_type_hints(_typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
@@ -4394,7 +4361,7 @@ class CfnRolePolicy(
     @role_name.setter
     def role_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f)
+            type_hints = cached_type_hints(_typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
 
@@ -4442,7 +4409,7 @@ class CfnRolePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0668a03621626b1e6c6578349ef013dbc6d934f3d76b7973db1350fe9541efc)
+            type_hints = cached_type_hints(_typecheckingstub__a0668a03621626b1e6c6578349ef013dbc6d934f3d76b7973db1350fe9541efc)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
@@ -4527,13 +4494,13 @@ class CfnRoleProps:
         *,
         assume_role_policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         max_session_duration: typing.Optional[jsii.Number] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRole``.
 
@@ -4581,7 +4548,7 @@ class CfnRoleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5103775c44bc4d8c2381a2d9cd5bbb47d14617e4000af5af24e41da605c8820f)
+            type_hints = cached_type_hints(_typecheckingstub__5103775c44bc4d8c2381a2d9cd5bbb47d14617e4000af5af24e41da605c8820f)
             check_type(argname="argument assume_role_policy_document", value=assume_role_policy_document, expected_type=type_hints["assume_role_policy_document"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument managed_policy_arns", value=managed_policy_arns, expected_type=type_hints["managed_policy_arns"])
@@ -4635,7 +4602,7 @@ class CfnRoleProps:
     @builtins.property
     def managed_policy_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]]:
         '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -4643,7 +4610,7 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]], result)
 
     @builtins.property
     def max_session_duration(self) -> typing.Optional[jsii.Number]:
@@ -4676,7 +4643,7 @@ class CfnRoleProps:
     @builtins.property
     def permissions_boundary(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]:
         '''The ARN of the policy used to set the permissions boundary for the role.
 
         For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
@@ -4684,12 +4651,12 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-permissionsboundary
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]], result)
 
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRole.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM role.
 
         When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ .
@@ -4704,7 +4671,7 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRole.PolicyProperty"]]]], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
@@ -4727,7 +4694,7 @@ class CfnRoleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the role.
 
         For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -4735,7 +4702,7 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4749,9 +4716,9 @@ class CfnRoleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISAMLProviderRef_6e369856, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.ISAMLProviderRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSAMLProvider(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnSAMLProvider",
 ):
@@ -4802,10 +4769,10 @@ class CfnSAMLProvider(
         add_private_key: typing.Optional[builtins.str] = None,
         assertion_encryption_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        private_key_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        private_key_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         remove_private_key: typing.Optional[builtins.str] = None,
         saml_metadata_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::SAMLProvider``.
 
@@ -4820,7 +4787,7 @@ class CfnSAMLProvider(
         :param tags: A list of tags that you want to attach to the new IAM SAML provider. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009)
+            type_hints = cached_type_hints(_typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSAMLProviderProps(
@@ -4839,13 +4806,13 @@ class CfnSAMLProvider(
     @builtins.classmethod
     def arn_for_saml_provider(
         cls,
-        resource: "_ISAMLProviderRef_6e369856",
+        resource: "_aws_iam_632e20f6.ISAMLProviderRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1f1e65df7127c08c1603f184585a56d767362a3b5afeaa5a74ddaabf619b5da)
+            type_hints = cached_type_hints(_typecheckingstub__b1f1e65df7127c08c1603f184585a56d767362a3b5afeaa5a74ddaabf619b5da)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSAMLProvider", [resource]))
 
@@ -4857,18 +4824,18 @@ class CfnSAMLProvider(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc9dc8f4401f1aaf9a9981044bc588dc6bdc25dc997eeedb4fa39af1ecd2529f)
+            type_hints = cached_type_hints(_typecheckingstub__bc9dc8f4401f1aaf9a9981044bc588dc6bdc25dc997eeedb4fa39af1ecd2529f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSAMLProvider", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450)
+            type_hints = cached_type_hints(_typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4881,7 +4848,7 @@ class CfnSAMLProvider(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b)
+            type_hints = cached_type_hints(_typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4921,15 +4888,15 @@ class CfnSAMLProvider(
 
     @builtins.property
     @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> "_SAMLProviderReference_08e1fac1":
+    def saml_provider_ref(self) -> "_aws_iam_632e20f6.SAMLProviderReference":
         '''A reference to a SAMLProvider resource.'''
-        return typing.cast("_SAMLProviderReference_08e1fac1", jsii.get(self, "samlProviderRef"))
+        return typing.cast("_aws_iam_632e20f6.SAMLProviderReference", jsii.get(self, "samlProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="addPrivateKey")
@@ -4940,7 +4907,7 @@ class CfnSAMLProvider(
     @add_private_key.setter
     def add_private_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894)
+            type_hints = cached_type_hints(_typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "addPrivateKey", value) # pyright: ignore[reportArgumentType]
 
@@ -4953,7 +4920,7 @@ class CfnSAMLProvider(
     @assertion_encryption_mode.setter
     def assertion_encryption_mode(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628)
+            type_hints = cached_type_hints(_typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "assertionEncryptionMode", value) # pyright: ignore[reportArgumentType]
 
@@ -4966,7 +4933,7 @@ class CfnSAMLProvider(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a)
+            type_hints = cached_type_hints(_typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -4974,17 +4941,17 @@ class CfnSAMLProvider(
     @jsii.member(jsii_name="privateKeyList")
     def private_key_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
         '''The private key metadata for the SAML provider.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], jsii.get(self, "privateKeyList"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], jsii.get(self, "privateKeyList"))
 
     @private_key_list.setter
     def private_key_list(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592)
+            type_hints = cached_type_hints(_typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "privateKeyList", value) # pyright: ignore[reportArgumentType]
 
@@ -4997,7 +4964,7 @@ class CfnSAMLProvider(
     @remove_private_key.setter
     def remove_private_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1)
+            type_hints = cached_type_hints(_typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "removePrivateKey", value) # pyright: ignore[reportArgumentType]
 
@@ -5010,20 +4977,23 @@ class CfnSAMLProvider(
     @saml_metadata_document.setter
     def saml_metadata_document(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c)
+            type_hints = cached_type_hints(_typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "samlMetadataDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new IAM SAML provider.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67)
+            type_hints = cached_type_hints(_typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5056,7 +5026,7 @@ class CfnSAMLProvider(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02)
+                type_hints = cached_type_hints(_typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02)
                 check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
                 check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5116,10 +5086,10 @@ class CfnSAMLProviderProps:
         add_private_key: typing.Optional[builtins.str] = None,
         assertion_encryption_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        private_key_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        private_key_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         remove_private_key: typing.Optional[builtins.str] = None,
         saml_metadata_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSAMLProvider``.
 
@@ -5158,7 +5128,7 @@ class CfnSAMLProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__753bbb479e0c0a542a8456d357a3312bedbcc25e8753ca69dabd0ebf09aa6de7)
+            type_hints = cached_type_hints(_typecheckingstub__753bbb479e0c0a542a8456d357a3312bedbcc25e8753ca69dabd0ebf09aa6de7)
             check_type(argname="argument add_private_key", value=add_private_key, expected_type=type_hints["add_private_key"])
             check_type(argname="argument assertion_encryption_mode", value=assertion_encryption_mode, expected_type=type_hints["assertion_encryption_mode"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -5216,13 +5186,13 @@ class CfnSAMLProviderProps:
     @builtins.property
     def private_key_list(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
         '''The private key metadata for the SAML provider.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html#cfn-iam-samlprovider-privatekeylist
         '''
         result = self._values.get("private_key_list")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], result)
 
     @builtins.property
     def remove_private_key(self) -> typing.Optional[builtins.str]:
@@ -5245,7 +5215,7 @@ class CfnSAMLProviderProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new IAM SAML provider.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -5256,7 +5226,7 @@ class CfnSAMLProviderProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html#cfn-iam-samlprovider-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5270,9 +5240,9 @@ class CfnSAMLProviderProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServerCertificateRef_005ddfcc, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IServerCertificateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnServerCertificate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnServerCertificate",
 ):
@@ -5323,7 +5293,7 @@ class CfnServerCertificate(
         path: typing.Optional[builtins.str] = None,
         private_key: typing.Optional[builtins.str] = None,
         server_certificate_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::ServerCertificate``.
 
@@ -5337,7 +5307,7 @@ class CfnServerCertificate(
         :param tags: A list of tags that are attached to the server certificate. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b)
+            type_hints = cached_type_hints(_typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServerCertificateProps(
@@ -5355,13 +5325,13 @@ class CfnServerCertificate(
     @builtins.classmethod
     def arn_for_server_certificate(
         cls,
-        resource: "_IServerCertificateRef_005ddfcc",
+        resource: "_aws_iam_632e20f6.IServerCertificateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc593551fa8cc6ccbfd2bc0375f5568203a3f854d4f715a6b618e4b88274326)
+            type_hints = cached_type_hints(_typecheckingstub__bdc593551fa8cc6ccbfd2bc0375f5568203a3f854d4f715a6b618e4b88274326)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServerCertificate", [resource]))
 
@@ -5373,18 +5343,18 @@ class CfnServerCertificate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3287a2c8df8f2cca57e9ef3ac067d25816a83b556c24ac1057b3b2ae573636bd)
+            type_hints = cached_type_hints(_typecheckingstub__3287a2c8df8f2cca57e9ef3ac067d25816a83b556c24ac1057b3b2ae573636bd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServerCertificate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273)
+            type_hints = cached_type_hints(_typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5397,7 +5367,7 @@ class CfnServerCertificate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a)
+            type_hints = cached_type_hints(_typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5428,15 +5398,15 @@ class CfnServerCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="serverCertificateRef")
-    def server_certificate_ref(self) -> "_ServerCertificateReference_0e96ef93":
+    def server_certificate_ref(self) -> "_aws_iam_632e20f6.ServerCertificateReference":
         '''A reference to a ServerCertificate resource.'''
-        return typing.cast("_ServerCertificateReference_0e96ef93", jsii.get(self, "serverCertificateRef"))
+        return typing.cast("_aws_iam_632e20f6.ServerCertificateReference", jsii.get(self, "serverCertificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="certificateBody")
@@ -5447,7 +5417,7 @@ class CfnServerCertificate(
     @certificate_body.setter
     def certificate_body(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2)
+            type_hints = cached_type_hints(_typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateBody", value) # pyright: ignore[reportArgumentType]
 
@@ -5460,7 +5430,7 @@ class CfnServerCertificate(
     @certificate_chain.setter
     def certificate_chain(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd)
+            type_hints = cached_type_hints(_typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "certificateChain", value) # pyright: ignore[reportArgumentType]
 
@@ -5473,7 +5443,7 @@ class CfnServerCertificate(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8)
+            type_hints = cached_type_hints(_typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -5486,7 +5456,7 @@ class CfnServerCertificate(
     @private_key.setter
     def private_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20)
+            type_hints = cached_type_hints(_typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
 
@@ -5499,20 +5469,23 @@ class CfnServerCertificate(
     @server_certificate_name.setter
     def server_certificate_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648)
+            type_hints = cached_type_hints(_typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serverCertificateName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the server certificate.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4)
+            type_hints = cached_type_hints(_typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -5538,7 +5511,7 @@ class CfnServerCertificateProps:
         path: typing.Optional[builtins.str] = None,
         private_key: typing.Optional[builtins.str] = None,
         server_certificate_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServerCertificate``.
 
@@ -5572,7 +5545,7 @@ class CfnServerCertificateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c0fa14d93aea4f905649a3dfa7bcd3ea31e86d8c6ac197efe6a3040eb6155f7)
+            type_hints = cached_type_hints(_typecheckingstub__8c0fa14d93aea4f905649a3dfa7bcd3ea31e86d8c6ac197efe6a3040eb6155f7)
             check_type(argname="argument certificate_body", value=certificate_body, expected_type=type_hints["certificate_body"])
             check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -5656,7 +5629,7 @@ class CfnServerCertificateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that are attached to the server certificate.
 
         For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -5664,7 +5637,7 @@ class CfnServerCertificateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servercertificate.html#cfn-iam-servercertificate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5678,9 +5651,9 @@ class CfnServerCertificateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceLinkedRoleRef_ba92e11b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IServiceLinkedRoleRef)
 class CfnServiceLinkedRole(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnServiceLinkedRole",
 ):
@@ -5719,7 +5692,7 @@ class CfnServiceLinkedRole(
         :param description: The description of the role.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789)
+            type_hints = cached_type_hints(_typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceLinkedRoleProps(
@@ -5738,18 +5711,18 @@ class CfnServiceLinkedRole(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e15cbef59f1c57bd0a07b6dc7673834547880709ca660f114c9b692de877ffc)
+            type_hints = cached_type_hints(_typecheckingstub__1e15cbef59f1c57bd0a07b6dc7673834547880709ca660f114c9b692de877ffc)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceLinkedRole", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d)
+            type_hints = cached_type_hints(_typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5762,7 +5735,7 @@ class CfnServiceLinkedRole(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742)
+            type_hints = cached_type_hints(_typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5795,9 +5768,9 @@ class CfnServiceLinkedRole(
 
     @builtins.property
     @jsii.member(jsii_name="serviceLinkedRoleRef")
-    def service_linked_role_ref(self) -> "_ServiceLinkedRoleReference_863fd3da":
+    def service_linked_role_ref(self) -> "_aws_iam_632e20f6.ServiceLinkedRoleReference":
         '''A reference to a ServiceLinkedRole resource.'''
-        return typing.cast("_ServiceLinkedRoleReference_863fd3da", jsii.get(self, "serviceLinkedRoleRef"))
+        return typing.cast("_aws_iam_632e20f6.ServiceLinkedRoleReference", jsii.get(self, "serviceLinkedRoleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="awsServiceName")
@@ -5808,7 +5781,7 @@ class CfnServiceLinkedRole(
     @aws_service_name.setter
     def aws_service_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673)
+            type_hints = cached_type_hints(_typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "awsServiceName", value) # pyright: ignore[reportArgumentType]
 
@@ -5821,7 +5794,7 @@ class CfnServiceLinkedRole(
     @custom_suffix.setter
     def custom_suffix(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc)
+            type_hints = cached_type_hints(_typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customSuffix", value) # pyright: ignore[reportArgumentType]
 
@@ -5834,7 +5807,7 @@ class CfnServiceLinkedRole(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce)
+            type_hints = cached_type_hints(_typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -5872,7 +5845,7 @@ class CfnServiceLinkedRoleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dafce478a4346996727c8ffa75ed8a924def97e273b5d6cc9f321b9c8eea85d7)
+            type_hints = cached_type_hints(_typecheckingstub__dafce478a4346996727c8ffa75ed8a924def97e273b5d6cc9f321b9c8eea85d7)
             check_type(argname="argument aws_service_name", value=aws_service_name, expected_type=type_hints["aws_service_name"])
             check_type(argname="argument custom_suffix", value=custom_suffix, expected_type=type_hints["custom_suffix"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -5931,9 +5904,9 @@ class CfnServiceLinkedRoleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserRef_b0ccca76, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IUserRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUser(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnUser",
 ):
@@ -5982,13 +5955,13 @@ class CfnUser(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
-        login_profile: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]] = None,
+        login_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::User``.
@@ -6005,7 +5978,7 @@ class CfnUser(
         :param user_name: The name of the user to create. Do not include the path in this value. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687)
+            type_hints = cached_type_hints(_typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserProps(
@@ -6023,12 +5996,12 @@ class CfnUser(
 
     @jsii.member(jsii_name="arnForUser")
     @builtins.classmethod
-    def arn_for_user(cls, resource: "_IUserRef_b0ccca76") -> builtins.str:
+    def arn_for_user(cls, resource: "_aws_iam_632e20f6.IUserRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53586ff3825069b3269d54a7efd5838a24c958e3815fb51409e5578af38ed8a2)
+            type_hints = cached_type_hints(_typecheckingstub__53586ff3825069b3269d54a7efd5838a24c958e3815fb51409e5578af38ed8a2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
 
@@ -6040,18 +6013,18 @@ class CfnUser(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39d477467a398dca23b6324aaa1b79887f96a2ebb288e56f19f2715de1901378)
+            type_hints = cached_type_hints(_typecheckingstub__39d477467a398dca23b6324aaa1b79887f96a2ebb288e56f19f2715de1901378)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUser", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8)
+            type_hints = cached_type_hints(_typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6064,7 +6037,7 @@ class CfnUser(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082)
+            type_hints = cached_type_hints(_typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6097,15 +6070,15 @@ class CfnUser(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "_UserReference_6bf884c6":
+    def user_ref(self) -> "_aws_iam_632e20f6.UserReference":
         '''A reference to a User resource.'''
-        return typing.cast("_UserReference_6bf884c6", jsii.get(self, "userRef"))
+        return typing.cast("_aws_iam_632e20f6.UserReference", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groups")
@@ -6116,7 +6089,7 @@ class CfnUser(
     @groups.setter
     def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398)
+            type_hints = cached_type_hints(_typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
 
@@ -6124,17 +6097,17 @@ class CfnUser(
     @jsii.member(jsii_name="loginProfile")
     def login_profile(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.LoginProfileProperty"]]:
         '''Creates a password for the specified IAM user.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]], jsii.get(self, "loginProfile"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.LoginProfileProperty"]], jsii.get(self, "loginProfile"))
 
     @login_profile.setter
     def login_profile(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.LoginProfileProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43)
+            type_hints = cached_type_hints(_typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loginProfile", value) # pyright: ignore[reportArgumentType]
 
@@ -6150,7 +6123,7 @@ class CfnUser(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac)
+            type_hints = cached_type_hints(_typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
 
@@ -6163,7 +6136,7 @@ class CfnUser(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6)
+            type_hints = cached_type_hints(_typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
@@ -6176,7 +6149,7 @@ class CfnUser(
     @permissions_boundary.setter
     def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7)
+            type_hints = cached_type_hints(_typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
 
@@ -6184,30 +6157,33 @@ class CfnUser(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM user.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]], jsii.get(self, "policies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.PolicyProperty"]]]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.PolicyProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e)
+            type_hints = cached_type_hints(_typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new user.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44)
+            type_hints = cached_type_hints(_typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6223,7 +6199,7 @@ class CfnUser(
     @user_name.setter
     def user_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3)
+            type_hints = cached_type_hints(_typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -6240,7 +6216,7 @@ class CfnUser(
             self,
             *,
             password: builtins.str,
-            password_reset_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            password_reset_required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Creates a password for the specified user, giving the user the ability to access AWS services through the AWS Management Console .
 
@@ -6266,7 +6242,7 @@ class CfnUser(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a)
+                type_hints = cached_type_hints(_typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument password_reset_required", value=password_reset_required, expected_type=type_hints["password_reset_required"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6288,13 +6264,13 @@ class CfnUser(
         @builtins.property
         def password_reset_required(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the user is required to set a new password on next sign-in.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html#cfn-iam-user-loginprofile-passwordresetrequired
             '''
             result = self._values.get("password_reset_required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6348,7 +6324,7 @@ class CfnUser(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c)
+                type_hints = cached_type_hints(_typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c)
                 check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
                 check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6390,9 +6366,9 @@ class CfnUser(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPolicyRef_e6abac3e)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IUserPolicyRef)
 class CfnUserPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnUserPolicy",
 ):
@@ -6441,7 +6417,7 @@ class CfnUserPolicy(
         :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773)
+            type_hints = cached_type_hints(_typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPolicyProps(
@@ -6460,18 +6436,18 @@ class CfnUserPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50148d4dcf0c6b86c32afab139135ccee1e0f58e20fc54e8b91ef9b40bc88560)
+            type_hints = cached_type_hints(_typecheckingstub__50148d4dcf0c6b86c32afab139135ccee1e0f58e20fc54e8b91ef9b40bc88560)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1)
+            type_hints = cached_type_hints(_typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6484,7 +6460,7 @@ class CfnUserPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0)
+            type_hints = cached_type_hints(_typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6506,9 +6482,9 @@ class CfnUserPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="userPolicyRef")
-    def user_policy_ref(self) -> "_UserPolicyReference_4aa6daa0":
+    def user_policy_ref(self) -> "_aws_iam_632e20f6.UserPolicyReference":
         '''A reference to a UserPolicy resource.'''
-        return typing.cast("_UserPolicyReference_4aa6daa0", jsii.get(self, "userPolicyRef"))
+        return typing.cast("_aws_iam_632e20f6.UserPolicyReference", jsii.get(self, "userPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -6519,7 +6495,7 @@ class CfnUserPolicy(
     @policy_document.setter
     def policy_document(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
+            type_hints = cached_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
@@ -6532,7 +6508,7 @@ class CfnUserPolicy(
     @policy_name.setter
     def policy_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d)
+            type_hints = cached_type_hints(_typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
@@ -6545,7 +6521,7 @@ class CfnUserPolicy(
     @user_name.setter
     def user_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7)
+            type_hints = cached_type_hints(_typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
 
@@ -6593,7 +6569,7 @@ class CfnUserPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe6f239efe54addc57c69dc765719968f9ffeb9e19e348f502085249d1739fd5)
+            type_hints = cached_type_hints(_typecheckingstub__fe6f239efe54addc57c69dc765719968f9ffeb9e19e348f502085249d1739fd5)
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
             check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
@@ -6675,13 +6651,13 @@ class CfnUserProps:
     def __init__(
         self,
         *,
-        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
-        login_profile: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]] = None,
+        login_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnUser``.
@@ -6730,7 +6706,7 @@ class CfnUserProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b4312dc8ff103705c67491ae6f470e2644acffd396e5635261bf47e9a8a945f)
+            type_hints = cached_type_hints(_typecheckingstub__8b4312dc8ff103705c67491ae6f470e2644acffd396e5635261bf47e9a8a945f)
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
             check_type(argname="argument login_profile", value=login_profile, expected_type=type_hints["login_profile"])
             check_type(argname="argument managed_policy_arns", value=managed_policy_arns, expected_type=type_hints["managed_policy_arns"])
@@ -6760,18 +6736,18 @@ class CfnUserProps:
     @builtins.property
     def groups(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]]:
         '''A list of group names to which you want to add the user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-groups
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IGroupRef"]]], result)
 
     @builtins.property
     def login_profile(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.LoginProfileProperty"]]:
         '''Creates a password for the specified IAM user.
 
         A password allows an IAM user to access AWS services through the AWS Management Console .
@@ -6783,12 +6759,12 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-loginprofile
         '''
         result = self._values.get("login_profile")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.LoginProfileProperty"]], result)
 
     @builtins.property
     def managed_policy_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]]:
         '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -6796,7 +6772,7 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -6816,7 +6792,7 @@ class CfnUserProps:
     @builtins.property
     def permissions_boundary(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]]:
         '''The ARN of the managed policy that is used to set the permissions boundary for the user.
 
         A permissions boundary policy defines the maximum permissions that identity-based policies can grant to an entity, but does not grant permissions. Permissions boundaries do not define the maximum permissions that a resource-based policy can grant to an entity. To learn more, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
@@ -6826,12 +6802,12 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-permissionsboundary
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IManagedPolicyRef"]], result)
 
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM user.
 
         To view AWS::IAM::User snippets, see `Declaring an IAM User Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-user>`_ .
@@ -6844,10 +6820,10 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUser.PolicyProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new user.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -6858,7 +6834,7 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
@@ -6890,9 +6866,9 @@ class CfnUserProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserToGroupAdditionRef_e1276f9a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IUserToGroupAdditionRef)
 class CfnUserToGroupAddition(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnUserToGroupAddition",
 ):
@@ -6930,7 +6906,7 @@ class CfnUserToGroupAddition(
         :param users: A list of the names of the users that you want to add to the group.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb)
+            type_hints = cached_type_hints(_typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserToGroupAdditionProps(group_name=group_name, users=users)
@@ -6945,18 +6921,18 @@ class CfnUserToGroupAddition(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad9fff616a1b1f3024a67ea7adb60a1ee244e8400579a12825ab7e5c6bd17771)
+            type_hints = cached_type_hints(_typecheckingstub__ad9fff616a1b1f3024a67ea7adb60a1ee244e8400579a12825ab7e5c6bd17771)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserToGroupAddition", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603)
+            type_hints = cached_type_hints(_typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6969,7 +6945,7 @@ class CfnUserToGroupAddition(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8)
+            type_hints = cached_type_hints(_typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7002,9 +6978,11 @@ class CfnUserToGroupAddition(
 
     @builtins.property
     @jsii.member(jsii_name="userToGroupAdditionRef")
-    def user_to_group_addition_ref(self) -> "_UserToGroupAdditionReference_94731a73":
+    def user_to_group_addition_ref(
+        self,
+    ) -> "_aws_iam_632e20f6.UserToGroupAdditionReference":
         '''A reference to a UserToGroupAddition resource.'''
-        return typing.cast("_UserToGroupAdditionReference_94731a73", jsii.get(self, "userToGroupAdditionRef"))
+        return typing.cast("_aws_iam_632e20f6.UserToGroupAdditionReference", jsii.get(self, "userToGroupAdditionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -7015,7 +6993,7 @@ class CfnUserToGroupAddition(
     @group_name.setter
     def group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04)
+            type_hints = cached_type_hints(_typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -7028,7 +7006,7 @@ class CfnUserToGroupAddition(
     @users.setter
     def users(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e)
+            type_hints = cached_type_hints(_typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
@@ -7065,7 +7043,7 @@ class CfnUserToGroupAdditionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be028fcc46f0c07bb061d985679cb1824767d764103c011f6956ac7bb2f20043)
+            type_hints = cached_type_hints(_typecheckingstub__be028fcc46f0c07bb061d985679cb1824767d764103c011f6956ac7bb2f20043)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument users", value=users, expected_type=type_hints["users"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7107,9 +7085,9 @@ class CfnUserToGroupAdditionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVirtualMFADeviceRef_fec1f13e, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iam_632e20f6.IVirtualMFADeviceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnVirtualMFADevice(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.CfnVirtualMFADevice",
 ):
@@ -7153,7 +7131,7 @@ class CfnVirtualMFADevice(
         *,
         users: typing.Sequence[builtins.str],
         path: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_mfa_device_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::IAM::VirtualMFADevice``.
@@ -7166,7 +7144,7 @@ class CfnVirtualMFADevice(
         :param virtual_mfa_device_name: The name of the virtual MFA device, which must be unique. Use with path to uniquely identify a virtual MFA device. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99)
+            type_hints = cached_type_hints(_typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVirtualMFADeviceProps(
@@ -7186,18 +7164,18 @@ class CfnVirtualMFADevice(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__484a1c7065ccbe3212fb35fb07f8f11e400d775147f533660fc3ebc70c5b8802)
+            type_hints = cached_type_hints(_typecheckingstub__484a1c7065ccbe3212fb35fb07f8f11e400d775147f533660fc3ebc70c5b8802)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVirtualMFADevice", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c)
+            type_hints = cached_type_hints(_typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -7210,7 +7188,7 @@ class CfnVirtualMFADevice(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9)
+            type_hints = cached_type_hints(_typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -7241,15 +7219,15 @@ class CfnVirtualMFADevice(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="virtualMfaDeviceRef")
-    def virtual_mfa_device_ref(self) -> "_VirtualMFADeviceReference_dd7d7c2b":
+    def virtual_mfa_device_ref(self) -> "_aws_iam_632e20f6.VirtualMFADeviceReference":
         '''A reference to a VirtualMFADevice resource.'''
-        return typing.cast("_VirtualMFADeviceReference_dd7d7c2b", jsii.get(self, "virtualMfaDeviceRef"))
+        return typing.cast("_aws_iam_632e20f6.VirtualMFADeviceReference", jsii.get(self, "virtualMfaDeviceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="users")
@@ -7260,7 +7238,7 @@ class CfnVirtualMFADevice(
     @users.setter
     def users(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c)
+            type_hints = cached_type_hints(_typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
@@ -7273,20 +7251,23 @@ class CfnVirtualMFADevice(
     @path.setter
     def path(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8)
+            type_hints = cached_type_hints(_typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new IAM virtual MFA device.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229)
+            type_hints = cached_type_hints(_typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7299,7 +7280,7 @@ class CfnVirtualMFADevice(
     @virtual_mfa_device_name.setter
     def virtual_mfa_device_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd)
+            type_hints = cached_type_hints(_typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "virtualMfaDeviceName", value) # pyright: ignore[reportArgumentType]
 
@@ -7320,7 +7301,7 @@ class CfnVirtualMFADeviceProps:
         *,
         users: typing.Sequence[builtins.str],
         path: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_mfa_device_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVirtualMFADevice``.
@@ -7353,7 +7334,7 @@ class CfnVirtualMFADeviceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5ed743528ff356ce758fcb44914dce08240fea9458cd411d40223e93fcbbd55)
+            type_hints = cached_type_hints(_typecheckingstub__c5ed743528ff356ce758fcb44914dce08240fea9458cd411d40223e93fcbbd55)
             check_type(argname="argument users", value=users, expected_type=type_hints["users"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -7394,7 +7375,7 @@ class CfnVirtualMFADeviceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags that you want to attach to the new IAM virtual MFA device.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -7405,7 +7386,7 @@ class CfnVirtualMFADeviceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-virtualmfadevice.html#cfn-iam-virtualmfadevice-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def virtual_mfa_device_name(self) -> typing.Optional[builtins.str]:
@@ -7483,7 +7464,7 @@ class CommonGrantOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53036310adac5dd1bbf375726f6d4951d790e671d970614b44aa288195097a24)
+            type_hints = cached_type_hints(_typecheckingstub__53036310adac5dd1bbf375726f6d4951d790e671d970614b44aa288195097a24)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
@@ -7571,7 +7552,7 @@ class ComparablePrincipal(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e05d9e2d20ba422910a4ba52987ae06003b821061dcd5fb66ea08234a5add520)
+            type_hints = cached_type_hints(_typecheckingstub__e05d9e2d20ba422910a4ba52987ae06003b821061dcd5fb66ea08234a5add520)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(typing.Optional[builtins.str], jsii.sinvoke(cls, "dedupeStringFor", [x]))
 
@@ -7583,7 +7564,7 @@ class ComparablePrincipal(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed18f5361eb860ae94547e85443180c995c1de1d28ef2ccda9f79c39983c1afb)
+            type_hints = cached_type_hints(_typecheckingstub__ed18f5361eb860ae94547e85443180c995c1de1d28ef2ccda9f79c39983c1afb)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isComparablePrincipal", [x]))
 
@@ -7618,7 +7599,7 @@ class CompositeDependable(
         :param dependables: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11451a597e4f52017e14ede781ef9eadbc8d06d5380bf40a47e9667cf431ab84)
+            type_hints = cached_type_hints(_typecheckingstub__11451a597e4f52017e14ede781ef9eadbc8d06d5380bf40a47e9667cf431ab84)
             check_type(argname="argument dependables", value=dependables, expected_type=typing.Tuple[type_hints["dependables"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*dependables])
 
@@ -7657,7 +7638,7 @@ class CustomizeRolesOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1882c00172b4072d4822b976aed7e86da105b2fb611d32539f72c644071f16d4)
+            type_hints = cached_type_hints(_typecheckingstub__1882c00172b4072d4822b976aed7e86da105b2fb611d32539f72c644071f16d4)
             check_type(argname="argument prevent_synthesis", value=prevent_synthesis, expected_type=type_hints["prevent_synthesis"])
             check_type(argname="argument use_precreated_roles", value=use_precreated_roles, expected_type=type_hints["use_precreated_roles"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7751,7 +7732,7 @@ class DefaultEncryptedResourceFactories(
         :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc86876b8c32371abd50d5587ebf36e18b196334aefdf57ba2b656a3f4473ee0)
+            type_hints = cached_type_hints(_typecheckingstub__cc86876b8c32371abd50d5587ebf36e18b196334aefdf57ba2b656a3f4473ee0)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(typing.Optional["IEncryptedResourceFactory"], jsii.sinvoke(cls, "get", [type]))
 
@@ -7763,7 +7744,7 @@ class DefaultEncryptedResourceFactories(
         :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58a2fe126ec1ecbb15f8e407f5ff7d72093d6960f0bc34bf8fb0951af8ba5233)
+            type_hints = cached_type_hints(_typecheckingstub__58a2fe126ec1ecbb15f8e407f5ff7d72093d6960f0bc34bf8fb0951af8ba5233)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "has", [type]))
 
@@ -7776,7 +7757,7 @@ class DefaultEncryptedResourceFactories(
         :param factory: the factory to register for this resource type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__204ecb093bc2597877abddcde879524a713a2baccddb2acdf574dea382df21ff)
+            type_hints = cached_type_hints(_typecheckingstub__204ecb093bc2597877abddcde879524a713a2baccddb2acdf574dea382df21ff)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
         return typing.cast(None, jsii.sinvoke(cls, "set", [type, factory]))
@@ -7810,7 +7791,7 @@ class DefaultPolicyFactories(
         :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d898a5037835daecd930579f96e6a027b9f56f56d28d6c7c8cf77630036ed46d)
+            type_hints = cached_type_hints(_typecheckingstub__d898a5037835daecd930579f96e6a027b9f56f56d28d6c7c8cf77630036ed46d)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(typing.Optional["IResourcePolicyFactory"], jsii.sinvoke(cls, "get", [type]))
 
@@ -7822,7 +7803,7 @@ class DefaultPolicyFactories(
         :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44811b030b6959c9d5dd62d404f7f3cd8866f45c594722528bb2d05ab6cdfbff)
+            type_hints = cached_type_hints(_typecheckingstub__44811b030b6959c9d5dd62d404f7f3cd8866f45c594722528bb2d05ab6cdfbff)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "has", [type]))
 
@@ -7835,7 +7816,7 @@ class DefaultPolicyFactories(
         :param factory: the factory to register for this resource type.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__314d2bed6d353ed870fdd1029ac9df0a06d25be0febd8553668ade037f8c50ce)
+            type_hints = cached_type_hints(_typecheckingstub__314d2bed6d353ed870fdd1029ac9df0a06d25be0febd8553668ade037f8c50ce)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
         return typing.cast(None, jsii.sinvoke(cls, "set", [type, factory]))
@@ -7910,14 +7891,14 @@ class EncryptedResources(
     @builtins.classmethod
     def of(
         cls,
-        resource: "_IEnvironmentAware_f39049ee",
+        resource: "_interfaces_8ca7e747.IEnvironmentAware",
     ) -> typing.Optional["IEncryptedResource"]:
         '''Retrieve the IEncryptedResource associated with a construct, if available.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0541baf81f7cd71d7b592e03e9ef9463389ae2b7c6c0d3457fa6db8aa3adb70c)
+            type_hints = cached_type_hints(_typecheckingstub__0541baf81f7cd71d7b592e03e9ef9463389ae2b7c6c0d3457fa6db8aa3adb70c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(typing.Optional["IEncryptedResource"], jsii.sinvoke(cls, "of", [resource]))
 
@@ -7936,7 +7917,7 @@ class EncryptedResources(
         :param factory: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__404cd9c80d8c0e0d1c9720dc77978644c597557a50a18023daae1c98725a9a18)
+            type_hints = cached_type_hints(_typecheckingstub__404cd9c80d8c0e0d1c9720dc77978644c597557a50a18023daae1c98725a9a18)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument cfn_type", value=cfn_type, expected_type=type_hints["cfn_type"])
             check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
@@ -7978,7 +7959,7 @@ class FromRoleArnOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f2caa0021d06fd2643ae1baf77362146ac3d8099ebadae2a932738c2a2a8792)
+            type_hints = cached_type_hints(_typecheckingstub__9f2caa0021d06fd2643ae1baf77362146ac3d8099ebadae2a932738c2a2a8792)
             check_type(argname="argument add_grants_to_resources", value=add_grants_to_resources, expected_type=type_hints["add_grants_to_resources"])
             check_type(argname="argument default_policy_name", value=default_policy_name, expected_type=type_hints["default_policy_name"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -8078,7 +8059,7 @@ class FromRoleNameOptions(FromRoleArnOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8d60e61efe2fd0be1638c155ae6ceb97e4047a546e091855a6300b0267cc06a)
+            type_hints = cached_type_hints(_typecheckingstub__e8d60e61efe2fd0be1638c155ae6ceb97e4047a546e091855a6300b0267cc06a)
             check_type(argname="argument add_grants_to_resources", value=add_grants_to_resources, expected_type=type_hints["add_grants_to_resources"])
             check_type(argname="argument default_policy_name", value=default_policy_name, expected_type=type_hints["default_policy_name"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -8368,7 +8349,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         :param _intent: The user's intent (will be ignored at the moment).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ae645e99a39c5eb8dbdb0a66396e18ca51afd239a00e07d929768a9a716ccce)
+            type_hints = cached_type_hints(_typecheckingstub__9ae645e99a39c5eb8dbdb0a66396e18ca51afd239a00e07d929768a9a716ccce)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument _intent", value=_intent, expected_type=type_hints["_intent"])
         return typing.cast("Grant", jsii.sinvoke(cls, "drop", [grantee, _intent]))
@@ -8382,7 +8363,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         :param constructs: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6318dcb5bbc942b36daa3ec8cb25267c59a79903d43165acc5d48f60d4ef308)
+            type_hints = cached_type_hints(_typecheckingstub__b6318dcb5bbc942b36daa3ec8cb25267c59a79903d43165acc5d48f60d4ef308)
             check_type(argname="argument constructs", value=constructs, expected_type=typing.Tuple[type_hints["constructs"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "applyBefore", [*constructs]))
 
@@ -8398,7 +8379,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         :param rhs: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18a4ff4a989416437955a50d12b650943c445c1bd75cbc2f47d19390462e1842)
+            type_hints = cached_type_hints(_typecheckingstub__18a4ff4a989416437955a50d12b650943c445c1bd75cbc2f47d19390462e1842)
             check_type(argname="argument rhs", value=rhs, expected_type=type_hints["rhs"])
         return typing.cast("Grant", jsii.invoke(self, "combine", [rhs]))
 
@@ -8469,7 +8450,7 @@ class GrantOnKeyResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d966b064e777c60501cf45b81c5f2072ab9bfb4b7def5ee0ad6a6e273fe0630)
+            type_hints = cached_type_hints(_typecheckingstub__6d966b064e777c60501cf45b81c5f2072ab9bfb4b7def5ee0ad6a6e273fe0630)
             check_type(argname="argument grant", value=grant, expected_type=type_hints["grant"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if grant is not None:
@@ -8561,7 +8542,7 @@ class GrantOnPrincipalAndResourceOptions(CommonGrantOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a60e5877e638d22c44d2e72be768df7f85caf47bec9ab2e6b2adcce826a6aae0)
+            type_hints = cached_type_hints(_typecheckingstub__a60e5877e638d22c44d2e72be768df7f85caf47bec9ab2e6b2adcce826a6aae0)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
@@ -8716,7 +8697,7 @@ class GrantOnPrincipalOptions(CommonGrantOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e1d68e4e0e483e95fcca600944e0e8047f1278ed2d44d2d239ae6584b491dcc)
+            type_hints = cached_type_hints(_typecheckingstub__9e1d68e4e0e483e95fcca600944e0e8047f1278ed2d44d2d239ae6584b491dcc)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
@@ -8852,7 +8833,7 @@ class GrantWithResourceOptions(CommonGrantOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d76f68f1d67dcad526c87768d88423a4092a0ef3127be7cb53462044851e0ea2)
+            type_hints = cached_type_hints(_typecheckingstub__d76f68f1d67dcad526c87768d88423a4092a0ef3127be7cb53462044851e0ea2)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
@@ -8963,14 +8944,14 @@ class GrantableResources(
     @builtins.classmethod
     def is_encrypted_resource(
         cls,
-        resource: "_IEnvironmentAware_f39049ee",
+        resource: "_interfaces_8ca7e747.IEnvironmentAware",
     ) -> builtins.bool:
         '''Whether this resource holds data that can be encrypted using a KMS key.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dd532720c67899493c38541d1d1385824a8c552f89bc513c1e00d86714b7a75)
+            type_hints = cached_type_hints(_typecheckingstub__5dd532720c67899493c38541d1d1385824a8c552f89bc513c1e00d86714b7a75)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isEncryptedResource", [resource]))
 
@@ -8978,14 +8959,14 @@ class GrantableResources(
     @builtins.classmethod
     def is_resource_with_policy(
         cls,
-        resource: "_IEnvironmentAware_f39049ee",
+        resource: "_interfaces_8ca7e747.IEnvironmentAware",
     ) -> builtins.bool:
         '''Whether this resource admits a resource policy.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6abc7b14c1bac1d5c3ea94fff54da43a5f9d27cb6330751d69f1723006eac104)
+            type_hints = cached_type_hints(_typecheckingstub__6abc7b14c1bac1d5c3ea94fff54da43a5f9d27cb6330751d69f1723006eac104)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isResourceWithPolicy", [resource]))
 
@@ -9030,7 +9011,7 @@ class GroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7889ad6c97f3c96c3ead5d27bd1231fba11aadae1700a9dcd088123609e9b9a5)
+            type_hints = cached_type_hints(_typecheckingstub__7889ad6c97f3c96c3ead5d27bd1231fba11aadae1700a9dcd088123609e9b9a5)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument managed_policies", value=managed_policies, expected_type=type_hints["managed_policies"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -9099,8 +9080,8 @@ class GroupProps:
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IAccessKey")
 class IAccessKey(
-    _IResource_c80c4260,
-    _IAccessKeyRef_e97ef40a,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.IAccessKeyRef,
     typing_extensions.Protocol,
 ):
     '''Represents an IAM Access Key.
@@ -9119,7 +9100,7 @@ class IAccessKey(
 
     @builtins.property
     @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+    def secret_access_key(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The Secret Access Key.
 
         :attribute: true
@@ -9128,8 +9109,8 @@ class IAccessKey(
 
 
 class _IAccessKeyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IAccessKeyRef_e97ef40a), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IAccessKeyRef), # type: ignore[misc]
 ):
     '''Represents an IAM Access Key.
 
@@ -9149,19 +9130,22 @@ class _IAccessKeyProxy(
 
     @builtins.property
     @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+    def secret_access_key(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The Secret Access Key.
 
         :attribute: true
         '''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretAccessKey"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "secretAccessKey"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAccessKey).__jsii_proxy_class__ = lambda : _IAccessKeyProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IEncryptedResource")
-class IEncryptedResource(_IEnvironmentAware_f39049ee, typing_extensions.Protocol):
+class IEncryptedResource(
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
     '''A resource that contains data that can be encrypted, using a KMS key.s.'''
 
     @jsii.member(jsii_name="grantOnKey")
@@ -9179,7 +9163,7 @@ class IEncryptedResource(_IEnvironmentAware_f39049ee, typing_extensions.Protocol
 
 
 class _IEncryptedResourceProxy(
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''A resource that contains data that can be encrypted, using a KMS key.s.'''
 
@@ -9197,7 +9181,7 @@ class _IEncryptedResourceProxy(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495d73fe70)
+            type_hints = cached_type_hints(_typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495d73fe70)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("GrantOnKeyResult", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
@@ -9222,7 +9206,10 @@ class IEncryptedResourceFactory(typing_extensions.Protocol):
     '''
 
     @jsii.member(jsii_name="forResource")
-    def for_resource(self, resource: "_CfnResource_9df397a6") -> "IEncryptedResource":
+    def for_resource(
+        self,
+        resource: "_aws_cdk_0cae9daa.CfnResource",
+    ) -> "IEncryptedResource":
         '''Create an IEncryptedResource from a construct.
 
         :param resource: the construct to be wrapped as an IEncryptedResource.
@@ -9247,13 +9234,16 @@ class _IEncryptedResourceFactoryProxy:
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IEncryptedResourceFactory"
 
     @jsii.member(jsii_name="forResource")
-    def for_resource(self, resource: "_CfnResource_9df397a6") -> "IEncryptedResource":
+    def for_resource(
+        self,
+        resource: "_aws_cdk_0cae9daa.CfnResource",
+    ) -> "IEncryptedResource":
         '''Create an IEncryptedResource from a construct.
 
         :param resource: the construct to be wrapped as an IEncryptedResource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9e7d28559fee7984a021f6b259d6a658682229266ac7ca28433cac3efd162c7)
+            type_hints = cached_type_hints(_typecheckingstub__f9e7d28559fee7984a021f6b259d6a658682229266ac7ca28433cac3efd162c7)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("IEncryptedResource", jsii.invoke(self, "forResource", [resource]))
 
@@ -9289,8 +9279,8 @@ typing.cast(typing.Any, IGrantable).__jsii_proxy_class__ = lambda : _IGrantableP
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IInstanceProfile")
 class IInstanceProfile(
-    _IResource_c80c4260,
-    _IInstanceProfileRef_d6832c90,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.IInstanceProfileRef,
     typing_extensions.Protocol,
 ):
     '''Represents an IAM Instance Profile.'''
@@ -9321,8 +9311,8 @@ class IInstanceProfile(
 
 
 class _IInstanceProfileProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IInstanceProfileRef_d6832c90), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IInstanceProfileRef), # type: ignore[misc]
 ):
     '''Represents an IAM Instance Profile.'''
 
@@ -9357,7 +9347,7 @@ typing.cast(typing.Any, IInstanceProfile).__jsii_proxy_class__ = lambda : _IInst
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IManagedPolicy")
-class IManagedPolicy(_IManagedPolicyRef_a7a65687, typing_extensions.Protocol):
+class IManagedPolicy(_aws_iam_632e20f6.IManagedPolicyRef, typing_extensions.Protocol):
     '''A managed policy.'''
 
     @builtins.property
@@ -9371,7 +9361,7 @@ class IManagedPolicy(_IManagedPolicyRef_a7a65687, typing_extensions.Protocol):
 
 
 class _IManagedPolicyProxy(
-    jsii.proxy_for(_IManagedPolicyRef_a7a65687), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IManagedPolicyRef), # type: ignore[misc]
 ):
     '''A managed policy.'''
 
@@ -9392,8 +9382,8 @@ typing.cast(typing.Any, IManagedPolicy).__jsii_proxy_class__ = lambda : _IManage
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IOidcProvider")
 class IOidcProvider(
-    _IResource_c80c4260,
-    _IOIDCProviderRef_a866c7c8,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.IOIDCProviderRef,
     typing_extensions.Protocol,
 ):
     '''Represents an IAM OpenID Connect provider.'''
@@ -9436,8 +9426,8 @@ class IOidcProvider(
 
 
 class _IOidcProviderProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IOIDCProviderRef_a866c7c8), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IOIDCProviderRef), # type: ignore[misc]
 ):
     '''Represents an IAM OpenID Connect provider.'''
 
@@ -9485,8 +9475,8 @@ typing.cast(typing.Any, IOidcProvider).__jsii_proxy_class__ = lambda : _IOidcPro
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IOpenIdConnectProvider")
 class IOpenIdConnectProvider(
-    _IResource_c80c4260,
-    _IOIDCProviderRef_a866c7c8,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.IOIDCProviderRef,
     typing_extensions.Protocol,
 ):
     '''Represents an IAM OpenID Connect provider.'''
@@ -9505,8 +9495,8 @@ class IOpenIdConnectProvider(
 
 
 class _IOpenIdConnectProviderProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IOIDCProviderRef_a866c7c8), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IOIDCProviderRef), # type: ignore[misc]
 ):
     '''Represents an IAM OpenID Connect provider.'''
 
@@ -9529,7 +9519,11 @@ typing.cast(typing.Any, IOpenIdConnectProvider).__jsii_proxy_class__ = lambda : 
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IPolicy")
-class IPolicy(_IResource_c80c4260, _IPolicyRef_5e74a0ba, typing_extensions.Protocol):
+class IPolicy(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.IPolicyRef,
+    typing_extensions.Protocol,
+):
     '''Represents an IAM Policy.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html
@@ -9546,8 +9540,8 @@ class IPolicy(_IResource_c80c4260, _IPolicyRef_5e74a0ba, typing_extensions.Proto
 
 
 class _IPolicyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IPolicyRef_5e74a0ba), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IPolicyRef), # type: ignore[misc]
 ):
     '''Represents an IAM Policy.
 
@@ -9680,7 +9674,7 @@ class _IPrincipalProxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d586babd4)
+            type_hints = cached_type_hints(_typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d586babd4)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -9706,7 +9700,7 @@ class IResourcePolicyFactory(typing_extensions.Protocol):
     @jsii.member(jsii_name="forResource")
     def for_resource(
         self,
-        resource: "_CfnResource_9df397a6",
+        resource: "_aws_cdk_0cae9daa.CfnResource",
     ) -> "IResourceWithPolicyV2":
         '''Create an IResourceWithPolicyV2 from a construct.
 
@@ -9734,14 +9728,14 @@ class _IResourcePolicyFactoryProxy:
     @jsii.member(jsii_name="forResource")
     def for_resource(
         self,
-        resource: "_CfnResource_9df397a6",
+        resource: "_aws_cdk_0cae9daa.CfnResource",
     ) -> "IResourceWithPolicyV2":
         '''Create an IResourceWithPolicyV2 from a construct.
 
         :param resource: the construct to be wrapped as an IResourceWithPolicyV2.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3aaefe0993e96e8a47def2a205874aa98f30403418054b3856d6f1ee2c6ec838)
+            type_hints = cached_type_hints(_typecheckingstub__3aaefe0993e96e8a47def2a205874aa98f30403418054b3856d6f1ee2c6ec838)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast("IResourceWithPolicyV2", jsii.invoke(self, "forResource", [resource]))
 
@@ -9750,7 +9744,10 @@ typing.cast(typing.Any, IResourcePolicyFactory).__jsii_proxy_class__ = lambda : 
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicyV2")
-class IResourceWithPolicyV2(_IEnvironmentAware_f39049ee, typing_extensions.Protocol):
+class IResourceWithPolicyV2(
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
     '''A resource with a resource policy that can be added to.'''
 
     @jsii.member(jsii_name="addToResourcePolicy")
@@ -9766,7 +9763,7 @@ class IResourceWithPolicyV2(_IEnvironmentAware_f39049ee, typing_extensions.Proto
 
 
 class _IResourceWithPolicyV2Proxy(
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''A resource with a resource policy that can be added to.'''
 
@@ -9782,7 +9779,7 @@ class _IResourceWithPolicyV2Proxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0411047245e16030f540e191ce067fdd2216fb84afd5f47032486efe2dddfda)
+            type_hints = cached_type_hints(_typecheckingstub__d0411047245e16030f540e191ce067fdd2216fb84afd5f47032486efe2dddfda)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
@@ -9792,8 +9789,8 @@ typing.cast(typing.Any, IResourceWithPolicyV2).__jsii_proxy_class__ = lambda : _
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.ISamlProvider")
 class ISamlProvider(
-    _IResource_c80c4260,
-    _ISAMLProviderRef_6e369856,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_iam_632e20f6.ISAMLProviderRef,
     typing_extensions.Protocol,
 ):
     '''A SAML provider.'''
@@ -9809,8 +9806,8 @@ class ISamlProvider(
 
 
 class _ISamlProviderProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ISAMLProviderRef_6e369856), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.ISAMLProviderRef), # type: ignore[misc]
 ):
     '''A SAML provider.'''
 
@@ -9831,7 +9828,7 @@ typing.cast(typing.Any, ISamlProvider).__jsii_proxy_class__ = lambda : _ISamlPro
 
 @jsii.implements(IInstanceProfile)
 class InstanceProfile(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.InstanceProfile",
 ):
@@ -9879,7 +9876,7 @@ class InstanceProfile(
         :param role: An IAM role to associate with the instance profile that is used by EC2 instances. The role must be assumable by the service principal ``ec2.amazonaws.com``: Default: - a role will be automatically created, it can be accessed via the ``role`` property
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203)
+            type_hints = cached_type_hints(_typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = InstanceProfileProps(
@@ -9906,7 +9903,7 @@ class InstanceProfile(
         :param instance_profile_arn: the ARN of the exiting InstanceProfile to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1)
+            type_hints = cached_type_hints(_typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
@@ -9933,7 +9930,7 @@ class InstanceProfile(
         :param role: The role associated with the InstanceProfile. Default: - no role
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a)
+            type_hints = cached_type_hints(_typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = InstanceProfileAttributes(
@@ -9957,7 +9954,7 @@ class InstanceProfile(
         :param instance_profile_name: the name of the existing InstanceProfile to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e)
+            type_hints = cached_type_hints(_typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
@@ -9983,9 +9980,9 @@ class InstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "_InstanceProfileReference_5eee4bbb":
+    def instance_profile_ref(self) -> "_aws_iam_632e20f6.InstanceProfileReference":
         '''A reference to a InstanceProfile resource.'''
-        return typing.cast("_InstanceProfileReference_5eee4bbb", jsii.get(self, "instanceProfileRef"))
+        return typing.cast("_aws_iam_632e20f6.InstanceProfileReference", jsii.get(self, "instanceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
@@ -10025,7 +10022,7 @@ class InstanceProfileAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb6dd6d0c3541471c82745ecbcf8e73c173fa6246fd7249b3a9e71e7c5b84388)
+            type_hints = cached_type_hints(_typecheckingstub__fb6dd6d0c3541471c82745ecbcf8e73c173fa6246fd7249b3a9e71e7c5b84388)
             check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10113,7 +10110,7 @@ class InstanceProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac5e12eff086b0ebec934d941ac660747a3807a1f2e371ed4b509707ab23e345)
+            type_hints = cached_type_hints(_typecheckingstub__ac5e12eff086b0ebec934d941ac660747a3807a1f2e371ed4b509707ab23e345)
             check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -10174,7 +10171,7 @@ class InstanceProfileProps:
 
 @jsii.implements(IManagedPolicy, IGrantable)
 class ManagedPolicy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.ManagedPolicy",
 ):
@@ -10214,7 +10211,7 @@ class ManagedPolicy(
         *,
         description: typing.Optional[builtins.str] = None,
         document: typing.Optional["PolicyDocument"] = None,
-        groups: typing.Optional[typing.Sequence["_IGroupRef_aeb1d9f6"]] = None,
+        groups: typing.Optional[typing.Sequence["_aws_iam_632e20f6.IGroupRef"]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         roles: typing.Optional[typing.Sequence["IRole"]] = None,
@@ -10234,7 +10231,7 @@ class ManagedPolicy(
         :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d)
+            type_hints = cached_type_hints(_typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ManagedPolicyProps(
@@ -10267,7 +10264,7 @@ class ManagedPolicy(
         :param managed_policy_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca)
+            type_hints = cached_type_hints(_typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca)
             check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
         return typing.cast("IManagedPolicy", jsii.sinvoke(cls, "fromAwsManagedPolicyName", [managed_policy_name]))
 
@@ -10298,7 +10295,7 @@ class ManagedPolicy(
         :param managed_policy_arn: the ARN of the managed policy to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a)
+            type_hints = cached_type_hints(_typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument managed_policy_arn", value=managed_policy_arn, expected_type=type_hints["managed_policy_arn"])
@@ -10321,7 +10318,7 @@ class ManagedPolicy(
         :param managed_policy_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322)
+            type_hints = cached_type_hints(_typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
@@ -10334,18 +10331,18 @@ class ManagedPolicy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef)
+            type_hints = cached_type_hints(_typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef)
             check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
 
     @jsii.member(jsii_name="attachToGroup")
-    def attach_to_group(self, group: "_IGroupRef_aeb1d9f6") -> None:
+    def attach_to_group(self, group: "_aws_iam_632e20f6.IGroupRef") -> None:
         '''Attaches this policy to a group.
 
         :param group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e)
+            type_hints = cached_type_hints(_typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
 
@@ -10356,18 +10353,18 @@ class ManagedPolicy(
         :param role: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9)
+            type_hints = cached_type_hints(_typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
 
     @jsii.member(jsii_name="attachToUser")
-    def attach_to_user(self, user: "_IUserRef_b0ccca76") -> None:
+    def attach_to_user(self, user: "_aws_iam_632e20f6.IUserRef") -> None:
         '''Attaches this policy to a user.
 
         :param user: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d)
+            type_hints = cached_type_hints(_typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
         return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
 
@@ -10418,9 +10415,9 @@ class ManagedPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> "_ManagedPolicyReference_078bf7cb":
+    def managed_policy_ref(self) -> "_aws_iam_632e20f6.ManagedPolicyReference":
         '''A reference to a ManagedPolicy resource.'''
-        return typing.cast("_ManagedPolicyReference_078bf7cb", jsii.get(self, "managedPolicyRef"))
+        return typing.cast("_aws_iam_632e20f6.ManagedPolicyReference", jsii.get(self, "managedPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="path")
@@ -10452,7 +10449,7 @@ class ManagedPolicyProps:
         *,
         description: typing.Optional[builtins.str] = None,
         document: typing.Optional["PolicyDocument"] = None,
-        groups: typing.Optional[typing.Sequence["_IGroupRef_aeb1d9f6"]] = None,
+        groups: typing.Optional[typing.Sequence["_aws_iam_632e20f6.IGroupRef"]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         roles: typing.Optional[typing.Sequence["IRole"]] = None,
@@ -10510,7 +10507,7 @@ class ManagedPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a81189e27e35)
+            type_hints = cached_type_hints(_typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a81189e27e35)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
@@ -10564,7 +10561,7 @@ class ManagedPolicyProps:
         return typing.cast(typing.Optional["PolicyDocument"], result)
 
     @builtins.property
-    def groups(self) -> typing.Optional[typing.List["_IGroupRef_aeb1d9f6"]]:
+    def groups(self) -> typing.Optional[typing.List["_aws_iam_632e20f6.IGroupRef"]]:
         '''Groups to attach this policy to.
 
         You can also use ``attachToGroup(group)`` to attach this policy to a group.
@@ -10572,7 +10569,7 @@ class ManagedPolicyProps:
         :default: - No groups.
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List["_IGroupRef_aeb1d9f6"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_iam_632e20f6.IGroupRef"]], result)
 
     @builtins.property
     def managed_policy_name(self) -> typing.Optional[builtins.str]:
@@ -10650,7 +10647,7 @@ class ManagedPolicyProps:
 
 @jsii.implements(IOidcProvider)
 class OidcProviderNative(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.OidcProviderNative",
 ):
@@ -10683,7 +10680,7 @@ class OidcProviderNative(
         url: builtins.str,
         client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         oidc_provider_name: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Defines a Native OpenID Connect provider.
@@ -10697,7 +10694,7 @@ class OidcProviderNative(
         :param thumbprints: A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificates. Typically this list includes only 1 entry or empty. However, IAM lets you have up to 5 thumbprints for an OIDC provider. This lets you maintain multiple thumbprints if the identity provider is rotating certificates. The server certificate thumbprint is the hex-encoded SHA-1 hash value of the X.509 certificate used by the domain where the OpenID Connect provider makes its keys available. It is always a 40-character string. For example, assume that the OIDC provider is server.example.com and the provider stores its keys at https://keys.server.example.com/openid-connect. In that case, the thumbprint string would be the hex-encoded SHA-1 hash value of the certificate used by https://keys.server.example.com. This property is optional. If it is not included, IAM will retrieve and use the top intermediate certificate authority (CA) thumbprint of the OpenID Connect identity provider server certificate. Obtain the thumbprint of the root certificate authority from the provider's server as described in https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc_verify-thumbprint.html Default: - no thumbprints are allowed. IAM will retrieve and use thumbprint of idenity provider server cerctificate
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__680e816817bfe60e999b472326e5b4b238c62d88192645c5b0bfcd07a0a2a70a)
+            type_hints = cached_type_hints(_typecheckingstub__680e816817bfe60e999b472326e5b4b238c62d88192645c5b0bfcd07a0a2a70a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OidcProviderNativeProps(
@@ -10725,7 +10722,7 @@ class OidcProviderNative(
         :param oidc_provider_arn: the ARN to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bbbb35dca97e313a334486d4f1f9ad4d587da8ed7cab00044df51dcffea77cc)
+            type_hints = cached_type_hints(_typecheckingstub__2bbbb35dca97e313a334486d4f1f9ad4d587da8ed7cab00044df51dcffea77cc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument oidc_provider_arn", value=oidc_provider_arn, expected_type=type_hints["oidc_provider_arn"])
@@ -10757,9 +10754,9 @@ class OidcProviderNative(
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
+    def oidc_provider_ref(self) -> "_aws_iam_632e20f6.OIDCProviderReference":
         '''A reference to a OIDCProvider resource.'''
-        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
+        return typing.cast("_aws_iam_632e20f6.OIDCProviderReference", jsii.get(self, "oidcProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderThumbprints")
@@ -10807,7 +10804,7 @@ class OidcProviderNativeProps:
         url: builtins.str,
         client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         oidc_provider_name: typing.Optional[builtins.str] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Initialization properties for ``OIDCProviderNative``.
@@ -10829,7 +10826,7 @@ class OidcProviderNativeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6981defdaab974b803e9671371e547d5d70ee03239eed02c8d458e1a2e5aa307)
+            type_hints = cached_type_hints(_typecheckingstub__6981defdaab974b803e9671371e547d5d70ee03239eed02c8d458e1a2e5aa307)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument client_ids", value=client_ids, expected_type=type_hints["client_ids"])
             check_type(argname="argument oidc_provider_name", value=oidc_provider_name, expected_type=type_hints["oidc_provider_name"])
@@ -10897,13 +10894,13 @@ class OidcProviderNativeProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the OpenID Connect Provider.
 
         :default: - RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def thumbprints(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10951,7 +10948,7 @@ class OidcProviderNativeProps:
 
 @jsii.implements(IOpenIdConnectProvider)
 class OpenIdConnectProvider(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.OpenIdConnectProvider",
 ):
@@ -11000,7 +10997,7 @@ class OpenIdConnectProvider(
         *,
         url: builtins.str,
         client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Defines an OpenID Connect provider.
@@ -11013,7 +11010,7 @@ class OpenIdConnectProvider(
         :param thumbprints: A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificates. Typically this list includes only one entry. However, IAM lets you have up to five thumbprints for an OIDC provider. This lets you maintain multiple thumbprints if the identity provider is rotating certificates. The server certificate thumbprint is the hex-encoded SHA-1 hash value of the X.509 certificate used by the domain where the OpenID Connect provider makes its keys available. It is always a 40-character string. You must provide at least one thumbprint when creating an IAM OIDC provider. For example, assume that the OIDC provider is server.example.com and the provider stores its keys at https://keys.server.example.com/openid-connect. In that case, the thumbprint string would be the hex-encoded SHA-1 hash value of the certificate used by https://keys.server.example.com. Default: - If no thumbprints are specified (an empty array or ``undefined``), the thumbprint of the root certificate authority will be obtained from the provider's server as described in https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc_verify-thumbprint.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__270fe9db45fea69c973ea36d667d5236d0463996999ebebabf67dbaafe739d10)
+            type_hints = cached_type_hints(_typecheckingstub__270fe9db45fea69c973ea36d667d5236d0463996999ebebabf67dbaafe739d10)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = OpenIdConnectProviderProps(
@@ -11040,7 +11037,7 @@ class OpenIdConnectProvider(
         :param open_id_connect_provider_arn: the ARN to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b937a1209414da4def854fd0c371550ec506b47f8d3f8c931bee67604e5589a)
+            type_hints = cached_type_hints(_typecheckingstub__6b937a1209414da4def854fd0c371550ec506b47f8d3f8c931bee67604e5589a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument open_id_connect_provider_arn", value=open_id_connect_provider_arn, expected_type=type_hints["open_id_connect_provider_arn"])
@@ -11054,9 +11051,9 @@ class OpenIdConnectProvider(
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
+    def oidc_provider_ref(self) -> "_aws_iam_632e20f6.OIDCProviderReference":
         '''A reference to a OIDCProvider resource.'''
-        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
+        return typing.cast("_aws_iam_632e20f6.OIDCProviderReference", jsii.get(self, "oidcProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArn")
@@ -11093,7 +11090,7 @@ class OpenIdConnectProviderProps:
         *,
         url: builtins.str,
         client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Initialization properties for ``OpenIdConnectProvider``.
@@ -11113,7 +11110,7 @@ class OpenIdConnectProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c07fc1633df440495e4513aa2acd1999d7e26f667e4c9d387ecfed34ba60aa34)
+            type_hints = cached_type_hints(_typecheckingstub__c07fc1633df440495e4513aa2acd1999d7e26f667e4c9d387ecfed34ba60aa34)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument client_ids", value=client_ids, expected_type=type_hints["client_ids"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -11167,13 +11164,13 @@ class OpenIdConnectProviderProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''The removal policy to apply to the OpenID Connect Provider.
 
         :default: - RemovalPolicy.DESTROY
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def thumbprints(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -11243,7 +11240,7 @@ class PermissionsBoundary(
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c60cfb31fa5f1464742fd5bd4c6874bbac2f64c851f5a2c9446ae181b34b208)
+            type_hints = cached_type_hints(_typecheckingstub__5c60cfb31fa5f1464742fd5bd4c6874bbac2f64c851f5a2c9446ae181b34b208)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("PermissionsBoundary", jsii.sinvoke(cls, "of", [scope]))
 
@@ -11258,7 +11255,7 @@ class PermissionsBoundary(
         :param boundary_policy: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d84d00226fae280f509c83e8e2fe992e095759345570998cb685b91b3428566)
+            type_hints = cached_type_hints(_typecheckingstub__9d84d00226fae280f509c83e8e2fe992e095759345570998cb685b91b3428566)
             check_type(argname="argument boundary_policy", value=boundary_policy, expected_type=type_hints["boundary_policy"])
         return typing.cast(None, jsii.invoke(self, "apply", [boundary_policy]))
 
@@ -11270,7 +11267,7 @@ class PermissionsBoundary(
 
 @jsii.implements(IPolicy, IGrantable)
 class Policy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.Policy",
 ):
@@ -11323,7 +11320,7 @@ class Policy(
         :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596)
+            type_hints = cached_type_hints(_typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PolicyProps(
@@ -11353,7 +11350,7 @@ class Policy(
         :param policy_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948)
+            type_hints = cached_type_hints(_typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
@@ -11366,7 +11363,7 @@ class Policy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799)
+            type_hints = cached_type_hints(_typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799)
             check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
 
@@ -11377,7 +11374,7 @@ class Policy(
         :param group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea)
+            type_hints = cached_type_hints(_typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
 
@@ -11388,7 +11385,7 @@ class Policy(
         :param role: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82)
+            type_hints = cached_type_hints(_typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
 
@@ -11399,7 +11396,7 @@ class Policy(
         :param user: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae)
+            type_hints = cached_type_hints(_typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
         return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
 
@@ -11432,12 +11429,12 @@ class Policy(
 
     @builtins.property
     @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "_PolicyReference_b83371a5":
+    def policy_ref(self) -> "_aws_iam_632e20f6.PolicyReference":
         '''A reference to a Policy resource.'''
-        return typing.cast("_PolicyReference_b83371a5", jsii.get(self, "policyRef"))
+        return typing.cast("_aws_iam_632e20f6.PolicyReference", jsii.get(self, "policyRef"))
 
 
-@jsii.implements(_IResolvable_da3f097b)
+@jsii.implements(_aws_cdk_0cae9daa.IResolvable)
 class PolicyDocument(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.PolicyDocument",
@@ -11499,7 +11496,7 @@ class PolicyDocument(
         :param obj: the PolicyDocument in object form.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__570b193deac1ab27a70fd71df51891425bc3ec3540e0a5cf7f8f9e585b276f20)
+            type_hints = cached_type_hints(_typecheckingstub__570b193deac1ab27a70fd71df51891425bc3ec3540e0a5cf7f8f9e585b276f20)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast("PolicyDocument", jsii.sinvoke(cls, "fromJson", [obj]))
 
@@ -11510,18 +11507,18 @@ class PolicyDocument(
         :param statement: the statement to add.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54360ff9757f011bcac10fedb199770d4d17ebf0453c3d234c0d5dc45d33e1c1)
+            type_hints = cached_type_hints(_typecheckingstub__54360ff9757f011bcac10fedb199770d4d17ebf0453c3d234c0d5dc45d33e1c1)
             check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
 
     @jsii.member(jsii_name="resolve")
-    def resolve(self, context: "_IResolveContext_b2df1921") -> typing.Any:
+    def resolve(self, context: "_aws_cdk_0cae9daa.IResolveContext") -> typing.Any:
         '''Produce the Token's value at resolution time.
 
         :param context: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2bffb5bcc0e0574448352039a95ee7ed66fbd29faff9f34b1c5e482d329f7e3)
+            type_hints = cached_type_hints(_typecheckingstub__e2bffb5bcc0e0574448352039a95ee7ed66fbd29faff9f34b1c5e482d329f7e3)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
         return typing.cast(typing.Any, jsii.invoke(self, "resolve", [context]))
 
@@ -11640,7 +11637,7 @@ class PolicyDocumentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__148d80305c19bb7e6f27161227f29ccdccd87c5529111c191eee0c97d735d661)
+            type_hints = cached_type_hints(_typecheckingstub__148d80305c19bb7e6f27161227f29ccdccd87c5529111c191eee0c97d735d661)
             check_type(argname="argument assign_sids", value=assign_sids, expected_type=type_hints["assign_sids"])
             check_type(argname="argument minimize", value=minimize, expected_type=type_hints["minimize"])
             check_type(argname="argument statements", value=statements, expected_type=type_hints["statements"])
@@ -11760,7 +11757,7 @@ class PolicyProps:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a119470d7c78e863a14a450dfe2d14dd9454487e93601f2675b2fafe09790c2)
+            type_hints = cached_type_hints(_typecheckingstub__0a119470d7c78e863a14a450dfe2d14dd9454487e93601f2675b2fafe09790c2)
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
             check_type(argname="argument force", value=force, expected_type=type_hints["force"])
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
@@ -11973,7 +11970,7 @@ class PolicyStatement(
         :param obj: the PolicyStatement in object form.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3310dd221a31143a87ae81db4017dcad81b1a99d3d920f2184101ed8e7186455)
+            type_hints = cached_type_hints(_typecheckingstub__3310dd221a31143a87ae81db4017dcad81b1a99d3d920f2184101ed8e7186455)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast("PolicyStatement", jsii.sinvoke(cls, "fromJson", [obj]))
 
@@ -11988,7 +11985,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__709bd112516bbfd3a8db442420a90bf80eae4cfd2a7d514a5612c6b3a447720c)
+            type_hints = cached_type_hints(_typecheckingstub__709bd112516bbfd3a8db442420a90bf80eae4cfd2a7d514a5612c6b3a447720c)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         return typing.cast(None, jsii.invoke(self, "addAccountCondition", [account_id]))
 
@@ -12006,7 +12003,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7570c3287006f9128c65d62789b1ef89599fe16f2b3a738f83cb5fa00aac1beb)
+            type_hints = cached_type_hints(_typecheckingstub__7570c3287006f9128c65d62789b1ef89599fe16f2b3a738f83cb5fa00aac1beb)
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addActions", [*actions]))
 
@@ -12029,7 +12026,7 @@ class PolicyStatement(
         :param arn: ARN identifier of AWS account, IAM user, or IAM role (i.e. arn:aws:iam::123456789012:user/user-name).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__753e936d4d13cab9c5aa2f61d42cab848105cd421cf5e5027b920d5ad7ca0fdf)
+            type_hints = cached_type_hints(_typecheckingstub__753e936d4d13cab9c5aa2f61d42cab848105cd421cf5e5027b920d5ad7ca0fdf)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         return typing.cast(None, jsii.invoke(self, "addArnPrincipal", [arn]))
 
@@ -12040,7 +12037,7 @@ class PolicyStatement(
         :param account_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e93c2a641b144f46ca61b524c40ddbae1d4b77b9640fa4996e816f445d8f6edd)
+            type_hints = cached_type_hints(_typecheckingstub__e93c2a641b144f46ca61b524c40ddbae1d4b77b9640fa4996e816f445d8f6edd)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         return typing.cast(None, jsii.invoke(self, "addAwsAccountPrincipal", [account_id]))
 
@@ -12051,7 +12048,7 @@ class PolicyStatement(
         :param canonical_user_id: unique identifier assigned by AWS for every account.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__344be87a6a10a3974e50790a68d361cd386fe620caf5baa8dae7ef6f97881c28)
+            type_hints = cached_type_hints(_typecheckingstub__344be87a6a10a3974e50790a68d361cd386fe620caf5baa8dae7ef6f97881c28)
             check_type(argname="argument canonical_user_id", value=canonical_user_id, expected_type=type_hints["canonical_user_id"])
         return typing.cast(None, jsii.invoke(self, "addCanonicalUserPrincipal", [canonical_user_id]))
 
@@ -12082,7 +12079,7 @@ class PolicyStatement(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db59aa35431ad83b8fa7e1c45f11c92108f81ccef5b7baab7a37414280719862)
+            type_hints = cached_type_hints(_typecheckingstub__db59aa35431ad83b8fa7e1c45f11c92108f81ccef5b7baab7a37414280719862)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addCondition", [key, value]))
@@ -12099,7 +12096,7 @@ class PolicyStatement(
         :param conditions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f76cf4da6bbc6e1cb542b1c4034ab81599d83ce4800b0a288a241ba0d4ac6ee)
+            type_hints = cached_type_hints(_typecheckingstub__1f76cf4da6bbc6e1cb542b1c4034ab81599d83ce4800b0a288a241ba0d4ac6ee)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         return typing.cast(None, jsii.invoke(self, "addConditions", [conditions]))
 
@@ -12115,7 +12112,7 @@ class PolicyStatement(
         :param conditions: The conditions under which the policy is in effect. See `the IAM documentation <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html>`_.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ee9dcc2ed7fe994d44a076dc07c103db4407fcda32a738035feb148a22879ba)
+            type_hints = cached_type_hints(_typecheckingstub__2ee9dcc2ed7fe994d44a076dc07c103db4407fcda32a738035feb148a22879ba)
             check_type(argname="argument federated", value=federated, expected_type=type_hints["federated"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         return typing.cast(None, jsii.invoke(self, "addFederatedPrincipal", [federated, conditions]))
@@ -12129,7 +12126,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notaction.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b6b4424bff8556b7a98dfced6db44392158d11177b9f964fe1cb0cfb4532f85)
+            type_hints = cached_type_hints(_typecheckingstub__6b6b4424bff8556b7a98dfced6db44392158d11177b9f964fe1cb0cfb4532f85)
             check_type(argname="argument not_actions", value=not_actions, expected_type=typing.Tuple[type_hints["not_actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addNotActions", [*not_actions]))
 
@@ -12142,7 +12139,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b9cc21ab5c593c77deae20933faab5861db2f155f8bf91ced6fe1a382e51ba)
+            type_hints = cached_type_hints(_typecheckingstub__d3b9cc21ab5c593c77deae20933faab5861db2f155f8bf91ced6fe1a382e51ba)
             check_type(argname="argument not_principals", value=not_principals, expected_type=typing.Tuple[type_hints["not_principals"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addNotPrincipals", [*not_principals]))
 
@@ -12157,7 +12154,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notresource.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b596ffa85ab5014633dac1d25489acd42c736f41cdba62b050ca048610a83ed2)
+            type_hints = cached_type_hints(_typecheckingstub__b596ffa85ab5014633dac1d25489acd42c736f41cdba62b050ca048610a83ed2)
             check_type(argname="argument arns", value=arns, expected_type=typing.Tuple[type_hints["arns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addNotResources", [*arns]))
 
@@ -12170,7 +12167,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1783e9c91d9c307df264cec637ef147b4aa30b973ac302ab19a9f486211719bf)
+            type_hints = cached_type_hints(_typecheckingstub__1783e9c91d9c307df264cec637ef147b4aa30b973ac302ab19a9f486211719bf)
             check_type(argname="argument principals", value=principals, expected_type=typing.Tuple[type_hints["principals"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPrincipals", [*principals]))
 
@@ -12183,7 +12180,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_resource.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feb2cb778edcb3c0b9cafd7458f0c6d0481e45f9d827da0b859be3f4f30d6393)
+            type_hints = cached_type_hints(_typecheckingstub__feb2cb778edcb3c0b9cafd7458f0c6d0481e45f9d827da0b859be3f4f30d6393)
             check_type(argname="argument arns", value=arns, expected_type=typing.Tuple[type_hints["arns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addResources", [*arns]))
 
@@ -12202,7 +12199,7 @@ class PolicyStatement(
         :param region: The region in which you want to reference the service. This is only necessary for *cross-region* references to *opt-in* regions. In those cases, the region name needs to be included to reference the correct service principal. In all other cases, the global service principal name is sufficient. This field behaves differently depending on whether the ``@aws-cdk/aws-iam:standardizedServicePrincipals`` flag is set or not: - If the flag is set, the input service principal is assumed to be of the form ``SERVICE.amazonaws.com``. That value will always be returned, unless the given region is an opt-in region and the service principal is rendered in a stack in a different region, in which case ``SERVICE.REGION.amazonaws.com`` will be rendered. Under this regime, there is no downside to always specifying the region property: it will be rendered only if necessary. - If the flag is not set, the service principal will resolve to a single principal whose name comes from the ``@aws-cdk/region-info`` package, using the region to override the stack region. If there is no entry for this service principal in the database,, the input service name is returned literally. This is legacy behavior and is not recommended. Default: - the resolving Stack's region.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd372f80873e5e30ce5cf291cd80c7ce500c12643cde076cf4ddfbc1c05faea5)
+            type_hints = cached_type_hints(_typecheckingstub__dd372f80873e5e30ce5cf291cd80c7ce500c12643cde076cf4ddfbc1c05faea5)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         opts = ServicePrincipalOpts(conditions=conditions, region=region)
 
@@ -12219,7 +12216,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourceaccount
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b4744c164be6f567bdcb8f9b4c6dd9ee9ed642a926a6200c6fcb6735c3499e4)
+            type_hints = cached_type_hints(_typecheckingstub__0b4744c164be6f567bdcb8f9b4c6dd9ee9ed642a926a6200c6fcb6735c3499e4)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         return typing.cast(None, jsii.invoke(self, "addSourceAccountCondition", [account_id]))
 
@@ -12234,7 +12231,7 @@ class PolicyStatement(
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html#condition-keys-sourcearn
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e49097a84ad9a7af8121131935195997223c04f9d2b394c9d8f88a9f6446dc9b)
+            type_hints = cached_type_hints(_typecheckingstub__e49097a84ad9a7af8121131935195997223c04f9d2b394c9d8f88a9f6446dc9b)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         return typing.cast(None, jsii.invoke(self, "addSourceArnCondition", [arn]))
 
@@ -12413,7 +12410,7 @@ class PolicyStatement(
     @effect.setter
     def effect(self, value: "Effect") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0938212412c89f00c92be30674976489815687ff4590eef7d1e3a8d2b3605ff1)
+            type_hints = cached_type_hints(_typecheckingstub__0938212412c89f00c92be30674976489815687ff4590eef7d1e3a8d2b3605ff1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "effect", value) # pyright: ignore[reportArgumentType]
 
@@ -12426,7 +12423,7 @@ class PolicyStatement(
     @sid.setter
     def sid(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ad1bd9e071f1c20bcba127bf551d42076cff1e619eeeecfffabbcefe7b69818)
+            type_hints = cached_type_hints(_typecheckingstub__3ad1bd9e071f1c20bcba127bf551d42076cff1e619eeeecfffabbcefe7b69818)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sid", value) # pyright: ignore[reportArgumentType]
 
@@ -12503,7 +12500,7 @@ class PolicyStatementProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1307ab5f5dd84b7184f36603f7af026efb2798812c35c96dbe60552fff14c3b)
+            type_hints = cached_type_hints(_typecheckingstub__b1307ab5f5dd84b7184f36603f7af026efb2798812c35c96dbe60552fff14c3b)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument effect", value=effect, expected_type=type_hints["effect"])
@@ -12677,7 +12674,7 @@ class PrincipalPolicyFragment(
         :param conditions: The conditions under which the policy is in effect. See `the IAM documentation <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html>`_. conditions that need to be applied to this policy
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e1c928ea)
+            type_hints = cached_type_hints(_typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e1c928ea)
             check_type(argname="argument principal_json", value=principal_json, expected_type=type_hints["principal_json"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [principal_json, conditions])
@@ -12726,14 +12723,14 @@ class ResourceWithPolicies(
     @builtins.classmethod
     def of(
         cls,
-        resource: "_IEnvironmentAware_f39049ee",
+        resource: "_interfaces_8ca7e747.IEnvironmentAware",
     ) -> typing.Optional["IResourceWithPolicyV2"]:
         '''Retrieve the IResourceWithPolicyV2 associated with a construct, if available.
 
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32502772b8e5f0749cf64587a97089b708edc05e8c27d2dd0848d0aa77b3c654)
+            type_hints = cached_type_hints(_typecheckingstub__32502772b8e5f0749cf64587a97089b708edc05e8c27d2dd0848d0aa77b3c654)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(typing.Optional["IResourceWithPolicyV2"], jsii.sinvoke(cls, "of", [resource]))
 
@@ -12752,7 +12749,7 @@ class ResourceWithPolicies(
         :param factory: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfdd3d4ab45c404c8b3b969489ec6c92cbf8b72f267a44b78be812cedc6d39a9)
+            type_hints = cached_type_hints(_typecheckingstub__dfdd3d4ab45c404c8b3b969489ec6c92cbf8b72f267a44b78be812cedc6d39a9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument cfn_type", value=cfn_type, expected_type=type_hints["cfn_type"])
             check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
@@ -12778,13 +12775,13 @@ class RoleGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.RoleGra
 
     @jsii.member(jsii_name="fromRole")
     @builtins.classmethod
-    def from_role(cls, role: "_IRoleRef_8400221f") -> "RoleGrants":
+    def from_role(cls, role: "_aws_iam_632e20f6.IRoleRef") -> "RoleGrants":
         '''Creates grants for IRoleRef.
 
         :param role: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dffa67cf033b90d54f11e95ec0b1a8cd60db661c810a4fd24dc03933a21d5c87)
+            type_hints = cached_type_hints(_typecheckingstub__dffa67cf033b90d54f11e95ec0b1a8cd60db661c810a4fd24dc03933a21d5c87)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         return typing.cast("RoleGrants", jsii.sinvoke(cls, "fromRole", [role]))
 
@@ -12795,7 +12792,7 @@ class RoleGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.RoleGra
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e43e158983e4dd015aa840081e69baed377aba2f7fd40438b55ae1fb555e272)
+            type_hints = cached_type_hints(_typecheckingstub__0e43e158983e4dd015aa840081e69baed377aba2f7fd40438b55ae1fb555e272)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "assumeRole", [identity]))
 
@@ -12806,7 +12803,7 @@ class RoleGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.RoleGra
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__557aabeb0c114b0578fa478004131fa9486a9be7effa997358f0dbebe32cf40c)
+            type_hints = cached_type_hints(_typecheckingstub__557aabeb0c114b0578fa478004131fa9486a9be7effa997358f0dbebe32cf40c)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "passRole", [identity]))
 
@@ -12846,7 +12843,7 @@ class RoleLookupOptions(FromRoleArnOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f459857ae55dc3473fba5b10ef4188eca762038ac741736a6d4b8cac006356)
+            type_hints = cached_type_hints(_typecheckingstub__06f459857ae55dc3473fba5b10ef4188eca762038ac741736a6d4b8cac006356)
             check_type(argname="argument add_grants_to_resources", value=add_grants_to_resources, expected_type=type_hints["add_grants_to_resources"])
             check_type(argname="argument default_policy_name", value=default_policy_name, expected_type=type_hints["default_policy_name"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -12948,7 +12945,7 @@ class RoleProps:
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_session_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
@@ -12984,7 +12981,7 @@ class RoleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c9223cb9fa6dff45ee4fd7013629ab18542c2499a83f542c5405968fad2287c)
+            type_hints = cached_type_hints(_typecheckingstub__9c9223cb9fa6dff45ee4fd7013629ab18542c2499a83f542c5405968fad2287c)
             check_type(argname="argument assumed_by", value=assumed_by, expected_type=type_hints["assumed_by"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument external_ids", value=external_ids, expected_type=type_hints["external_ids"])
@@ -13077,7 +13074,7 @@ class RoleProps:
         return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_session_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -13098,7 +13095,7 @@ class RoleProps:
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -13195,7 +13192,7 @@ class SamlMetadataDocument(
         :param path: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91316381005170938f0843dfc46ecd2dcd5bff5e8a02bd3f549257a6766268ec)
+            type_hints = cached_type_hints(_typecheckingstub__91316381005170938f0843dfc46ecd2dcd5bff5e8a02bd3f549257a6766268ec)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("SamlMetadataDocument", jsii.sinvoke(cls, "fromFile", [path]))
 
@@ -13207,7 +13204,7 @@ class SamlMetadataDocument(
         :param xml: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__539954bae3260c99c71a9ce3ae7c5beabd619c72716348d783fb02a4392e8980)
+            type_hints = cached_type_hints(_typecheckingstub__539954bae3260c99c71a9ce3ae7c5beabd619c72716348d783fb02a4392e8980)
             check_type(argname="argument xml", value=xml, expected_type=type_hints["xml"])
         return typing.cast("SamlMetadataDocument", jsii.sinvoke(cls, "fromXml", [xml]))
 
@@ -13232,7 +13229,7 @@ typing.cast(typing.Any, SamlMetadataDocument).__jsii_proxy_class__ = lambda : _S
 
 @jsii.implements(ISamlProvider)
 class SamlProvider(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.SamlProvider",
 ):
@@ -13265,7 +13262,7 @@ class SamlProvider(
         :param name: The name of the provider to create. This parameter allows a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- Length must be between 1 and 128 characters. Default: - a CloudFormation generated name
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75c8a0ae91cf9a623b67a15b867de0473fa7870f3d3806ea585381a9a32222a2)
+            type_hints = cached_type_hints(_typecheckingstub__75c8a0ae91cf9a623b67a15b867de0473fa7870f3d3806ea585381a9a32222a2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SamlProviderProps(metadata_document=metadata_document, name=name)
@@ -13287,7 +13284,7 @@ class SamlProvider(
         :param saml_provider_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b78da91cf00435dc5bff92bbb2857fe752f6a28b7483a3790b9a5fc1a88be6ab)
+            type_hints = cached_type_hints(_typecheckingstub__b78da91cf00435dc5bff92bbb2857fe752f6a28b7483a3790b9a5fc1a88be6ab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument saml_provider_arn", value=saml_provider_arn, expected_type=type_hints["saml_provider_arn"])
@@ -13307,9 +13304,9 @@ class SamlProvider(
 
     @builtins.property
     @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> "_SAMLProviderReference_08e1fac1":
+    def saml_provider_ref(self) -> "_aws_iam_632e20f6.SAMLProviderReference":
         '''A reference to a SAMLProvider resource.'''
-        return typing.cast("_SAMLProviderReference_08e1fac1", jsii.get(self, "samlProviderRef"))
+        return typing.cast("_aws_iam_632e20f6.SAMLProviderReference", jsii.get(self, "samlProviderRef"))
 
 
 @jsii.data_type(
@@ -13341,7 +13338,7 @@ class SamlProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f0838242f105f982b040b1e4abc268b7e6230b1f40a59916bdce34e26df4782)
+            type_hints = cached_type_hints(_typecheckingstub__5f0838242f105f982b040b1e4abc268b7e6230b1f40a59916bdce34e26df4782)
             check_type(argname="argument metadata_document", value=metadata_document, expected_type=type_hints["metadata_document"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13419,7 +13416,7 @@ class ServicePrincipalOpts:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1a7b908a503ee76c237762d915d7a503778df01faaca4c8b3e6de46c413efea)
+            type_hints = cached_type_hints(_typecheckingstub__b1a7b908a503ee76c237762d915d7a503778df01faaca4c8b3e6de46c413efea)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13521,7 +13518,7 @@ class UnknownPrincipal(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0427f0b3c82f050501fde1f37f0708213ce2880cf76710cab2373a0fce6fbf0a)
+            type_hints = cached_type_hints(_typecheckingstub__0427f0b3c82f050501fde1f37f0708213ce2880cf76710cab2373a0fce6fbf0a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -13535,7 +13532,7 @@ class UnknownPrincipal(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eafec25f04d3417a92e78ef10e9bfbbdf9bad8c39e6cf6cafe9a65939952296)
+            type_hints = cached_type_hints(_typecheckingstub__2eafec25f04d3417a92e78ef10e9bfbbdf9bad8c39e6cf6cafe9a65939952296)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -13585,7 +13582,7 @@ class UnknownPrincipalProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5de6fb03be5f0e87676deff413c87e5098f429f34e2caed17f1337c435ed431)
+            type_hints = cached_type_hints(_typecheckingstub__e5de6fb03be5f0e87676deff413c87e5098f429f34e2caed17f1337c435ed431)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource": resource,
@@ -13630,7 +13627,7 @@ class UserAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5246085f2e2073ef1bcc0015f7ac242968b5a4a77257c315904c1bf3c1dabd4a)
+            type_hints = cached_type_hints(_typecheckingstub__5246085f2e2073ef1bcc0015f7ac242968b5a4a77257c315904c1bf3c1dabd4a)
             check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "user_arn": user_arn,
@@ -13677,7 +13674,7 @@ class UserProps:
         *,
         groups: typing.Optional[typing.Sequence["IGroup"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        password: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        password: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         password_reset_required: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
@@ -13705,7 +13702,7 @@ class UserProps:
             group.attach_inline_policy(policy)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b49c33f300471f45a248f56a068fb48f78451f10631fedcb3e5890d72ce3fe05)
+            type_hints = cached_type_hints(_typecheckingstub__b49c33f300471f45a248f56a068fb48f78451f10631fedcb3e5890d72ce3fe05)
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
             check_type(argname="argument managed_policies", value=managed_policies, expected_type=type_hints["managed_policies"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
@@ -13754,7 +13751,7 @@ class UserProps:
         return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def password(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def password(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''The password for the user. This is required so the user can access the AWS Management Console.
 
         You can use ``SecretValue.unsafePlainText`` to specify a password in plain text or
@@ -13764,7 +13761,7 @@ class UserProps:
         :default: - User won't be able to access the management console without a password.
         '''
         result = self._values.get("password")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     @builtins.property
     def password_reset_required(self) -> typing.Optional[builtins.bool]:
@@ -13868,7 +13865,7 @@ class WithoutPolicyUpdatesOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63c38b4a84c27c159038a7ab31110e5032bef8ddad181f04f0b754232fb1ed44)
+            type_hints = cached_type_hints(_typecheckingstub__63c38b4a84c27c159038a7ab31110e5032bef8ddad181f04f0b754232fb1ed44)
             check_type(argname="argument add_grants_to_resources", value=add_grants_to_resources, expected_type=type_hints["add_grants_to_resources"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if add_grants_to_resources is not None:
@@ -13902,7 +13899,7 @@ class WithoutPolicyUpdatesOptions:
 
 @jsii.implements(IAccessKey)
 class AccessKey(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.AccessKey",
 ):
@@ -13937,7 +13934,7 @@ class AccessKey(
         :param status: The status of the access key. An Active access key is allowed to be used to make API calls; An Inactive key cannot. Default: - The access key is active
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4)
+            type_hints = cached_type_hints(_typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AccessKeyProps(user=user, serial=serial, status=status)
@@ -13958,15 +13955,15 @@ class AccessKey(
 
     @builtins.property
     @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> "_AccessKeyReference_2bdfd122":
+    def access_key_ref(self) -> "_aws_iam_632e20f6.AccessKeyReference":
         '''A reference to a AccessKey resource.'''
-        return typing.cast("_AccessKeyReference_2bdfd122", jsii.get(self, "accessKeyRef"))
+        return typing.cast("_aws_iam_632e20f6.AccessKeyReference", jsii.get(self, "accessKeyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+    def secret_access_key(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The Secret Access Key.'''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretAccessKey"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "secretAccessKey"))
 
 
 @jsii.data_type(
@@ -14037,7 +14034,7 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0475ec23892b6dacf8e0426b204cca68a4091056bb08c20a72dbc06d2aedcf5e)
+            type_hints = cached_type_hints(_typecheckingstub__0475ec23892b6dacf8e0426b204cca68a4091056bb08c20a72dbc06d2aedcf5e)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
@@ -14185,7 +14182,7 @@ class _IAssumeRolePrincipalProxy(
         :param document: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2773dd1c98b9bb45b356173892f3248a430e55c5ab0a22cb6e5df0bcdaa898a5)
+            type_hints = cached_type_hints(_typecheckingstub__2773dd1c98b9bb45b356173892f3248a430e55c5ab0a22cb6e5df0bcdaa898a5)
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [document]))
 
@@ -14228,7 +14225,7 @@ typing.cast(typing.Any, IComparablePrincipal).__jsii_proxy_class__ = lambda : _I
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IIdentity")
-class IIdentity(IPrincipal, _IResource_c80c4260, typing_extensions.Protocol):
+class IIdentity(IPrincipal, _aws_cdk_0cae9daa.IResource, typing_extensions.Protocol):
     '''A construct that represents an IAM principal, such as a user, group or role.
 
     [awslint:interface-extends-ref]
@@ -14255,7 +14252,7 @@ class IIdentity(IPrincipal, _IResource_c80c4260, typing_extensions.Protocol):
 
 class _IIdentityProxy(
     jsii.proxy_for(IPrincipal), # type: ignore[misc]
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
 ):
     '''A construct that represents an IAM principal, such as a user, group or role.
 
@@ -14271,7 +14268,7 @@ class _IIdentityProxy(
         :param policy: The managed policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c19fda9308c83b1b61fd496fa74f5eddc104dfaf811b56cfe18d29e27da6971)
+            type_hints = cached_type_hints(_typecheckingstub__3c19fda9308c83b1b61fd496fa74f5eddc104dfaf811b56cfe18d29e27da6971)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
@@ -14284,7 +14281,7 @@ class _IIdentityProxy(
         :param policy: The policy resource to attach to this principal [disable-awslint:ref-via-interface].
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a57592179e2cd5bb2a5698dd5de580c2c15bed0adf0f8f55b31f9abd9fd5846)
+            type_hints = cached_type_hints(_typecheckingstub__5a57592179e2cd5bb2a5698dd5de580c2c15bed0adf0f8f55b31f9abd9fd5846)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
@@ -14295,7 +14292,7 @@ typing.cast(typing.Any, IIdentity).__jsii_proxy_class__ = lambda : _IIdentityPro
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicy")
 class IResourceWithPolicy(
     IResourceWithPolicyV2,
-    _IResource_c80c4260,
+    _aws_cdk_0cae9daa.IResource,
     typing_extensions.Protocol,
 ):
     '''(deprecated) A resource with a resource policy that can be added to.
@@ -14313,7 +14310,7 @@ class IResourceWithPolicy(
 
 class _IResourceWithPolicyProxy(
     jsii.proxy_for(IResourceWithPolicyV2), # type: ignore[misc]
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
 ):
     '''(deprecated) A resource with a resource policy that can be added to.
 
@@ -14333,7 +14330,7 @@ typing.cast(typing.Any, IResourceWithPolicy).__jsii_proxy_class__ = lambda : _IR
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IRole")
-class IRole(IIdentity, _IRoleRef_8400221f, typing_extensions.Protocol):
+class IRole(IIdentity, _aws_iam_632e20f6.IRoleRef, typing_extensions.Protocol):
     '''A Role object.'''
 
     @builtins.property
@@ -14382,7 +14379,7 @@ class IRole(IIdentity, _IRoleRef_8400221f, typing_extensions.Protocol):
 
 class _IRoleProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(_IRoleRef_8400221f), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IRoleRef), # type: ignore[misc]
 ):
     '''A Role object.'''
 
@@ -14414,7 +14411,7 @@ class _IRoleProxy(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67e856ddb493b4542dc716dcab0126ed6ac149cd365202cb608c313320eb7b58)
+            type_hints = cached_type_hints(_typecheckingstub__67e856ddb493b4542dc716dcab0126ed6ac149cd365202cb608c313320eb7b58)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -14426,7 +14423,7 @@ class _IRoleProxy(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0b3c996a892c638167074eb637574936aa29a63e5e76ed7d460ff90993815e6)
+            type_hints = cached_type_hints(_typecheckingstub__b0b3c996a892c638167074eb637574936aa29a63e5e76ed7d460ff90993815e6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [grantee]))
 
@@ -14437,7 +14434,7 @@ class _IRoleProxy(
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a259325b943101480d852a30d681aee828d57198b8501de84e4d9963505af62)
+            type_hints = cached_type_hints(_typecheckingstub__9a259325b943101480d852a30d681aee828d57198b8501de84e4d9963505af62)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [grantee]))
 
@@ -14446,7 +14443,7 @@ typing.cast(typing.Any, IRole).__jsii_proxy_class__ = lambda : _IRoleProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IUser")
-class IUser(IIdentity, _IUserRef_b0ccca76, typing_extensions.Protocol):
+class IUser(IIdentity, _aws_iam_632e20f6.IUserRef, typing_extensions.Protocol):
     '''Represents an IAM user.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users.html
@@ -14481,7 +14478,7 @@ class IUser(IIdentity, _IUserRef_b0ccca76, typing_extensions.Protocol):
 
 class _IUserProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(_IUserRef_b0ccca76), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IUserRef), # type: ignore[misc]
 ):
     '''Represents an IAM user.
 
@@ -14515,7 +14512,7 @@ class _IUserProxy(
         :param group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17a32edfd359a804d50015e17cf8c5632c9a0e28c3542088534431b5ae1090e3)
+            type_hints = cached_type_hints(_typecheckingstub__17a32edfd359a804d50015e17cf8c5632c9a0e28c3542088534431b5ae1090e3)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "addToGroup", [group]))
 
@@ -14525,7 +14522,7 @@ typing.cast(typing.Any, IUser).__jsii_proxy_class__ = lambda : _IUserProxy
 
 @jsii.implements(IRole)
 class LazyRole(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.LazyRole",
 ):
@@ -14578,7 +14575,7 @@ class LazyRole(
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_session_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
@@ -14597,7 +14594,7 @@ class LazyRole(
         :param role_name: A name for the IAM role. For valid values, see the RoleName parameter for the CreateRole action in the IAM API Reference. IMPORTANT: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the CAPABILITY_NAMED_IAM value to acknowledge your template's capabilities. For more information, see Acknowledging IAM Resources in AWS CloudFormation Templates. Default: - AWS CloudFormation generates a unique physical ID and uses that ID for the role name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__771573f5504b0120c9b82d20864766023cef9d916834720ff78de68c51d14153)
+            type_hints = cached_type_hints(_typecheckingstub__771573f5504b0120c9b82d20864766023cef9d916834720ff78de68c51d14153)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LazyRoleProps(
@@ -14621,7 +14618,7 @@ class LazyRole(
         :param policy: The managed policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43833b8b06cff5918ffc7655ee5b826bd75570f638200a98519f8c2ebf0372b5)
+            type_hints = cached_type_hints(_typecheckingstub__43833b8b06cff5918ffc7655ee5b826bd75570f638200a98519f8c2ebf0372b5)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
@@ -14632,7 +14629,7 @@ class LazyRole(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c166a85c28147c9f37dcd0918c774393f73316341430625933ab60ba8c826890)
+            type_hints = cached_type_hints(_typecheckingstub__c166a85c28147c9f37dcd0918c774393f73316341430625933ab60ba8c826890)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -14648,7 +14645,7 @@ class LazyRole(
         :param statement: The permission statement to add to the policy document.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__360ff356db658c7d68d451f8da5ae3d55112b9a2f638786bc4cdaea9658802b8)
+            type_hints = cached_type_hints(_typecheckingstub__360ff356db658c7d68d451f8da5ae3d55112b9a2f638786bc4cdaea9658802b8)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -14659,7 +14656,7 @@ class LazyRole(
         :param policy: The policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22f70d75c15f0109cb998f8124e49401dae23a005cccc337014728056eeaa336)
+            type_hints = cached_type_hints(_typecheckingstub__22f70d75c15f0109cb998f8124e49401dae23a005cccc337014728056eeaa336)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
@@ -14671,7 +14668,7 @@ class LazyRole(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31e7156ac8208f98f3be102fb3156e3f6bcdf5fe871d6df26b60c2e9cf69336f)
+            type_hints = cached_type_hints(_typecheckingstub__31e7156ac8208f98f3be102fb3156e3f6bcdf5fe871d6df26b60c2e9cf69336f)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Grant", jsii.invoke(self, "grant", [identity, *actions]))
@@ -14683,7 +14680,7 @@ class LazyRole(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d09b1058d1d2350165fea6b922b2c0fe02ec3216af993738db1f47c4932c55f)
+            type_hints = cached_type_hints(_typecheckingstub__8d09b1058d1d2350165fea6b922b2c0fe02ec3216af993738db1f47c4932c55f)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [identity]))
 
@@ -14694,7 +14691,7 @@ class LazyRole(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6367cadac69d2b22537737f04814197b71e654eb8d432cbd5b41e484577f1446)
+            type_hints = cached_type_hints(_typecheckingstub__6367cadac69d2b22537737f04814197b71e654eb8d432cbd5b41e484577f1446)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [identity]))
 
@@ -14745,9 +14742,9 @@ class LazyRole(
 
     @builtins.property
     @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> "_RoleReference_447077bb":
+    def role_ref(self) -> "_aws_iam_632e20f6.RoleReference":
         '''A reference to a Role resource.'''
-        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
+        return typing.cast("_aws_iam_632e20f6.RoleReference", jsii.get(self, "roleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -14786,7 +14783,7 @@ class LazyRoleProps(RoleProps):
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_session_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
@@ -14833,7 +14830,7 @@ class LazyRoleProps(RoleProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__214cb969b47d061738027497a5718edc40a7ebc688fb6a11b0b38fef268c3b05)
+            type_hints = cached_type_hints(_typecheckingstub__214cb969b47d061738027497a5718edc40a7ebc688fb6a11b0b38fef268c3b05)
             check_type(argname="argument assumed_by", value=assumed_by, expected_type=type_hints["assumed_by"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument external_ids", value=external_ids, expected_type=type_hints["external_ids"])
@@ -14926,7 +14923,7 @@ class LazyRoleProps(RoleProps):
         return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def max_session_duration(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -14947,7 +14944,7 @@ class LazyRoleProps(RoleProps):
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -15052,7 +15049,7 @@ class PrincipalBase(
         :param document: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__42ee81c5ba382087856f240a875085c5aed8781df1691cfb44f7e6acc7b30673)
+            type_hints = cached_type_hints(_typecheckingstub__42ee81c5ba382087856f240a875085c5aed8781df1691cfb44f7e6acc7b30673)
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [document]))
 
@@ -15063,7 +15060,7 @@ class PrincipalBase(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45b95100f32cd1955075f2549ccdf50ea07eb9fac9da91437affa72fa70479f9)
+            type_hints = cached_type_hints(_typecheckingstub__45b95100f32cd1955075f2549ccdf50ea07eb9fac9da91437affa72fa70479f9)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -15077,7 +15074,7 @@ class PrincipalBase(
         :param _statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__694de3cb2e0ed269c34a93287704999ec395e28838b40b3e517ecb1615ada2fa)
+            type_hints = cached_type_hints(_typecheckingstub__694de3cb2e0ed269c34a93287704999ec395e28838b40b3e517ecb1615ada2fa)
             check_type(argname="argument _statement", value=_statement, expected_type=type_hints["_statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [_statement]))
 
@@ -15115,7 +15112,7 @@ class PrincipalBase(
         :return: a new PrincipalWithConditions object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba3f398ed80c1e1a0dc5bdc18716f592ab5d21f2ccdd69f292d4579db4f8920e)
+            type_hints = cached_type_hints(_typecheckingstub__ba3f398ed80c1e1a0dc5bdc18716f592ab5d21f2ccdd69f292d4579db4f8920e)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         return typing.cast("PrincipalBase", jsii.invoke(self, "withConditions", [conditions]))
 
@@ -15211,7 +15208,7 @@ class PrincipalWithConditions(
         :param conditions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80467c10f35d2de95737da2b6bd8a1e49b25ad1cbfddc90cf983335b0fdcb0e6)
+            type_hints = cached_type_hints(_typecheckingstub__80467c10f35d2de95737da2b6bd8a1e49b25ad1cbfddc90cf983335b0fdcb0e6)
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [principal, conditions])
@@ -15224,7 +15221,7 @@ class PrincipalWithConditions(
         :param value: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4453baead1238307d35f2c6280eb8ee8b9d8b2c69fd3bc1a186637187dfc8ebb)
+            type_hints = cached_type_hints(_typecheckingstub__4453baead1238307d35f2c6280eb8ee8b9d8b2c69fd3bc1a186637187dfc8ebb)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addCondition", [key, value]))
@@ -15242,7 +15239,7 @@ class PrincipalWithConditions(
         :param conditions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f98d5139c999f6bf39f7d3b6b83cf4b629160f211cfac70b66df210aafd59c)
+            type_hints = cached_type_hints(_typecheckingstub__06f98d5139c999f6bf39f7d3b6b83cf4b629160f211cfac70b66df210aafd59c)
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         return typing.cast(None, jsii.invoke(self, "addConditions", [conditions]))
 
@@ -15256,7 +15253,7 @@ class PrincipalWithConditions(
         :param doc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f3b5797da3ed30fffb5a07fdbc780cf2bb80f8c955f12f28429742fe81076d9)
+            type_hints = cached_type_hints(_typecheckingstub__9f3b5797da3ed30fffb5a07fdbc780cf2bb80f8c955f12f28429742fe81076d9)
             check_type(argname="argument doc", value=doc, expected_type=type_hints["doc"])
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [doc]))
 
@@ -15267,7 +15264,7 @@ class PrincipalWithConditions(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de4963000e34b16a5638f4c44067171e566faa24c22a4a7cc74d90b52ec2976a)
+            type_hints = cached_type_hints(_typecheckingstub__de4963000e34b16a5638f4c44067171e566faa24c22a4a7cc74d90b52ec2976a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -15281,7 +15278,7 @@ class PrincipalWithConditions(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc14ce5e667818ff09808b3d56342245457ad7af45baf54098e3554bdfbb9c5d)
+            type_hints = cached_type_hints(_typecheckingstub__bc14ce5e667818ff09808b3d56342245457ad7af45baf54098e3554bdfbb9c5d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -15292,7 +15289,7 @@ class PrincipalWithConditions(
         :param append: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c48145b0627d702d4a653d7ea8b27af46eec5c5caee28fa1b477e7a6b7ee9b6)
+            type_hints = cached_type_hints(_typecheckingstub__9c48145b0627d702d4a653d7ea8b27af46eec5c5caee28fa1b477e7a6b7ee9b6)
             check_type(argname="argument append", value=append, expected_type=type_hints["append"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "appendDedupe", [append]))
 
@@ -15350,7 +15347,7 @@ class PrincipalWithConditions(
 
 @jsii.implements(IRole)
 class Role(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.Role",
 ):
@@ -15395,7 +15392,7 @@ class Role(
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
+        max_session_duration: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
@@ -15414,7 +15411,7 @@ class Role(
         :param role_name: A name for the IAM role. For valid values, see the RoleName parameter for the CreateRole action in the IAM API Reference. IMPORTANT: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the CAPABILITY_NAMED_IAM value to acknowledge your template's capabilities. For more information, see Acknowledging IAM Resources in AWS CloudFormation Templates. Default: - AWS CloudFormation generates a unique physical ID and uses that ID for the role name.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efe80cc42a362ee0de99d64f7cf860226cb252074012ad3a5ff62f47ec94abae)
+            type_hints = cached_type_hints(_typecheckingstub__efe80cc42a362ee0de99d64f7cf860226cb252074012ad3a5ff62f47ec94abae)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RoleProps(
@@ -15469,7 +15466,7 @@ class Role(
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3abda5df0b9e172ab6b6506372119fbc1518a3e56245c4130fbbbd57373a8cb5)
+            type_hints = cached_type_hints(_typecheckingstub__3abda5df0b9e172ab6b6506372119fbc1518a3e56245c4130fbbbd57373a8cb5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = CustomizeRolesOptions(
             prevent_synthesis=prevent_synthesis,
@@ -15500,7 +15497,7 @@ class Role(
         :param mutable: Whether the imported role can be modified by attaching policy resources to it. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb04fc568ec6668a9d1d9742e44b19ae3793417172af39b9989724471935e6d7)
+            type_hints = cached_type_hints(_typecheckingstub__bb04fc568ec6668a9d1d9742e44b19ae3793417172af39b9989724471935e6d7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RoleLookupOptions(
@@ -15543,7 +15540,7 @@ class Role(
         :param mutable: Whether the imported role can be modified by attaching policy resources to it. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c43d6c30d91c1507a4d83080c4d03e80839da9ab22909456251bc529eb41a48)
+            type_hints = cached_type_hints(_typecheckingstub__5c43d6c30d91c1507a4d83080c4d03e80839da9ab22909456251bc529eb41a48)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -15580,7 +15577,7 @@ class Role(
         :param mutable: Whether the imported role can be modified by attaching policy resources to it. Default: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ea076ee8cb2b2334bd316dea50996363cb2544fbad031a486b3c1d584e2a0aa)
+            type_hints = cached_type_hints(_typecheckingstub__0ea076ee8cb2b2334bd316dea50996363cb2544fbad031a486b3c1d584e2a0aa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
@@ -15600,7 +15597,7 @@ class Role(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40a28d979d193e374e71b2cd587b8f95f7bbca459116e6d16c987738134119fe)
+            type_hints = cached_type_hints(_typecheckingstub__40a28d979d193e374e71b2cd587b8f95f7bbca459116e6d16c987738134119fe)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isRole", [x]))
 
@@ -15611,7 +15608,7 @@ class Role(
         :param policy: The the managed policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b3ebdee2cbdf8c694d4ae443ef5b2e0d8fa417a4913c0abb90a83eb91dc3733)
+            type_hints = cached_type_hints(_typecheckingstub__2b3ebdee2cbdf8c694d4ae443ef5b2e0d8fa417a4913c0abb90a83eb91dc3733)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
@@ -15622,7 +15619,7 @@ class Role(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__138765eba0bce05f18e74c04f9874eca5b353ef80b5afc6a733d36c809ed5a25)
+            type_hints = cached_type_hints(_typecheckingstub__138765eba0bce05f18e74c04f9874eca5b353ef80b5afc6a733d36c809ed5a25)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -15638,12 +15635,12 @@ class Role(
         :param statement: The permission statement to add to the policy document.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6168031f65ea6f5bbc6ae6d7207de3c8b2039038e0a8ddec4cc0db5ef919299d)
+            type_hints = cached_type_hints(_typecheckingstub__6168031f65ea6f5bbc6ae6d7207de3c8b2039038e0a8ddec4cc0db5ef919299d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, policy: "_RemovalPolicy_9f93c814") -> None:
+    def apply_removal_policy(self, policy: "_aws_cdk_0cae9daa.RemovalPolicy") -> None:
         '''Skip applyRemovalPolicy if role synthesis is prevented by customizeRoles.
 
         Because in this case, this construct does not have a CfnResource in the tree.
@@ -15653,7 +15650,7 @@ class Role(
         :override: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbef57382fe1ab141db87fe0168ddbad51b2e3c7a9ebc9c39c4f2f839a3e4bf)
+            type_hints = cached_type_hints(_typecheckingstub__ecbef57382fe1ab141db87fe0168ddbad51b2e3c7a9ebc9c39c4f2f839a3e4bf)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
@@ -15664,7 +15661,7 @@ class Role(
         :param policy: The policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6daee5d0cd9791a7321d18f729dc2d93548a8a15705bd861a902bd0dbae73cf6)
+            type_hints = cached_type_hints(_typecheckingstub__6daee5d0cd9791a7321d18f729dc2d93548a8a15705bd861a902bd0dbae73cf6)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
@@ -15676,7 +15673,7 @@ class Role(
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14c932caa1eadf56fd976a12545a5f150425c6f5a3ea878d9bb6ff0b3e24cd46)
+            type_hints = cached_type_hints(_typecheckingstub__14c932caa1eadf56fd976a12545a5f150425c6f5a3ea878d9bb6ff0b3e24cd46)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -15688,7 +15685,7 @@ class Role(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e41637797f37e9e841bf058d39d0b910ed287ffbdcfeb24f7652a386a18b61e)
+            type_hints = cached_type_hints(_typecheckingstub__6e41637797f37e9e841bf058d39d0b910ed287ffbdcfeb24f7652a386a18b61e)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [identity]))
 
@@ -15699,7 +15696,7 @@ class Role(
         :param identity: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ac7870e7ae4f160829d1eaf7f6d20c937b9c938e96709e254eb1422b6989700)
+            type_hints = cached_type_hints(_typecheckingstub__3ac7870e7ae4f160829d1eaf7f6d20c937b9c938e96709e254eb1422b6989700)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
         return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [identity]))
 
@@ -15781,9 +15778,9 @@ class Role(
 
     @builtins.property
     @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> "_RoleReference_447077bb":
+    def role_ref(self) -> "_aws_iam_632e20f6.RoleReference":
         '''A reference to a Role resource.'''
-        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
+        return typing.cast("_aws_iam_632e20f6.RoleReference", jsii.get(self, "roleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="assumeRolePolicy")
@@ -15850,7 +15847,7 @@ class ServicePrincipal(
         :param region: The region in which you want to reference the service. This is only necessary for *cross-region* references to *opt-in* regions. In those cases, the region name needs to be included to reference the correct service principal. In all other cases, the global service principal name is sufficient. This field behaves differently depending on whether the ``@aws-cdk/aws-iam:standardizedServicePrincipals`` flag is set or not: - If the flag is set, the input service principal is assumed to be of the form ``SERVICE.amazonaws.com``. That value will always be returned, unless the given region is an opt-in region and the service principal is rendered in a stack in a different region, in which case ``SERVICE.REGION.amazonaws.com`` will be rendered. Under this regime, there is no downside to always specifying the region property: it will be rendered only if necessary. - If the flag is not set, the service principal will resolve to a single principal whose name comes from the ``@aws-cdk/region-info`` package, using the region to override the stack region. If there is no entry for this service principal in the database,, the input service name is returned literally. This is legacy behavior and is not recommended. Default: - the resolving Stack's region.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2745f75caaf5bf82ce9582f03d25e19c93145745996ad93d343457dd927d8007)
+            type_hints = cached_type_hints(_typecheckingstub__2745f75caaf5bf82ce9582f03d25e19c93145745996ad93d343457dd927d8007)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         opts = ServicePrincipalOpts(conditions=conditions, region=region)
 
@@ -15871,7 +15868,7 @@ class ServicePrincipal(
             principal_name = iam.ServicePrincipal.from_static_service_principle_name("elasticmapreduce.amazonaws.com.cn")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a27520e91f619510327a111d049cade088e838ff4693c5aa6f483dd49985c577)
+            type_hints = cached_type_hints(_typecheckingstub__a27520e91f619510327a111d049cade088e838ff4693c5aa6f483dd49985c577)
             check_type(argname="argument service_principal_name", value=service_principal_name, expected_type=type_hints["service_principal_name"])
         return typing.cast("ServicePrincipal", jsii.sinvoke(cls, "fromStaticServicePrincipleName", [service_principal_name]))
 
@@ -15904,7 +15901,7 @@ class ServicePrincipal(
             principal_name = iam.ServicePrincipal.service_principal_name("ec2.amazonaws.com")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb337dcddbd70acf0d25c8d6f2b9ec2e9bae9105c6aa6db67b9a3c2354bf684b)
+            type_hints = cached_type_hints(_typecheckingstub__fb337dcddbd70acf0d25c8d6f2b9ec2e9bae9105c6aa6db67b9a3c2354bf684b)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "servicePrincipalName", [service]))
 
@@ -15959,7 +15956,7 @@ class SessionTagsPrincipal(
         :param principal: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__215a039cacc00cbccb40418a20fcc0e80fb7dd31e57c9d0c0d0356a9a790712d)
+            type_hints = cached_type_hints(_typecheckingstub__215a039cacc00cbccb40418a20fcc0e80fb7dd31e57c9d0c0d0356a9a790712d)
             check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
         jsii.create(self.__class__, self, [principal])
 
@@ -15973,7 +15970,7 @@ class SessionTagsPrincipal(
         :param doc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25844b9c8aff78b5d8d0dcc4f9fc6ccfe89e32ec78de55d3ce8260e20bdaefbc)
+            type_hints = cached_type_hints(_typecheckingstub__25844b9c8aff78b5d8d0dcc4f9fc6ccfe89e32ec78de55d3ce8260e20bdaefbc)
             check_type(argname="argument doc", value=doc, expected_type=type_hints["doc"])
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [doc]))
 
@@ -15984,7 +15981,7 @@ class SessionTagsPrincipal(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ce41cc2346f2ebbd7c1e4b4722e1ee8d346119ac63045afc316c940631f9141)
+            type_hints = cached_type_hints(_typecheckingstub__7ce41cc2346f2ebbd7c1e4b4722e1ee8d346119ac63045afc316c940631f9141)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -15998,7 +15995,7 @@ class SessionTagsPrincipal(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbc62d90b05edca6f8d13d813c28fe7dc43759fba6779d5577f60de0344b39f2)
+            type_hints = cached_type_hints(_typecheckingstub__cbc62d90b05edca6f8d13d813c28fe7dc43759fba6779d5577f60de0344b39f2)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -16009,7 +16006,7 @@ class SessionTagsPrincipal(
         :param append: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f6570adbc6df85f505162eefc0b9a41164dc55f58d0ed93c10d47d5a1ecd669)
+            type_hints = cached_type_hints(_typecheckingstub__6f6570adbc6df85f505162eefc0b9a41164dc55f58d0ed93c10d47d5a1ecd669)
             check_type(argname="argument append", value=append, expected_type=type_hints["append"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "appendDedupe", [append]))
 
@@ -16089,7 +16086,7 @@ class StarPrincipal(
 
 @jsii.implements(IIdentity, IUser)
 class User(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.User",
 ):
@@ -16116,7 +16113,7 @@ class User(
         *,
         groups: typing.Optional[typing.Sequence["IGroup"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        password: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        password: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         password_reset_required: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
@@ -16134,7 +16131,7 @@ class User(
         :param user_name: A name for the IAM user. For valid values, see the UserName parameter for the CreateUser action in the IAM API Reference. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the CAPABILITY_NAMED_IAM value to acknowledge your template's capabilities. For more information, see Acknowledging IAM Resources in AWS CloudFormation Templates. Default: - Generated by CloudFormation (recommended)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef7259f99a29e3c7c58c43ee586670c112f44b42e5364d12a09a03f3e23e008f)
+            type_hints = cached_type_hints(_typecheckingstub__ef7259f99a29e3c7c58c43ee586670c112f44b42e5364d12a09a03f3e23e008f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserProps(
@@ -16167,7 +16164,7 @@ class User(
         :param user_arn: the ARN of an existing user to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f33e29e061af19beff293732951c7a6d99741716ad9f7bc86023959d5cdd535d)
+            type_hints = cached_type_hints(_typecheckingstub__f33e29e061af19beff293732951c7a6d99741716ad9f7bc86023959d5cdd535d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
@@ -16192,7 +16189,7 @@ class User(
         :param user_arn: The ARN of the user. Format: arn::iam:::user/
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5958a1f11a99684a3e852867fdde9311b58b9cddac80d1d8960f16a03f113e2)
+            type_hints = cached_type_hints(_typecheckingstub__d5958a1f11a99684a3e852867fdde9311b58b9cddac80d1d8960f16a03f113e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = UserAttributes(user_arn=user_arn)
@@ -16214,7 +16211,7 @@ class User(
         :param user_name: the username of the existing user to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b8c426fc5ef927d751eda7ff78c09000e89b63da6804dc345c76e762568b602)
+            type_hints = cached_type_hints(_typecheckingstub__1b8c426fc5ef927d751eda7ff78c09000e89b63da6804dc345c76e762568b602)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
@@ -16227,7 +16224,7 @@ class User(
         :param policy: The managed policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7748f62b253a3a856fa72ad5ed5a163b0c9bc0cdf07e2c6fbb666420c4caf464)
+            type_hints = cached_type_hints(_typecheckingstub__7748f62b253a3a856fa72ad5ed5a163b0c9bc0cdf07e2c6fbb666420c4caf464)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
@@ -16238,7 +16235,7 @@ class User(
         :param group: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a18f03acf086224c5283fb04241844d012d625b3226dc86059d3dbe23841a1)
+            type_hints = cached_type_hints(_typecheckingstub__31a18f03acf086224c5283fb04241844d012d625b3226dc86059d3dbe23841a1)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
         return typing.cast(None, jsii.invoke(self, "addToGroup", [group]))
 
@@ -16249,7 +16246,7 @@ class User(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc9d48f42d89386c4c39fee9b294cf26d7165fba930b228997d4f866ec04a340)
+            type_hints = cached_type_hints(_typecheckingstub__cc9d48f42d89386c4c39fee9b294cf26d7165fba930b228997d4f866ec04a340)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -16265,7 +16262,7 @@ class User(
         :return: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__add40848d812b2b19e71bd4e186b890cfd72dfc35ae18ae5733132e665b366a6)
+            type_hints = cached_type_hints(_typecheckingstub__add40848d812b2b19e71bd4e186b890cfd72dfc35ae18ae5733132e665b366a6)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -16276,7 +16273,7 @@ class User(
         :param policy: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ebb8924f05370c7968859fd9c4bc9b3ab97a7fcbee56ddd82313a0a6038f3d0)
+            type_hints = cached_type_hints(_typecheckingstub__5ebb8924f05370c7968859fd9c4bc9b3ab97a7fcbee56ddd82313a0a6038f3d0)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
@@ -16324,9 +16321,9 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "_UserReference_6bf884c6":
+    def user_ref(self) -> "_aws_iam_632e20f6.UserReference":
         '''A reference to a User resource.'''
-        return typing.cast("_UserReference_6bf884c6", jsii.get(self, "userRef"))
+        return typing.cast("_aws_iam_632e20f6.UserReference", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="permissionsBoundary")
@@ -16390,7 +16387,7 @@ class ArnPrincipal(
         :param arn: Amazon Resource Name (ARN) of the principal entity (i.e. arn:aws:iam::123456789012:user/user-name).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a6d6c32d3e183186382b39b6b11487d115ae752f5ad9109d40863d0f5d49536)
+            type_hints = cached_type_hints(_typecheckingstub__6a6d6c32d3e183186382b39b6b11487d115ae752f5ad9109d40863d0f5d49536)
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
         jsii.create(self.__class__, self, [arn])
 
@@ -16406,7 +16403,7 @@ class ArnPrincipal(
         :param organization_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4053cc6c8a246179292ae366feb44cbec456a8fe5d81ab3ded5bd52657116d7f)
+            type_hints = cached_type_hints(_typecheckingstub__4053cc6c8a246179292ae366feb44cbec456a8fe5d81ab3ded5bd52657116d7f)
             check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
         return typing.cast("PrincipalBase", jsii.invoke(self, "inOrganization", [organization_id]))
 
@@ -16459,7 +16456,7 @@ class CanonicalUserPrincipal(
         :param canonical_user_id: unique identifier assigned by AWS for every account. root user and IAM users for an account all see the same ID. (i.e. 79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22e250eb0875ea5bc04b33f170117ce4bdb9a3d40b2e26bdff85831b69831b6f)
+            type_hints = cached_type_hints(_typecheckingstub__22e250eb0875ea5bc04b33f170117ce4bdb9a3d40b2e26bdff85831b69831b6f)
             check_type(argname="argument canonical_user_id", value=canonical_user_id, expected_type=type_hints["canonical_user_id"])
         jsii.create(self.__class__, self, [canonical_user_id])
 
@@ -16527,7 +16524,7 @@ class CompositePrincipal(
         :param principals: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab13bb781032f3d9d6e5e0937284451c23201075b7417c49ce544c4414bf41e3)
+            type_hints = cached_type_hints(_typecheckingstub__ab13bb781032f3d9d6e5e0937284451c23201075b7417c49ce544c4414bf41e3)
             check_type(argname="argument principals", value=principals, expected_type=typing.Tuple[type_hints["principals"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         jsii.create(self.__class__, self, [*principals])
 
@@ -16541,7 +16538,7 @@ class CompositePrincipal(
         :param principals: IAM principals that will be added to the composite principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d76c23cbda04481b176ab94cd5ee3b4fce9aef14001b0c32d2e77dead6e97197)
+            type_hints = cached_type_hints(_typecheckingstub__d76c23cbda04481b176ab94cd5ee3b4fce9aef14001b0c32d2e77dead6e97197)
             check_type(argname="argument principals", value=principals, expected_type=typing.Tuple[type_hints["principals"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("CompositePrincipal", jsii.invoke(self, "addPrincipals", [*principals]))
 
@@ -16555,7 +16552,7 @@ class CompositePrincipal(
         :param doc: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a3e58b43a166e7406b94ea031be5cae69807e96df4fcf4693d630bcd8b11551)
+            type_hints = cached_type_hints(_typecheckingstub__0a3e58b43a166e7406b94ea031be5cae69807e96df4fcf4693d630bcd8b11551)
             check_type(argname="argument doc", value=doc, expected_type=type_hints["doc"])
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [doc]))
 
@@ -16626,7 +16623,7 @@ class FederatedPrincipal(
         :param assume_role_action: When this Principal is used in an AssumeRole policy, the action to use.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c749f64109d7c36ddb9493478d4b0593ab5de546886b36477d9cbf39e486306)
+            type_hints = cached_type_hints(_typecheckingstub__3c749f64109d7c36ddb9493478d4b0593ab5de546886b36477d9cbf39e486306)
             check_type(argname="argument federated", value=federated, expected_type=type_hints["federated"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument assume_role_action", value=assume_role_action, expected_type=type_hints["assume_role_action"])
@@ -16671,7 +16668,7 @@ class FederatedPrincipal(
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGroup")
-class IGroup(IIdentity, _IGroupRef_aeb1d9f6, typing_extensions.Protocol):
+class IGroup(IIdentity, _aws_iam_632e20f6.IGroupRef, typing_extensions.Protocol):
     '''Represents an IAM Group.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html
@@ -16698,7 +16695,7 @@ class IGroup(IIdentity, _IGroupRef_aeb1d9f6, typing_extensions.Protocol):
 
 class _IGroupProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(_IGroupRef_aeb1d9f6), # type: ignore[misc]
+    jsii.proxy_for(_aws_iam_632e20f6.IGroupRef), # type: ignore[misc]
 ):
     '''Represents an IAM Group.
 
@@ -16755,7 +16752,7 @@ class OrganizationPrincipal(
         :see: https://docs.aws.amazon.com/organizations/latest/APIReference/API_Organization.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dc4375c7e3b272eef905d1d27c4bd67aa9d9f51ccb424f15955369df5f52edd)
+            type_hints = cached_type_hints(_typecheckingstub__4dc4375c7e3b272eef905d1d27c4bd67aa9d9f51ccb424f15955369df5f52edd)
             check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
         jsii.create(self.__class__, self, [organization_id])
 
@@ -16805,7 +16802,7 @@ class SamlPrincipal(
 
     def __init__(
         self,
-        saml_provider: "_ISAMLProviderRef_6e369856",
+        saml_provider: "_aws_iam_632e20f6.ISAMLProviderRef",
         conditions: typing.Mapping[builtins.str, typing.Any],
     ) -> None:
         '''
@@ -16813,7 +16810,7 @@ class SamlPrincipal(
         :param conditions: The conditions under which the policy is in effect.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__703e9a9603562e94536f153d5ccc52492ff19cc38ed968f3b1f3e31592a8ae7f)
+            type_hints = cached_type_hints(_typecheckingstub__703e9a9603562e94536f153d5ccc52492ff19cc38ed968f3b1f3e31592a8ae7f)
             check_type(argname="argument saml_provider", value=saml_provider, expected_type=type_hints["saml_provider"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [saml_provider, conditions])
@@ -16851,7 +16848,7 @@ class WebIdentityPrincipal(
         :param conditions: The conditions under which the policy is in effect. See `the IAM documentation <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html>`_.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c81facd20ae242e2b4956594bdbb7a0322ce30953b66f3849bf4961e03e6f7ba)
+            type_hints = cached_type_hints(_typecheckingstub__c81facd20ae242e2b4956594bdbb7a0322ce30953b66f3849bf4961e03e6f7ba)
             check_type(argname="argument identity_provider", value=identity_provider, expected_type=type_hints["identity_provider"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [identity_provider, conditions])
@@ -16895,7 +16892,7 @@ class AccountPrincipal(
         :param account_id: AWS account ID (i.e. '123456789012').
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39ac905e3b21cb76d85b13b658dee1bcf9822e6af870299fb037df092642ec81)
+            type_hints = cached_type_hints(_typecheckingstub__39ac905e3b21cb76d85b13b658dee1bcf9822e6af870299fb037df092642ec81)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         jsii.create(self.__class__, self, [account_id])
 
@@ -16999,7 +16996,7 @@ class AnyPrincipal(
 
 @jsii.implements(IGroup)
 class Group(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.Group",
 ):
@@ -17035,7 +17032,7 @@ class Group(
         :param path: The path to the group. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/index.html?Using_Identifiers.html>`_ in the IAM User Guide. Default: /
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b516a0686a548e570bd88d7c4c375e62f54baff3fc092d817ad9c2403b62715)
+            type_hints = cached_type_hints(_typecheckingstub__8b516a0686a548e570bd88d7c4c375e62f54baff3fc092d817ad9c2403b62715)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = GroupProps(
@@ -17068,7 +17065,7 @@ class Group(
         :param group_arn: the ARN of the group to import (e.g. ``arn:aws:iam::account-id:group/group-name``).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16bb559f9cd4a61e31d9831c49f44aae4279f1bc47714c390ef63d433654c0dd)
+            type_hints = cached_type_hints(_typecheckingstub__16bb559f9cd4a61e31d9831c49f44aae4279f1bc47714c390ef63d433654c0dd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
@@ -17091,7 +17088,7 @@ class Group(
         :param group_name: the groupName (path included) of the existing group to import.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfa77f640d9bc653654c474376cfff254a2c4f7d0f6875a80eb44b243e1dc369)
+            type_hints = cached_type_hints(_typecheckingstub__bfa77f640d9bc653654c474376cfff254a2c4f7d0f6875a80eb44b243e1dc369)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
@@ -17108,7 +17105,7 @@ class Group(
         :param policy: The managed policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0073d4596a3cd9c2b07a428313a1c04604bd8df34c71816c90136ffa7c58ecb0)
+            type_hints = cached_type_hints(_typecheckingstub__0073d4596a3cd9c2b07a428313a1c04604bd8df34c71816c90136ffa7c58ecb0)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
@@ -17119,7 +17116,7 @@ class Group(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7efe2608ceefd191431a8adea13871fda6fe3193bf8171a4ead0318828be5264)
+            type_hints = cached_type_hints(_typecheckingstub__7efe2608ceefd191431a8adea13871fda6fe3193bf8171a4ead0318828be5264)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToPolicy", [statement]))
 
@@ -17133,7 +17130,7 @@ class Group(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f66e324527f4dca14250545b90ce229575ffc379f162d485eb2c630ba43e00b5)
+            type_hints = cached_type_hints(_typecheckingstub__f66e324527f4dca14250545b90ce229575ffc379f162d485eb2c630ba43e00b5)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -17144,7 +17141,7 @@ class Group(
         :param user: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d2ddce83ad48ecf3ade5fa694be3a205a6dce4cf4669aa568be1ffb0df38d34)
+            type_hints = cached_type_hints(_typecheckingstub__8d2ddce83ad48ecf3ade5fa694be3a205a6dce4cf4669aa568be1ffb0df38d34)
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
         return typing.cast(None, jsii.invoke(self, "addUser", [user]))
 
@@ -17155,7 +17152,7 @@ class Group(
         :param policy: The policy to attach.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8334d09c64ac01b56e25eccb0dd778a954e4f613c776ac3447cf3f1318a89d7)
+            type_hints = cached_type_hints(_typecheckingstub__f8334d09c64ac01b56e25eccb0dd778a954e4f613c776ac3447cf3f1318a89d7)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
@@ -17191,9 +17188,9 @@ class Group(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> "_GroupReference_cd6b1d81":
+    def group_ref(self) -> "_aws_iam_632e20f6.GroupReference":
         '''A reference to a Group resource.'''
-        return typing.cast("_GroupReference_cd6b1d81", jsii.get(self, "groupRef"))
+        return typing.cast("_aws_iam_632e20f6.GroupReference", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
@@ -17234,7 +17231,7 @@ class OpenIdConnectPrincipal(
 
     def __init__(
         self,
-        open_id_connect_provider: "_IOIDCProviderRef_a866c7c8",
+        open_id_connect_provider: "_aws_iam_632e20f6.IOIDCProviderRef",
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''
@@ -17242,7 +17239,7 @@ class OpenIdConnectPrincipal(
         :param conditions: The conditions under which the policy is in effect. See `the IAM documentation <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html>`_.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11057e2b11d9138bde96aa84215de1b5dba16e8c36af672dbebea8a1c33f4310)
+            type_hints = cached_type_hints(_typecheckingstub__11057e2b11d9138bde96aa84215de1b5dba16e8c36af672dbebea8a1c33f4310)
             check_type(argname="argument open_id_connect_provider", value=open_id_connect_provider, expected_type=type_hints["open_id_connect_provider"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [open_id_connect_provider, conditions])
@@ -17288,7 +17285,7 @@ class SamlConsolePrincipal(
         :param conditions: The conditions under which the policy is in effect.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7271e79a3715a166397ac94ded3c4043db8b40c10213ffae6abbb3a17ce6768)
+            type_hints = cached_type_hints(_typecheckingstub__c7271e79a3715a166397ac94ded3c4043db8b40c10213ffae6abbb3a17ce6768)
             check_type(argname="argument saml_provider", value=saml_provider, expected_type=type_hints["saml_provider"])
             check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
         jsii.create(self.__class__, self, [saml_provider, conditions])
@@ -17474,7 +17471,7 @@ def _typecheckingstub__44af7447864a754d9df484db5d272901a378e9dd7da128a28741b73a5
     pass
 
 def _typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17517,15 +17514,15 @@ def _typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645
     id: builtins.str,
     *,
     group_name: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     path: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3980f39025e91ce99b498701692fb8425cc9af4321db09d71dbd3368a8936555(
-    resource: _IGroupRef_aeb1d9f6,
+    resource: _aws_iam_632e20f6.IGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17537,7 +17534,7 @@ def _typecheckingstub__109520d0ac5eced5701e6bfb840752f4a4c55e5408f1fc48af017b584
     pass
 
 def _typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17567,7 +17564,7 @@ def _typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094
     pass
 
 def _typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroup.PolicyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnGroup.PolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17598,7 +17595,7 @@ def _typecheckingstub__2b1f15a5e63e650cc6c55b8ec0153a01c2d4b292546026f27c56c750c
     pass
 
 def _typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17639,9 +17636,9 @@ def _typecheckingstub__fa640a2b964f19199ce54686b7fd65c710619c4f560d010f4b3ceaac8
 def _typecheckingstub__83c00814903fe43cbe21eca7faddcd90dcea9ec971aac6d8d2daf6b50f845df0(
     *,
     group_name: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     path: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17650,7 +17647,7 @@ def _typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    roles: typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]],
+    roles: typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]],
     instance_profile_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17658,7 +17655,7 @@ def _typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c
     pass
 
 def _typecheckingstub__511cf624861b94d053cb656d41bfb85226b39bae88821676b01740944f0811d9(
-    resource: _IInstanceProfileRef_d6832c90,
+    resource: _aws_iam_632e20f6.IInstanceProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17670,7 +17667,7 @@ def _typecheckingstub__b593290cbc770e9142ad849fa0c3ac70ba9811f3da5475a95ec1753ed
     pass
 
 def _typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17701,7 +17698,7 @@ def _typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed4
 
 def _typecheckingstub__13af24b231dab76416337b37eed1fc0eb441fa93214942c4f328be745d78987f(
     *,
-    roles: typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]],
+    roles: typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]],
     instance_profile_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17714,11 +17711,11 @@ def _typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9
     *,
     policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IGroupRef]]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
-    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IUserRef_b0ccca76]]] = None,
+    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]]] = None,
+    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IUserRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17730,7 +17727,7 @@ def _typecheckingstub__ddaff230cd62363f571d1c69690fe7f8e88bd1b1eefa314ac6a2020c1
     pass
 
 def _typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17787,11 +17784,11 @@ def _typecheckingstub__7363835eb798096a2561a7a8a91d2914cb5cb1e71dbda6de66efc5952
     *,
     policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IGroupRef]]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
-    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IUserRef_b0ccca76]]] = None,
+    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]]] = None,
+    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IUserRef]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17801,7 +17798,7 @@ def _typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140
     id: builtins.str,
     *,
     client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     url: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17809,7 +17806,7 @@ def _typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140
     pass
 
 def _typecheckingstub__fab4fe6f3e4db72e34d9bb9535a6cd4366d92f1c50e499ef665ae1a82c7cc813(
-    resource: _IOIDCProviderRef_a866c7c8,
+    resource: _aws_iam_632e20f6.IOIDCProviderRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17821,7 +17818,7 @@ def _typecheckingstub__7f5057f964f9bab1fcc32fce6ba173b262ffb5b477e91cae47ca4b093
     pass
 
 def _typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17839,7 +17836,7 @@ def _typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3f
     pass
 
 def _typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17859,7 +17856,7 @@ def _typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e
 def _typecheckingstub__7712735ff8576b291ddb9c7e92ce8078bf6f1d87729109296c1be6414cb3532d(
     *,
     client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     url: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17886,7 +17883,7 @@ def _typecheckingstub__3ee23fc195087e9166c203ff6e5a0a6d7f961f5dee39d0ea4ad91b3be
     pass
 
 def _typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17944,19 +17941,19 @@ def _typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7
     *,
     assume_role_policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     max_session_duration: typing.Optional[jsii.Number] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__aed7930ffdab40f4113234c4ce249e72c7b8fb0328ee2238e91d57b3368ac29b(
-    resource: _IRoleRef_8400221f,
+    resource: _aws_iam_632e20f6.IRoleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17968,7 +17965,7 @@ def _typecheckingstub__ff3f97b4de0b51871305eb5dbe778f76bd225254ccf6a281eb5ad3744
     pass
 
 def _typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18016,7 +18013,7 @@ def _typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f0
     pass
 
 def _typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRole.PolicyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRole.PolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18028,7 +18025,7 @@ def _typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cf
     pass
 
 def _typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18059,7 +18056,7 @@ def _typecheckingstub__8728946f5288abc0306a5d628f001064b1d982cebea9643c6ac987974
     pass
 
 def _typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18101,13 +18098,13 @@ def _typecheckingstub__5103775c44bc4d8c2381a2d9cd5bbb47d14617e4000af5af24e41da60
     *,
     assume_role_policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     max_session_duration: typing.Optional[jsii.Number] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18119,16 +18116,16 @@ def _typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d
     add_private_key: typing.Optional[builtins.str] = None,
     assertion_encryption_mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    private_key_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     remove_private_key: typing.Optional[builtins.str] = None,
     saml_metadata_document: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b1f1e65df7127c08c1603f184585a56d767362a3b5afeaa5a74ddaabf619b5da(
-    resource: _ISAMLProviderRef_6e369856,
+    resource: _aws_iam_632e20f6.ISAMLProviderRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18140,7 +18137,7 @@ def _typecheckingstub__bc9dc8f4401f1aaf9a9981044bc588dc6bdc25dc997eeedb4fa39af1e
     pass
 
 def _typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18170,7 +18167,7 @@ def _typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c32698
     pass
 
 def _typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSAMLProvider.SAMLPrivateKeyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSAMLProvider.SAMLPrivateKeyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18188,7 +18185,7 @@ def _typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe
     pass
 
 def _typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18206,10 +18203,10 @@ def _typecheckingstub__753bbb479e0c0a542a8456d357a3312bedbcc25e8753ca69dabd0ebf0
     add_private_key: typing.Optional[builtins.str] = None,
     assertion_encryption_mode: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
-    private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    private_key_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     remove_private_key: typing.Optional[builtins.str] = None,
     saml_metadata_document: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18223,13 +18220,13 @@ def _typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e
     path: typing.Optional[builtins.str] = None,
     private_key: typing.Optional[builtins.str] = None,
     server_certificate_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bdc593551fa8cc6ccbfd2bc0375f5568203a3f854d4f715a6b618e4b88274326(
-    resource: _IServerCertificateRef_005ddfcc,
+    resource: _aws_iam_632e20f6.IServerCertificateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18241,7 +18238,7 @@ def _typecheckingstub__3287a2c8df8f2cca57e9ef3ac067d25816a83b556c24ac1057b3b2ae5
     pass
 
 def _typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18283,7 +18280,7 @@ def _typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e6094
     pass
 
 def _typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18295,7 +18292,7 @@ def _typecheckingstub__8c0fa14d93aea4f905649a3dfa7bcd3ea31e86d8c6ac197efe6a3040e
     path: typing.Optional[builtins.str] = None,
     private_key: typing.Optional[builtins.str] = None,
     server_certificate_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18318,7 +18315,7 @@ def _typecheckingstub__1e15cbef59f1c57bd0a07b6dc7673834547880709ca660f114c9b692d
     pass
 
 def _typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18360,20 +18357,20 @@ def _typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
-    login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IGroupRef]]] = None,
+    login_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__53586ff3825069b3269d54a7efd5838a24c958e3815fb51409e5578af38ed8a2(
-    resource: _IUserRef_b0ccca76,
+    resource: _aws_iam_632e20f6.IUserRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18385,7 +18382,7 @@ def _typecheckingstub__39d477467a398dca23b6324aaa1b79887f96a2ebb288e56f19f2715de
     pass
 
 def _typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18403,7 +18400,7 @@ def _typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d432
     pass
 
 def _typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.LoginProfileProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUser.LoginProfileProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18427,13 +18424,13 @@ def _typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c531202
     pass
 
 def _typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.PolicyProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUser.PolicyProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18447,7 +18444,7 @@ def _typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611e
 def _typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a(
     *,
     password: builtins.str,
-    password_reset_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    password_reset_required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18478,7 +18475,7 @@ def _typecheckingstub__50148d4dcf0c6b86c32afab139135ccee1e0f58e20fc54e8b91ef9b40
     pass
 
 def _typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18518,13 +18515,13 @@ def _typecheckingstub__fe6f239efe54addc57c69dc765719968f9ffeb9e19e348f502085249d
 
 def _typecheckingstub__8b4312dc8ff103705c67491ae6f470e2644acffd396e5635261bf47e9a8a945f(
     *,
-    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
-    login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IGroupRef]]] = None,
+    login_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]]] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IManagedPolicyRef]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18547,7 +18544,7 @@ def _typecheckingstub__ad9fff616a1b1f3024a67ea7adb60a1ee244e8400579a12825ab7e5c6
     pass
 
 def _typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18584,7 +18581,7 @@ def _typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc4
     *,
     users: typing.Sequence[builtins.str],
     path: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_mfa_device_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18597,7 +18594,7 @@ def _typecheckingstub__484a1c7065ccbe3212fb35fb07f8f11e400d775147f533660fc3ebc70
     pass
 
 def _typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18621,7 +18618,7 @@ def _typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75
     pass
 
 def _typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18636,7 +18633,7 @@ def _typecheckingstub__c5ed743528ff356ce758fcb44914dce08240fea9458cd411d40223e93
     *,
     users: typing.Sequence[builtins.str],
     path: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     virtual_mfa_device_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -18717,7 +18714,7 @@ def _typecheckingstub__314d2bed6d353ed870fdd1029ac9df0a06d25be0febd8553668ade037
     pass
 
 def _typecheckingstub__0541baf81f7cd71d7b592e03e9ef9463389ae2b7c6c0d3457fa6db8aa3adb70c(
-    resource: _IEnvironmentAware_f39049ee,
+    resource: _interfaces_8ca7e747.IEnvironmentAware,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18811,13 +18808,13 @@ def _typecheckingstub__d76f68f1d67dcad526c87768d88423a4092a0ef3127be7cb534620448
     pass
 
 def _typecheckingstub__5dd532720c67899493c38541d1d1385824a8c552f89bc513c1e00d86714b7a75(
-    resource: _IEnvironmentAware_f39049ee,
+    resource: _interfaces_8ca7e747.IEnvironmentAware,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6abc7b14c1bac1d5c3ea94fff54da43a5f9d27cb6330751d69f1723006eac104(
-    resource: _IEnvironmentAware_f39049ee,
+    resource: _interfaces_8ca7e747.IEnvironmentAware,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18839,7 +18836,7 @@ def _typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495
     pass
 
 def _typecheckingstub__f9e7d28559fee7984a021f6b259d6a658682229266ac7ca28433cac3efd162c7(
-    resource: _CfnResource_9df397a6,
+    resource: _aws_cdk_0cae9daa.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18851,7 +18848,7 @@ def _typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d5
     pass
 
 def _typecheckingstub__3aaefe0993e96e8a47def2a205874aa98f30403418054b3856d6f1ee2c6ec838(
-    resource: _CfnResource_9df397a6,
+    resource: _aws_cdk_0cae9daa.CfnResource,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18922,7 +18919,7 @@ def _typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81
     *,
     description: typing.Optional[builtins.str] = None,
     document: typing.Optional[PolicyDocument] = None,
-    groups: typing.Optional[typing.Sequence[_IGroupRef_aeb1d9f6]] = None,
+    groups: typing.Optional[typing.Sequence[_aws_iam_632e20f6.IGroupRef]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
     roles: typing.Optional[typing.Sequence[IRole]] = None,
@@ -18961,7 +18958,7 @@ def _typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf54
     pass
 
 def _typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e(
-    group: _IGroupRef_aeb1d9f6,
+    group: _aws_iam_632e20f6.IGroupRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18973,7 +18970,7 @@ def _typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45
     pass
 
 def _typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d(
-    user: _IUserRef_b0ccca76,
+    user: _aws_iam_632e20f6.IUserRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18982,7 +18979,7 @@ def _typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a8118
     *,
     description: typing.Optional[builtins.str] = None,
     document: typing.Optional[PolicyDocument] = None,
-    groups: typing.Optional[typing.Sequence[_IGroupRef_aeb1d9f6]] = None,
+    groups: typing.Optional[typing.Sequence[_aws_iam_632e20f6.IGroupRef]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
     roles: typing.Optional[typing.Sequence[IRole]] = None,
@@ -18999,7 +18996,7 @@ def _typecheckingstub__680e816817bfe60e999b472326e5b4b238c62d88192645c5b0bfcd07a
     url: builtins.str,
     client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     oidc_provider_name: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19018,7 +19015,7 @@ def _typecheckingstub__6981defdaab974b803e9671371e547d5d70ee03239eed02c8d458e1a2
     url: builtins.str,
     client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     oidc_provider_name: typing.Optional[builtins.str] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19030,7 +19027,7 @@ def _typecheckingstub__270fe9db45fea69c973ea36d667d5236d0463996999ebebabf67dbaaf
     *,
     url: builtins.str,
     client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19048,7 +19045,7 @@ def _typecheckingstub__c07fc1633df440495e4513aa2acd1999d7e26f667e4c9d387ecfed34b
     *,
     url: builtins.str,
     client_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     thumbprints: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -19126,7 +19123,7 @@ def _typecheckingstub__54360ff9757f011bcac10fedb199770d4d17ebf0453c3d234c0d5dc45
     pass
 
 def _typecheckingstub__e2bffb5bcc0e0574448352039a95ee7ed66fbd29faff9f34b1c5e482d329f7e3(
-    context: _IResolveContext_b2df1921,
+    context: _aws_cdk_0cae9daa.IResolveContext,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19295,7 +19292,7 @@ def _typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e
     pass
 
 def _typecheckingstub__32502772b8e5f0749cf64587a97089b708edc05e8c27d2dd0848d0aa77b3c654(
-    resource: _IEnvironmentAware_f39049ee,
+    resource: _interfaces_8ca7e747.IEnvironmentAware,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19309,7 +19306,7 @@ def _typecheckingstub__dfdd3d4ab45c404c8b3b969489ec6c92cbf8b72f267a44b78be812ced
     pass
 
 def _typecheckingstub__dffa67cf033b90d54f11e95ec0b1a8cd60db661c810a4fd24dc03933a21d5c87(
-    role: _IRoleRef_8400221f,
+    role: _aws_iam_632e20f6.IRoleRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19343,7 +19340,7 @@ def _typecheckingstub__9c9223cb9fa6dff45ee4fd7013629ab18542c2499a83f542c5405968f
     external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_session_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
@@ -19427,7 +19424,7 @@ def _typecheckingstub__b49c33f300471f45a248f56a068fb48f78451f10631fedcb3e5890d72
     *,
     groups: typing.Optional[typing.Sequence[IGroup]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    password: typing.Optional[_SecretValue_3dd0ddae] = None,
+    password: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     password_reset_required: typing.Optional[builtins.bool] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
@@ -19519,7 +19516,7 @@ def _typecheckingstub__771573f5504b0120c9b82d20864766023cef9d916834720ff78de68c5
     external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_session_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
@@ -19577,7 +19574,7 @@ def _typecheckingstub__214cb969b47d061738027497a5718edc40a7ebc688fb6a11b0b38fef2
     external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_session_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
@@ -19662,7 +19659,7 @@ def _typecheckingstub__efe80cc42a362ee0de99d64f7cf860226cb252074012ad3a5ff62f47e
     external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+    max_session_duration: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
@@ -19740,7 +19737,7 @@ def _typecheckingstub__6168031f65ea6f5bbc6ae6d7207de3c8b2039038e0a8ddec4cc0db5ef
     pass
 
 def _typecheckingstub__ecbef57382fe1ab141db87fe0168ddbad51b2e3c7a9ebc9c39c4f2f839a3e4bf(
-    policy: _RemovalPolicy_9f93c814,
+    policy: _aws_cdk_0cae9daa.RemovalPolicy,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19827,7 +19824,7 @@ def _typecheckingstub__ef7259f99a29e3c7c58c43ee586670c112f44b42e5364d12a09a03f3e
     *,
     groups: typing.Optional[typing.Sequence[IGroup]] = None,
     managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-    password: typing.Optional[_SecretValue_3dd0ddae] = None,
+    password: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     password_reset_required: typing.Optional[builtins.bool] = None,
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
@@ -19942,7 +19939,7 @@ def _typecheckingstub__4dc4375c7e3b272eef905d1d27c4bd67aa9d9f51ccb424f15955369df
     pass
 
 def _typecheckingstub__703e9a9603562e94536f153d5ccc52492ff19cc38ed968f3b1f3e31592a8ae7f(
-    saml_provider: _ISAMLProviderRef_6e369856,
+    saml_provider: _aws_iam_632e20f6.ISAMLProviderRef,
     conditions: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
@@ -20019,7 +20016,7 @@ def _typecheckingstub__f8334d09c64ac01b56e25eccb0dd778a954e4f613c776ac3447cf3f13
     pass
 
 def _typecheckingstub__11057e2b11d9138bde96aa84215de1b5dba16e8c36af672dbebea8a1c33f4310(
-    open_id_connect_provider: _IOIDCProviderRef_a866c7c8,
+    open_id_connect_provider: _aws_iam_632e20f6.IOIDCProviderRef,
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""

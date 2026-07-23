@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,50 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_events import IEventBusRef as _IEventBusRef_aa86e9b4
-from ..interfaces.aws_eventschemas import (
-    DiscovererReference as _DiscovererReference_52fd091c,
-    IDiscovererRef as _IDiscovererRef_40eee464,
-    IRegistryPolicyRef as _IRegistryPolicyRef_a1fe7d28,
-    IRegistryRef as _IRegistryRef_007bdb40,
-    ISchemaRef as _ISchemaRef_85adc95a,
-    RegistryPolicyReference as _RegistryPolicyReference_788dde78,
-    RegistryReference as _RegistryReference_9f962fb0,
-    SchemaReference as _SchemaReference_3c1ea018,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_events as _aws_events_49a540ff
+    import aws_cdk.interfaces.aws_eventschemas as _aws_eventschemas_e91477f5
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_events_49a540ff = _LazyImport("aws_cdk.interfaces.aws_events")
+    _aws_eventschemas_e91477f5 = _LazyImport("aws_cdk.interfaces.aws_eventschemas")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDiscovererRef_40eee464, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eventschemas_e91477f5.IDiscovererRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDiscoverer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eventschemas.CfnDiscoverer",
 ):
@@ -117,8 +107,8 @@ class CfnDiscoverer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
-        cross_account: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        source_arn: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"],
+        cross_account: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnDiscoverer.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -132,7 +122,7 @@ class CfnDiscoverer(
         :param tags: Tags associated with the resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f306367587ea104b)
+            type_hints = cached_type_hints(_typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f306367587ea104b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDiscovererProps(
@@ -146,12 +136,15 @@ class CfnDiscoverer(
 
     @jsii.member(jsii_name="arnForDiscoverer")
     @builtins.classmethod
-    def arn_for_discoverer(cls, resource: "_IDiscovererRef_40eee464") -> builtins.str:
+    def arn_for_discoverer(
+        cls,
+        resource: "_aws_eventschemas_e91477f5.IDiscovererRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f90c61e9a3d12f265f81eab38d425b597d2d7e28fb0546743dcddeb172a812)
+            type_hints = cached_type_hints(_typecheckingstub__06f90c61e9a3d12f265f81eab38d425b597d2d7e28fb0546743dcddeb172a812)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDiscoverer", [resource]))
 
@@ -163,18 +156,18 @@ class CfnDiscoverer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65e059e19104074507b6be93e2cc6087696dff219c031aee46be3dc84c4a4693)
+            type_hints = cached_type_hints(_typecheckingstub__65e059e19104074507b6be93e2cc6087696dff219c031aee46be3dc84c4a4693)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDiscoverer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aed120cd74fca6fbf78a33d62495d891cbe2c2122e7ee9aac1ad880b563510c)
+            type_hints = cached_type_hints(_typecheckingstub__5aed120cd74fca6fbf78a33d62495d891cbe2c2122e7ee9aac1ad880b563510c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -187,7 +180,7 @@ class CfnDiscoverer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e89fa30181b946d0bba0e9220d943a0e33377704225394b1f9d3d14fe912c54b)
+            type_hints = cached_type_hints(_typecheckingstub__e89fa30181b946d0bba0e9220d943a0e33377704225394b1f9d3d14fe912c54b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -199,11 +192,11 @@ class CfnDiscoverer(
 
     @builtins.property
     @jsii.member(jsii_name="attrCrossAccount")
-    def attr_cross_account(self) -> "_IResolvable_da3f097b":
+    def attr_cross_account(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''
         :cloudformationAttribute: CrossAccount
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCrossAccount"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCrossAccount"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDiscovererArn")
@@ -244,15 +237,15 @@ class CfnDiscoverer(
 
     @builtins.property
     @jsii.member(jsii_name="discovererRef")
-    def discoverer_ref(self) -> "_DiscovererReference_52fd091c":
+    def discoverer_ref(self) -> "_aws_eventschemas_e91477f5.DiscovererReference":
         '''A reference to a Discoverer resource.'''
-        return typing.cast("_DiscovererReference_52fd091c", jsii.get(self, "discovererRef"))
+        return typing.cast("_aws_eventschemas_e91477f5.DiscovererReference", jsii.get(self, "discovererRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="sourceArn")
@@ -263,7 +256,7 @@ class CfnDiscoverer(
     @source_arn.setter
     def source_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5676db42d7839b4e31ffff3ed613305ba8b0b32d7a6e2629d38eee2586e717fa)
+            type_hints = cached_type_hints(_typecheckingstub__5676db42d7839b4e31ffff3ed613305ba8b0b32d7a6e2629d38eee2586e717fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
 
@@ -271,17 +264,17 @@ class CfnDiscoverer(
     @jsii.member(jsii_name="crossAccount")
     def cross_account(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Allows for the discovery of the event schemas that are sent to the event bus from another account.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "crossAccount"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "crossAccount"))
 
     @cross_account.setter
     def cross_account(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb4a06e541deb6c8dda40cd09befd814af0290af78146808d35ff87851560c3)
+            type_hints = cached_type_hints(_typecheckingstub__ecb4a06e541deb6c8dda40cd09befd814af0290af78146808d35ff87851560c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "crossAccount", value) # pyright: ignore[reportArgumentType]
 
@@ -294,7 +287,7 @@ class CfnDiscoverer(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7463e2b4b05eced21b83e3338eb22af5c46afefaac9f880d439ba9a57d2eef9)
+            type_hints = cached_type_hints(_typecheckingstub__b7463e2b4b05eced21b83e3338eb22af5c46afefaac9f880d439ba9a57d2eef9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -312,7 +305,7 @@ class CfnDiscoverer(
         value: typing.Optional[typing.List["CfnDiscoverer.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca041b8aa73b6324baa5d76e21ca40251767aae80510f933254a18d21bdd512b)
+            type_hints = cached_type_hints(_typecheckingstub__ca041b8aa73b6324baa5d76e21ca40251767aae80510f933254a18d21bdd512b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -343,7 +336,7 @@ class CfnDiscoverer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050ab2c3ea0)
+                type_hints = cached_type_hints(_typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050ab2c3ea0)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -397,8 +390,8 @@ class CfnDiscovererProps:
     def __init__(
         self,
         *,
-        source_arn: typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"],
-        cross_account: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        source_arn: typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"],
+        cross_account: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnDiscoverer.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -431,7 +424,7 @@ class CfnDiscovererProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__add35f90727b55854c3eefb472afcafa74b28a09aa410e1c3aa8a3128fa89a68)
+            type_hints = cached_type_hints(_typecheckingstub__add35f90727b55854c3eefb472afcafa74b28a09aa410e1c3aa8a3128fa89a68)
             check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
             check_type(argname="argument cross_account", value=cross_account, expected_type=type_hints["cross_account"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -447,19 +440,21 @@ class CfnDiscovererProps:
             self._values["tags"] = tags
 
     @builtins.property
-    def source_arn(self) -> typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"]:
+    def source_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"]:
         '''The ARN of the event bus.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html#cfn-eventschemas-discoverer-sourcearn
         '''
         result = self._values.get("source_arn")
         assert result is not None, "Required property 'source_arn' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IEventBusRef_aa86e9b4"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_events_49a540ff.IEventBusRef"], result)
 
     @builtins.property
     def cross_account(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Allows for the discovery of the event schemas that are sent to the event bus from another account.
 
         :default: - true
@@ -467,7 +462,7 @@ class CfnDiscovererProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-discoverer.html#cfn-eventschemas-discoverer-crossaccount
         '''
         result = self._values.get("cross_account")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -499,9 +494,9 @@ class CfnDiscovererProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRegistryRef_007bdb40, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eventschemas_e91477f5.IRegistryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRegistry(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistry",
 ):
@@ -535,7 +530,7 @@ class CfnRegistry(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        registry_name: typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]] = None,
+        registry_name: typing.Optional[typing.Union[builtins.str, "_aws_eventschemas_e91477f5.IRegistryPolicyRef"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::EventSchemas::Registry``.
@@ -547,7 +542,7 @@ class CfnRegistry(
         :param tags: Tags to associate with the registry.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6998d811)
+            type_hints = cached_type_hints(_typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6998d811)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRegistryProps(
@@ -558,12 +553,15 @@ class CfnRegistry(
 
     @jsii.member(jsii_name="arnForRegistry")
     @builtins.classmethod
-    def arn_for_registry(cls, resource: "_IRegistryRef_007bdb40") -> builtins.str:
+    def arn_for_registry(
+        cls,
+        resource: "_aws_eventschemas_e91477f5.IRegistryRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d7095b99f4de7eada4f34fcee3ae438279272d4bfaa438e9a7de1eb31c1f3de)
+            type_hints = cached_type_hints(_typecheckingstub__2d7095b99f4de7eada4f34fcee3ae438279272d4bfaa438e9a7de1eb31c1f3de)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegistry", [resource]))
 
@@ -575,18 +573,18 @@ class CfnRegistry(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__489bfc94f957a8e125dd277706c7c713dff7c1192acdef6ade0934505a7fb24f)
+            type_hints = cached_type_hints(_typecheckingstub__489bfc94f957a8e125dd277706c7c713dff7c1192acdef6ade0934505a7fb24f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistry", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f3a33248bf046934f50b3053f727578e1528e051189d185d58c716421f60590)
+            type_hints = cached_type_hints(_typecheckingstub__9f3a33248bf046934f50b3053f727578e1528e051189d185d58c716421f60590)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -599,7 +597,7 @@ class CfnRegistry(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c11136544dd1e24d8b718272168cff2cded43a5d89859a4521b899c77fd6df)
+            type_hints = cached_type_hints(_typecheckingstub__a7c11136544dd1e24d8b718272168cff2cded43a5d89859a4521b899c77fd6df)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -639,15 +637,15 @@ class CfnRegistry(
 
     @builtins.property
     @jsii.member(jsii_name="registryRef")
-    def registry_ref(self) -> "_RegistryReference_9f962fb0":
+    def registry_ref(self) -> "_aws_eventschemas_e91477f5.RegistryReference":
         '''A reference to a Registry resource.'''
-        return typing.cast("_RegistryReference_9f962fb0", jsii.get(self, "registryRef"))
+        return typing.cast("_aws_eventschemas_e91477f5.RegistryReference", jsii.get(self, "registryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -658,7 +656,7 @@ class CfnRegistry(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bce4f7f7e8c5a687a7fbdf9c4f2b0cd152aed97c129a84f29d1e92c997b8ce99)
+            type_hints = cached_type_hints(_typecheckingstub__bce4f7f7e8c5a687a7fbdf9c4f2b0cd152aed97c129a84f29d1e92c997b8ce99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -671,7 +669,7 @@ class CfnRegistry(
     @registry_name.setter
     def registry_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03b858e4024a2d1d4fa69d9add1f3648a6097e703c3b1d88c7273988233bd91b)
+            type_hints = cached_type_hints(_typecheckingstub__03b858e4024a2d1d4fa69d9add1f3648a6097e703c3b1d88c7273988233bd91b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
 
@@ -687,7 +685,7 @@ class CfnRegistry(
         value: typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4a5acf9b60d1d99c19efc9051601a320243d772d72bfe9c99d7bef8fe5e6703)
+            type_hints = cached_type_hints(_typecheckingstub__c4a5acf9b60d1d99c19efc9051601a320243d772d72bfe9c99d7bef8fe5e6703)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -718,7 +716,7 @@ class CfnRegistry(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__434a165e1c5dfe37a102494f5df09787d58fee40ecc8ab422d5fca90ce8040d7)
+                type_hints = cached_type_hints(_typecheckingstub__434a165e1c5dfe37a102494f5df09787d58fee40ecc8ab422d5fca90ce8040d7)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -758,9 +756,9 @@ class CfnRegistry(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRegistryPolicyRef_a1fe7d28)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eventschemas_e91477f5.IRegistryPolicyRef)
 class CfnRegistryPolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eventschemas.CfnRegistryPolicy",
 ):
@@ -805,7 +803,7 @@ class CfnRegistryPolicy(
         :param revision_id: The revision ID of the policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad540eb68722cc10f4390e174c8e5220a2044dd1bc749c9d97dce9d05dc109b0)
+            type_hints = cached_type_hints(_typecheckingstub__ad540eb68722cc10f4390e174c8e5220a2044dd1bc749c9d97dce9d05dc109b0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRegistryPolicyProps(
@@ -822,18 +820,18 @@ class CfnRegistryPolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2ceb26576a92234d2bee1b3289e50cacc531be61555aef1abf9eed2df962cf2)
+            type_hints = cached_type_hints(_typecheckingstub__c2ceb26576a92234d2bee1b3289e50cacc531be61555aef1abf9eed2df962cf2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistryPolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc)
+            type_hints = cached_type_hints(_typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -846,7 +844,7 @@ class CfnRegistryPolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4a4bec0d7bf3b7fc3674cf3e9fa5ea7ee730f6261b7292bc21c8d3a1e0921ab)
+            type_hints = cached_type_hints(_typecheckingstub__d4a4bec0d7bf3b7fc3674cf3e9fa5ea7ee730f6261b7292bc21c8d3a1e0921ab)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -877,9 +875,11 @@ class CfnRegistryPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="registryPolicyRef")
-    def registry_policy_ref(self) -> "_RegistryPolicyReference_788dde78":
+    def registry_policy_ref(
+        self,
+    ) -> "_aws_eventschemas_e91477f5.RegistryPolicyReference":
         '''A reference to a RegistryPolicy resource.'''
-        return typing.cast("_RegistryPolicyReference_788dde78", jsii.get(self, "registryPolicyRef"))
+        return typing.cast("_aws_eventschemas_e91477f5.RegistryPolicyReference", jsii.get(self, "registryPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -890,7 +890,7 @@ class CfnRegistryPolicy(
     @policy.setter
     def policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45e4a373a0302fe2e435472748d76b293c581b493372610b3c508f9ba14da520)
+            type_hints = cached_type_hints(_typecheckingstub__45e4a373a0302fe2e435472748d76b293c581b493372610b3c508f9ba14da520)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
@@ -903,7 +903,7 @@ class CfnRegistryPolicy(
     @registry_name.setter
     def registry_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4e5d3263c610305f4f20d2099d36fbf2bcc864fb0ea06c0e1a9a9bd79d60eba)
+            type_hints = cached_type_hints(_typecheckingstub__d4e5d3263c610305f4f20d2099d36fbf2bcc864fb0ea06c0e1a9a9bd79d60eba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
 
@@ -916,7 +916,7 @@ class CfnRegistryPolicy(
     @revision_id.setter
     def revision_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31f144d1732dcb92e464a7650dd5d31b9d139132ce00d366faf674bc51981ce2)
+            type_hints = cached_type_hints(_typecheckingstub__31f144d1732dcb92e464a7650dd5d31b9d139132ce00d366faf674bc51981ce2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "revisionId", value) # pyright: ignore[reportArgumentType]
 
@@ -964,7 +964,7 @@ class CfnRegistryPolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a9e86712)
+            type_hints = cached_type_hints(_typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a9e86712)
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
             check_type(argname="argument revision_id", value=revision_id, expected_type=type_hints["revision_id"])
@@ -1030,7 +1030,7 @@ class CfnRegistryProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        registry_name: typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]] = None,
+        registry_name: typing.Optional[typing.Union[builtins.str, "_aws_eventschemas_e91477f5.IRegistryPolicyRef"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRegistry``.
@@ -1058,7 +1058,7 @@ class CfnRegistryProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2)
+            type_hints = cached_type_hints(_typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1082,13 +1082,13 @@ class CfnRegistryProps:
     @builtins.property
     def registry_name(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_eventschemas_e91477f5.IRegistryPolicyRef"]]:
         '''The name of the schema registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registry.html#cfn-eventschemas-registry-registryname
         '''
         result = self._values.get("registry_name")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_eventschemas_e91477f5.IRegistryPolicyRef"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]]:
@@ -1111,9 +1111,9 @@ class CfnRegistryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISchemaRef_85adc95a, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_eventschemas_e91477f5.ISchemaRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSchema(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_eventschemas.CfnSchema",
 ):
@@ -1168,7 +1168,7 @@ class CfnSchema(
         :param tags: Tags associated with the schema.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__932c87e95b88ceabe68e304bed1c0517a1d9d901885f0e20ecd498449a6ceb5f)
+            type_hints = cached_type_hints(_typecheckingstub__932c87e95b88ceabe68e304bed1c0517a1d9d901885f0e20ecd498449a6ceb5f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSchemaProps(
@@ -1184,12 +1184,15 @@ class CfnSchema(
 
     @jsii.member(jsii_name="arnForSchema")
     @builtins.classmethod
-    def arn_for_schema(cls, resource: "_ISchemaRef_85adc95a") -> builtins.str:
+    def arn_for_schema(
+        cls,
+        resource: "_aws_eventschemas_e91477f5.ISchemaRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03ff91ebdcd99691b2c94a9fa64d1c257518ad1332a8aefc4e2039634e66daa1)
+            type_hints = cached_type_hints(_typecheckingstub__03ff91ebdcd99691b2c94a9fa64d1c257518ad1332a8aefc4e2039634e66daa1)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSchema", [resource]))
 
@@ -1201,18 +1204,18 @@ class CfnSchema(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ef60f631693a1c819114df0232c0d186c7065fcaf4ea76beac673078a1f4c60)
+            type_hints = cached_type_hints(_typecheckingstub__1ef60f631693a1c819114df0232c0d186c7065fcaf4ea76beac673078a1f4c60)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSchema", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11c3446e0c3190c26437e17664c824be87ad934d8243da4641672f66afadca7f)
+            type_hints = cached_type_hints(_typecheckingstub__11c3446e0c3190c26437e17664c824be87ad934d8243da4641672f66afadca7f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1225,7 +1228,7 @@ class CfnSchema(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f2224950a07cafb374f4a0e4dc54be3b520ba594f655ea88cfa238dc567dc00)
+            type_hints = cached_type_hints(_typecheckingstub__6f2224950a07cafb374f4a0e4dc54be3b520ba594f655ea88cfa238dc567dc00)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1292,15 +1295,15 @@ class CfnSchema(
 
     @builtins.property
     @jsii.member(jsii_name="schemaRef")
-    def schema_ref(self) -> "_SchemaReference_3c1ea018":
+    def schema_ref(self) -> "_aws_eventschemas_e91477f5.SchemaReference":
         '''A reference to a Schema resource.'''
-        return typing.cast("_SchemaReference_3c1ea018", jsii.get(self, "schemaRef"))
+        return typing.cast("_aws_eventschemas_e91477f5.SchemaReference", jsii.get(self, "schemaRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -1311,7 +1314,7 @@ class CfnSchema(
     @content.setter
     def content(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94e02d625cb742e61d0be744006f3c5bf11fbb499e14b421515752b5c3fa0756)
+            type_hints = cached_type_hints(_typecheckingstub__94e02d625cb742e61d0be744006f3c5bf11fbb499e14b421515752b5c3fa0756)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
 
@@ -1324,7 +1327,7 @@ class CfnSchema(
     @registry_name.setter
     def registry_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acc689ddbd2b2a99878cac557f72fa063db9c10fddb26006cde8c99dc8f47c4c)
+            type_hints = cached_type_hints(_typecheckingstub__acc689ddbd2b2a99878cac557f72fa063db9c10fddb26006cde8c99dc8f47c4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "registryName", value) # pyright: ignore[reportArgumentType]
 
@@ -1337,7 +1340,7 @@ class CfnSchema(
     @type.setter
     def type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20994186b4e8a47c5f0da09570ff31daa342ccdb0faad6c3315fda6d333ac74e)
+            type_hints = cached_type_hints(_typecheckingstub__20994186b4e8a47c5f0da09570ff31daa342ccdb0faad6c3315fda6d333ac74e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -1350,7 +1353,7 @@ class CfnSchema(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ac622a701dd4b78af42b037fd6d2d8a8f0df09268073b3b3e6ec9e89760deb2)
+            type_hints = cached_type_hints(_typecheckingstub__9ac622a701dd4b78af42b037fd6d2d8a8f0df09268073b3b3e6ec9e89760deb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1363,7 +1366,7 @@ class CfnSchema(
     @schema_name.setter
     def schema_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0dc9f39d1407d9c42e73f09f44f4f3418c538613dd3f113ee845da29afc7450)
+            type_hints = cached_type_hints(_typecheckingstub__f0dc9f39d1407d9c42e73f09f44f4f3418c538613dd3f113ee845da29afc7450)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schemaName", value) # pyright: ignore[reportArgumentType]
 
@@ -1379,7 +1382,7 @@ class CfnSchema(
         value: typing.Optional[typing.List["CfnSchema.TagsEntryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a12028f764e3ef6195835093bbd0f923b75cab1508a3629f92ff2d2ff121ba73)
+            type_hints = cached_type_hints(_typecheckingstub__a12028f764e3ef6195835093bbd0f923b75cab1508a3629f92ff2d2ff121ba73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1410,7 +1413,7 @@ class CfnSchema(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3c0c8417e202ecdfe0d59ad69ea4376812f4a41c7f0620db5a4177794242134b)
+                type_hints = cached_type_hints(_typecheckingstub__3c0c8417e202ecdfe0d59ad69ea4376812f4a41c7f0620db5a4177794242134b)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1506,7 +1509,7 @@ class CfnSchemaProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9)
+            type_hints = cached_type_hints(_typecheckingstub__cb00ff21937e458a5e190860af6b381fcf6f0ab59d0849bcf094f0fc2c44c2c9)
             check_type(argname="argument content", value=content, expected_type=type_hints["content"])
             check_type(argname="argument registry_name", value=registry_name, expected_type=type_hints["registry_name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1613,8 +1616,8 @@ def _typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f30636758
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
-    cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    source_arn: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef],
+    cross_account: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnDiscoverer.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1622,7 +1625,7 @@ def _typecheckingstub__c6de86d5a427a463ae500f08a01bbbbb1a7e5c02fcfcd3f1f30636758
     pass
 
 def _typecheckingstub__06f90c61e9a3d12f265f81eab38d425b597d2d7e28fb0546743dcddeb172a812(
-    resource: _IDiscovererRef_40eee464,
+    resource: _aws_eventschemas_e91477f5.IDiscovererRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1634,7 +1637,7 @@ def _typecheckingstub__65e059e19104074507b6be93e2cc6087696dff219c031aee46be3dc84
     pass
 
 def _typecheckingstub__5aed120cd74fca6fbf78a33d62495d891cbe2c2122e7ee9aac1ad880b563510c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1652,7 +1655,7 @@ def _typecheckingstub__5676db42d7839b4e31ffff3ed613305ba8b0b32d7a6e2629d38eee258
     pass
 
 def _typecheckingstub__ecb4a06e541deb6c8dda40cd09befd814af0290af78146808d35ff87851560c3(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1679,8 +1682,8 @@ def _typecheckingstub__8474d9c87ec86399a0d85d3b5386ddc8baf06ba1964693f15122f050a
 
 def _typecheckingstub__add35f90727b55854c3eefb472afcafa74b28a09aa410e1c3aa8a3128fa89a68(
     *,
-    source_arn: typing.Union[builtins.str, _IEventBusRef_aa86e9b4],
-    cross_account: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    source_arn: typing.Union[builtins.str, _aws_events_49a540ff.IEventBusRef],
+    cross_account: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnDiscoverer.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1692,14 +1695,14 @@ def _typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    registry_name: typing.Optional[typing.Union[builtins.str, _IRegistryPolicyRef_a1fe7d28]] = None,
+    registry_name: typing.Optional[typing.Union[builtins.str, _aws_eventschemas_e91477f5.IRegistryPolicyRef]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2d7095b99f4de7eada4f34fcee3ae438279272d4bfaa438e9a7de1eb31c1f3de(
-    resource: _IRegistryRef_007bdb40,
+    resource: _aws_eventschemas_e91477f5.IRegistryRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1711,7 +1714,7 @@ def _typecheckingstub__489bfc94f957a8e125dd277706c7c713dff7c1192acdef6ade0934505
     pass
 
 def _typecheckingstub__9f3a33248bf046934f50b3053f727578e1528e051189d185d58c716421f60590(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1766,7 +1769,7 @@ def _typecheckingstub__c2ceb26576a92234d2bee1b3289e50cacc531be61555aef1abf9eed2d
     pass
 
 def _typecheckingstub__02a0b235686021baf044f24458acbcb50ff177d86100af36ba8109eb640f4ebc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1807,7 +1810,7 @@ def _typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a
 def _typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2(
     *,
     description: typing.Optional[builtins.str] = None,
-    registry_name: typing.Optional[typing.Union[builtins.str, _IRegistryPolicyRef_a1fe7d28]] = None,
+    registry_name: typing.Optional[typing.Union[builtins.str, _aws_eventschemas_e91477f5.IRegistryPolicyRef]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1828,7 +1831,7 @@ def _typecheckingstub__932c87e95b88ceabe68e304bed1c0517a1d9d901885f0e20ecd498449
     pass
 
 def _typecheckingstub__03ff91ebdcd99691b2c94a9fa64d1c257518ad1332a8aefc4e2039634e66daa1(
-    resource: _ISchemaRef_85adc95a,
+    resource: _aws_eventschemas_e91477f5.ISchemaRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1840,7 +1843,7 @@ def _typecheckingstub__1ef60f631693a1c819114df0232c0d186c7065fcaf4ea76beac673078
     pass
 
 def _typecheckingstub__11c3446e0c3190c26437e17664c824be87ad934d8243da4641672f66afadca7f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

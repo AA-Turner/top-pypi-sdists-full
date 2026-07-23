@@ -8,8 +8,8 @@ on:
         description: "Run in dry-run mode (preview only, no mutations)."
         type: boolean
         default: true
-      auto_supersede:
-        description: "Enable auto-supersede of older rollouts when a newer RC exists."
+      auto_close:
+        description: "Enable auto-close of obsolete rollouts (newer RC, RC already GA, or not the highest advertised candidate)."
         type: boolean
         default: false
       auto_start:
@@ -36,6 +36,10 @@ on:
         description: "Optional: filter to a specific connector (e.g., 'source-github')."
         type: string
         default: ""
+      with_dev_pr_ops_cli:
+        description: "Install the ops CLI from this PR's head instead of PyPI (pass a PR number). Empty installs the published release."
+        type: string
+        default: ""
 
   workflow_dispatch:
     inputs:
@@ -43,8 +47,8 @@ on:
         description: "Run in dry-run mode (preview only, no mutations)."
         type: boolean
         default: true
-      auto_supersede:
-        description: "Enable auto-supersede of older rollouts when a newer RC exists."
+      auto_close:
+        description: "Enable auto-close of obsolete rollouts (newer RC, RC already GA, or not the highest advertised candidate)."
         type: boolean
         default: false
       auto_start:
@@ -69,6 +73,10 @@ on:
         default: false
       connector:
         description: "Optional: filter to a specific connector (e.g., 'source-github')."
+        type: string
+        default: ""
+      with_dev_pr_ops_cli:
+        description: "Install the ops CLI from this PR's head instead of PyPI (pass a PR number). Empty installs the published release."
         type: string
         default: ""
 
@@ -87,7 +95,23 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Install airbyte-ops CLI
+      # Install source: when `with_dev_pr_ops_cli` names a PR, install the CLI
+      # from that PR's head so the real cron pipeline can be exercised against
+      # the fix before a release is published. Otherwise install the published
+      # `airbyte-internal-ops` release from PyPI. Every downstream step is
+      # identical regardless of which install path ran.
+      - name: Check out dev PR (ops CLI source)
+        if: ${{ inputs.with_dev_pr_ops_cli != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.with_dev_pr_ops_cli }}/head
+
+      - name: Install airbyte-ops CLI (dev PR head)
+        if: ${{ inputs.with_dev_pr_ops_cli != '' }}
+        run: uv tool install .
+
+      - name: Install airbyte-ops CLI (published release)
+        if: ${{ inputs.with_dev_pr_ops_cli == '' }}
         run: uv tool install airbyte-internal-ops
 
       # ---- Debug: print current state for observability ----
@@ -147,13 +171,14 @@ jobs:
           airbyte-ops cloud connector rollout autopilot auto-rollback-failed
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
 
-      # ---- Phase 2: Supersede stale rollouts, then start/advance/promote ----
+      # ---- Phase 2: Close obsolete rollouts, then start/advance/promote ----
 
-      - name: Auto-Supersede Older Rollouts
-        # Cancels older rollouts when a newer RC exists for the same connector.
-        # Retains pins so actors stay on the old version until the new rollout
-        # progressively advances to include them.
-        if: ${{ !cancelled() && inputs.auto_supersede }}
+      - name: Auto-Close Obsolete Rollouts
+        # Closes obsolete rollouts: superseded by a newer RC for the same
+        # connector, whose RC is already the registry GA default, or whose RC is
+        # not the highest advertised release candidate. Retains pins so actors
+        # are left undisturbed.
+        if: ${{ !cancelled() && inputs.auto_close }}
         env:
           AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
@@ -161,7 +186,7 @@ jobs:
           AIRBYTE_INTERNAL_ADMIN_USER: airbyte-support-bot@airbyte.io
           GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
         run: >
-          airbyte-ops cloud connector rollout autopilot auto-supersede
+          airbyte-ops cloud connector rollout autopilot auto-close
           ${{ env.DRY_RUN_FLAG }} ${{ env.CONNECTOR_FLAG }}
 
       - name: Auto-Start INITIALIZED Rollouts
@@ -194,7 +219,7 @@ jobs:
 
       - name: Auto-Promote Across Tiers
         # Promotes rollouts at 100% of current tier to the next tier
-        # (TIER_2 -> TIER_1 -> ALL). Gate: autopilotConfig.autoAdvanceTiers
+        # (TIER_2 -> TIER_1 -> TIER_0). Gate: autopilotConfig.autoPromoteStages
         # must be true. Final promotion finalizes the rollout.
         if: ${{ !cancelled() && inputs.auto_promote }}
         env:

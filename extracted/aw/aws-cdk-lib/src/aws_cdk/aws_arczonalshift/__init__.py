@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,43 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_arczonalshift import (
-    AutoshiftObserverNotificationStatusReference as _AutoshiftObserverNotificationStatusReference_9514dd80,
-    IAutoshiftObserverNotificationStatusRef as _IAutoshiftObserverNotificationStatusRef_37965c1b,
-    IZonalAutoshiftConfigurationRef as _IZonalAutoshiftConfigurationRef_e67bf699,
-    ZonalAutoshiftConfigurationReference as _ZonalAutoshiftConfigurationReference_d88ceb0c,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_arczonalshift as _aws_arczonalshift_e070d171
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_arczonalshift_e070d171 = _LazyImport("aws_cdk.interfaces.aws_arczonalshift")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAutoshiftObserverNotificationStatusRef_37965c1b)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_arczonalshift_e070d171.IAutoshiftObserverNotificationStatusRef)
 class CfnAutoshiftObserverNotificationStatus(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_arczonalshift.CfnAutoshiftObserverNotificationStatus",
 ):
@@ -119,7 +114,7 @@ class CfnAutoshiftObserverNotificationStatus(
         :param status: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a641c95b7291cd74504f21deec131b94f9a4820ca9da19c12dcb74b342b75c5f)
+            type_hints = cached_type_hints(_typecheckingstub__a641c95b7291cd74504f21deec131b94f9a4820ca9da19c12dcb74b342b75c5f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAutoshiftObserverNotificationStatusProps(status=status)
@@ -137,18 +132,18 @@ class CfnAutoshiftObserverNotificationStatus(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35a130ce569d5e9229a16be838630fa70ca411e2c19ffacfb80ab99a66557347)
+            type_hints = cached_type_hints(_typecheckingstub__35a130ce569d5e9229a16be838630fa70ca411e2c19ffacfb80ab99a66557347)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutoshiftObserverNotificationStatus", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__367a58f6c0a1e21e312519427c6e0c9dec1c77bae6f15f5e3bb87efaf051de75)
+            type_hints = cached_type_hints(_typecheckingstub__367a58f6c0a1e21e312519427c6e0c9dec1c77bae6f15f5e3bb87efaf051de75)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -161,7 +156,7 @@ class CfnAutoshiftObserverNotificationStatus(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f50aa9c339197b955491d70b247d392f25ffabeb5671525df666d3ee91a733a0)
+            type_hints = cached_type_hints(_typecheckingstub__f50aa9c339197b955491d70b247d392f25ffabeb5671525df666d3ee91a733a0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -193,9 +188,9 @@ class CfnAutoshiftObserverNotificationStatus(
     @jsii.member(jsii_name="autoshiftObserverNotificationStatusRef")
     def autoshift_observer_notification_status_ref(
         self,
-    ) -> "_AutoshiftObserverNotificationStatusReference_9514dd80":
+    ) -> "_aws_arczonalshift_e070d171.AutoshiftObserverNotificationStatusReference":
         '''A reference to a AutoshiftObserverNotificationStatus resource.'''
-        return typing.cast("_AutoshiftObserverNotificationStatusReference_9514dd80", jsii.get(self, "autoshiftObserverNotificationStatusRef"))
+        return typing.cast("_aws_arczonalshift_e070d171.AutoshiftObserverNotificationStatusReference", jsii.get(self, "autoshiftObserverNotificationStatusRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -215,7 +210,7 @@ class CfnAutoshiftObserverNotificationStatus(
     @status.setter
     def status(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037d1bcfd0)
+            type_hints = cached_type_hints(_typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037d1bcfd0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -245,7 +240,7 @@ class CfnAutoshiftObserverNotificationStatusProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02982b02d19d6396959a28b523ecc10a35db9ead5858b9c048a1ff36123d13d7)
+            type_hints = cached_type_hints(_typecheckingstub__02982b02d19d6396959a28b523ecc10a35db9ead5858b9c048a1ff36123d13d7)
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "status": status,
@@ -272,9 +267,9 @@ class CfnAutoshiftObserverNotificationStatusProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IZonalAutoshiftConfigurationRef_e67bf699)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_arczonalshift_e070d171.IZonalAutoshiftConfigurationRef)
 class CfnZonalAutoshiftConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_arczonalshift.CfnZonalAutoshiftConfiguration",
 ):
@@ -322,7 +317,7 @@ class CfnZonalAutoshiftConfiguration(
         id: builtins.str,
         *,
         resource_identifier: builtins.str,
-        practice_run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        practice_run_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         zonal_autoshift_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::ARCZonalShift::ZonalAutoshiftConfiguration``.
@@ -334,7 +329,7 @@ class CfnZonalAutoshiftConfiguration(
         :param zonal_autoshift_status: When zonal autoshift is ``ENABLED`` , you authorize AWS to shift away resource traffic for an application from an Availability Zone during events, on your behalf, to help reduce time to recovery. Traffic is also shifted away for the required weekly practice runs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c7357d3884cea81f1166de2f6ac59cb16a8663a471270d73a743eb77c875eb9)
+            type_hints = cached_type_hints(_typecheckingstub__8c7357d3884cea81f1166de2f6ac59cb16a8663a471270d73a743eb77c875eb9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnZonalAutoshiftConfigurationProps(
@@ -353,18 +348,18 @@ class CfnZonalAutoshiftConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__532529b765c4aea983c9eac0bed4cf71fd15d11cb156c4e06f3316c506c45ffd)
+            type_hints = cached_type_hints(_typecheckingstub__532529b765c4aea983c9eac0bed4cf71fd15d11cb156c4e06f3316c506c45ffd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnZonalAutoshiftConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b99ba79946576f2cdb58feb7c9f7c2ee461960d1efbc1c1a5fd3abdceea0643)
+            type_hints = cached_type_hints(_typecheckingstub__5b99ba79946576f2cdb58feb7c9f7c2ee461960d1efbc1c1a5fd3abdceea0643)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -377,7 +372,7 @@ class CfnZonalAutoshiftConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6cd5c905f39dc6d9cfcdb3f49d58c5ca237eb10b38e48744425b3c2c5ebdbbd)
+            type_hints = cached_type_hints(_typecheckingstub__d6cd5c905f39dc6d9cfcdb3f49d58c5ca237eb10b38e48744425b3c2c5ebdbbd)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -401,9 +396,9 @@ class CfnZonalAutoshiftConfiguration(
     @jsii.member(jsii_name="zonalAutoshiftConfigurationRef")
     def zonal_autoshift_configuration_ref(
         self,
-    ) -> "_ZonalAutoshiftConfigurationReference_d88ceb0c":
+    ) -> "_aws_arczonalshift_e070d171.ZonalAutoshiftConfigurationReference":
         '''A reference to a ZonalAutoshiftConfiguration resource.'''
-        return typing.cast("_ZonalAutoshiftConfigurationReference_d88ceb0c", jsii.get(self, "zonalAutoshiftConfigurationRef"))
+        return typing.cast("_aws_arczonalshift_e070d171.ZonalAutoshiftConfigurationReference", jsii.get(self, "zonalAutoshiftConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceIdentifier")
@@ -414,7 +409,7 @@ class CfnZonalAutoshiftConfiguration(
     @resource_identifier.setter
     def resource_identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0172f855e8c8e45fb028b84c5b6c061a5bab422e24d02655056a950949eb68fa)
+            type_hints = cached_type_hints(_typecheckingstub__0172f855e8c8e45fb028b84c5b6c061a5bab422e24d02655056a950949eb68fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
 
@@ -422,17 +417,17 @@ class CfnZonalAutoshiftConfiguration(
     @jsii.member(jsii_name="practiceRunConfiguration")
     def practice_run_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
         '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], jsii.get(self, "practiceRunConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], jsii.get(self, "practiceRunConfiguration"))
 
     @practice_run_configuration.setter
     def practice_run_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__deabf71a3e0015b91f35f23b96354f1d2feeb19a3f783edd9e6c4be281a4d00a)
+            type_hints = cached_type_hints(_typecheckingstub__deabf71a3e0015b91f35f23b96354f1d2feeb19a3f783edd9e6c4be281a4d00a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "practiceRunConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -445,7 +440,7 @@ class CfnZonalAutoshiftConfiguration(
     @zonal_autoshift_status.setter
     def zonal_autoshift_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38043ab0659274c5d49e518db7e7a8d1c6e2ecac6e3e25ff03a10aec470be875)
+            type_hints = cached_type_hints(_typecheckingstub__38043ab0659274c5d49e518db7e7a8d1c6e2ecac6e3e25ff03a10aec470be875)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "zonalAutoshiftStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -487,7 +482,7 @@ class CfnZonalAutoshiftConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__32c87263351229051c702b913e012d54d6a7dde2b0ae1f0bdfd4035559222feb)
+                type_hints = cached_type_hints(_typecheckingstub__32c87263351229051c702b913e012d54d6a7dde2b0ae1f0bdfd4035559222feb)
                 check_type(argname="argument alarm_identifier", value=alarm_identifier, expected_type=type_hints["alarm_identifier"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -542,10 +537,10 @@ class CfnZonalAutoshiftConfiguration(
         def __init__(
             self,
             *,
-            outcome_alarms: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            outcome_alarms: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             blocked_dates: typing.Optional[typing.Sequence[builtins.str]] = None,
             blocked_windows: typing.Optional[typing.Sequence[builtins.str]] = None,
-            blocking_alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            blocking_alarms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.
 
@@ -583,7 +578,7 @@ class CfnZonalAutoshiftConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__09d714a4c978f7c2d70e24869d7ce300d549509a8b35174736a9571be8aa5750)
+                type_hints = cached_type_hints(_typecheckingstub__09d714a4c978f7c2d70e24869d7ce300d549509a8b35174736a9571be8aa5750)
                 check_type(argname="argument outcome_alarms", value=outcome_alarms, expected_type=type_hints["outcome_alarms"])
                 check_type(argname="argument blocked_dates", value=blocked_dates, expected_type=type_hints["blocked_dates"])
                 check_type(argname="argument blocked_windows", value=blocked_windows, expected_type=type_hints["blocked_windows"])
@@ -601,7 +596,7 @@ class CfnZonalAutoshiftConfiguration(
         @builtins.property
         def outcome_alarms(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]:
             '''The alarm that you specify to monitor the health of your application during practice runs.
 
             When the outcome alarm goes into an ``ALARM`` state, the practice run is ended and the outcome is set to ``FAILED`` .
@@ -610,7 +605,7 @@ class CfnZonalAutoshiftConfiguration(
             '''
             result = self._values.get("outcome_alarms")
             assert result is not None, "Required property 'outcome_alarms' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]], result)
 
         @builtins.property
         def blocked_dates(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -644,7 +639,7 @@ class CfnZonalAutoshiftConfiguration(
         @builtins.property
         def blocking_alarms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]]:
             '''An optional alarm that you can specify that blocks practice runs when the alarm is in an ``ALARM`` state.
 
             When a blocking alarm goes into an ``ALARM`` state, it prevents practice runs from being started, and ends practice runs that are in progress.
@@ -652,7 +647,7 @@ class CfnZonalAutoshiftConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration-blockingalarms
             '''
             result = self._values.get("blocking_alarms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -680,7 +675,7 @@ class CfnZonalAutoshiftConfigurationProps:
         self,
         *,
         resource_identifier: builtins.str,
-        practice_run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        practice_run_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         zonal_autoshift_status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnZonalAutoshiftConfiguration``.
@@ -720,7 +715,7 @@ class CfnZonalAutoshiftConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0)
+            type_hints = cached_type_hints(_typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0)
             check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
             check_type(argname="argument practice_run_configuration", value=practice_run_configuration, expected_type=type_hints["practice_run_configuration"])
             check_type(argname="argument zonal_autoshift_status", value=zonal_autoshift_status, expected_type=type_hints["zonal_autoshift_status"])
@@ -749,7 +744,7 @@ class CfnZonalAutoshiftConfigurationProps:
     @builtins.property
     def practice_run_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
         '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.
 
         When a resource has a practice run configuration, ARC shifts traffic for the resource weekly for practice runs.
@@ -761,7 +756,7 @@ class CfnZonalAutoshiftConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration
         '''
         result = self._values.get("practice_run_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], result)
 
     @builtins.property
     def zonal_autoshift_status(self) -> typing.Optional[builtins.str]:
@@ -811,7 +806,7 @@ def _typecheckingstub__35a130ce569d5e9229a16be838630fa70ca411e2c19ffacfb80ab99a6
     pass
 
 def _typecheckingstub__367a58f6c0a1e21e312519427c6e0c9dec1c77bae6f15f5e3bb87efaf051de75(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -840,7 +835,7 @@ def _typecheckingstub__8c7357d3884cea81f1166de2f6ac59cb16a8663a471270d73a743eb77
     id: builtins.str,
     *,
     resource_identifier: builtins.str,
-    practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    practice_run_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     zonal_autoshift_status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -853,7 +848,7 @@ def _typecheckingstub__532529b765c4aea983c9eac0bed4cf71fd15d11cb156c4e06f3316c50
     pass
 
 def _typecheckingstub__5b99ba79946576f2cdb58feb7c9f7c2ee461960d1efbc1c1a5fd3abdceea0643(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -871,7 +866,7 @@ def _typecheckingstub__0172f855e8c8e45fb028b84c5b6c061a5bab422e24d02655056a95094
     pass
 
 def _typecheckingstub__deabf71a3e0015b91f35f23b96354f1d2feeb19a3f783edd9e6c4be281a4d00a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -892,10 +887,10 @@ def _typecheckingstub__32c87263351229051c702b913e012d54d6a7dde2b0ae1f0bdfd403555
 
 def _typecheckingstub__09d714a4c978f7c2d70e24869d7ce300d549509a8b35174736a9571be8aa5750(
     *,
-    outcome_alarms: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.ControlConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    outcome_alarms: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnZonalAutoshiftConfiguration.ControlConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
     blocked_dates: typing.Optional[typing.Sequence[builtins.str]] = None,
     blocked_windows: typing.Optional[typing.Sequence[builtins.str]] = None,
-    blocking_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.ControlConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    blocking_alarms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnZonalAutoshiftConfiguration.ControlConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -903,7 +898,7 @@ def _typecheckingstub__09d714a4c978f7c2d70e24869d7ce300d549509a8b35174736a9571be
 def _typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0(
     *,
     resource_identifier: builtins.str,
-    practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    practice_run_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     zonal_autoshift_status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

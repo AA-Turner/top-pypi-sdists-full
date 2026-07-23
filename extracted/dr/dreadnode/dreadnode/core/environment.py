@@ -8,6 +8,7 @@ agent needs to reach.
 """
 
 import asyncio
+import contextlib
 import contextvars
 import inspect
 import subprocess
@@ -214,16 +215,32 @@ class TaskEnvironment(Environment):
         wait bounded by ``deadline_sec`` (caller's ``timeout_sec`` when set,
         otherwise the module default). A ``failed`` status raises with the
         server-provided error message.
+
+        A just-created environment's status can 404 for the first few polls: the
+        platform tracks the pending env in per-replica memory until the sandbox
+        row is persisted, so a status poll routed to a different API replica than
+        the one that handled the POST sees neither the tracker entry nor the row
+        yet. Treat that 404 as "still provisioning" and keep polling until the
+        deadline instead of aborting a provision that will succeed.
         """
+        from dreadnode.app.api.client import NotFoundError
+
         interval = 1.0
         deadline = asyncio.get_event_loop().time() + deadline_sec
         while True:
-            status = await asyncio.to_thread(
-                self.api_client.get_environment_status,
-                self.org,
-                self.workspace,
-                environment_id,
-            )
+            try:
+                status = await asyncio.to_thread(
+                    self.api_client.get_environment_status,
+                    self.org,
+                    self.workspace,
+                    environment_id,
+                )
+            except NotFoundError:
+                if asyncio.get_event_loop().time() >= deadline:
+                    raise
+                await asyncio.sleep(interval)
+                interval = min(interval * 1.5, _POLL_MAX_INTERVAL_SEC)
+                continue
             state = status.get("state")
             if state == "ready":
                 return status
@@ -242,7 +259,11 @@ class TaskEnvironment(Environment):
 
     async def teardown(self) -> None:
         if self._contextvar_token is not None:
-            current_task_environment.reset(self._contextvar_token)
+            # The token may have been created in a different asyncio Context (for
+            # example setup() and teardown() ran in separate Jupyter cells). A
+            # failed reset must not block the actual environment deletion below.
+            with contextlib.suppress(ValueError):
+                current_task_environment.reset(self._contextvar_token)
             self._contextvar_token = None
 
         if self._context is None:

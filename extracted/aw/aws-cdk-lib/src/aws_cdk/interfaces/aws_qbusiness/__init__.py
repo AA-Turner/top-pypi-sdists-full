@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class ApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02780d7e62f54269cdd696dfde5f4e7da716acfbebae0e1f7ce853be6d52bd3d)
+            type_hints = cached_type_hints(_typecheckingstub__02780d7e62f54269cdd696dfde5f4e7da716acfbebae0e1f7ce853be6d52bd3d)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -140,7 +144,7 @@ class DataAccessorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__848e0be0e45da9b5e17d7c25a4df995453dab35fb28d46250adb03ae80146e37)
+            type_hints = cached_type_hints(_typecheckingstub__848e0be0e45da9b5e17d7c25a4df995453dab35fb28d46250adb03ae80146e37)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument data_accessor_arn", value=data_accessor_arn, expected_type=type_hints["data_accessor_arn"])
             check_type(argname="argument data_accessor_id", value=data_accessor_id, expected_type=type_hints["data_accessor_id"])
@@ -225,7 +229,7 @@ class DataSourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__997c866f81aa301cc81240b33c2d94d2cb4d92cd26ec5f6773cd85bfaff0f159)
+            type_hints = cached_type_hints(_typecheckingstub__997c866f81aa301cc81240b33c2d94d2cb4d92cd26ec5f6773cd85bfaff0f159)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument data_source_arn", value=data_source_arn, expected_type=type_hints["data_source_arn"])
             check_type(argname="argument data_source_id", value=data_source_id, expected_type=type_hints["data_source_id"])
@@ -280,7 +284,7 @@ class DataSourceReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IApplicationRef")
 class IApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
@@ -300,7 +304,7 @@ class IApplicationRef(
 
 class _IApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
 
@@ -325,7 +329,7 @@ typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IAppli
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IDataAccessorRef")
 class IDataAccessorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataAccessor.
@@ -345,7 +349,7 @@ class IDataAccessorRef(
 
 class _IDataAccessorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataAccessor.
 
@@ -370,7 +374,7 @@ typing.cast(typing.Any, IDataAccessorRef).__jsii_proxy_class__ = lambda : _IData
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IDataSourceRef")
 class IDataSourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
@@ -390,7 +394,7 @@ class IDataSourceRef(
 
 class _IDataSourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DataSource.
 
@@ -415,7 +419,7 @@ typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSo
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IIndexRef")
 class IIndexRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
@@ -435,7 +439,7 @@ class IIndexRef(
 
 class _IIndexRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Index.
 
@@ -460,7 +464,7 @@ typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IPermissionRef")
 class IPermissionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Permission.
@@ -480,7 +484,7 @@ class IPermissionRef(
 
 class _IPermissionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Permission.
 
@@ -505,7 +509,7 @@ typing.cast(typing.Any, IPermissionRef).__jsii_proxy_class__ = lambda : _IPermis
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IPluginRef")
 class IPluginRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Plugin.
@@ -525,7 +529,7 @@ class IPluginRef(
 
 class _IPluginRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Plugin.
 
@@ -550,7 +554,7 @@ typing.cast(typing.Any, IPluginRef).__jsii_proxy_class__ = lambda : _IPluginRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IRetrieverRef")
 class IRetrieverRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Retriever.
@@ -570,7 +574,7 @@ class IRetrieverRef(
 
 class _IRetrieverRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Retriever.
 
@@ -595,7 +599,7 @@ typing.cast(typing.Any, IRetrieverRef).__jsii_proxy_class__ = lambda : _IRetriev
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_qbusiness.IWebExperienceRef")
 class IWebExperienceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebExperience.
@@ -615,7 +619,7 @@ class IWebExperienceRef(
 
 class _IWebExperienceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebExperience.
 
@@ -675,7 +679,7 @@ class IndexReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afa511e74f77e7f53931e5e988c7e1a3a9aeb0e0da2419f98c71a19b093e00f8)
+            type_hints = cached_type_hints(_typecheckingstub__afa511e74f77e7f53931e5e988c7e1a3a9aeb0e0da2419f98c71a19b093e00f8)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
             check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
@@ -749,7 +753,7 @@ class PermissionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22983f84762f2d6144f8b698b11a708facb4dd0758b51f1d4c216cfc1834bcf)
+            type_hints = cached_type_hints(_typecheckingstub__b22983f84762f2d6144f8b698b11a708facb4dd0758b51f1d4c216cfc1834bcf)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -821,7 +825,7 @@ class PluginReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b69bfd1245ecb05ca568637f2d293f301a4ddf0d129f764db8d644cc20ac21d)
+            type_hints = cached_type_hints(_typecheckingstub__8b69bfd1245ecb05ca568637f2d293f301a4ddf0d129f764db8d644cc20ac21d)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument plugin_arn", value=plugin_arn, expected_type=type_hints["plugin_arn"])
             check_type(argname="argument plugin_id", value=plugin_id, expected_type=type_hints["plugin_id"])
@@ -902,7 +906,7 @@ class RetrieverReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c0bdf172a0ce1e83224dc6653ba7dfc9fa653e3ffbe3185aebc60b20eef800f)
+            type_hints = cached_type_hints(_typecheckingstub__1c0bdf172a0ce1e83224dc6653ba7dfc9fa653e3ffbe3185aebc60b20eef800f)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument retriever_arn", value=retriever_arn, expected_type=type_hints["retriever_arn"])
             check_type(argname="argument retriever_id", value=retriever_id, expected_type=type_hints["retriever_id"])
@@ -983,7 +987,7 @@ class WebExperienceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbb4cb5bcd25420cc779bd0e2ea30049db3a0b746b212c1e164e4184edaf9598)
+            type_hints = cached_type_hints(_typecheckingstub__bbb4cb5bcd25420cc779bd0e2ea30049db3a0b746b212c1e164e4184edaf9598)
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument web_experience_arn", value=web_experience_arn, expected_type=type_hints["web_experience_arn"])
             check_type(argname="argument web_experience_id", value=web_experience_id, expected_type=type_hints["web_experience_id"])

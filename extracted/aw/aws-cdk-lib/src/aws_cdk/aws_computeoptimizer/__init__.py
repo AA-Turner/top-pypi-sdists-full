@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_computeoptimizer import (
-    AutomationRuleReference as _AutomationRuleReference_9f2f6bfe,
-    IAutomationRuleRef as _IAutomationRuleRef_e164f41f,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_computeoptimizer as _aws_computeoptimizer_54c3388d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_computeoptimizer_54c3388d = _LazyImport("aws_cdk.interfaces.aws_computeoptimizer")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAutomationRuleRef_e164f41f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_computeoptimizer_54c3388d.IAutomationRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnAutomationRule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_computeoptimizer.CfnAutomationRule",
 ):
@@ -172,13 +166,13 @@ class CfnAutomationRule(
         name: builtins.str,
         recommended_action_types: typing.Sequence[builtins.str],
         rule_type: builtins.str,
-        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
         status: builtins.str,
-        criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        organization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.OrganizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        organization_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.OrganizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         priority: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ComputeOptimizer::AutomationRule``.
 
@@ -196,7 +190,7 @@ class CfnAutomationRule(
         :param tags: Tags associated with the automation rule.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96a666753f76c538bcce8b208bd4fe982327d0cdf14f919daa387b8c3329361e)
+            type_hints = cached_type_hints(_typecheckingstub__96a666753f76c538bcce8b208bd4fe982327d0cdf14f919daa387b8c3329361e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAutomationRuleProps(
@@ -222,18 +216,18 @@ class CfnAutomationRule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__480292f6f2d1bff94dcd7a3d57b42386a76a0e6ae04ad090a1db868019e4ec37)
+            type_hints = cached_type_hints(_typecheckingstub__480292f6f2d1bff94dcd7a3d57b42386a76a0e6ae04ad090a1db868019e4ec37)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutomationRule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f486a97f146f9b0f4b1190fbc2f9660b7d307fc7c14989fd309fc943e8a3a91)
+            type_hints = cached_type_hints(_typecheckingstub__0f486a97f146f9b0f4b1190fbc2f9660b7d307fc7c14989fd309fc943e8a3a91)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -246,7 +240,7 @@ class CfnAutomationRule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a8520f0d2d6d74ec45a1f2082e83d3e732e6939a22c2ddc79d991f420302e3a)
+            type_hints = cached_type_hints(_typecheckingstub__2a8520f0d2d6d74ec45a1f2082e83d3e732e6939a22c2ddc79d991f420302e3a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -312,15 +306,17 @@ class CfnAutomationRule(
 
     @builtins.property
     @jsii.member(jsii_name="automationRuleRef")
-    def automation_rule_ref(self) -> "_AutomationRuleReference_9f2f6bfe":
+    def automation_rule_ref(
+        self,
+    ) -> "_aws_computeoptimizer_54c3388d.AutomationRuleReference":
         '''A reference to a AutomationRule resource.'''
-        return typing.cast("_AutomationRuleReference_9f2f6bfe", jsii.get(self, "automationRuleRef"))
+        return typing.cast("_aws_computeoptimizer_54c3388d.AutomationRuleReference", jsii.get(self, "automationRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -341,7 +337,7 @@ class CfnAutomationRule(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12432e1def54ab4a8f04be84e5c6032d7e4e0a9729dd56c51d2a540eba8e288f)
+            type_hints = cached_type_hints(_typecheckingstub__12432e1def54ab4a8f04be84e5c6032d7e4e0a9729dd56c51d2a540eba8e288f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -354,7 +350,7 @@ class CfnAutomationRule(
     @recommended_action_types.setter
     def recommended_action_types(self, value: typing.List[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a69f6615b451a52d4025f39af3ea110a1c305a7cdf1975b5123db464c9ffcf3f)
+            type_hints = cached_type_hints(_typecheckingstub__a69f6615b451a52d4025f39af3ea110a1c305a7cdf1975b5123db464c9ffcf3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recommendedActionTypes", value) # pyright: ignore[reportArgumentType]
 
@@ -367,7 +363,7 @@ class CfnAutomationRule(
     @rule_type.setter
     def rule_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c023ccc3b14f458b3a26d5ffc7c47fd30417efe1fe064fd6fd8bfd72e6d5e36)
+            type_hints = cached_type_hints(_typecheckingstub__4c023ccc3b14f458b3a26d5ffc7c47fd30417efe1fe064fd6fd8bfd72e6d5e36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleType", value) # pyright: ignore[reportArgumentType]
 
@@ -375,16 +371,16 @@ class CfnAutomationRule(
     @jsii.member(jsii_name="schedule")
     def schedule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ScheduleProperty"]:
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ScheduleProperty"], jsii.get(self, "schedule"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ScheduleProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ScheduleProperty"], jsii.get(self, "schedule"))
 
     @schedule.setter
     def schedule(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ScheduleProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ScheduleProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cefdf23808a2bdd45df2cf7fdfa0ed6c8e067eb54cff24649619ea00c07799a)
+            type_hints = cached_type_hints(_typecheckingstub__6cefdf23808a2bdd45df2cf7fdfa0ed6c8e067eb54cff24649619ea00c07799a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
 
@@ -397,7 +393,7 @@ class CfnAutomationRule(
     @status.setter
     def status(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5587f4f44ca9843d0dc165c34e813a55d83d5f5c1836a85325aaad770147bdf6)
+            type_hints = cached_type_hints(_typecheckingstub__5587f4f44ca9843d0dc165c34e813a55d83d5f5c1836a85325aaad770147bdf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
@@ -405,16 +401,16 @@ class CfnAutomationRule(
     @jsii.member(jsii_name="criteria")
     def criteria(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.CriteriaProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.CriteriaProperty"]], jsii.get(self, "criteria"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.CriteriaProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.CriteriaProperty"]], jsii.get(self, "criteria"))
 
     @criteria.setter
     def criteria(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.CriteriaProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.CriteriaProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__289c65c0a5bac1427b11926c90763f1770bba7a367f702daa76bf305c29df78e)
+            type_hints = cached_type_hints(_typecheckingstub__289c65c0a5bac1427b11926c90763f1770bba7a367f702daa76bf305c29df78e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "criteria", value) # pyright: ignore[reportArgumentType]
 
@@ -427,7 +423,7 @@ class CfnAutomationRule(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ee341245a5bb3d3bb5f3425b715d93b07153893d5c394f7062a07979fa20b91)
+            type_hints = cached_type_hints(_typecheckingstub__7ee341245a5bb3d3bb5f3425b715d93b07153893d5c394f7062a07979fa20b91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -435,16 +431,16 @@ class CfnAutomationRule(
     @jsii.member(jsii_name="organizationConfiguration")
     def organization_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.OrganizationConfigurationProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.OrganizationConfigurationProperty"]], jsii.get(self, "organizationConfiguration"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.OrganizationConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.OrganizationConfigurationProperty"]], jsii.get(self, "organizationConfiguration"))
 
     @organization_configuration.setter
     def organization_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.OrganizationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.OrganizationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8693308b84990e1940e6d8125c64fb152e7c9a52301f3933e9018615cc0c821b)
+            type_hints = cached_type_hints(_typecheckingstub__8693308b84990e1940e6d8125c64fb152e7c9a52301f3933e9018615cc0c821b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "organizationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -457,20 +453,23 @@ class CfnAutomationRule(
     @priority.setter
     def priority(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68a0a555e99d5fd4d7f6532a47a52406a7b848025f50626d6fb58f632c8e83e4)
+            type_hints = cached_type_hints(_typecheckingstub__68a0a555e99d5fd4d7f6532a47a52406a7b848025f50626d6fb58f632c8e83e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags associated with the automation rule.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fd58f76e153d14a2da3d1d4038d7af1ef5ef2e85cee2b7eff1735fa6050e261)
+            type_hints = cached_type_hints(_typecheckingstub__1fd58f76e153d14a2da3d1d4038d7af1ef5ef2e85cee2b7eff1735fa6050e261)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -492,14 +491,14 @@ class CfnAutomationRule(
         def __init__(
             self,
             *,
-            ebs_volume_size_in_gib: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.IntegerCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ebs_volume_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            estimated_monthly_savings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.DoubleCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            look_back_period_in_days: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.IntegerCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            region: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            resource_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            resource_tag: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.ResourceTagsCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            restart_needed: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ebs_volume_size_in_gib: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.IntegerCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ebs_volume_type: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            estimated_monthly_savings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.DoubleCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            look_back_period_in_days: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.IntegerCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            region: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_arn: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_tag: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.ResourceTagsCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            restart_needed: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.StringCriteriaConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
             :param ebs_volume_size_in_gib: 
@@ -557,7 +556,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2221beabcf689a62effe3e9503319e5b021178f2776807f8a84226f47b1072b5)
+                type_hints = cached_type_hints(_typecheckingstub__2221beabcf689a62effe3e9503319e5b021178f2776807f8a84226f47b1072b5)
                 check_type(argname="argument ebs_volume_size_in_gib", value=ebs_volume_size_in_gib, expected_type=type_hints["ebs_volume_size_in_gib"])
                 check_type(argname="argument ebs_volume_type", value=ebs_volume_type, expected_type=type_hints["ebs_volume_type"])
                 check_type(argname="argument estimated_monthly_savings", value=estimated_monthly_savings, expected_type=type_hints["estimated_monthly_savings"])
@@ -587,82 +586,82 @@ class CfnAutomationRule(
         @builtins.property
         def ebs_volume_size_in_gib(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-ebsvolumesizeingib
             '''
             result = self._values.get("ebs_volume_size_in_gib")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def ebs_volume_type(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-ebsvolumetype
             '''
             result = self._values.get("ebs_volume_type")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def estimated_monthly_savings(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.DoubleCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.DoubleCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-estimatedmonthlysavings
             '''
             result = self._values.get("estimated_monthly_savings")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.DoubleCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.DoubleCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def look_back_period_in_days(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-lookbackperiodindays
             '''
             result = self._values.get("look_back_period_in_days")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.IntegerCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def region(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-region
             '''
             result = self._values.get("region")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def resource_arn(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-resourcearn
             '''
             result = self._values.get("resource_arn")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def resource_tag(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ResourceTagsCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ResourceTagsCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-resourcetag
             '''
             result = self._values.get("resource_tag")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ResourceTagsCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ResourceTagsCriteriaConditionProperty"]]]], result)
 
         @builtins.property
         def restart_needed(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-criteria.html#cfn-computeoptimizer-automationrule-criteria-restartneeded
             '''
             result = self._values.get("restart_needed")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.StringCriteriaConditionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -685,7 +684,7 @@ class CfnAutomationRule(
             self,
             *,
             comparison: typing.Optional[builtins.str] = None,
-            values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''
             :param comparison: 
@@ -706,7 +705,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d9dce0c17f96960de6116298c67e2feb2bf6a7257e20aa39bd6dd3c36b4cbc9f)
+                type_hints = cached_type_hints(_typecheckingstub__d9dce0c17f96960de6116298c67e2feb2bf6a7257e20aa39bd6dd3c36b4cbc9f)
                 check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -726,12 +725,12 @@ class CfnAutomationRule(
         @builtins.property
         def values(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-doublecriteriacondition.html#cfn-computeoptimizer-automationrule-doublecriteriacondition-values
             '''
             result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -754,7 +753,7 @@ class CfnAutomationRule(
             self,
             *,
             comparison: typing.Optional[builtins.str] = None,
-            values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''
             :param comparison: 
@@ -775,7 +774,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__63a1a744e2a11f80314f00a1509ab739f3ac5c054f9f670718151b5e36cfb5ce)
+                type_hints = cached_type_hints(_typecheckingstub__63a1a744e2a11f80314f00a1509ab739f3ac5c054f9f670718151b5e36cfb5ce)
                 check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -795,12 +794,12 @@ class CfnAutomationRule(
         @builtins.property
         def values(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-computeoptimizer-automationrule-integercriteriacondition.html#cfn-computeoptimizer-automationrule-integercriteriacondition-values
             '''
             result = self._values.get("values")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -847,7 +846,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23f66489eba80548b6b94027d2051adc2b1428ef11d2360412fe72167a8dbabe)
+                type_hints = cached_type_hints(_typecheckingstub__23f66489eba80548b6b94027d2051adc2b1428ef11d2360412fe72167a8dbabe)
                 check_type(argname="argument account_ids", value=account_ids, expected_type=type_hints["account_ids"])
                 check_type(argname="argument rule_apply_order", value=rule_apply_order, expected_type=type_hints["rule_apply_order"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -919,7 +918,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cdcf2ae259b8562f6d66cb179cd5ce41ecfa75902600227ae3631ea1396db569)
+                type_hints = cached_type_hints(_typecheckingstub__cdcf2ae259b8562f6d66cb179cd5ce41ecfa75902600227ae3631ea1396db569)
                 check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
@@ -1004,7 +1003,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4bf7de7511c121ed491996afe46004f5a86ee28c95724278fbc25812f44bc65b)
+                type_hints = cached_type_hints(_typecheckingstub__4bf7de7511c121ed491996afe46004f5a86ee28c95724278fbc25812f44bc65b)
                 check_type(argname="argument execution_window_in_minutes", value=execution_window_in_minutes, expected_type=type_hints["execution_window_in_minutes"])
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
                 check_type(argname="argument schedule_expression_timezone", value=schedule_expression_timezone, expected_type=type_hints["schedule_expression_timezone"])
@@ -1085,7 +1084,7 @@ class CfnAutomationRule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a0c234cd251c7890ce9b10e125fa4606918e5c69ee8a2cd6f0bcab295a4edc0c)
+                type_hints = cached_type_hints(_typecheckingstub__a0c234cd251c7890ce9b10e125fa4606918e5c69ee8a2cd6f0bcab295a4edc0c)
                 check_type(argname="argument comparison", value=comparison, expected_type=type_hints["comparison"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1145,13 +1144,13 @@ class CfnAutomationRuleProps:
         name: builtins.str,
         recommended_action_types: typing.Sequence[builtins.str],
         rule_type: builtins.str,
-        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        schedule: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
         status: builtins.str,
-        criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        criteria: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.CriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
-        organization_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutomationRule.OrganizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        organization_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAutomationRule.OrganizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         priority: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAutomationRule``.
 
@@ -1236,7 +1235,7 @@ class CfnAutomationRuleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__929667fe90449fbcfe9926f80a0cba1fdf4f24a92c992f3b1f7bb0d8c5fa25f1)
+            type_hints = cached_type_hints(_typecheckingstub__929667fe90449fbcfe9926f80a0cba1fdf4f24a92c992f3b1f7bb0d8c5fa25f1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument recommended_action_types", value=recommended_action_types, expected_type=type_hints["recommended_action_types"])
             check_type(argname="argument rule_type", value=rule_type, expected_type=type_hints["rule_type"])
@@ -1298,13 +1297,13 @@ class CfnAutomationRuleProps:
     @builtins.property
     def schedule(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ScheduleProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ScheduleProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-computeoptimizer-automationrule.html#cfn-computeoptimizer-automationrule-schedule
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.ScheduleProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.ScheduleProperty"], result)
 
     @builtins.property
     def status(self) -> builtins.str:
@@ -1319,12 +1318,12 @@ class CfnAutomationRuleProps:
     @builtins.property
     def criteria(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.CriteriaProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.CriteriaProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-computeoptimizer-automationrule.html#cfn-computeoptimizer-automationrule-criteria
         '''
         result = self._values.get("criteria")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.CriteriaProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.CriteriaProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1338,12 +1337,12 @@ class CfnAutomationRuleProps:
     @builtins.property
     def organization_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.OrganizationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.OrganizationConfigurationProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-computeoptimizer-automationrule.html#cfn-computeoptimizer-automationrule-organizationconfiguration
         '''
         result = self._values.get("organization_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutomationRule.OrganizationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAutomationRule.OrganizationConfigurationProperty"]], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[builtins.str]:
@@ -1355,13 +1354,13 @@ class CfnAutomationRuleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags associated with the automation rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-computeoptimizer-automationrule.html#cfn-computeoptimizer-automationrule-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1389,13 +1388,13 @@ def _typecheckingstub__96a666753f76c538bcce8b208bd4fe982327d0cdf14f919daa387b8c3
     name: builtins.str,
     recommended_action_types: typing.Sequence[builtins.str],
     rule_type: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
     status: builtins.str,
-    criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    organization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.OrganizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    organization_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.OrganizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1407,7 +1406,7 @@ def _typecheckingstub__480292f6f2d1bff94dcd7a3d57b42386a76a0e6ae04ad090a1db86801
     pass
 
 def _typecheckingstub__0f486a97f146f9b0f4b1190fbc2f9660b7d307fc7c14989fd309fc943e8a3a91(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1437,7 +1436,7 @@ def _typecheckingstub__4c023ccc3b14f458b3a26d5ffc7c47fd30417efe1fe064fd6fd8bfd72
     pass
 
 def _typecheckingstub__6cefdf23808a2bdd45df2cf7fdfa0ed6c8e067eb54cff24649619ea00c07799a(
-    value: typing.Union[_IResolvable_da3f097b, CfnAutomationRule.ScheduleProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutomationRule.ScheduleProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1449,7 +1448,7 @@ def _typecheckingstub__5587f4f44ca9843d0dc165c34e813a55d83d5f5c1836a85325aaad770
     pass
 
 def _typecheckingstub__289c65c0a5bac1427b11926c90763f1770bba7a367f702daa76bf305c29df78e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutomationRule.CriteriaProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutomationRule.CriteriaProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1461,7 +1460,7 @@ def _typecheckingstub__7ee341245a5bb3d3bb5f3425b715d93b07153893d5c394f7062a07979
     pass
 
 def _typecheckingstub__8693308b84990e1940e6d8125c64fb152e7c9a52301f3933e9018615cc0c821b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutomationRule.OrganizationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAutomationRule.OrganizationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1473,21 +1472,21 @@ def _typecheckingstub__68a0a555e99d5fd4d7f6532a47a52406a7b848025f50626d6fb58f632
     pass
 
 def _typecheckingstub__1fd58f76e153d14a2da3d1d4038d7af1ef5ef2e85cee2b7eff1735fa6050e261(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2221beabcf689a62effe3e9503319e5b021178f2776807f8a84226f47b1072b5(
     *,
-    ebs_volume_size_in_gib: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.IntegerCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ebs_volume_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    estimated_monthly_savings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.DoubleCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    look_back_period_in_days: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.IntegerCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    region: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tag: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.ResourceTagsCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    restart_needed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_volume_size_in_gib: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.IntegerCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_volume_type: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    estimated_monthly_savings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.DoubleCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    look_back_period_in_days: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.IntegerCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    region: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_arn: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tag: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.ResourceTagsCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    restart_needed: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.StringCriteriaConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1495,7 +1494,7 @@ def _typecheckingstub__2221beabcf689a62effe3e9503319e5b021178f2776807f8a84226f47
 def _typecheckingstub__d9dce0c17f96960de6116298c67e2feb2bf6a7257e20aa39bd6dd3c36b4cbc9f(
     *,
     comparison: typing.Optional[builtins.str] = None,
-    values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1503,7 +1502,7 @@ def _typecheckingstub__d9dce0c17f96960de6116298c67e2feb2bf6a7257e20aa39bd6dd3c36
 def _typecheckingstub__63a1a744e2a11f80314f00a1509ab739f3ac5c054f9f670718151b5e36cfb5ce(
     *,
     comparison: typing.Optional[builtins.str] = None,
-    values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    values: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1547,13 +1546,13 @@ def _typecheckingstub__929667fe90449fbcfe9926f80a0cba1fdf4f24a92c992f3b1f7bb0d8c
     name: builtins.str,
     recommended_action_types: typing.Sequence[builtins.str],
     rule_type: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    schedule: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
     status: builtins.str,
-    criteria: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    criteria: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.CriteriaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
-    organization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutomationRule.OrganizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    organization_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAutomationRule.OrganizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

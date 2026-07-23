@@ -911,6 +911,7 @@ compile_error!(
 );
 
 pub(crate) mod bundler;
+#[doc(hidden)]
 pub mod canonical;
 pub(crate) mod compiler;
 mod content_encoding;
@@ -919,7 +920,8 @@ pub(crate) mod dereferencer;
 pub mod error;
 mod evaluation;
 #[doc(hidden)]
-pub mod ext;
+pub use jsonschema_value::ext;
+pub(crate) use jsonschema_value::{Json, JsonArrayAccess, JsonNode, JsonObjectAccess, SerdeJson};
 mod http;
 mod keywords;
 #[cfg(all(feature = "macros", not(target_family = "wasm")))]
@@ -931,9 +933,12 @@ pub mod paths;
 pub(crate) mod properties;
 pub(crate) mod regex;
 mod retriever;
-pub mod types;
+pub mod types {
+    pub use jsonschema_value::types::{JsonType, JsonTypeSet, JsonTypeSetIterator};
+}
 mod validator;
 
+#[doc(hidden)]
 pub use canonical::CanonicalizationError;
 pub use error::{
     ErrorIterator, MaskedValidationError, ValidationError, ValidationErrorParts, ValidationErrors,
@@ -1293,6 +1298,7 @@ pub async fn async_validator_map_for(
 ///
 /// Returns [`CanonicalizationError`] when the input is not a valid JSON Schema document or cannot be represented in
 /// canonical form.
+#[doc(hidden)]
 pub fn canonicalize(value: &Value) -> Result<canonical::CanonicalSchema, CanonicalizationError> {
     canonical::options().canonicalize(value)
 }
@@ -2862,7 +2868,7 @@ pub mod __private {
         pub use regex::{Regex, RegexBuilder};
     }
     pub mod unique_items {
-        pub use crate::keywords::unique_items::is_unique;
+        pub use crate::ext::unique::is_unique;
     }
     pub mod cmp {
         pub use crate::ext::cmp::{equal, equal_numbers};
@@ -2917,7 +2923,7 @@ pub mod __private {
         /// Integer check per drafts 6+: floats with zero fractional part count.
         #[must_use]
         pub fn is_integer(n: &serde_json::Number) -> bool {
-            crate::types::number_is_integer(n)
+            jsonschema_value::types::number_is_integer(n)
         }
         /// Integer check per draft 4: numbers written with a decimal point are not integers.
         #[must_use]
@@ -3105,6 +3111,8 @@ pub mod __private {
 
     /// Per-keyword error constructors for generated code; evaluation path always equals schema path.
     pub mod error {
+        use std::borrow::Cow;
+
         use serde_json::Value;
 
         use crate::{
@@ -3133,7 +3141,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 encoding,
             )
         }
@@ -3150,7 +3158,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 media_type,
             )
         }
@@ -3167,7 +3175,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3184,7 +3192,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3201,7 +3209,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 pattern.to_string(),
             )
         }
@@ -3218,7 +3226,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 format,
             )
         }
@@ -3237,7 +3245,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 ty,
             )
         }
@@ -3254,7 +3262,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 types,
             )
         }
@@ -3271,7 +3279,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3288,7 +3296,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3305,7 +3313,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3322,7 +3330,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3340,7 +3348,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 multiple_of,
             )
         }
@@ -3358,7 +3366,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 multiple_of,
             )
         }
@@ -3375,7 +3383,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3392,7 +3400,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3409,7 +3417,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3425,7 +3433,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
             )
         }
 
@@ -3440,7 +3448,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
             )
         }
 
@@ -3456,7 +3464,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3473,7 +3481,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 limit,
             )
         }
@@ -3490,7 +3498,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 Value::String(property.to_owned()),
             )
         }
@@ -3507,7 +3515,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 unexpected,
             )
         }
@@ -3521,7 +3529,7 @@ pub mod __private {
             expected: Value,
         ) -> ValidationError<'i> {
             ValidationError::new(
-                std::borrow::Cow::Borrowed(instance),
+                Cow::Borrowed(instance),
                 crate::error::ValidationErrorKind::Constant {
                     expected_value: expected,
                 },
@@ -3543,7 +3551,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 options,
             )
         }
@@ -3559,7 +3567,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
             )
         }
 
@@ -3575,7 +3583,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 schema,
             )
         }
@@ -3592,7 +3600,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 context,
             )
         }
@@ -3609,7 +3617,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 context,
             )
         }
@@ -3626,7 +3634,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 context,
             )
         }
@@ -3643,7 +3651,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 unexpected,
             )
         }
@@ -3660,7 +3668,7 @@ pub mod __private {
                 Location::from_escaped(schema_path),
                 LazyEvaluationPath::SameAsSchemaPath,
                 instance_path,
-                instance,
+                Cow::Borrowed(instance),
                 unexpected,
             )
         }

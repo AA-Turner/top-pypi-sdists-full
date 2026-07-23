@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-cli
-Version: 1.163.0
+Version: 1.164.0
 Summary: AWS SAM CLI is a CLI tool for local development and testing of Serverless applications
 Author-email: Amazon Web Services <aws-sam-developers@amazon.com>
 License-Expression: Apache-2.0
@@ -43,7 +43,7 @@ Requires-Dist: aws_lambda_builders==1.65.0
 Requires-Dist: tomlkit==0.15.0
 Requires-Dist: watchdog==4.0.2
 Requires-Dist: rich<15.1.0,>=14.3.3
-Requires-Dist: pyopenssl<26.3,>=25.3
+Requires-Dist: pyopenssl<26.4,>=25.3
 Requires-Dist: jsonschema<4.27
 Requires-Dist: typing_extensions<5,>=4.4.0
 Requires-Dist: regex!=2021.10.8

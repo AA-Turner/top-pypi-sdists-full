@@ -5,16 +5,23 @@ use crate::{
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
+    Json, JsonNode, JsonObjectAccess, SerdeJson,
 };
 use serde_json::{Map, Value};
 
 pub(crate) struct PropertyNamesObjectValidator {
-    node: SchemaNode,
+    // Property names are always strings, validated via a materialized `Value::String`, so the names
+    // subschema is compiled against `serde_json` regardless of the instance representation.
+    node: SchemaNode<SerdeJson>,
 }
 
 impl PropertyNamesObjectValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
+        let ctx = ctx.to_representation::<SerdeJson>();
         let ctx = ctx.new_at_location("propertyNames");
         Ok(Box::new(PropertyNamesObjectValidator {
             node: compiler::compile(&ctx, ctx.as_resource_ref(schema))?,
@@ -22,12 +29,12 @@ impl PropertyNamesObjectValidator {
     }
 }
 
-impl Validate for PropertyNamesObjectValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = &instance {
-            item.keys().all(move |key| {
-                let wrapper = Value::String(key.clone());
-                self.node.is_valid(&wrapper, ctx)
+impl<F: Json> Validate<F> for PropertyNamesObjectValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
+            object.members().all(|(name, _)| {
+                let wrapper = Value::String(name.as_ref().to_owned());
+                self.node.is_valid(&&wrapper, ctx)
             })
         } else {
             true
@@ -36,26 +43,23 @@ impl Validate for PropertyNamesObjectValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = &instance {
-            for key in item.keys() {
-                let wrapper = Value::String(key.clone());
-                match self.node.validate(&wrapper, location, tracker, ctx) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        let schema_path = error.schema_path().clone();
-                        return Err(ValidationError::property_names(
-                            schema_path.clone(),
-                            crate::paths::capture_evaluation_path(tracker, &schema_path),
-                            location.into(),
-                            instance,
-                            error.to_owned(),
-                        ));
-                    }
+        if let Some(object) = instance.as_object() {
+            for (name, _) in object.members() {
+                let wrapper = Value::String(name.as_ref().to_owned());
+                if let Err(error) = self.node.validate(&&wrapper, location, tracker, ctx) {
+                    let schema_path = error.schema_path().clone();
+                    return Err(ValidationError::property_names(
+                        schema_path.clone(),
+                        crate::paths::capture_evaluation_path(tracker, &schema_path),
+                        location.into(),
+                        instance.to_value(),
+                        error.to_owned(),
+                    ));
                 }
             }
         }
@@ -64,22 +68,22 @@ impl Validate for PropertyNamesObjectValidator {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = &instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
-            for key in item.keys() {
-                let wrapper = Value::String(key.clone());
-                for error in self.node.iter_errors(&wrapper, location, tracker, ctx) {
+            for (name, _) in object.members() {
+                let wrapper = Value::String(name.as_ref().to_owned());
+                for error in self.node.iter_errors(&&wrapper, location, tracker, ctx) {
                     let schema_path = error.schema_path().clone();
                     errors.push(ValidationError::property_names(
                         schema_path.clone(),
                         crate::paths::capture_evaluation_path(tracker, &schema_path),
                         location.into(),
-                        instance,
+                        instance.to_value(),
                         error.to_owned(),
                     ));
                 }
@@ -92,18 +96,18 @@ impl Validate for PropertyNamesObjectValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
-            let mut children = Vec::with_capacity(item.len());
-            for key in item.keys() {
-                let wrapper = Value::String(key.clone());
+        if let Some(object) = instance.as_object() {
+            let mut children = Vec::with_capacity(object.len());
+            for (name, _) in object.members() {
+                let wrapper = Value::String(name.as_ref().to_owned());
                 children.push(
                     self.node
-                        .evaluate_instance(&wrapper, location, tracker, ctx),
+                        .evaluate_instance(&&wrapper, location, tracker, ctx),
                 );
             }
             EvaluationResult::from_children(children)
@@ -119,16 +123,16 @@ pub(crate) struct PropertyNamesBooleanValidator {
 
 impl PropertyNamesBooleanValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(ctx: &compiler::Context<F>) -> CompilationResult<'a, F> {
         let location = ctx.location().join("propertyNames");
         Ok(Box::new(PropertyNamesBooleanValidator { location }))
     }
 }
 
-impl Validate for PropertyNamesBooleanValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
-            if !item.is_empty() {
+impl<F: Json> Validate<F> for PropertyNamesBooleanValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
+            if !object.is_empty() {
                 return false;
             }
         }
@@ -137,30 +141,30 @@ impl Validate for PropertyNamesBooleanValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance, ctx) {
+        if <Self as Validate<F>>::is_valid(self, instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::false_schema(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
             ))
         }
     }
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     match schema {
         Value::Object(_) => Some(PropertyNamesObjectValidator::compile(ctx, schema)),
         Value::Bool(false) => Some(PropertyNamesBooleanValidator::compile(ctx)),

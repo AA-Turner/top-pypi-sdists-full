@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,47 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_proton import (
-    EnvironmentAccountConnectionReference as _EnvironmentAccountConnectionReference_e0cad370,
-    EnvironmentTemplateReference as _EnvironmentTemplateReference_7a1abc2b,
-    IEnvironmentAccountConnectionRef as _IEnvironmentAccountConnectionRef_389c5b12,
-    IEnvironmentTemplateRef as _IEnvironmentTemplateRef_2a7db519,
-    IServiceTemplateRef as _IServiceTemplateRef_74ef1fef,
-    ServiceTemplateReference as _ServiceTemplateReference_2e63180b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_proton as _aws_proton_4cd6bb11
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_proton_4cd6bb11 = _LazyImport("aws_cdk.interfaces.aws_proton")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentAccountConnectionRef_389c5b12, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_proton_4cd6bb11.IEnvironmentAccountConnectionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnEnvironmentAccountConnection(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentAccountConnection",
 ):
@@ -130,7 +121,7 @@ class CfnEnvironmentAccountConnection(
         environment_name: typing.Optional[builtins.str] = None,
         management_account_id: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Proton::EnvironmentAccountConnection``.
 
@@ -145,7 +136,7 @@ class CfnEnvironmentAccountConnection(
         :param tags: An optional list of metadata items that you can associate with the AWS Proton environment account connection. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4856820b)
+            type_hints = cached_type_hints(_typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4856820b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentAccountConnectionProps(
@@ -164,13 +155,13 @@ class CfnEnvironmentAccountConnection(
     @builtins.classmethod
     def arn_for_environment_account_connection(
         cls,
-        resource: "_IEnvironmentAccountConnectionRef_389c5b12",
+        resource: "_aws_proton_4cd6bb11.IEnvironmentAccountConnectionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6959a031237a5c4d4caf1c07e90f5ceb4f0da374ddca166f6fabcefd7769574c)
+            type_hints = cached_type_hints(_typecheckingstub__6959a031237a5c4d4caf1c07e90f5ceb4f0da374ddca166f6fabcefd7769574c)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironmentAccountConnection", [resource]))
 
@@ -182,18 +173,18 @@ class CfnEnvironmentAccountConnection(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11b3005577bf5809ebc225de13aaaac30b8ffae0f3cf6e712ee66c716b68567f)
+            type_hints = cached_type_hints(_typecheckingstub__11b3005577bf5809ebc225de13aaaac30b8ffae0f3cf6e712ee66c716b68567f)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironmentAccountConnection", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b30ec85df499b3f87a92d53ab1648560e2495ee044a1fb86faf3008181494293)
+            type_hints = cached_type_hints(_typecheckingstub__b30ec85df499b3f87a92d53ab1648560e2495ee044a1fb86faf3008181494293)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -206,7 +197,7 @@ class CfnEnvironmentAccountConnection(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__470395ff1b3bc54712f215fb1b2f6214bb182bd963a863176e86d9a96c0f1972)
+            type_hints = cached_type_hints(_typecheckingstub__470395ff1b3bc54712f215fb1b2f6214bb182bd963a863176e86d9a96c0f1972)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -257,15 +248,15 @@ class CfnEnvironmentAccountConnection(
     @jsii.member(jsii_name="environmentAccountConnectionRef")
     def environment_account_connection_ref(
         self,
-    ) -> "_EnvironmentAccountConnectionReference_e0cad370":
+    ) -> "_aws_proton_4cd6bb11.EnvironmentAccountConnectionReference":
         '''A reference to a EnvironmentAccountConnection resource.'''
-        return typing.cast("_EnvironmentAccountConnectionReference_e0cad370", jsii.get(self, "environmentAccountConnectionRef"))
+        return typing.cast("_aws_proton_4cd6bb11.EnvironmentAccountConnectionReference", jsii.get(self, "environmentAccountConnectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="codebuildRoleArn")
@@ -276,7 +267,7 @@ class CfnEnvironmentAccountConnection(
     @codebuild_role_arn.setter
     def codebuild_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47f4e15b8378b0030dc5e8be607efef26d4e7bc41f9bc4d16a82239ecce2af2e)
+            type_hints = cached_type_hints(_typecheckingstub__47f4e15b8378b0030dc5e8be607efef26d4e7bc41f9bc4d16a82239ecce2af2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "codebuildRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -289,7 +280,7 @@ class CfnEnvironmentAccountConnection(
     @component_role_arn.setter
     def component_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b976b51e7ad9d2668f5e11057b8add49417ccb62f9ec6ee2a16bfdf2cb4dab1)
+            type_hints = cached_type_hints(_typecheckingstub__2b976b51e7ad9d2668f5e11057b8add49417ccb62f9ec6ee2a16bfdf2cb4dab1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "componentRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -302,7 +293,7 @@ class CfnEnvironmentAccountConnection(
     @environment_account_id.setter
     def environment_account_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36ad911396cde9a5836f2bf5c2178028454c62766b60ac3747357e9c24e96de8)
+            type_hints = cached_type_hints(_typecheckingstub__36ad911396cde9a5836f2bf5c2178028454c62766b60ac3747357e9c24e96de8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentAccountId", value) # pyright: ignore[reportArgumentType]
 
@@ -315,7 +306,7 @@ class CfnEnvironmentAccountConnection(
     @environment_name.setter
     def environment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d94be46146198fddc9c899c0dade14c643b597a9839643b3cc6c9f144935c502)
+            type_hints = cached_type_hints(_typecheckingstub__d94be46146198fddc9c899c0dade14c643b597a9839643b3cc6c9f144935c502)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -328,7 +319,7 @@ class CfnEnvironmentAccountConnection(
     @management_account_id.setter
     def management_account_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cbf14273aade064dc4e71967934b15a396069e1c949a15c0436c98dd68e54c3)
+            type_hints = cached_type_hints(_typecheckingstub__4cbf14273aade064dc4e71967934b15a396069e1c949a15c0436c98dd68e54c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managementAccountId", value) # pyright: ignore[reportArgumentType]
 
@@ -341,20 +332,23 @@ class CfnEnvironmentAccountConnection(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37b19867aae52947f0d449ddee0fce5ac822cd037dbd498834aaf9268ddd0cf1)
+            type_hints = cached_type_hints(_typecheckingstub__37b19867aae52947f0d449ddee0fce5ac822cd037dbd498834aaf9268ddd0cf1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment account connection.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b211155911)
+            type_hints = cached_type_hints(_typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b211155911)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -382,7 +376,7 @@ class CfnEnvironmentAccountConnectionProps:
         environment_name: typing.Optional[builtins.str] = None,
         management_account_id: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentAccountConnection``.
 
@@ -418,7 +412,7 @@ class CfnEnvironmentAccountConnectionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92e78bba789de6e71f9d7f961684f6363d8564ac5afaa6e8f54209b72039e284)
+            type_hints = cached_type_hints(_typecheckingstub__92e78bba789de6e71f9d7f961684f6363d8564ac5afaa6e8f54209b72039e284)
             check_type(argname="argument codebuild_role_arn", value=codebuild_role_arn, expected_type=type_hints["codebuild_role_arn"])
             check_type(argname="argument component_role_arn", value=component_role_arn, expected_type=type_hints["component_role_arn"])
             check_type(argname="argument environment_account_id", value=environment_account_id, expected_type=type_hints["environment_account_id"])
@@ -505,7 +499,7 @@ class CfnEnvironmentAccountConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment account connection.
 
         A tag is a key-value pair.
@@ -515,7 +509,7 @@ class CfnEnvironmentAccountConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmentaccountconnection.html#cfn-proton-environmentaccountconnection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -529,9 +523,9 @@ class CfnEnvironmentAccountConnectionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentTemplateRef_2a7db519, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_proton_4cd6bb11.IEnvironmentTemplateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnEnvironmentTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentTemplate",
 ):
@@ -578,7 +572,7 @@ class CfnEnvironmentTemplate(
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Proton::EnvironmentTemplate``.
 
@@ -592,7 +586,7 @@ class CfnEnvironmentTemplate(
         :param tags: An optional list of metadata items that you can associate with the AWS Proton environment template. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef4e809ec)
+            type_hints = cached_type_hints(_typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef4e809ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentTemplateProps(
@@ -610,13 +604,13 @@ class CfnEnvironmentTemplate(
     @builtins.classmethod
     def arn_for_environment_template(
         cls,
-        resource: "_IEnvironmentTemplateRef_2a7db519",
+        resource: "_aws_proton_4cd6bb11.IEnvironmentTemplateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba8c0153f80943cb092bd938b4577c4018d4acd96251816e6d3af7e42cf3ab3b)
+            type_hints = cached_type_hints(_typecheckingstub__ba8c0153f80943cb092bd938b4577c4018d4acd96251816e6d3af7e42cf3ab3b)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironmentTemplate", [resource]))
 
@@ -628,18 +622,18 @@ class CfnEnvironmentTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb9497953a6423a39c5ee7de0329ea2c11cf0fb0b5815cc5002c2e83043183fe)
+            type_hints = cached_type_hints(_typecheckingstub__fb9497953a6423a39c5ee7de0329ea2c11cf0fb0b5815cc5002c2e83043183fe)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironmentTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c118627efd9b4abeb2a81482dbdd168c0ed3de3481e90e77b6982f37546b8212)
+            type_hints = cached_type_hints(_typecheckingstub__c118627efd9b4abeb2a81482dbdd168c0ed3de3481e90e77b6982f37546b8212)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -652,7 +646,7 @@ class CfnEnvironmentTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8c572648613df63aa9379805f0276d23c54d34eb19338cf9c9de723b569d15f)
+            type_hints = cached_type_hints(_typecheckingstub__a8c572648613df63aa9379805f0276d23c54d34eb19338cf9c9de723b569d15f)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -683,15 +677,17 @@ class CfnEnvironmentTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="environmentTemplateRef")
-    def environment_template_ref(self) -> "_EnvironmentTemplateReference_7a1abc2b":
+    def environment_template_ref(
+        self,
+    ) -> "_aws_proton_4cd6bb11.EnvironmentTemplateReference":
         '''A reference to a EnvironmentTemplate resource.'''
-        return typing.cast("_EnvironmentTemplateReference_7a1abc2b", jsii.get(self, "environmentTemplateRef"))
+        return typing.cast("_aws_proton_4cd6bb11.EnvironmentTemplateReference", jsii.get(self, "environmentTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -702,7 +698,7 @@ class CfnEnvironmentTemplate(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c3017cb6246cb9b1fe1441e75a361d9145673aca82d81b693f48652d3ee0034)
+            type_hints = cached_type_hints(_typecheckingstub__4c3017cb6246cb9b1fe1441e75a361d9145673aca82d81b693f48652d3ee0034)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -715,7 +711,7 @@ class CfnEnvironmentTemplate(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a105de5a3476c047601994ddc235a4b0cf038e8636251a999d458aa8e4b3992a)
+            type_hints = cached_type_hints(_typecheckingstub__a105de5a3476c047601994ddc235a4b0cf038e8636251a999d458aa8e4b3992a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -728,7 +724,7 @@ class CfnEnvironmentTemplate(
     @encryption_key.setter
     def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__648690061d04f2544cc466a9b6faca374b4eef43d22368f21efa181a05f42f75)
+            type_hints = cached_type_hints(_typecheckingstub__648690061d04f2544cc466a9b6faca374b4eef43d22368f21efa181a05f42f75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
 
@@ -741,7 +737,7 @@ class CfnEnvironmentTemplate(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ee300b7f87a2421c12b7d331e829f25f35ed6418d094e0f5ab731ef5da504b5)
+            type_hints = cached_type_hints(_typecheckingstub__3ee300b7f87a2421c12b7d331e829f25f35ed6418d094e0f5ab731ef5da504b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -754,20 +750,23 @@ class CfnEnvironmentTemplate(
     @provisioning.setter
     def provisioning(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13952344f4d05193e39ff94d2fe43c6b776745f5813718f927150d1f906c748e)
+            type_hints = cached_type_hints(_typecheckingstub__13952344f4d05193e39ff94d2fe43c6b776745f5813718f927150d1f906c748e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "provisioning", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment template.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6cbc88470)
+            type_hints = cached_type_hints(_typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6cbc88470)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -793,7 +792,7 @@ class CfnEnvironmentTemplateProps:
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentTemplate``.
 
@@ -827,7 +826,7 @@ class CfnEnvironmentTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbf81c286262c5ad8217a04b316bb2f0b0282d1464ba5d63a1b97caa00e8a493)
+            type_hints = cached_type_hints(_typecheckingstub__dbf81c286262c5ad8217a04b316bb2f0b0282d1464ba5d63a1b97caa00e8a493)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
@@ -894,7 +893,7 @@ class CfnEnvironmentTemplateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment template.
 
         A tag is a key-value pair.
@@ -904,7 +903,7 @@ class CfnEnvironmentTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmenttemplate.html#cfn-proton-environmenttemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -918,9 +917,9 @@ class CfnEnvironmentTemplateProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceTemplateRef_74ef1fef, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_proton_4cd6bb11.IServiceTemplateRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnServiceTemplate(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_proton.CfnServiceTemplate",
 ):
@@ -962,7 +961,7 @@ class CfnServiceTemplate(
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         pipeline_provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Proton::ServiceTemplate``.
 
@@ -976,7 +975,7 @@ class CfnServiceTemplate(
         :param tags: An object that includes the template bundle S3 bucket path and name for the new version of a service template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882ff9564a8)
+            type_hints = cached_type_hints(_typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882ff9564a8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceTemplateProps(
@@ -994,13 +993,13 @@ class CfnServiceTemplate(
     @builtins.classmethod
     def arn_for_service_template(
         cls,
-        resource: "_IServiceTemplateRef_74ef1fef",
+        resource: "_aws_proton_4cd6bb11.IServiceTemplateRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4eb53713489123adbaca6a4ef11b8867405a48cd760bf934756d79380cd340de)
+            type_hints = cached_type_hints(_typecheckingstub__4eb53713489123adbaca6a4ef11b8867405a48cd760bf934756d79380cd340de)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServiceTemplate", [resource]))
 
@@ -1012,18 +1011,18 @@ class CfnServiceTemplate(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5aa113b9bc00006e707a3c68d039567c95279dd1e6ad44a9b8c8f2bb689b313d)
+            type_hints = cached_type_hints(_typecheckingstub__5aa113b9bc00006e707a3c68d039567c95279dd1e6ad44a9b8c8f2bb689b313d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceTemplate", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddd527106465752977c49de51e5880dae732ab3e117d6705c7481fc03c0ec62b)
+            type_hints = cached_type_hints(_typecheckingstub__ddd527106465752977c49de51e5880dae732ab3e117d6705c7481fc03c0ec62b)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1036,7 +1035,7 @@ class CfnServiceTemplate(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec2b71dfda419a5086df44379f403384ee3f47ccf9f3b99eb029356df0b301fe)
+            type_hints = cached_type_hints(_typecheckingstub__ec2b71dfda419a5086df44379f403384ee3f47ccf9f3b99eb029356df0b301fe)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1067,15 +1066,15 @@ class CfnServiceTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="serviceTemplateRef")
-    def service_template_ref(self) -> "_ServiceTemplateReference_2e63180b":
+    def service_template_ref(self) -> "_aws_proton_4cd6bb11.ServiceTemplateReference":
         '''A reference to a ServiceTemplate resource.'''
-        return typing.cast("_ServiceTemplateReference_2e63180b", jsii.get(self, "serviceTemplateRef"))
+        return typing.cast("_aws_proton_4cd6bb11.ServiceTemplateReference", jsii.get(self, "serviceTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1086,7 +1085,7 @@ class CfnServiceTemplate(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b28073324900aad1ec4b48a24ca1cf7e536969fe8e585a9db1b04de8f5a5660)
+            type_hints = cached_type_hints(_typecheckingstub__6b28073324900aad1ec4b48a24ca1cf7e536969fe8e585a9db1b04de8f5a5660)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1099,7 +1098,7 @@ class CfnServiceTemplate(
     @display_name.setter
     def display_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ccab56f5c5641a51957cc5cd6204b54532f81019d2e3f2d8745c6352de7449d)
+            type_hints = cached_type_hints(_typecheckingstub__7ccab56f5c5641a51957cc5cd6204b54532f81019d2e3f2d8745c6352de7449d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
@@ -1112,7 +1111,7 @@ class CfnServiceTemplate(
     @encryption_key.setter
     def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25d39f44b2de597ffe7248d3c35113c03029f9bbd75f232945e9d667d800d759)
+            type_hints = cached_type_hints(_typecheckingstub__25d39f44b2de597ffe7248d3c35113c03029f9bbd75f232945e9d667d800d759)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
 
@@ -1125,7 +1124,7 @@ class CfnServiceTemplate(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba71e7bd226dd89a72bb66f2008917e40b5588ceb1f0fbf3dda8348cd9d0004)
+            type_hints = cached_type_hints(_typecheckingstub__6ba71e7bd226dd89a72bb66f2008917e40b5588ceb1f0fbf3dda8348cd9d0004)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1138,20 +1137,23 @@ class CfnServiceTemplate(
     @pipeline_provisioning.setter
     def pipeline_provisioning(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ceb0b8fd3)
+            type_hints = cached_type_hints(_typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ceb0b8fd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pipelineProvisioning", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An object that includes the template bundle S3 bucket path and name for the new version of a service template.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953)
+            type_hints = cached_type_hints(_typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1177,7 +1179,7 @@ class CfnServiceTemplateProps:
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         pipeline_provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServiceTemplate``.
 
@@ -1211,7 +1213,7 @@ class CfnServiceTemplateProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89231d286a017b3eab9ec8b8264aba07ec6ccebcb08bae53e0a07ad0b4990eca)
+            type_hints = cached_type_hints(_typecheckingstub__89231d286a017b3eab9ec8b8264aba07ec6ccebcb08bae53e0a07ad0b4990eca)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
@@ -1280,13 +1282,13 @@ class CfnServiceTemplateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An object that includes the template bundle S3 bucket path and name for the new version of a service template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-servicetemplate.html#cfn-proton-servicetemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1321,13 +1323,13 @@ def _typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4
     environment_name: typing.Optional[builtins.str] = None,
     management_account_id: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6959a031237a5c4d4caf1c07e90f5ceb4f0da374ddca166f6fabcefd7769574c(
-    resource: _IEnvironmentAccountConnectionRef_389c5b12,
+    resource: _aws_proton_4cd6bb11.IEnvironmentAccountConnectionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1339,7 +1341,7 @@ def _typecheckingstub__11b3005577bf5809ebc225de13aaaac30b8ffae0f3cf6e712ee66c716
     pass
 
 def _typecheckingstub__b30ec85df499b3f87a92d53ab1648560e2495ee044a1fb86faf3008181494293(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1387,7 +1389,7 @@ def _typecheckingstub__37b19867aae52947f0d449ddee0fce5ac822cd037dbd498834aaf9268
     pass
 
 def _typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b211155911(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1400,7 +1402,7 @@ def _typecheckingstub__92e78bba789de6e71f9d7f961684f6363d8564ac5afaa6e8f54209b72
     environment_name: typing.Optional[builtins.str] = None,
     management_account_id: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1414,13 +1416,13 @@ def _typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef
     encryption_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ba8c0153f80943cb092bd938b4577c4018d4acd96251816e6d3af7e42cf3ab3b(
-    resource: _IEnvironmentTemplateRef_2a7db519,
+    resource: _aws_proton_4cd6bb11.IEnvironmentTemplateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1432,7 +1434,7 @@ def _typecheckingstub__fb9497953a6423a39c5ee7de0329ea2c11cf0fb0b5815cc5002c2e830
     pass
 
 def _typecheckingstub__c118627efd9b4abeb2a81482dbdd168c0ed3de3481e90e77b6982f37546b8212(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1474,7 +1476,7 @@ def _typecheckingstub__13952344f4d05193e39ff94d2fe43c6b776745f5813718f927150d1f9
     pass
 
 def _typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6cbc88470(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1486,7 +1488,7 @@ def _typecheckingstub__dbf81c286262c5ad8217a04b316bb2f0b0282d1464ba5d63a1b97caa0
     encryption_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1500,13 +1502,13 @@ def _typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882f
     encryption_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     pipeline_provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4eb53713489123adbaca6a4ef11b8867405a48cd760bf934756d79380cd340de(
-    resource: _IServiceTemplateRef_74ef1fef,
+    resource: _aws_proton_4cd6bb11.IServiceTemplateRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1518,7 +1520,7 @@ def _typecheckingstub__5aa113b9bc00006e707a3c68d039567c95279dd1e6ad44a9b8c8f2bb6
     pass
 
 def _typecheckingstub__ddd527106465752977c49de51e5880dae732ab3e117d6705c7481fc03c0ec62b(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1560,7 +1562,7 @@ def _typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ce
     pass
 
 def _typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1572,7 +1574,7 @@ def _typecheckingstub__89231d286a017b3eab9ec8b8264aba07ec6ccebcb08bae53e0a07ad0b
     encryption_key: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     pipeline_provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

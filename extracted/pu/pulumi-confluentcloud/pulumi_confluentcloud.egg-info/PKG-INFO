@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_confluentcloud
-Version: 2.74.0
+Version: 2.75.0
 Summary: A Pulumi package for creating and managing Confluent cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com

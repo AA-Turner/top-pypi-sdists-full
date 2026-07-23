@@ -149,7 +149,6 @@ class SMatrix_CSR(SMatrix):
         self.col_ind_gpu = cp.asarray(self.h_col_ind)
         self.values_gpu = cp.asarray(self.h_values, dtype=cp_dtype)
 
-        self.compute_norm_factor()
         del self.h_col_ind
         del self.h_values
         self.h_col_ind = None
@@ -201,8 +200,6 @@ class SMatrix_CSR(SMatrix):
                     self.h_col_ind[ptr] = col
                     self.h_values[ptr] = row[col]
                     ptr += 1
-
-        self.compute_norm_factor()
 
     def compute_norm_factor(self):
         """Compute normalization factor from CSR matrix by summing absolute values."""
@@ -400,8 +397,59 @@ class SMatrix_CSR(SMatrix):
         else:
             warnings.warn("[AOT-biomaps] CSR Matrix not allocated, normalization impossible.")
             return
-
+        self.normalization_factor = max_val
+        
         print(f"[AOT-biomaps] CSR Matrix normalized (Original absolute max: {max_val:.2e})")
         
         # Critical update of the normalization factors (preconditioners)
         self.compute_norm_factor()
+
+    def compute_absolute_row_col_sums(self):
+        """
+        Computes row and column sums of absolute values (|A| * 1 and |A|^T * 1) 
+        without phase cancellation for complex matrices in CSR format.
+        """
+        is_gpu = check_gpu_available(self)
+        ZX = int(self.Z * self.X)
+        NT = int(self.N * self.T)
+        
+        if is_gpu:
+            col_sums = cp.zeros(ZX, dtype=cp.float32)
+            row_sums = cp.zeros(NT, dtype=cp.float32)
+            
+            abs_vals = cp.abs(self.values_gpu)
+            valid = abs_vals != 0
+            
+            # Column sums (|A|^T * 1)
+            cupyx.scatter_add(col_sums, self.col_ind_gpu[valid].astype(cp.int32), abs_vals[valid].astype(cp.float32))
+            
+            # Row sums (|A| * 1) via segment reduction over row_ptr
+            row_ptr_host = cp.asnumpy(self.row_ptr_gpu)
+            abs_vals_host = cp.asnumpy(abs_vals)
+            row_sums_host = np.zeros(NT, dtype=np.float32)
+            for i in trange(NT, desc="[AOT-biomaps] Computing row and column sums (GPU)"):
+                start = row_ptr_host[i]
+                end = row_ptr_host[i+1]
+                if end > start:
+                    row_sums_host[i] = np.sum(abs_vals_host[start:end])
+            row_sums = cp.asarray(row_sums_host)
+            
+            return row_sums, col_sums
+        else:
+            col_sums = np.zeros(ZX, dtype=np.float32)
+            row_sums = np.zeros(NT, dtype=np.float32)
+            
+            for i in trange(NT, desc="[AOT-biomaps] Computing row and column sums (CPU)"):
+                start = int(self.row_ptr[i])
+                end = int(self.row_ptr[i+1])
+                row_acc = 0.0
+                for j in range(start, end):
+                    val = self.h_values[j]
+                    if val != 0:
+                        col = int(self.h_col_ind[j])
+                        abs_val = float(np.abs(val))
+                        col_sums[col] += abs_val
+                        row_acc += abs_val
+                row_sums[i] = row_acc
+                
+            return row_sums, col_sums

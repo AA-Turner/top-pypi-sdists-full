@@ -63,6 +63,14 @@ if TYPE_CHECKING:
         ListTeamsResponse,
         ListTeamsResponseTypedDict,
     )
+    from .listusersop import (
+        ListUsersRequest,
+        ListUsersRequestTypedDict,
+        ListUsersResponse,
+        ListUsersResponseTypedDict,
+        ListUsersStatus,
+        SettingsAccess,
+    )
     from .meeting import (
         CalendarInviteesDomainsType,
         Meeting,
@@ -88,6 +96,20 @@ if TYPE_CHECKING:
     from .transcriptitemspeaker import (
         TranscriptItemSpeaker,
         TranscriptItemSpeakerTypedDict,
+    )
+    from .user import User, UserTypedDict
+    from .userlistresponse import UserListResponse, UserListResponseTypedDict
+    from .userpermissions import UserPermissions, UserPermissionsTypedDict
+    from .usersettingsaccess import (
+        UserSettingsAccess,
+        UserSettingsAccessLevel,
+        UserSettingsAccessTypedDict,
+    )
+    from .userstatus import UserStatus
+    from .userviewaccess import (
+        UserViewAccess,
+        UserViewAccessLevel,
+        UserViewAccessTypedDict,
     )
     from .webhook import TriggeredFor, Webhook, WebhookTypedDict
 
@@ -147,6 +169,11 @@ __all__ = [
     "ListTeamsRequestTypedDict",
     "ListTeamsResponse",
     "ListTeamsResponseTypedDict",
+    "ListUsersRequest",
+    "ListUsersRequestTypedDict",
+    "ListUsersResponse",
+    "ListUsersResponseTypedDict",
+    "ListUsersStatus",
     "Meeting",
     "MeetingListResponse",
     "MeetingListResponseTypedDict",
@@ -159,6 +186,7 @@ __all__ = [
     "MeetingTypedDict",
     "Security",
     "SecurityTypedDict",
+    "SettingsAccess",
     "SharedWith",
     "Status",
     "Team",
@@ -174,6 +202,19 @@ __all__ = [
     "TranscriptItemSpeakerTypedDict",
     "TranscriptItemTypedDict",
     "TriggeredFor",
+    "User",
+    "UserListResponse",
+    "UserListResponseTypedDict",
+    "UserPermissions",
+    "UserPermissionsTypedDict",
+    "UserSettingsAccess",
+    "UserSettingsAccessLevel",
+    "UserSettingsAccessTypedDict",
+    "UserStatus",
+    "UserTypedDict",
+    "UserViewAccess",
+    "UserViewAccessLevel",
+    "UserViewAccessTypedDict",
     "Webhook",
     "WebhookTypedDict",
 ]
@@ -233,6 +274,12 @@ _dynamic_imports: dict[str, str] = {
     "ListTeamsRequestTypedDict": ".listteamsop",
     "ListTeamsResponse": ".listteamsop",
     "ListTeamsResponseTypedDict": ".listteamsop",
+    "ListUsersRequest": ".listusersop",
+    "ListUsersRequestTypedDict": ".listusersop",
+    "ListUsersResponse": ".listusersop",
+    "ListUsersResponseTypedDict": ".listusersop",
+    "ListUsersStatus": ".listusersop",
+    "SettingsAccess": ".listusersop",
     "CalendarInviteesDomainsType": ".meeting",
     "Meeting": ".meeting",
     "MeetingTypedDict": ".meeting",
@@ -260,6 +307,19 @@ _dynamic_imports: dict[str, str] = {
     "TranscriptItemTypedDict": ".transcriptitem",
     "TranscriptItemSpeaker": ".transcriptitemspeaker",
     "TranscriptItemSpeakerTypedDict": ".transcriptitemspeaker",
+    "User": ".user",
+    "UserTypedDict": ".user",
+    "UserListResponse": ".userlistresponse",
+    "UserListResponseTypedDict": ".userlistresponse",
+    "UserPermissions": ".userpermissions",
+    "UserPermissionsTypedDict": ".userpermissions",
+    "UserSettingsAccess": ".usersettingsaccess",
+    "UserSettingsAccessLevel": ".usersettingsaccess",
+    "UserSettingsAccessTypedDict": ".usersettingsaccess",
+    "UserStatus": ".userstatus",
+    "UserViewAccess": ".userviewaccess",
+    "UserViewAccessLevel": ".userviewaccess",
+    "UserViewAccessTypedDict": ".userviewaccess",
     "TriggeredFor": ".webhook",
     "Webhook": ".webhook",
     "WebhookTypedDict": ".webhook",

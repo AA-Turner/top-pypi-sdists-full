@@ -8,7 +8,7 @@ from pycountry import countries  # type: ignore
 from schwifty import IBAN
 from schwifty.exceptions import InvalidStructure
 from schwifty.exceptions import SchwiftyException
-from schwifty.iban import convert_bban_spec_to_regex
+from schwifty.registry import convert_bban_spec_to_regex
 
 
 valid = [
@@ -420,6 +420,16 @@ def test_random_iban() -> None:
     for _ in range(100):
         iban = IBAN.random()
         assert isinstance(iban, IBAN)
+
+
+@pytest.mark.parametrize("country_code", ["DE", "IT", "BE"])
+def test_random_passes_national_checksum(country_code: str) -> None:
+    # Regression test for #219: randomly generated IBANs for countries with a
+    # bank-specific national checksum (e.g. the German methods) must satisfy that
+    # checksum, i.e. ``validate(validate_bban=True)`` must not raise.
+    for _ in range(50):
+        iban = IBAN.random(country_code=country_code)
+        assert iban.validate(validate_bban=True) is True
 
 
 def test_random_special_cases() -> None:

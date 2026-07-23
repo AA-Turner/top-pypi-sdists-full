@@ -46,14 +46,23 @@ ALLOWED_EXTERNALS = [
 ]
 ENV_LIST = """
 galaxy
-{integration, sanity, unit}-py3.11-{ 2.19 }
-{integration, sanity, unit}-py3.12-{2.19, 2.20, 2.21}
-{integration, sanity, unit}-py3.13-{2.19, 2.20, 2.21, milestone, devel}
-{integration, sanity, unit}-py3.14-{2.20, 2.21, milestone, devel}
+{integration, molecule, sanity, unit}-py3.11-{ 2.19 }
+{integration, molecule, sanity, unit}-py3.12-{2.19, 2.20, 2.21}
+{integration, molecule, sanity, unit}-py3.13-{2.19, 2.20, 2.21, milestone, devel}
+{integration, molecule, sanity, unit}-py3.14-{2.20, 2.21, milestone, devel}
 """
 # ^ py314 is NOT supported before 2.20! If is in official metadata of the
 # release branch, is not supported.
 # https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix
+
+# Additive AAP/cert cores not already present in ENV_LIST (ADR-001).
+# Used when downstream=true -> upstream union DOWNSTREAM_EXTRA.
+# Python floor for extras is Hub/partner cert minimum (3.12+), not tox's 3.11 floor.
+# https://access.redhat.com/support/policy/updates/ansible-automation-platform
+DOWNSTREAM_EXTRA = """
+{integration, sanity, unit}-py3.12-{2.16, 2.18}
+{integration, sanity, unit}-py3.13-{2.18}
+"""
 
 # Without the minimal pytest-ansible condition, installation may fail in some
 # cases (pip, uv).
@@ -63,19 +72,41 @@ OUR_DEPS = [
     "pytest-ansible>=v4.1.1",  # latest version still supporting py39 (Oct 2023)
     "ansible-compat>=25.11.0",  # Nov 2025
 ]
+COVERAGE_DEPS = [
+    "coverage>=7.0.0",  # Dec 2022
+    "pytest-cov>=4.1.0",  # May 2023
+]
 
 # Paths checked for collection requirements files, keyed by test type.
 # From https://github.com/ansible/ansible-compat/blob/main/src/ansible_compat/constants.py#L6-L14
+SHARED_REQUIREMENTS_YML = "tests/requirements.yml"
 TEST_REQUIREMENTS_YML: dict[str, list[str]] = {
     "unit": [
-        "tests/requirements.yml",
+        SHARED_REQUIREMENTS_YML,
         "tests/unit/requirements.yml",
     ],
     "integration": [
-        "tests/requirements.yml",
+        SHARED_REQUIREMENTS_YML,
         "tests/integration/requirements.yml",
     ],
+    # Molecule shares integration collection deps during migration; also
+    # accepts a dedicated molecule requirements file when collections split.
+    "molecule": [
+        SHARED_REQUIREMENTS_YML,
+        "tests/integration/requirements.yml",
+        "tests/molecule/requirements.yml",
+    ],
 }
+
+PYTHON_DEPENDENCY_FILES: list[str] = [
+    "test-requirements.txt",
+    "requirements-test.txt",
+    "requirements.txt",
+    "tests/unit/requirements.txt",
+    "tests/integration/requirements.txt",
+    # https://docs.ansible.com/projects/builder/en/latest/collection_metadata/
+    "meta/ee-requirements.txt",
+]
 
 T = TypeVar("T", bound=ConfigSet)
 
@@ -86,11 +117,62 @@ class AnsibleConfigSet(ConfigSet):
     def register_config(self) -> None:
         """Register the ansible configuration."""
         self.add_config(
+            "coverage",
+            of_type=bool,
+            default=False,
+            desc="enable coverage reporting for unit tests",
+        )
+        self.add_config(
             "skip",
             of_type=list[str],
             default=[],
             desc="ansible configuration",
         )
+        self.add_config(
+            "downstream",
+            of_type=bool,
+            default=False,
+            desc="union AAP/cert extras onto the upstream matrix (ADR-001)",
+        )
+        self.add_config(
+            "molecule",
+            of_type=str,
+            default="auto",
+            desc="molecule test type: 'auto' (discover), 'true' (force on), 'false' (force off)",
+        )
+        self.add_config(
+            "molecule_append",
+            of_type=list[str],
+            default=[],
+            desc="extra argv appended to the default 'molecule test --all' command",
+        )
+        self.add_config(
+            "molecule_commands",
+            of_type=list[str],
+            default=[],
+            desc="full replacement molecule commands (ignores default and molecule_append)",
+        )
+
+
+@dataclass
+class AnsibleConfiguration:
+    """User-provided tox-ansible configuration.
+
+    Attributes:
+        coverage: Enable coverage reporting for unit tests.
+        skip: Environment name fragments to skip.
+        downstream: When true, union DOWNSTREAM_EXTRA onto ENV_LIST.
+        molecule: Molecule test type mode ("auto", "true", or "false").
+        molecule_append: Extra argv appended to the default molecule command.
+        molecule_commands: Full-replacement molecule commands.
+    """
+
+    coverage: bool = False
+    skip: list[str] = field(default_factory=list)
+    downstream: bool = False
+    molecule: str = "auto"
+    molecule_append: list[str] = field(default_factory=list)
+    molecule_commands: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -154,8 +236,8 @@ def tox_add_option(parser: ToxParser) -> None:
     parser.add_argument(
         "--matrix-scope",
         default="all",
-        choices=["all", "galaxy", "sanity", "integration", "unit"],
-        help="Emit a github matrix specific to scope mentioned",
+        choices=["all", "galaxy", "molecule", "sanity", "integration", "unit"],
+        help="Limit Ansible environments and GitHub matrix output to the selected scope",
     )
 
     parser.add_argument(
@@ -170,6 +252,21 @@ def tox_add_option(parser: ToxParser) -> None:
         action="store_true",
         default=False,
         help="Enable ansible testing",
+    )
+
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        default=None,
+        help="Enable coverage reporting for unit tests",
+    )
+
+    parser.add_argument(
+        "--no-coverage",
+        action="store_false",
+        default=None,
+        dest="coverage",
+        help="Disable coverage reporting for unit tests",
     )
 
 
@@ -189,19 +286,15 @@ def tox_add_core_config(
         logger.critical(err)
         sys.exit(1)
 
+    if state.conf.options.coverage and not state.conf.options.ansible:  # pragma: no cover
+        err = "The --coverage option requires --ansible"
+        logger.critical(err)
+        sys.exit(1)
+
     if not state.conf.options.ansible:  # pragma: no cover
         return
 
-    if state.conf.src_path.name == "tox.ini":  # pragma: no cover
-        msg = (
-            "Using a default tox.ini file with tox-ansible plugin is not recommended."
-            " Consider adding a [tool.tox-ansible] section to pyproject.toml or using"
-            " a tox-ansible.ini file (`tox --ansible -c tox-ansible.ini`) to avoid"
-            " unintentionally overriding the tox-ansible environment configurations."
-        )
-        logger.warning(msg)
-
-    env_list = add_ansible_matrix(state)
+    env_list = add_ansible_matrix(state, scope=state.conf.options.matrix_scope)
 
     if not state.conf.options.gh_matrix:  # pragma: no cover
         return
@@ -228,6 +321,7 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
         or factors[0]
         not in [
             "integration",
+            "molecule",
             "sanity",
             "unit",
         ]
@@ -247,6 +341,19 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
         base_python = [factors[1]]
     test_type = factors[0]
     ansible_version = factors[-1] if len(factors) == expected_factors else ""
+    coverage_enabled = test_type == "unit" and _coverage_enabled(state)
+    coverage_config = (
+        _write_coverage_config(env_conf=env_conf, collection=collection)
+        if coverage_enabled
+        else None
+    )
+    if test_type == "molecule":
+        ansible_config = _load_ansible_config(state)
+        molecule_commands = ansible_config.molecule_commands
+        molecule_append = ansible_config.molecule_append
+    else:
+        molecule_commands = []
+        molecule_append = []
 
     conf = AnsibleTestConf(
         allowlist_externals=ALLOWED_EXTERNALS,
@@ -262,9 +369,12 @@ def tox_add_env_config(env_conf: EnvConfigSet, state: State) -> None:
             env_conf=env_conf,
             pos_args=pos_args,
             test_type=test_type,
+            coverage_config=coverage_config,
+            molecule_commands=molecule_commands,
+            molecule_append=molecule_append,
         ),
         description=desc_for_env(env_conf.name),
-        deps=conf_deps(env_conf=env_conf, test_type=test_type),
+        deps=conf_deps(test_type=test_type, coverage_enabled=coverage_enabled),
         passenv=conf_passenv(),
         setenv=conf_setenv(env_conf=env_conf, test_type=test_type),
         skip_install=True,
@@ -326,11 +436,215 @@ def _load_pyproject_config(project_dir: Path) -> dict[str, Any] | None:
     return data.get("tool", {}).get("tox-ansible")
 
 
-def add_ansible_matrix(state: State) -> EnvList:
+def _coerce_bool(value: object, *, default: bool = False) -> bool:
+    """Coerce a config value to bool with explicit string and int handling.
+
+    Args:
+        value: Raw value from TOML or similar.
+        default: Fallback when the value cannot be interpreted.
+
+    Returns:
+        The coerced boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in {0, 1}:
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+    elif value is None:
+        return default
+    logger.warning("Invalid boolean config value %r; using %s", value, default)
+    return default
+
+
+def _coerce_molecule_setting(value: object, *, default: str = "auto") -> str:
+    """Coerce a pyproject ``molecule`` value to ``auto``, ``true``, or ``false``.
+
+    Args:
+        value: Raw value from TOML (bool, int, str) or INI (str).
+        default: Fallback when the value cannot be interpreted.
+
+    Returns:
+        Normalized molecule mode string.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int) and value in {0, 1}:
+        return "true" if value else "false"
+    if value is None:
+        return default
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        modes = {
+            "true": "true",
+            "1": "true",
+            "yes": "true",
+            "on": "true",
+            "false": "false",
+            "0": "false",
+            "no": "false",
+            "off": "false",
+            "auto": "auto",
+            "": "auto",
+        }
+        if normalized in modes:
+            return modes[normalized]
+    logger.warning("Invalid molecule config value %r; using %r", value, default)
+    return default
+
+
+def discover_molecule_scenarios(project_dir: Path) -> bool:
+    """Check if molecule scenarios exist in the collection.
+
+    Looks for subdirectories under ``extensions/molecule/`` that contain
+    a ``molecule.yml`` file.
+
+    Args:
+        project_dir: The project root directory.
+
+    Returns:
+        True if at least one molecule scenario is found.
+    """
+    molecule_dir = project_dir / "extensions" / "molecule"
+    if not molecule_dir.is_dir():
+        return False
+    return any(
+        (scenario / "molecule.yml").is_file()
+        for scenario in molecule_dir.iterdir()
+        if scenario.is_dir()
+    )
+
+
+def discover_integration_tests(project_dir: Path) -> bool:
+    """Check if ansible-test or pytest-style integration tests exist.
+
+    Looks for non-empty ``tests/integration/targets/`` (ansible-test) or
+    pytest modules under ``tests/integration/`` (``test_*.py`` / ``*_test.py``).
+
+    Args:
+        project_dir: The project root directory.
+
+    Returns:
+        True if integration test content is found.
+    """
+    targets = project_dir / "tests" / "integration" / "targets"
+    if targets.is_dir() and any(targets.iterdir()):
+        return True
+
+    integration_dir = project_dir / "tests" / "integration"
+    if not integration_dir.is_dir():
+        return False
+
+    return any(
+        path.name.startswith("test_") or path.name.endswith("_test.py")
+        for path in integration_dir.rglob("*.py")
+    )
+
+
+def _should_include_molecule(
+    molecule_setting: str,
+    project_dir: Path,
+) -> bool:
+    """Determine whether molecule environments should be included.
+
+    Args:
+        molecule_setting: The molecule config value ("auto", "true", or "false").
+        project_dir: The project root directory.
+
+    Returns:
+        True if molecule environments should be included.
+    """
+    if molecule_setting == "true":
+        return True
+    if molecule_setting == "false":
+        return False
+    return discover_molecule_scenarios(project_dir)
+
+
+def _load_ansible_config(state: State) -> AnsibleConfiguration:
+    """Load tox-ansible configuration using TOML-over-INI precedence.
+
+    Args:
+        state: The tox state object.
+
+    Returns:
+        The resolved tox-ansible configuration.
+    """
+    project_dir = state.conf.src_path.parent.resolve()
+    pyproject_config = _load_pyproject_config(project_dir)
+
+    if pyproject_config is not None:
+        return AnsibleConfiguration(
+            coverage=_coerce_bool(pyproject_config.get("coverage", False)),
+            skip=pyproject_config.get("skip", []),
+            downstream=_coerce_bool(pyproject_config.get("downstream", False)),
+            molecule=_coerce_molecule_setting(
+                pyproject_config.get("molecule", "auto"),
+            ),
+            molecule_append=pyproject_config.get("molecule_append", []),
+            molecule_commands=pyproject_config.get("molecule_commands", []),
+        )
+
+    ansible_config = state.conf.get_section_config(
+        Section(None, "ansible"),
+        base=[],
+        of_type=AnsibleConfigSet,
+        for_env=None,
+    )
+    return AnsibleConfiguration(
+        coverage=ansible_config["coverage"],
+        skip=ansible_config["skip"],
+        downstream=ansible_config["downstream"],
+        molecule=_coerce_molecule_setting(ansible_config["molecule"]),
+        molecule_append=ansible_config["molecule_append"],
+        molecule_commands=ansible_config["molecule_commands"],
+    )
+
+
+def _coverage_enabled(state: State) -> bool:
+    """Resolve coverage from the CLI and project configuration.
+
+    Explicit CLI options take precedence over project configuration.
+
+    Args:
+        state: The tox state object.
+
+    Returns:
+        Whether unit test coverage is enabled.
+    """
+    cli_coverage: bool | None = getattr(state.conf.options, "coverage", None)
+    if cli_coverage is not None:
+        return cli_coverage
+    return _load_ansible_config(state).coverage
+
+
+def _env_in_scope(env_name: str, scope: str) -> bool:
+    """Return whether an environment belongs to the requested scope.
+
+    Args:
+        env_name: The tox environment name.
+        scope: The requested matrix scope.
+
+    Returns:
+        Whether the environment belongs to the scope.
+    """
+    return scope in ("all", env_name) or env_name.startswith(f"{scope}-")
+
+
+def add_ansible_matrix(state: State, scope: str = "all") -> EnvList:
     """Add the ansible matrix to the state.
+
+    When ``downstream`` is enabled in project config, unions ``DOWNSTREAM_EXTRA``
+    onto the upstream ``ENV_LIST`` before applying ``skip``.
 
     Args:
         state: The state object.
+        scope: The matrix scope to add.
 
     Returns:
         The environment list.
@@ -338,19 +652,36 @@ def add_ansible_matrix(state: State) -> EnvList:
     project_dir = state.conf.src_path.parent.resolve()
     pyproject_config = _load_pyproject_config(project_dir)
 
-    if pyproject_config is not None:
-        skip_list: list[str] = pyproject_config.get("skip", [])
-    else:
-        ansible_config = state.conf.get_section_config(
-            Section(None, "ansible"),
-            base=[],
-            of_type=AnsibleConfigSet,
-            for_env=None,
+    if state.conf.src_path.name == "tox.ini" and pyproject_config is None:
+        msg = (
+            "Using a default tox.ini file with tox-ansible plugin is not recommended."
+            " Consider adding a [tool.tox-ansible] section to pyproject.toml or using"
+            " a tox-ansible.ini file (`tox --ansible -c tox-ansible.ini`) to avoid"
+            " unintentionally overriding the tox-ansible environment configurations."
         )
-        skip_list = ansible_config["skip"]
+        logger.warning(msg)
+
+    ansible_config = _load_ansible_config(state)
 
     env_list = StrConvert().to_env_list(ENV_LIST)
-    env_list.envs = [env for env in env_list.envs if all(skip not in env for skip in skip_list)]
+    if ansible_config.downstream:
+        extra = StrConvert().to_env_list(DOWNSTREAM_EXTRA)
+        # Deduplicate extras against the upstream env list (final order is
+        # set by custom_sort below).
+        seen = set(env_list.envs)
+        for env_name in extra.envs:
+            if env_name not in seen:
+                env_list.envs.append(env_name)
+                seen.add(env_name)
+    env_list.envs = [
+        env
+        for env in env_list.envs
+        if _env_in_scope(env, scope) and all(skip not in env for skip in ansible_config.skip)
+    ]
+    if not _should_include_molecule(ansible_config.molecule, project_dir):
+        env_list.envs = [env for env in env_list.envs if not env.startswith("molecule-")]
+    if not discover_integration_tests(project_dir):
+        env_list.envs = [env for env in env_list.envs if not env.startswith("integration-")]
     env_list.envs = sorted(env_list.envs, key=custom_sort)
     state.conf.core.loaders.insert(
         0,
@@ -395,6 +726,25 @@ def _gen_version(candidates: list[str]) -> str:
     return f"{candidates[0][0]}.{candidates[0][1:]}"
 
 
+def _extract_py_candidates(env_name: str) -> list[str]:
+    """Extract Python version candidates from an environment name.
+
+    Args:
+        env_name: The tox environment name (e.g. "unit-py3.11-2.19").
+
+    Returns:
+        A list of Python version strings found in the environment factors.
+    """
+    if env_name == "galaxy":
+        return ["3.14"]
+    candidates = []
+    for factor in env_name.split("-"):
+        match = PY_FACTORS_RE.match(factor)
+        if match:
+            candidates.append(match[2])
+    return candidates
+
+
 def generate_gh_matrix(env_list: EnvList, section: str) -> None:
     """Generate the github matrix.
 
@@ -404,16 +754,10 @@ def generate_gh_matrix(env_list: EnvList, section: str) -> None:
     """
     results = []
     for env_name in env_list.envs:
-        if section != "all" and not env_name.startswith(section):  # pragma: no cover
+        if not _env_in_scope(env_name, section):  # pragma: no cover
             continue
-        candidates = []
         factors = env_name.split("-")
-        for factor in factors:
-            match = PY_FACTORS_RE.match(factor)
-            if match:
-                candidates.append(match[2])
-        if env_name == "galaxy":
-            candidates = ["3.14"]
+        candidates = _extract_py_candidates(env_name)
 
         _check_num_candidates(candidates=candidates, env_name=env_name)
         version = _gen_version(candidates=candidates)
@@ -493,11 +837,75 @@ def get_collection(galaxy_path: Path) -> Collection:
     return Collection(name=c_name, namespace=c_namespace, version=c_version)
 
 
-def conf_commands(
+def _collection_install_path(env_conf: EnvConfigSet, collection: Collection) -> Path:
+    """Build the collection installation path inside a tox environment.
+
+    Args:
+        env_conf: The tox environment configuration object.
+        collection: The collection info.
+
+    Returns:
+        The installed collection path.
+    """
+    py_ver = env_conf.name.split("-")[1].replace("py", "")
+    return (
+        Path(env_conf["env_dir"])
+        / "lib"
+        / f"python{py_ver}"
+        / "site-packages"
+        / "ansible_collections"
+        / collection.namespace
+        / collection.name
+    )
+
+
+def _write_coverage_config(
+    env_conf: EnvConfigSet,
+    collection: Collection,
+) -> Path:
+    """Write an environment-specific coverage configuration.
+
+    Args:
+        env_conf: The tox environment configuration object.
+        collection: The collection info.
+
+    Returns:
+        The generated coverage configuration path.
+    """
+    coverage_dir = Path(env_conf["env_dir"]).parent / ".tox-ansible" / "coverage"
+    coverage_dir.mkdir(parents=True, exist_ok=True)
+    coverage_config = coverage_dir / f"{env_conf.name}.ini"
+    installed_plugins = _collection_install_path(env_conf, collection) / "plugins"
+    coverage_data = Path(env_conf["env_dir"]).resolve() / ".coverage"
+    coverage_config.write_text(
+        "[run]\n"
+        f"data_file = {coverage_data}\n"
+        "source =\n"
+        "    plugins\n"
+        f"    {installed_plugins}\n"
+        "\n"
+        "[paths]\n"
+        "source =\n"
+        "    plugins\n"
+        f"    {installed_plugins}\n"
+        "\n"
+        "[report]\n"
+        "include_namespace_packages = true\n"
+        "show_missing = true\n",
+        encoding="utf-8",
+    )
+    return coverage_config
+
+
+def conf_commands(  # noqa: PLR0913
     collection: Collection,
     env_conf: EnvConfigSet,
     pos_args: tuple[str, ...] | None,
     test_type: str,
+    *,
+    coverage_config: Path | None = None,
+    molecule_commands: list[str] | None = None,
+    molecule_append: list[str] | None = None,
 ) -> list[str]:
     """Build the commands for the tox environment.
 
@@ -505,7 +913,10 @@ def conf_commands(
         collection: The collection info.
         env_conf: The tox environment configuration object.
         pos_args: Positional arguments passed to tox command.
-        test_type: The test type, either "integration", "unit", or "sanity".
+        test_type: The test type.
+        coverage_config: The generated coverage configuration path.
+        molecule_commands: Full-replacement molecule commands from config.
+        molecule_append: Extra argv appended to the default molecule command.
 
     Returns:
         The commands to run.
@@ -514,6 +925,13 @@ def conf_commands(
         return conf_commands_for_integration_unit(
             pos_args=pos_args,
             test_type=test_type,
+            coverage_config=coverage_config,
+        )
+    if test_type == "molecule":
+        return conf_commands_for_molecule(
+            pos_args=pos_args,
+            molecule_commands=molecule_commands,
+            molecule_append=molecule_append,
         )
     if test_type == "sanity":
         return conf_commands_for_sanity(
@@ -525,7 +943,6 @@ def conf_commands(
         return conf_commands_for_galaxy(
             collection=collection,
             env_conf=env_conf,
-            pos_args=pos_args,
         )
     err = f"Unknown test type {test_type}"
     logger.critical(err)
@@ -535,22 +952,62 @@ def conf_commands(
 def conf_commands_for_integration_unit(
     pos_args: tuple[str, ...] | None,
     test_type: str,
+    coverage_config: Path | None = None,
 ) -> list[str]:
     """Build the commands for integration and unit tests.
 
     Args:
         pos_args: Positional arguments passed to tox command.
         test_type: The test type, either "integration" or "unit".
+        coverage_config: The generated coverage configuration path.
 
     Returns:
         The commands to run.
     """
     args = f" {' '.join(pos_args)} " if pos_args else " "
+    coverage_args = (
+        f" --cov --cov-config={coverage_config}"
+        if test_type == "unit" and coverage_config is not None
+        else ""
+    )
 
     # Use pytest ansible unit inject only to inject the collection path
     # into the collection finder
-    command = f"python3 -m pytest --ansible-unit-inject-only{args}{Path()}/tests/{test_type}"
+    command = (
+        f"python3 -m pytest{coverage_args} "
+        f"--ansible-unit-inject-only{args}{Path()}/tests/{test_type}"
+    )
     return [command]
+
+
+def conf_commands_for_molecule(
+    pos_args: tuple[str, ...] | None,
+    molecule_commands: list[str] | None = None,
+    molecule_append: list[str] | None = None,
+) -> list[str]:
+    """Build the commands for molecule tests.
+
+    Default is ``python3 -m molecule test --all``. ``molecule_append`` adds
+    argv after that default. Non-empty ``molecule_commands`` fully replaces the
+    default (and ignores ``molecule_append`` / ``pos_args``).
+
+    Args:
+        pos_args: Positional arguments passed to tox command.
+        molecule_commands: Full-replacement molecule commands from config.
+        molecule_append: Extra argv appended to the default molecule command.
+
+    Returns:
+        The commands to run.
+    """
+    if molecule_commands:
+        return list(molecule_commands)
+
+    parts = ["python3", "-m", "molecule", "test", "--all"]
+    if molecule_append:
+        parts.extend(molecule_append)
+    if pos_args:
+        parts.extend(pos_args)
+    return [" ".join(parts)]
 
 
 def conf_commands_for_sanity(
@@ -573,11 +1030,7 @@ def conf_commands_for_sanity(
     args = f" {' '.join(pos_args)}" if pos_args else ""
 
     py_ver = env_conf.name.split("-")[1].replace("py", "")
-
-    envdir = env_conf["env_dir"]
-    site_packages = f"{envdir}/lib/python{py_ver}/site-packages"
-    col_rel = f"ansible_collections/{collection.namespace}/{collection.name}"
-    collection_path = f"{site_packages}/{col_rel}"
+    collection_path = _collection_install_path(env_conf, collection)
 
     command = f"ansible-test sanity --local --requirements --python {py_ver}{args}"
     full_command = f"bash -c 'cd {collection_path} && {command}'"
@@ -588,14 +1041,12 @@ def conf_commands_for_sanity(
 def conf_commands_for_galaxy(
     collection: Collection,  # noqa: ARG001
     env_conf: EnvConfigSet,
-    pos_args: tuple[str, ...] | None,  # noqa: ARG001
 ) -> list[str]:
     """Add commands for sanity tests.
 
     Args:
         collection: The collection info.
         env_conf: The tox environment configuration object.
-        pos_args: Positional arguments passed to tox command.
 
     Returns:
         The commands to run.
@@ -645,7 +1096,6 @@ def _add_sanity_git_init(
     commands: list[str],
     env_conf: EnvConfigSet,
     collection: Collection,
-    envdir: str,
     end_group: str,
 ) -> None:
     """Append git-init commands needed to work around ansible/ansible#68499.
@@ -654,13 +1104,9 @@ def _add_sanity_git_init(
         commands: The command list to append to.
         env_conf: The tox environment configuration object.
         collection: The collection info.
-        envdir: The tox environment directory.
         end_group: The CI group-close command string.
     """
-    py_ver = env_conf.name.split("-")[1].replace("py", "")
-    site_packages = f"{envdir}/lib/python{py_ver}/site-packages"
-    col_rel = f"ansible_collections/{collection.namespace}/{collection.name}"
-    collection_path = f"{site_packages}/{col_rel}"
+    collection_path = _collection_install_path(env_conf, collection)
     if in_action():  # pragma: no cover
         commands.append("echo ::group::Initialize the collection to avoid ansible #68499")
     git_cfg = "git config --global init.defaultBranch main"
@@ -716,38 +1162,53 @@ def conf_commands_pre(
         _add_collection_req_commands(commands, found_reqs, envdir, acv, end_group)
 
     if test_type == "sanity":
-        _add_sanity_git_init(commands, env_conf, collection, envdir, end_group)
+        _add_sanity_git_init(commands, env_conf, collection, end_group)
 
     return commands
 
 
-def conf_deps(env_conf: EnvConfigSet, test_type: str) -> str:  # noqa: ARG001
+def _test_deps(test_type: str, *, coverage_enabled: bool) -> list[str]:
+    """Assemble dependencies for integration and unit test environments.
+
+    Args:
+        test_type: The test type, either "integration" or "unit".
+        coverage_enabled: Whether unit test coverage is enabled.
+
+    Returns:
+        The dependencies as a list of requirement strings.
+    """
+    deps = list(OUR_DEPS)
+    if test_type == "unit" and coverage_enabled:
+        deps.extend(COVERAGE_DEPS)
+    if test_type in ("integration", "molecule"):
+        deps.append("molecule>=26.4.0")
+    cwd = Path.cwd()
+    for req_file in PYTHON_DEPENDENCY_FILES:
+        try:
+            with (cwd / req_file).open() as fileh:
+                deps.extend(fileh.read().splitlines())
+        except FileNotFoundError:  # noqa: PERF203
+            pass
+    return deps
+
+
+def conf_deps(test_type: str, *, coverage_enabled: bool = False) -> str:
     """Add dependencies to the tox environment.
 
     Args:
-        env_conf: The tox environment configuration object.
         test_type: The test type, either "integration", "unit", or "sanity".
+        coverage_enabled: Whether unit test coverage is enabled.
 
     Returns:
         The dependencies.
     """
-    deps = []
-    cwd = Path.cwd()
+    deps: list[str] = []
     if test_type == "galaxy":
         deps.append("galaxy-importer>=0.4.31")
     else:
         deps.append("ansible-dev-environment>=26.2.0")
-        if test_type in ("integration", "unit"):
-            deps.extend(OUR_DEPS)
-            if test_type == "integration":
-                deps.append("molecule>=26.4.0")
-            for req_file in ("test-requirements.txt", "requirements-test.txt", "requirements.txt"):
-                try:
-                    with (cwd / req_file).open() as fileh:
-                        deps.extend(fileh.read().splitlines())
-                except FileNotFoundError:  # noqa: PERF203
-                    pass
-
+        if test_type in ("integration", "molecule", "unit"):
+            deps.extend(_test_deps(test_type, coverage_enabled=coverage_enabled))
     return "\n".join(deps)
 
 

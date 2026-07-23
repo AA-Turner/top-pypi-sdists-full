@@ -595,6 +595,8 @@ describe = test_case.assertions.aws_api_call("StepFunctions", "describeExecution
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -608,30 +610,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.cloud_assembly_schema as _aws_cdk_cloud_assembly_schema_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.cloud_assembly_schema as _aws_cdk_cloud_assembly_schema_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_cloud_assembly_schema_ceddda9d = _LazyImport("aws_cdk.cloud_assembly_schema")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class ActualResult(
@@ -677,7 +684,7 @@ class ActualResult(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db8960192c69b2034028024915394db8e014653a8888980859f2e3547a455daa)
+            type_hints = cached_type_hints(_typecheckingstub__db8960192c69b2034028024915394db8e014653a8888980859f2e3547a455daa)
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("ActualResult", jsii.sinvoke(cls, "fromAwsApiCall", [query, attribute]))
@@ -697,7 +704,7 @@ class ActualResult(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__927c94a66cbe073d89039c4e27e1104a29d36865645ee1ba163e752be4da99a6)
+            type_hints = cached_type_hints(_typecheckingstub__927c94a66cbe073d89039c4e27e1104a29d36865645ee1ba163e752be4da99a6)
             check_type(argname="argument custom_resource", value=custom_resource, expected_type=type_hints["custom_resource"])
             check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
         return typing.cast("ActualResult", jsii.sinvoke(cls, "fromCustomResource", [custom_resource, attribute]))
@@ -731,7 +738,7 @@ class _ActualResultProxy(ActualResult):
     @result.setter
     def result(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0def0e46807bcce5f5541c6cce0db0cd558065170e086f1248e1fbff32e95abd)
+            type_hints = cached_type_hints(_typecheckingstub__0def0e46807bcce5f5541c6cce0db0cd558065170e086f1248e1fbff32e95abd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "result", value) # pyright: ignore[reportArgumentType]
 
@@ -783,7 +790,7 @@ class AssertionRequest:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775e367a8b9b90eff85fd16c452c0ee84b1903d6aef4bbeec51fb738c386310b)
+            type_hints = cached_type_hints(_typecheckingstub__775e367a8b9b90eff85fd16c452c0ee84b1903d6aef4bbeec51fb738c386310b)
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
             check_type(argname="argument fail_deployment", value=fail_deployment, expected_type=type_hints["fail_deployment"])
@@ -876,7 +883,7 @@ class AssertionResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b75fa6e1a3201fe0fa6cf710bf3ea3f500448d16b191232e4e335385d56e566e)
+            type_hints = cached_type_hints(_typecheckingstub__b75fa6e1a3201fe0fa6cf710bf3ea3f500448d16b191232e4e335385d56e566e)
             check_type(argname="argument assertion", value=assertion, expected_type=type_hints["assertion"])
             check_type(argname="argument failed", value=failed, expected_type=type_hints["failed"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -952,7 +959,7 @@ class AssertionResultData:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ebef927d19dce3506807a648e225e27c5cee3900a2c2693bc29ecaad2d38101)
+            type_hints = cached_type_hints(_typecheckingstub__9ebef927d19dce3506807a648e225e27c5cee3900a2c2693bc29ecaad2d38101)
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1070,7 +1077,7 @@ class AssertionsProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d829d3346bf088cede720be581add7c49c5142d6b67835d095d5b7fc2f3be071)
+            type_hints = cached_type_hints(_typecheckingstub__d829d3346bf088cede720be581add7c49c5142d6b67835d095d5b7fc2f3be071)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AssertionsProviderProps(
@@ -1098,7 +1105,7 @@ class AssertionsProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285397c0e0cbfc08b4ceb96a2add1fa4e5526f2b30516e8392967f5137179e44)
+            type_hints = cached_type_hints(_typecheckingstub__285397c0e0cbfc08b4ceb96a2add1fa4e5526f2b30516e8392967f5137179e44)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
@@ -1126,7 +1133,7 @@ class AssertionsProvider(
             })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ce43eeb4052a2bec14220d62d9e29dabfd6cd994cea93852c4eeea7119d694e)
+            type_hints = cached_type_hints(_typecheckingstub__8ce43eeb4052a2bec14220d62d9e29dabfd6cd994cea93852c4eeea7119d694e)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast(None, jsii.invoke(self, "addToRolePolicy", [statement]))
 
@@ -1143,7 +1150,7 @@ class AssertionsProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4aead2da0479681240000a232baddbe9a576e79f1bb8c553c4fc2eb15334792c)
+            type_hints = cached_type_hints(_typecheckingstub__4aead2da0479681240000a232baddbe9a576e79f1bb8c553c4fc2eb15334792c)
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast(typing.Any, jsii.invoke(self, "encode", [obj]))
 
@@ -1156,7 +1163,7 @@ class AssertionsProvider(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15205a41c415f7c6befb41d2657e281256b15aca69cb25c1fe72c1803a5e34f8)
+            type_hints = cached_type_hints(_typecheckingstub__15205a41c415f7c6befb41d2657e281256b15aca69cb25c1fe72c1803a5e34f8)
             check_type(argname="argument principal_arn", value=principal_arn, expected_type=type_hints["principal_arn"])
         return typing.cast(None, jsii.invoke(self, "grantInvoke", [principal_arn]))
 
@@ -1230,7 +1237,7 @@ class AwsApiCallRequest:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31c5b4f02fb0af656efa41ad3e0b46bca31caf2520a4a6f541428609610641b2)
+            type_hints = cached_type_hints(_typecheckingstub__31c5b4f02fb0af656efa41ad3e0b46bca31caf2520a4a6f541428609610641b2)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument flatten_response", value=flatten_response, expected_type=type_hints["flatten_response"])
@@ -1354,7 +1361,7 @@ class AwsApiCallResult:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69e3f1f73e49e1577977c7911e8cc8c5ef685546bdc133fdea8e9544cb4fd96b)
+            type_hints = cached_type_hints(_typecheckingstub__69e3f1f73e49e1577977c7911e8cc8c5ef685546bdc133fdea8e9544cb4fd96b)
             check_type(argname="argument api_call_response", value=api_call_response, expected_type=type_hints["api_call_response"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_call_response": api_call_response,
@@ -1433,7 +1440,7 @@ class EqualsAssertion(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c04e443c11a2367321899a4898db5e5d6620d46b9e0d1b3fa31d7e9dd021554)
+            type_hints = cached_type_hints(_typecheckingstub__4c04e443c11a2367321899a4898db5e5d6620d46b9e0d1b3fa31d7e9dd021554)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EqualsAssertionProps(
@@ -1523,7 +1530,7 @@ class ExpectedResult(
             ])
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f650c234de69311d3be1555c76c31b0bcf660ee568cb8877337aaa3fcc56a59)
+            type_hints = cached_type_hints(_typecheckingstub__9f650c234de69311d3be1555c76c31b0bcf660ee568cb8877337aaa3fcc56a59)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("ExpectedResult", jsii.sinvoke(cls, "arrayWith", [expected]))
 
@@ -1561,7 +1568,7 @@ class ExpectedResult(
             })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aba1bd6868bcbf917d8781a68e462486356d1b72f71281beafa06866afb05e73)
+            type_hints = cached_type_hints(_typecheckingstub__aba1bd6868bcbf917d8781a68e462486356d1b72f71281beafa06866afb05e73)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("ExpectedResult", jsii.sinvoke(cls, "exact", [expected]))
 
@@ -1594,7 +1601,7 @@ class ExpectedResult(
             })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41760596828a67f336d3d40b1a2fade70ac97e61371e5de90c1ba47717728f61)
+            type_hints = cached_type_hints(_typecheckingstub__41760596828a67f336d3d40b1a2fade70ac97e61371e5de90c1ba47717728f61)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("ExpectedResult", jsii.sinvoke(cls, "objectLike", [expected]))
 
@@ -1617,7 +1624,7 @@ class ExpectedResult(
             ExpectedResult.string_like_regexp("value")
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ba074a7cbb4cb81e3710d0722f59a4ad232869166467c789883b0d1ea35bf92)
+            type_hints = cached_type_hints(_typecheckingstub__2ba074a7cbb4cb81e3710d0722f59a4ad232869166467c789883b0d1ea35bf92)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("ExpectedResult", jsii.sinvoke(cls, "stringLikeRegexp", [expected]))
 
@@ -1650,7 +1657,7 @@ class _ExpectedResultProxy(ExpectedResult):
     @result.setter
     def result(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e33010e7c2f43ad7b078d998ca478ef09e6cf76bc2eadeb12407d48e7f8d56d3)
+            type_hints = cached_type_hints(_typecheckingstub__e33010e7c2f43ad7b078d998ca478ef09e6cf76bc2eadeb12407d48e7f8d56d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "result", value) # pyright: ignore[reportArgumentType]
 
@@ -1703,7 +1710,7 @@ class FetchOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2e88c6f6439b0e809ba451cf7d5fdcb3370b99a16f4d97c6d1c6ff524a91f56)
+            type_hints = cached_type_hints(_typecheckingstub__e2e88c6f6439b0e809ba451cf7d5fdcb3370b99a16f4d97c6d1c6ff524a91f56)
             check_type(argname="argument body", value=body, expected_type=type_hints["body"])
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
             check_type(argname="argument method", value=method, expected_type=type_hints["method"])
@@ -1822,7 +1829,7 @@ class HttpRequest:
         if isinstance(parameters, dict):
             parameters = HttpRequestParameters(**parameters)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e43070ab7c42531f81da281a2f078d3aaa5c2747ce7ed529dd5083e0ecf1f15)
+            type_hints = cached_type_hints(_typecheckingstub__7e43070ab7c42531f81da281a2f078d3aaa5c2747ce7ed529dd5083e0ecf1f15)
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument flatten_response", value=flatten_response, expected_type=type_hints["flatten_response"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1915,7 +1922,7 @@ class HttpRequestParameters:
         if isinstance(fetch_options, dict):
             fetch_options = FetchOptions(**fetch_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93af9c54916c56a6f8f854ed0b3f9f13208556a5bdfc783196525c8d6ac46dab)
+            type_hints = cached_type_hints(_typecheckingstub__93af9c54916c56a6f8f854ed0b3f9f13208556a5bdfc783196525c8d6ac46dab)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument fetch_options", value=fetch_options, expected_type=type_hints["fetch_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2007,7 +2014,7 @@ class HttpResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__391c496ab114dbafa2050e50cd71e9603e3723e49e2d262950bd96589530e06a)
+            type_hints = cached_type_hints(_typecheckingstub__391c496ab114dbafa2050e50cd71e9603e3723e49e2d262950bd96589530e06a)
             check_type(argname="argument body", value=body, expected_type=type_hints["body"])
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
             check_type(argname="argument ok", value=ok, expected_type=type_hints["ok"])
@@ -2126,7 +2133,7 @@ class HttpResponseWrapper:
         if isinstance(api_call_response, dict):
             api_call_response = HttpResponse(**api_call_response)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa97df0d1c119f8060810ef7873d7cbafff7b4b83e883dff6b5be3ec2fbbd17b)
+            type_hints = cached_type_hints(_typecheckingstub__fa97df0d1c119f8060810ef7873d7cbafff7b4b83e883dff6b5be3ec2fbbd17b)
             check_type(argname="argument api_call_response", value=api_call_response, expected_type=type_hints["api_call_response"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_call_response": api_call_response,
@@ -2399,7 +2406,7 @@ class _IApiCallProxy(
             message.assert_at_path("Messages.0.Body", ExpectedResult.string_like_regexp("hello"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f411c9c6ce09258efafb36af27db400c2f261d107ee630843a9353825628ab2a)
+            type_hints = cached_type_hints(_typecheckingstub__f411c9c6ce09258efafb36af27db400c2f261d107ee630843a9353825628ab2a)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
@@ -2422,7 +2429,7 @@ class _IApiCallProxy(
             invoke.expect(ExpectedResult.object_like({"Payload": "OK"}))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eddf80736a88c6c822d6a25fbc32b7351e8da3accd460b8d16ff71eb55de6046)
+            type_hints = cached_type_hints(_typecheckingstub__eddf80736a88c6c822d6a25fbc32b7351e8da3accd460b8d16ff71eb55de6046)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "expect", [expected]))
 
@@ -2443,7 +2450,7 @@ class _IApiCallProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfacb64b65fabe2392dc2b549890ca1c6de3d73472d8f4bbf082087228f4a805)
+            type_hints = cached_type_hints(_typecheckingstub__cfacb64b65fabe2392dc2b549890ca1c6de3d73472d8f4bbf082087228f4a805)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
         return typing.cast("_aws_cdk_ceddda9d.Reference", jsii.invoke(self, "getAtt", [attribute_name]))
 
@@ -2461,7 +2468,7 @@ class _IApiCallProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ecdf8894538ec23be7a00dac9133f608b80e8936665f4e1662ec5277f92ee17)
+            type_hints = cached_type_hints(_typecheckingstub__3ecdf8894538ec23be7a00dac9133f608b80e8936665f4e1662ec5277f92ee17)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
         return typing.cast(builtins.str, jsii.invoke(self, "getAttString", [attribute_name]))
 
@@ -2484,7 +2491,7 @@ class _IApiCallProxy(
             first.next(second)
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48bcab731afdde04f06b7b02cad97732570960e944e237d4caa43e6fbceaf938)
+            type_hints = cached_type_hints(_typecheckingstub__48bcab731afdde04f06b7b02cad97732570960e944e237d4caa43e6fbceaf938)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("IApiCall", jsii.invoke(self, "next", [next]))
 
@@ -2748,7 +2755,7 @@ class _IDeployAssertProxy:
             }))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0016b9ee68480906b65c3f2abda1a5eef570a527959ef608ac4d86836e7f4b28)
+            type_hints = cached_type_hints(_typecheckingstub__0016b9ee68480906b65c3f2abda1a5eef570a527959ef608ac4d86836e7f4b28)
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
@@ -2780,7 +2787,7 @@ class _IDeployAssertProxy:
                 ActualResult.from_aws_api_call(api_call, "Body"))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc5691b1933125f6e27b8109881a6206c07bcdea66d6a2a61d313cd6f7b30ce8)
+            type_hints = cached_type_hints(_typecheckingstub__bc5691b1933125f6e27b8109881a6206c07bcdea66d6a2a61d313cd6f7b30ce8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
@@ -2817,7 +2824,7 @@ class _IDeployAssertProxy:
             }))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9053497bae85d950ab08f20afee06c8e7c3e89c63f987e0320dba88e432ddff5)
+            type_hints = cached_type_hints(_typecheckingstub__9053497bae85d950ab08f20afee06c8e7c3e89c63f987e0320dba88e432ddff5)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         options = FetchOptions(body=body, headers=headers, method=method, port=port)
 
@@ -2944,7 +2951,7 @@ class IntegTest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12fb8761c88b4fc9579f6a32db4edfe539963bdb489338e7e428d98f41281684)
+            type_hints = cached_type_hints(_typecheckingstub__12fb8761c88b4fc9579f6a32db4edfe539963bdb489338e7e428d98f41281684)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IntegTestProps(
@@ -3135,7 +3142,7 @@ class IntegTestCase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93909b22bdb434dd5bf6d9361625228bbeaf85254c3fc7bc9e72b77b70fd0e1f)
+            type_hints = cached_type_hints(_typecheckingstub__93909b22bdb434dd5bf6d9361625228bbeaf85254c3fc7bc9e72b77b70fd0e1f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IntegTestCaseProps(
@@ -3252,7 +3259,7 @@ class IntegTestCaseStack(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae3a10010962bdab5e34756e8b8781def4d66140bc39b762ac839b6431134b6e)
+            type_hints = cached_type_hints(_typecheckingstub__ae3a10010962bdab5e34756e8b8781def4d66140bc39b762ac839b6431134b6e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = IntegTestCaseStackProps(
@@ -3289,7 +3296,7 @@ class IntegTestCaseStack(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df0f2ea15e16068a7686e303272abe9b66aff6f74e31067127bd671e0b6dfd1a)
+            type_hints = cached_type_hints(_typecheckingstub__df0f2ea15e16068a7686e303272abe9b66aff6f74e31067127bd671e0b6dfd1a)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isIntegTestCaseStack", [x]))
 
@@ -3401,7 +3408,7 @@ class IntegTestCaseStackProps(
         if isinstance(env, dict):
             env = _aws_cdk_ceddda9d.Environment(**env)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59edf2938a92df2253021d942b03a0fa818705ff3df6920854079be734c3e175)
+            type_hints = cached_type_hints(_typecheckingstub__59edf2938a92df2253021d942b03a0fa818705ff3df6920854079be734c3e175)
             check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
@@ -3879,7 +3886,7 @@ class LambdaInvokeFunctionProps:
             }))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7f94aeefe8016f3f35355f86e35cc34b53e597152be16a8b6a678afab636d7b)
+            type_hints = cached_type_hints(_typecheckingstub__e7f94aeefe8016f3f35355f86e35cc34b53e597152be16a8b6a678afab636d7b)
             check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
             check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
             check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
@@ -4016,7 +4023,7 @@ class Match(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69cd8dd33ba371f84a9b655b09b12aca9fda33749b1d492e04e29de74e17ce19)
+            type_hints = cached_type_hints(_typecheckingstub__69cd8dd33ba371f84a9b655b09b12aca9fda33749b1d492e04e29de74e17ce19)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(typing.Mapping[builtins.str, typing.List[typing.Any]], jsii.sinvoke(cls, "arrayWith", [pattern]))
 
@@ -4035,7 +4042,7 @@ class Match(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1ed9ce4ac8ba15c74fcb4d77253ca710ec1f313d1f47ebb3641222f363fc260)
+            type_hints = cached_type_hints(_typecheckingstub__b1ed9ce4ac8ba15c74fcb4d77253ca710ec1f313d1f47ebb3641222f363fc260)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.sinvoke(cls, "objectLike", [pattern]))
 
@@ -4052,7 +4059,7 @@ class Match(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b6f20a7536a39c152b01944858b6ec7920308d8ab4b26ce4ca075855f0c4aae)
+            type_hints = cached_type_hints(_typecheckingstub__2b6f20a7536a39c152b01944858b6ec7920308d8ab4b26ce4ca075855f0c4aae)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.sinvoke(cls, "serializedJson", [pattern]))
 
@@ -4069,7 +4076,7 @@ class Match(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08b86e0fb528b0809c81fd8c9509acd452ec22cd078f57824f27506c9ac85d9b)
+            type_hints = cached_type_hints(_typecheckingstub__08b86e0fb528b0809c81fd8c9509acd452ec22cd078f57824f27506c9ac85d9b)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.sinvoke(cls, "stringLikeRegexp", [pattern]))
 
@@ -4111,7 +4118,7 @@ class ProviderOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7916bcb8e7183f4e6ab3838f2b86b4872a8e034022780244121e291e3385cd0a)
+            type_hints = cached_type_hints(_typecheckingstub__7916bcb8e7183f4e6ab3838f2b86b4872a8e034022780244121e291e3385cd0a)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if provider_log_level is not None:
@@ -4229,7 +4236,7 @@ class WaiterStateMachine(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99521e6ae1132d620337d92d0e6db2d69a603a34b4b8ff711ffc16a33f710a3a)
+            type_hints = cached_type_hints(_typecheckingstub__99521e6ae1132d620337d92d0e6db2d69a603a34b4b8ff711ffc16a33f710a3a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = WaiterStateMachineProps(
@@ -4413,7 +4420,7 @@ class WaiterStateMachineOptions(ProviderOptions):
                 })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__121fca5df71218eb18c08109872208325ee23307067d82bcba84288b6feccd22)
+            type_hints = cached_type_hints(_typecheckingstub__121fca5df71218eb18c08109872208325ee23307067d82bcba84288b6feccd22)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument backoff_rate", value=backoff_rate, expected_type=type_hints["backoff_rate"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
@@ -4537,7 +4544,7 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e828ea92e322e9108a7c287fff81908fdb3933543431b12a3a1c1252a39520e)
+            type_hints = cached_type_hints(_typecheckingstub__0e828ea92e322e9108a7c287fff81908fdb3933543431b12a3a1c1252a39520e)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument backoff_rate", value=backoff_rate, expected_type=type_hints["backoff_rate"])
             check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
@@ -4639,7 +4646,7 @@ class ApiCallBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f5c30bd0d9d1e9f2d9b27538ad4782c94ca340a31438a5934b36cb27e41a106)
+            type_hints = cached_type_hints(_typecheckingstub__0f5c30bd0d9d1e9f2d9b27538ad4782c94ca340a31438a5934b36cb27e41a106)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [scope, id])
@@ -4676,7 +4683,7 @@ class ApiCallBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b7c9aa0f42f1a833762c8119488d08ffbe967de907a60b24f416cf7c564fd91)
+            type_hints = cached_type_hints(_typecheckingstub__7b7c9aa0f42f1a833762c8119488d08ffbe967de907a60b24f416cf7c564fd91)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "expect", [expected]))
 
@@ -4692,7 +4699,7 @@ class ApiCallBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6cf0fe113d623960a2bcd5ecbfd05737f899bcc55e5ff0e8d2c5e1a4567ea46)
+            type_hints = cached_type_hints(_typecheckingstub__e6cf0fe113d623960a2bcd5ecbfd05737f899bcc55e5ff0e8d2c5e1a4567ea46)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
         return typing.cast("_aws_cdk_ceddda9d.Reference", jsii.invoke(self, "getAtt", [attribute_name]))
 
@@ -4708,7 +4715,7 @@ class ApiCallBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__880bbc28382f140bb446cd7a0a29b639affd6e2786540e3e1708003d74782721)
+            type_hints = cached_type_hints(_typecheckingstub__880bbc28382f140bb446cd7a0a29b639affd6e2786540e3e1708003d74782721)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
         return typing.cast(builtins.str, jsii.invoke(self, "getAttString", [attribute_name]))
 
@@ -4723,7 +4730,7 @@ class ApiCallBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b474cc33c103ba8fec955b34c41238ccfcd11dbdb11f7e6a2438893d316b2afa)
+            type_hints = cached_type_hints(_typecheckingstub__b474cc33c103ba8fec955b34c41238ccfcd11dbdb11f7e6a2438893d316b2afa)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         return typing.cast("IApiCall", jsii.invoke(self, "next", [next]))
 
@@ -4784,7 +4791,7 @@ class ApiCallBase(
     @_flatten_response.setter
     def _flatten_response(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97da9bf9b19a18aff40873ddc2b64a140954d8be0edcceff1c3ab02b28f3d0c6)
+            type_hints = cached_type_hints(_typecheckingstub__97da9bf9b19a18aff40873ddc2b64a140954d8be0edcceff1c3ab02b28f3d0c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flattenResponse", value) # pyright: ignore[reportArgumentType]
 
@@ -4799,7 +4806,7 @@ class ApiCallBase(
     @_expected_result.setter
     def _expected_result(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ce4672396c2e9f40d0ddffe2d7e3f1a2da528acea1b0f4629b456ad9d0403be)
+            type_hints = cached_type_hints(_typecheckingstub__4ce4672396c2e9f40d0ddffe2d7e3f1a2da528acea1b0f4629b456ad9d0403be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "expectedResult", value) # pyright: ignore[reportArgumentType]
 
@@ -4814,7 +4821,7 @@ class ApiCallBase(
     @_output_paths.setter
     def _output_paths(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc878677ce52b96189eb1a58fb88ebee73b4b1bd3d713318ed57c1a58847f30)
+            type_hints = cached_type_hints(_typecheckingstub__bdc878677ce52b96189eb1a58fb88ebee73b4b1bd3d713318ed57c1a58847f30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputPaths", value) # pyright: ignore[reportArgumentType]
 
@@ -4829,7 +4836,7 @@ class ApiCallBase(
     @_state_machine_arn.setter
     def _state_machine_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f297ccd4c39b554ca2667c46f20d71a417fd6e796a8dc192158240ba2256123b)
+            type_hints = cached_type_hints(_typecheckingstub__f297ccd4c39b554ca2667c46f20d71a417fd6e796a8dc192158240ba2256123b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4856,7 +4863,7 @@ class _ApiCallBaseProxy(ApiCallBase):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13845f08ac36885e9e69aea7f533608f95aec490022e45da191534ce7c571fe8)
+            type_hints = cached_type_hints(_typecheckingstub__13845f08ac36885e9e69aea7f533608f95aec490022e45da191534ce7c571fe8)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
@@ -4962,7 +4969,7 @@ class AwsApiCall(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e538fc4583813356d54f185265235ce446a780672975e15bbe5fa65cbba69a5b)
+            type_hints = cached_type_hints(_typecheckingstub__e538fc4583813356d54f185265235ce446a780672975e15bbe5fa65cbba69a5b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = AwsApiCallProps(
@@ -4996,7 +5003,7 @@ class AwsApiCall(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c820409bea110666051dd23cfad75a1450d07826755868229c2b4934ec0bad8)
+            type_hints = cached_type_hints(_typecheckingstub__7c820409bea110666051dd23cfad75a1450d07826755868229c2b4934ec0bad8)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
@@ -5076,7 +5083,7 @@ class AwsApiCall(
     @waiter_provider.setter
     def waiter_provider(self, value: typing.Optional["AssertionsProvider"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e978f2b80fc7ca4cf867ebf9e4673daf1582477274721902259a31caf906a43)
+            type_hints = cached_type_hints(_typecheckingstub__0e978f2b80fc7ca4cf867ebf9e4673daf1582477274721902259a31caf906a43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "waiterProvider", value) # pyright: ignore[reportArgumentType]
 
@@ -5133,7 +5140,7 @@ class AwsApiCallOptions(ProviderOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1)
+            type_hints = cached_type_hints(_typecheckingstub__1bb3bfb6e039f1770b7357b50e700e5397b1fe0af7e9bda38fcf799b232ae6b1)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -5264,7 +5271,7 @@ class AwsApiCallProps(AwsApiCallOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357)
+            type_hints = cached_type_hints(_typecheckingstub__9667093e2c183b6409c654dfeddf1ba9117d05548446571b59e368fb53b52357)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -5401,7 +5408,7 @@ class EqualsAssertionProps(ProviderOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a)
+            type_hints = cached_type_hints(_typecheckingstub__58af14cdbf1ae6af7373273fada4bab47f80572e2dc79fc8406588336d4cd06a)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
@@ -5513,7 +5520,7 @@ class HttpApiCall(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0209121e751279aa416df5a16ee8548cf444948c1d390c4c88c07eb8c6b1c58a)
+            type_hints = cached_type_hints(_typecheckingstub__0209121e751279aa416df5a16ee8548cf444948c1d390c4c88c07eb8c6b1c58a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HttpCallProps(
@@ -5543,7 +5550,7 @@ class HttpApiCall(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb5f6f39838f44a897965a4772b5b6db17ad826ce021bb98080a9af10f1207c9)
+            type_hints = cached_type_hints(_typecheckingstub__eb5f6f39838f44a897965a4772b5b6db17ad826ce021bb98080a9af10f1207c9)
             check_type(argname="argument _path", value=_path, expected_type=type_hints["_path"])
             check_type(argname="argument _expected", value=_expected, expected_type=type_hints["_expected"])
         return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [_path, _expected]))
@@ -5637,7 +5644,7 @@ class HttpCallProps(HttpRequestParameters, ProviderOptions):
         if isinstance(fetch_options, dict):
             fetch_options = FetchOptions(**fetch_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f4a71f13aa64d1306c572e9f98559d007cead2ee1c483183f46e1dad96274fd)
+            type_hints = cached_type_hints(_typecheckingstub__1f4a71f13aa64d1306c572e9f98559d007cead2ee1c483183f46e1dad96274fd)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument fetch_options", value=fetch_options, expected_type=type_hints["fetch_options"])
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
@@ -5865,7 +5872,7 @@ class IntegTestCaseProps(
         if isinstance(hooks, dict):
             hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6)
+            type_hints = cached_type_hints(_typecheckingstub__5f36706ce503fa92c9baffb37b25208bc4e61071c2af78b1cf526c1916f483b6)
             check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
@@ -6110,7 +6117,7 @@ class IntegTestProps(
         if isinstance(hooks, dict):
             hooks = _aws_cdk_cloud_assembly_schema_ceddda9d.Hooks(**hooks)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4)
+            type_hints = cached_type_hints(_typecheckingstub__7a2013546a0269b479331ed4cdfd706a8b20bf18d5f45e074d56ae77eb9b6dd4)
             check_type(argname="argument allow_delete_failures", value=allow_delete_failures, expected_type=type_hints["allow_delete_failures"])
             check_type(argname="argument allow_destroy", value=allow_destroy, expected_type=type_hints["allow_destroy"])
             check_type(argname="argument cdk_command_options", value=cdk_command_options, expected_type=type_hints["cdk_command_options"])
@@ -6329,7 +6336,7 @@ class LambdaFunctionProviderProps(ProviderOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1)
+            type_hints = cached_type_hints(_typecheckingstub__c38d440a6e46009e1964a16dca6cca6a65cee4a96c1e4ec4505f3cc068bc45c1)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])
@@ -6445,7 +6452,7 @@ class LambdaInvokeFunction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc846004ad65c16a9a1322c4c518ae25ebd02b2bc7803230f5bb11a2884f1de0)
+            type_hints = cached_type_hints(_typecheckingstub__fc846004ad65c16a9a1322c4c518ae25ebd02b2bc7803230f5bb11a2884f1de0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = LambdaInvokeFunctionProps(
@@ -6504,7 +6511,7 @@ class AssertionsProviderProps(LambdaFunctionProviderProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b)
+            type_hints = cached_type_hints(_typecheckingstub__2c5e060905b379d8af8619d5ea408511fba77814517c07abbda12acf1dbe165b)
             check_type(argname="argument provider_log_level", value=provider_log_level, expected_type=type_hints["provider_log_level"])
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument log_retention", value=log_retention, expected_type=type_hints["log_retention"])

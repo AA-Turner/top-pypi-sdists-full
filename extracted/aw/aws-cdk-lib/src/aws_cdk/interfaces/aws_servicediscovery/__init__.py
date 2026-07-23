@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class HttpNamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47957067bc6a34b9e1d55ef91eda7d10378a02ce1bc0ee39770e7bd28e834179)
+            type_hints = cached_type_hints(_typecheckingstub__47957067bc6a34b9e1d55ef91eda7d10378a02ce1bc0ee39770e7bd28e834179)
             check_type(argname="argument http_namespace_arn", value=http_namespace_arn, expected_type=type_hints["http_namespace_arn"])
             check_type(argname="argument http_namespace_id", value=http_namespace_id, expected_type=type_hints["http_namespace_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -107,7 +111,7 @@ class HttpNamespaceReference:
 )
 class IHttpNamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a HttpNamespace.
@@ -127,7 +131,7 @@ class IHttpNamespaceRef(
 
 class _IHttpNamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a HttpNamespace.
 
@@ -152,7 +156,7 @@ typing.cast(typing.Any, IHttpNamespaceRef).__jsii_proxy_class__ = lambda : _IHtt
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_servicediscovery.IInstanceRef")
 class IInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
@@ -172,7 +176,7 @@ class IInstanceRef(
 
 class _IInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
 
@@ -199,7 +203,7 @@ typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstance
 )
 class IPrivateDnsNamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateDnsNamespace.
@@ -219,7 +223,7 @@ class IPrivateDnsNamespaceRef(
 
 class _IPrivateDnsNamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PrivateDnsNamespace.
 
@@ -246,7 +250,7 @@ typing.cast(typing.Any, IPrivateDnsNamespaceRef).__jsii_proxy_class__ = lambda :
 )
 class IPublicDnsNamespaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicDnsNamespace.
@@ -266,7 +270,7 @@ class IPublicDnsNamespaceRef(
 
 class _IPublicDnsNamespaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicDnsNamespace.
 
@@ -291,7 +295,7 @@ typing.cast(typing.Any, IPublicDnsNamespaceRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_servicediscovery.IServiceRef")
 class IServiceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
@@ -311,7 +315,7 @@ class IServiceRef(
 
 class _IServiceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Service.
 
@@ -357,7 +361,7 @@ class InstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4bdbb3373e9830f3c521133ba4f1fb36534ea7576b70ee0f70b1dbd5f00a679)
+            type_hints = cached_type_hints(_typecheckingstub__d4bdbb3373e9830f3c521133ba4f1fb36534ea7576b70ee0f70b1dbd5f00a679)
             check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_id": instance_id,
@@ -416,7 +420,7 @@ class PrivateDnsNamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fd94864c7119ffead276f089d29d85ce74636b6b3d29bc9b9db0398d5022155)
+            type_hints = cached_type_hints(_typecheckingstub__6fd94864c7119ffead276f089d29d85ce74636b6b3d29bc9b9db0398d5022155)
             check_type(argname="argument private_dns_namespace_arn", value=private_dns_namespace_arn, expected_type=type_hints["private_dns_namespace_arn"])
             check_type(argname="argument private_dns_namespace_id", value=private_dns_namespace_id, expected_type=type_hints["private_dns_namespace_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -484,7 +488,7 @@ class PublicDnsNamespaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5972cd83451540060dec01c3df997dc5976bb676dfadf18570fab68342417ac)
+            type_hints = cached_type_hints(_typecheckingstub__f5972cd83451540060dec01c3df997dc5976bb676dfadf18570fab68342417ac)
             check_type(argname="argument public_dns_namespace_arn", value=public_dns_namespace_arn, expected_type=type_hints["public_dns_namespace_arn"])
             check_type(argname="argument public_dns_namespace_id", value=public_dns_namespace_id, expected_type=type_hints["public_dns_namespace_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -544,7 +548,7 @@ class ServiceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21202898ea0609748504f68db105edd6506044d97fd7d4c3b9b5caeee87efd85)
+            type_hints = cached_type_hints(_typecheckingstub__21202898ea0609748504f68db105edd6506044d97fd7d4c3b9b5caeee87efd85)
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

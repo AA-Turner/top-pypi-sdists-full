@@ -122,6 +122,8 @@ flink_app = flink.Application(self, "Application",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -135,35 +137,45 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kinesisanalytics as _aws_cdk_aws_kinesisanalytics_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kinesisanalytics as _aws_cdk_aws_kinesisanalytics_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kinesisanalytics_ceddda9d = _LazyImport("aws_cdk.aws_kinesisanalytics")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_s3_assets_ceddda9d = _LazyImport("aws_cdk.aws_s3_assets")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -206,7 +218,7 @@ class ApplicationAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad246f7fae753f9c55cbc4736124d78d668122b77682d352f4613eb0c64936cf)
+            type_hints = cached_type_hints(_typecheckingstub__ad246f7fae753f9c55cbc4736124d78d668122b77682d352f4613eb0c64936cf)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -319,7 +331,7 @@ class ApplicationCode(
         :parm: options - standard s3 AssetOptions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b3f5ea7b01f2c445236fa2c0bbef9d04ab26dce3d5e0a7fe634f654688abb3f)
+            type_hints = cached_type_hints(_typecheckingstub__1b3f5ea7b01f2c445236fa2c0bbef9d04ab26dce3d5e0a7fe634f654688abb3f)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
             deploy_time=deploy_time,
@@ -353,7 +365,7 @@ class ApplicationCode(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f5a16b170fb6e6c400ec3e56f19153cd328946a1786624c1886cd8d14940619)
+            type_hints = cached_type_hints(_typecheckingstub__4f5a16b170fb6e6c400ec3e56f19153cd328946a1786624c1886cd8d14940619)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
             check_type(argname="argument file_key", value=file_key, expected_type=type_hints["file_key"])
             check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -381,7 +393,7 @@ class _ApplicationCodeProxy(ApplicationCode):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65c9f82daed8b31acdb968f466dda9f9a1c9e180e5072d118bab35365fa96448)
+            type_hints = cached_type_hints(_typecheckingstub__65c9f82daed8b31acdb968f466dda9f9a1c9e180e5072d118bab35365fa96448)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("ApplicationCodeConfig", jsii.invoke(self, "bind", [scope]))
 
@@ -610,7 +622,7 @@ class ApplicationCodeConfig:
         if isinstance(application_code_configuration_property, dict):
             application_code_configuration_property = _aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty(**application_code_configuration_property)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47cc21fac9e494abf1ac7f9aadd48c958254bc0341493f99975abdad7ef5d1a4)
+            type_hints = cached_type_hints(_typecheckingstub__47cc21fac9e494abf1ac7f9aadd48c958254bc0341493f99975abdad7ef5d1a4)
             check_type(argname="argument application_code_configuration_property", value=application_code_configuration_property, expected_type=type_hints["application_code_configuration_property"])
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -745,7 +757,7 @@ class ApplicationProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb9dbf65afdc65305619bf368726e440990fce7e648f07110f6f6ea5b68761ee)
+            type_hints = cached_type_hints(_typecheckingstub__bb9dbf65afdc65305619bf368726e440990fce7e648f07110f6f6ea5b68761ee)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
@@ -2260,7 +2272,7 @@ class _IApplicationProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bb38153485e6b404fe25dfe558d2855c7bbd6c7a5a0e278c5336ed22feb47a8)
+            type_hints = cached_type_hints(_typecheckingstub__6bb38153485e6b404fe25dfe558d2855c7bbd6c7a5a0e278c5336ed22feb47a8)
             check_type(argname="argument policy_statement", value=policy_statement, expected_type=type_hints["policy_statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToRolePolicy", [policy_statement]))
 
@@ -2301,7 +2313,7 @@ class _IApplicationProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__097540094b7582e7d789cf6a116b80ddef50d6da32ceb164de5da9561e9bef53)
+            type_hints = cached_type_hints(_typecheckingstub__097540094b7582e7d789cf6a116b80ddef50d6da32ceb164de5da9561e9bef53)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -3938,7 +3950,7 @@ class Runtime(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a694f39d30e80ca42dbbc8290e609e5b01e2bd851cacb1ab93d45021cf565fb)
+            type_hints = cached_type_hints(_typecheckingstub__2a694f39d30e80ca42dbbc8290e609e5b01e2bd851cacb1ab93d45021cf565fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("Runtime", jsii.sinvoke(cls, "of", [value]))
 
@@ -4152,7 +4164,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97c37b53369d987e8a79d7d3042fcd0d9e228da41f3f0c9b98084d676fadb381)
+            type_hints = cached_type_hints(_typecheckingstub__97c37b53369d987e8a79d7d3042fcd0d9e228da41f3f0c9b98084d676fadb381)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ApplicationProps(
@@ -4196,7 +4208,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c42f05406bb8ced572c751388e1825bd7dab48d8e6bbd1fdc7daa4d586488843)
+            type_hints = cached_type_hints(_typecheckingstub__c42f05406bb8ced572c751388e1825bd7dab48d8e6bbd1fdc7daa4d586488843)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
@@ -4222,7 +4234,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__141e4588126ec53159a6df96edadf9ba0eaa657f108566e893ba4a3984b03212)
+            type_hints = cached_type_hints(_typecheckingstub__141e4588126ec53159a6df96edadf9ba0eaa657f108566e893ba4a3984b03212)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApplicationAttributes(
@@ -4248,7 +4260,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39f9a97194ff1ae295262fee9cb88d054ddc3692873ae0b0fae8e3cf46578c46)
+            type_hints = cached_type_hints(_typecheckingstub__39f9a97194ff1ae295262fee9cb88d054ddc3692873ae0b0fae8e3cf46578c46)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
@@ -4266,7 +4278,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5dd085ae3e1034f2ba58cb3ded49c9b94a495103eef02e9c1f77e00bab7b826)
+            type_hints = cached_type_hints(_typecheckingstub__c5dd085ae3e1034f2ba58cb3ded49c9b94a495103eef02e9c1f77e00bab7b826)
             check_type(argname="argument policy_statement", value=policy_statement, expected_type=type_hints["policy_statement"])
         return typing.cast(builtins.bool, jsii.invoke(self, "addToRolePolicy", [policy_statement]))
 
@@ -4307,7 +4319,7 @@ class Application(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd7be1e816d1e378b989c42da53244077b88147554f5269f162bf7af509e05e0)
+            type_hints = cached_type_hints(_typecheckingstub__bd7be1e816d1e378b989c42da53244077b88147554f5269f162bf7af509e05e0)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,

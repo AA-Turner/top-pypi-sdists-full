@@ -1,21 +1,27 @@
+use std::borrow::Cow;
+
 use crate::{
     compiler,
     error::{no_error, ErrorIterator, ValidationError},
-    keywords::{required, unique_items, CompilationResult},
+    keywords::{required, CompilationResult},
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
+    Json, JsonNode, JsonObjectAccess, SerdeJson,
 };
 use serde_json::{Map, Value};
 
-pub(crate) struct DependenciesValidator {
-    dependencies: Vec<(String, SchemaNode)>,
+pub(crate) struct DependenciesValidator<F: Json = SerdeJson> {
+    dependencies: Vec<(F::PreparedKey, SchemaNode<F>)>,
 }
 
 impl DependenciesValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         if let Value::Object(map) = schema {
             let kctx = ctx.new_at_location("dependencies");
             let mut dependencies = Vec::with_capacity(map.len());
@@ -33,7 +39,7 @@ impl DependenciesValidator {
                         }
                         _ => compiler::compile(&ctx, ctx.as_resource_ref(subschema))?,
                     };
-                dependencies.push((key.clone(), s));
+                dependencies.push((F::prepare_key(key), s));
             }
             Ok(Box::new(DependenciesValidator { dependencies }))
         } else {
@@ -42,18 +48,18 @@ impl DependenciesValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                schema,
+                Cow::Borrowed(schema),
                 JsonType::Object,
             ))
         }
     }
 }
 
-impl Validate for DependenciesValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
+impl<F: Json> Validate<F> for DependenciesValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
                     return false;
                 }
             }
@@ -65,14 +71,14 @@ impl Validate for DependenciesValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     dependency.validate(instance, location, tracker, ctx)?;
                 }
             }
@@ -82,15 +88,15 @@ impl Validate for DependenciesValidator {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     errors.extend(node.iter_errors(instance, location, tracker, ctx));
                 }
             }
@@ -102,15 +108,15 @@ impl Validate for DependenciesValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
                 }
             }
@@ -121,26 +127,29 @@ impl Validate for DependenciesValidator {
     }
 }
 
-pub(crate) struct DependentRequiredValidator {
-    dependencies: Vec<(String, SchemaNode)>,
+pub(crate) struct DependentRequiredValidator<F: Json = SerdeJson> {
+    dependencies: Vec<(F::PreparedKey, SchemaNode<F>)>,
 }
 
 impl DependentRequiredValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         if let Value::Object(map) = schema {
             let kctx = ctx.new_at_location("dependentRequired");
             let mut dependencies = Vec::with_capacity(map.len());
             for (key, subschema) in map {
                 let ictx = kctx.new_at_location(key.as_str());
                 if let Value::Array(dependency_array) = subschema {
-                    if !unique_items::is_unique(dependency_array) {
+                    if !crate::ext::unique::is_unique(dependency_array) {
                         let location = ictx.location().clone();
                         return Err(ValidationError::unique_items(
                             location.clone(),
                             location,
                             Location::new(),
-                            subschema,
+                            Cow::Borrowed(subschema),
                         ));
                     }
                     let validators =
@@ -150,14 +159,17 @@ impl DependentRequiredValidator {
                                     "The required validator compilation does not return None",
                                 )?,
                         ];
-                    dependencies.push((key.clone(), SchemaNode::from_array(&kctx, validators)));
+                    dependencies.push((
+                        F::prepare_key(key),
+                        SchemaNode::from_array(&kctx, validators),
+                    ));
                 } else {
                     let location = ictx.location().clone();
                     return Err(ValidationError::single_type_error(
                         location.clone(),
                         location,
                         Location::new(),
-                        subschema,
+                        Cow::Borrowed(subschema),
                         JsonType::Array,
                     ));
                 }
@@ -169,17 +181,17 @@ impl DependentRequiredValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                schema,
+                Cow::Borrowed(schema),
                 JsonType::Object,
             ))
         }
     }
 }
-impl Validate for DependentRequiredValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
+impl<F: Json> Validate<F> for DependentRequiredValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
                     return false;
                 }
             }
@@ -191,14 +203,14 @@ impl Validate for DependentRequiredValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     dependency.validate(instance, location, tracker, ctx)?;
                 }
             }
@@ -208,15 +220,15 @@ impl Validate for DependentRequiredValidator {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     errors.extend(node.iter_errors(instance, location, tracker, ctx));
                 }
             }
@@ -228,15 +240,15 @@ impl Validate for DependentRequiredValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
                 }
             }
@@ -247,19 +259,22 @@ impl Validate for DependentRequiredValidator {
     }
 }
 
-pub(crate) struct DependentSchemasValidator {
-    dependencies: Vec<(String, SchemaNode)>,
+pub(crate) struct DependentSchemasValidator<F: Json = SerdeJson> {
+    dependencies: Vec<(F::PreparedKey, SchemaNode<F>)>,
 }
 impl DependentSchemasValidator {
     #[inline]
-    pub(crate) fn compile<'a>(ctx: &compiler::Context, schema: &'a Value) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
+        schema: &'a Value,
+    ) -> CompilationResult<'a, F> {
         if let Value::Object(map) = schema {
             let ctx = ctx.new_at_location("dependentSchemas");
             let mut dependencies = Vec::with_capacity(map.len());
             for (key, subschema) in map {
                 let ctx = ctx.new_at_location(key.as_str());
                 let schema_nodes = compiler::compile(&ctx, ctx.as_resource_ref(subschema))?;
-                dependencies.push((key.clone(), schema_nodes));
+                dependencies.push((F::prepare_key(key), schema_nodes));
             }
             Ok(Box::new(DependentSchemasValidator { dependencies }))
         } else {
@@ -268,17 +283,17 @@ impl DependentSchemasValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                schema,
+                Cow::Borrowed(schema),
                 JsonType::Object,
             ))
         }
     }
 }
-impl Validate for DependentSchemasValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Object(item) = instance {
+impl<F: Json> Validate<F> for DependentSchemasValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
                     return false;
                 }
             }
@@ -290,14 +305,14 @@ impl Validate for DependentSchemasValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     dependency.validate(instance, location, tracker, ctx)?;
                 }
             }
@@ -307,15 +322,15 @@ impl Validate for DependentSchemasValidator {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut errors = Vec::new();
             for (property, node) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     errors.extend(node.iter_errors(instance, location, tracker, ctx));
                 }
             }
@@ -327,15 +342,15 @@ impl Validate for DependentSchemasValidator {
 
     fn evaluate(
         &self,
-        instance: &Value,
+        instance: &F::Node<'_>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        if let Value::Object(item) = instance {
+        if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
-                if item.contains_key(property) {
+                if object.get(property).is_some() {
                     children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
                 }
             }
@@ -347,27 +362,27 @@ impl Validate for DependentSchemasValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     Some(DependenciesValidator::compile(ctx, schema))
 }
 #[inline]
-pub(crate) fn compile_dependent_required<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile_dependent_required<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     Some(DependentRequiredValidator::compile(ctx, schema))
 }
 #[inline]
-pub(crate) fn compile_dependent_schemas<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile_dependent_schemas<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     Some(DependentSchemasValidator::compile(ctx, schema))
 }
 #[cfg(test)]

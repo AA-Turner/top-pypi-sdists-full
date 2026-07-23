@@ -1869,6 +1869,147 @@ def sagemaker_predict(
     )
 
 
+def bedrock_predict(
+    body: Underscore | Any,
+    *,
+    model_id: str,
+    content_type: str | None = None,
+    accept: str | None = None,
+    aws_access_key_id_override: str | None = None,
+    aws_secret_access_key_override: str | None = None,
+    aws_session_token_override: str | None = None,
+    aws_role_arn_override: str | None = None,
+    aws_region_override: str | None = None,
+    aws_profile_name_override: str | None = None,
+):
+    """
+    Invokes an AWS Bedrock model via ``InvokeModel``, passing in the serialized request body as a
+    feature and returning the raw response body. This is the low-level building block; for Amazon
+    Titan text embeddings prefer :func:`bedrock_embed`.
+
+    Parameters
+    ----------
+    body
+        Bytes feature containing the serialized, model-specific request body to send to Bedrock.
+    model_id
+        The Bedrock model id (or provisioned/custom model ARN) to invoke,
+        e.g. ``"amazon.titan-embed-text-v2:0"``.
+    content_type
+        The MIME type of the request body. Defaults to ``application/json``.
+    accept
+        The desired MIME type of the response body. Defaults to ``application/json``.
+    aws_access_key_id_override
+        An optional argument which specifies the AWS access key ID to use for the request.
+    aws_secret_access_key_override
+        An optional argument which specifies the AWS secret access key to use for the request.
+    aws_session_token_override
+        An optional argument which specifies the AWS session token to use for the request.
+    aws_role_arn_override
+        An optional argument which specifies an AWS role ARN that will be assumed to generate credentials.
+    aws_region_override
+        An optional argument which specifies the AWS region to use for the request.
+    aws_profile_name_override
+        An optional argument which specifies the AWS profile name to use for the request.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    request_body: bytes
+    ...    raw_response: bytes = F.bedrock_predict(
+    ...        _.request_body,
+    ...        model_id="amazon.titan-embed-text-v2:0",
+    ...    )
+    """
+    return UnderscoreFunction(
+        "bedrock_predict",
+        body,
+        model_id=model_id,
+        content_type=content_type,
+        accept=accept,
+        aws_access_key_id_override=aws_access_key_id_override,
+        aws_secret_access_key_override=aws_secret_access_key_override,
+        aws_session_token_override=aws_session_token_override,
+        aws_role_arn_override=aws_role_arn_override,
+        aws_region_override=aws_region_override,
+        aws_profile_name_override=aws_profile_name_override,
+    )
+
+
+def bedrock_embed(
+    input: Underscore | Any,
+    *,
+    model_id: str,
+    dimensions: int | None = None,
+    normalize: bool | None = None,
+    aws_access_key_id_override: str | None = None,
+    aws_secret_access_key_override: str | None = None,
+    aws_session_token_override: str | None = None,
+    aws_role_arn_override: str | None = None,
+    aws_region_override: str | None = None,
+    aws_profile_name_override: str | None = None,
+):
+    """
+    Computes an Amazon Titan text embedding for ``input`` via AWS Bedrock and returns it as a
+    vector. Assign the result to a :class:`~chalk.features.Vector` feature; the vector size must
+    match the model output (Titan v2 defaults to 1024, or ``dimensions`` if specified; Titan v1
+    returns 1536).
+
+    Parameters
+    ----------
+    input
+        String feature to embed.
+    model_id
+        The Bedrock Titan embedding model id, e.g. ``"amazon.titan-embed-text-v2:0"``.
+    dimensions
+        Optional output dimensionality (Titan v2 supports ``256``, ``512``, or ``1024``).
+        When omitted, the model default is used.
+    normalize
+        Optional flag (Titan v2) controlling whether the returned embedding is normalized.
+    aws_access_key_id_override
+        An optional argument which specifies the AWS access key ID to use for the request.
+    aws_secret_access_key_override
+        An optional argument which specifies the AWS secret access key to use for the request.
+    aws_session_token_override
+        An optional argument which specifies the AWS session token to use for the request.
+    aws_role_arn_override
+        An optional argument which specifies an AWS role ARN that will be assumed to generate credentials.
+    aws_region_override
+        An optional argument which specifies the AWS region to use for the request.
+    aws_profile_name_override
+        An optional argument which specifies the AWS profile name to use for the request.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features, Vector
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    content: str
+    ...    embedding: Vector[1024] = F.bedrock_embed(
+    ...        _.content,
+    ...        model_id="amazon.titan-embed-text-v2:0",
+    ...    )
+    """
+    return UnderscoreFunction(
+        "bedrock_embed",
+        input,
+        model_id=model_id,
+        dimensions=dimensions,
+        normalize=normalize,
+        aws_access_key_id_override=aws_access_key_id_override,
+        aws_secret_access_key_override=aws_secret_access_key_override,
+        aws_session_token_override=aws_session_token_override,
+        aws_role_arn_override=aws_role_arn_override,
+        aws_region_override=aws_region_override,
+        aws_profile_name_override=aws_profile_name_override,
+    )
+
+
 def openai_complete(
     prompt: Underscore | str,
     model: Underscore | str | None = None,
@@ -8004,6 +8145,8 @@ __all__ = (
     "asin",
     "avro_deserialize",
     "bankers_round",
+    "bedrock_embed",
+    "bedrock_predict",
     "between",
     "bitwise_and",
     "bitwise_arithmetic_shift_right",

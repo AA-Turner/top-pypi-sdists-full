@@ -665,6 +665,8 @@ Tags.from_stack(stack).has_none()
 expect(() => { Tags.fromStack(stack).hasValues(Match.absent()); }).to_throw(/will never match/i)
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -678,27 +680,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-from .. import Stack as _Stack_2866e57f
-from ..cx_api import SynthesisMessage as _SynthesisMessage_b3ae3c62
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.cx_api as _cx_api_57db5121
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _cx_api_57db5121 = _LazyImport("aws_cdk.cx_api")
 
 
 class Annotations(
@@ -725,13 +729,13 @@ class Annotations(
 
     @jsii.member(jsii_name="fromStack")
     @builtins.classmethod
-    def from_stack(cls, stack: "_Stack_2866e57f") -> "Annotations":
+    def from_stack(cls, stack: "_aws_cdk_0cae9daa.Stack") -> "Annotations":
         '''Base your assertions on the messages returned by a synthesized CDK ``Stack``.
 
         :param stack: the CDK Stack to run assertions on.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dffec3a2a7a1a9f1b88ff9e3533fd5895867e3261f050f0b21259953c59554f)
+            type_hints = cached_type_hints(_typecheckingstub__6dffec3a2a7a1a9f1b88ff9e3533fd5895867e3261f050f0b21259953c59554f)
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
         return typing.cast("Annotations", jsii.sinvoke(cls, "fromStack", [stack]))
 
@@ -740,51 +744,51 @@ class Annotations(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
+    ) -> typing.List["_cx_api_57db5121.SynthesisMessage"]:
         '''Get the set of matching errors of a given construct path and message.
 
         :param construct_path: the construct path to the error, provide ``'*'`` to match all errors in the template.
         :param message: the error message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f6064e884b81060ed5691b5c77d99fe9171969d33e0f5c39db63629f9b14233)
+            type_hints = cached_type_hints(_typecheckingstub__7f6064e884b81060ed5691b5c77d99fe9171969d33e0f5c39db63629f9b14233)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findError", [construct_path, message]))
+        return typing.cast(typing.List["_cx_api_57db5121.SynthesisMessage"], jsii.invoke(self, "findError", [construct_path, message]))
 
     @jsii.member(jsii_name="findInfo")
     def find_info(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
+    ) -> typing.List["_cx_api_57db5121.SynthesisMessage"]:
         '''Get the set of matching infos of a given construct path and message.
 
         :param construct_path: the construct path to the info, provide ``'*'`` to match all infos in the template.
         :param message: the info message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8194b87ea6257ea629eb3ca14994457d25764fa7dc4dc21a1ecebfb7392cf893)
+            type_hints = cached_type_hints(_typecheckingstub__8194b87ea6257ea629eb3ca14994457d25764fa7dc4dc21a1ecebfb7392cf893)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findInfo", [construct_path, message]))
+        return typing.cast(typing.List["_cx_api_57db5121.SynthesisMessage"], jsii.invoke(self, "findInfo", [construct_path, message]))
 
     @jsii.member(jsii_name="findWarning")
     def find_warning(
         self,
         construct_path: builtins.str,
         message: typing.Any,
-    ) -> typing.List["_SynthesisMessage_b3ae3c62"]:
+    ) -> typing.List["_cx_api_57db5121.SynthesisMessage"]:
         '''Get the set of matching warning of a given construct path and message.
 
         :param construct_path: the construct path to the warning, provide ``'*'`` to match all warnings in the template.
         :param message: the warning message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2b9ed07482937b302b271f5ecd83ad83b12af81c8b5912069077f5465abc36a)
+            type_hints = cached_type_hints(_typecheckingstub__b2b9ed07482937b302b271f5ecd83ad83b12af81c8b5912069077f5465abc36a)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
-        return typing.cast(typing.List["_SynthesisMessage_b3ae3c62"], jsii.invoke(self, "findWarning", [construct_path, message]))
+        return typing.cast(typing.List["_cx_api_57db5121.SynthesisMessage"], jsii.invoke(self, "findWarning", [construct_path, message]))
 
     @jsii.member(jsii_name="hasError")
     def has_error(self, construct_path: builtins.str, message: typing.Any) -> None:
@@ -794,7 +798,7 @@ class Annotations(
         :param message: the error message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b7c83521585d4519a99991c56b91963a89741ac27b8a8914684737e203a2273)
+            type_hints = cached_type_hints(_typecheckingstub__8b7c83521585d4519a99991c56b91963a89741ac27b8a8914684737e203a2273)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasError", [construct_path, message]))
@@ -807,7 +811,7 @@ class Annotations(
         :param message: the info message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4474081f3d9b4d5d317af8608f249a04ddea10859b5496e931c243fbd7bbffa9)
+            type_hints = cached_type_hints(_typecheckingstub__4474081f3d9b4d5d317af8608f249a04ddea10859b5496e931c243fbd7bbffa9)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasInfo", [construct_path, message]))
@@ -820,7 +824,7 @@ class Annotations(
         :param message: the error message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca70d40be65a245d658fb88df040d0e83e8e632fdd5e2ee95dc766f1c438a795)
+            type_hints = cached_type_hints(_typecheckingstub__ca70d40be65a245d658fb88df040d0e83e8e632fdd5e2ee95dc766f1c438a795)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasNoError", [construct_path, message]))
@@ -833,7 +837,7 @@ class Annotations(
         :param message: the info message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c305e483a4c9a4cc2875c6b72244cf281efd6942b9742401ecc991a2aaa0fd2)
+            type_hints = cached_type_hints(_typecheckingstub__4c305e483a4c9a4cc2875c6b72244cf281efd6942b9742401ecc991a2aaa0fd2)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasNoInfo", [construct_path, message]))
@@ -846,7 +850,7 @@ class Annotations(
         :param message: the warning message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a9a4d7658d222b5a854156cb3f9e2156ce1fca2f67a73459ffe8631f270eae)
+            type_hints = cached_type_hints(_typecheckingstub__20a9a4d7658d222b5a854156cb3f9e2156ce1fca2f67a73459ffe8631f270eae)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasNoWarning", [construct_path, message]))
@@ -859,7 +863,7 @@ class Annotations(
         :param message: the warning message as should be expected. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef14b35c0df2f219e2c887dd18c1ee458e984bcbfa8b30a116ad13762f24a5ad)
+            type_hints = cached_type_hints(_typecheckingstub__ef14b35c0df2f219e2c887dd18c1ee458e984bcbfa8b30a116ad13762f24a5ad)
             check_type(argname="argument construct_path", value=construct_path, expected_type=type_hints["construct_path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "hasWarning", [construct_path, message]))
@@ -893,7 +897,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc2fc6b89509c8782c1d71064aba95c7f8ce8825fb3287ada62d9f7a7fcd3ca3)
+            type_hints = cached_type_hints(_typecheckingstub__dc2fc6b89509c8782c1d71064aba95c7f8ce8825fb3287ada62d9f7a7fcd3ca3)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "arrayEquals", [pattern]))
 
@@ -907,7 +911,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fafc2dce97140cefc00887659682f218b01db7c89e52b4430b2843868fb3589f)
+            type_hints = cached_type_hints(_typecheckingstub__fafc2dce97140cefc00887659682f218b01db7c89e52b4430b2843868fb3589f)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "arrayWith", [pattern]))
 
@@ -919,7 +923,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd6b2bcc466f2428e69319f1508695c522a5e069b08ce97c06e72e3d2927aa57)
+            type_hints = cached_type_hints(_typecheckingstub__bd6b2bcc466f2428e69319f1508695c522a5e069b08ce97c06e72e3d2927aa57)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "exact", [pattern]))
 
@@ -931,7 +935,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to NOT match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78ac65d172037fe8d399409899d5d6843aaa87d02106d1021d4d528350f15adb)
+            type_hints = cached_type_hints(_typecheckingstub__78ac65d172037fe8d399409899d5d6843aaa87d02106d1021d4d528350f15adb)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "not", [pattern]))
 
@@ -948,7 +952,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26dde9bd8eb2015c3779e6c829fa6c442206244c4003e11e435d3f73943b01ac)
+            type_hints = cached_type_hints(_typecheckingstub__26dde9bd8eb2015c3779e6c829fa6c442206244c4003e11e435d3f73943b01ac)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "objectEquals", [pattern]))
 
@@ -965,7 +969,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95fb0724e4fc6f68e1782f5f00503622e0a52a46523a159830c3f2092f1bb53c)
+            type_hints = cached_type_hints(_typecheckingstub__95fb0724e4fc6f68e1782f5f00503622e0a52a46523a159830c3f2092f1bb53c)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "objectLike", [pattern]))
 
@@ -977,7 +981,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: the pattern to match after parsing the encoded JSON.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0764fac955478ef959c585f03fb2034993495f3f94a6cac7a567e56978cf4cee)
+            type_hints = cached_type_hints(_typecheckingstub__0764fac955478ef959c585f03fb2034993495f3f94a6cac7a567e56978cf4cee)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "serializedJson", [pattern]))
 
@@ -989,7 +993,7 @@ class Match(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.assertions.
         :param pattern: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98a9c300f7bb1df47fc43d6b03131a9b5739f02259f381da6d7e61074f71c366)
+            type_hints = cached_type_hints(_typecheckingstub__98a9c300f7bb1df47fc43d6b03131a9b5739f02259f381da6d7e61074f71c366)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast("Matcher", jsii.sinvoke(cls, "stringLikeRegexp", [pattern]))
 
@@ -1030,7 +1034,7 @@ class MatchCapture:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eaff32ba4b1c664eb41260f4e77edb8a54d7961b3b19bd287bf22ead0930c217)
+            type_hints = cached_type_hints(_typecheckingstub__eaff32ba4b1c664eb41260f4e77edb8a54d7961b3b19bd287bf22ead0930c217)
             check_type(argname="argument capture", value=capture, expected_type=type_hints["capture"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1110,7 +1114,7 @@ class MatchFailure:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4e753d803b4a02068cb2dfb45661621427e697484daa7ddc1b6a680a4595c89)
+            type_hints = cached_type_hints(_typecheckingstub__b4e753d803b4a02068cb2dfb45661621427e697484daa7ddc1b6a680a4595c89)
             check_type(argname="argument matcher", value=matcher, expected_type=type_hints["matcher"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -1194,7 +1198,7 @@ class MatchResult(
         :param target: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb5a29b76424d084bdc310c6b78a218fa7665792de6535b46e71143003dd6195)
+            type_hints = cached_type_hints(_typecheckingstub__fb5a29b76424d084bdc310c6b78a218fa7665792de6535b46e71143003dd6195)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         jsii.create(self.__class__, self, [target])
 
@@ -1206,7 +1210,7 @@ class MatchResult(
         :param inner: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5707d27d3d9ef8648d76144fef31bb7e8e203d4d97e24e6577be793184d6b06e)
+            type_hints = cached_type_hints(_typecheckingstub__5707d27d3d9ef8648d76144fef31bb7e8e203d4d97e24e6577be793184d6b06e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument inner", value=inner, expected_type=type_hints["inner"])
         return typing.cast("MatchResult", jsii.invoke(self, "compose", [id, inner]))
@@ -1245,7 +1249,7 @@ class MatchResult(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45bee7c8fb202d40364739632ae8bc933408a64dd4bc116fdba19be6d8af7683)
+            type_hints = cached_type_hints(_typecheckingstub__45bee7c8fb202d40364739632ae8bc933408a64dd4bc116fdba19be6d8af7683)
             check_type(argname="argument matcher", value=matcher, expected_type=type_hints["matcher"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
@@ -1372,7 +1376,7 @@ class Matcher(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34e173c6e90c1fe62d73014facdde86cc643902cca812a81d90683adef3cb82e)
+            type_hints = cached_type_hints(_typecheckingstub__34e173c6e90c1fe62d73014facdde86cc643902cca812a81d90683adef3cb82e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isMatcher", [x]))
 
@@ -1414,7 +1418,7 @@ class _MatcherProxy(Matcher):
         :return: the list of match failures. An empty array denotes a successful match.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a8e18e5d3147fdd105018b28e92d58ac6230fc3d6ea5c23d1d4328a3b0511c9)
+            type_hints = cached_type_hints(_typecheckingstub__4a8e18e5d3147fdd105018b28e92d58ac6230fc3d6ea5c23d1d4328a3b0511c9)
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
         return typing.cast("MatchResult", jsii.invoke(self, "test", [actual]))
 
@@ -1461,13 +1465,13 @@ class Tags(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Tags"):
 
     @jsii.member(jsii_name="fromStack")
     @builtins.classmethod
-    def from_stack(cls, stack: "_Stack_2866e57f") -> "Tags":
+    def from_stack(cls, stack: "_aws_cdk_0cae9daa.Stack") -> "Tags":
         '''Find tags associated with a synthesized CDK ``Stack``.
 
         :param stack: the CDK Stack to find tags on.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38acc2085aca209d4ba0849d7a04a1d024d47494c951663654a83bb9b25aa963)
+            type_hints = cached_type_hints(_typecheckingstub__38acc2085aca209d4ba0849d7a04a1d024d47494c951663654a83bb9b25aa963)
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
         return typing.cast("Tags", jsii.sinvoke(cls, "fromStack", [stack]))
 
@@ -1500,7 +1504,7 @@ class Tags(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Tags"):
         :param tags: the expected set of tags. This should be a string or Matcher object.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62e9347d457a951d50880cd16c1eee01eecf6d2b9875a6a7a907d3dd1d5de960)
+            type_hints = cached_type_hints(_typecheckingstub__62e9347d457a951d50880cd16c1eee01eecf6d2b9875a6a7a907d3dd1d5de960)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         return typing.cast(None, jsii.invoke(self, "hasValues", [tags]))
 
@@ -1537,7 +1541,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param skip_cyclical_dependencies_check: If set to true, will skip checking for cyclical / circular dependencies. Should be set to false other than for templates that are valid despite containing cycles, such as unprocessed transform stacks. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6531cbb828e6143d2d6e79da05413d429d384d7cb2bdd314dfee1e6bb870758)
+            type_hints = cached_type_hints(_typecheckingstub__c6531cbb828e6143d2d6e79da05413d429d384d7cb2bdd314dfee1e6bb870758)
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
         template_parsing_options = TemplateParsingOptions(
             skip_cyclical_dependencies_check=skip_cyclical_dependencies_check
@@ -1549,7 +1553,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
     @builtins.classmethod
     def from_stack(
         cls,
-        stack: "_Stack_2866e57f",
+        stack: "_aws_cdk_0cae9daa.Stack",
         *,
         skip_cyclical_dependencies_check: typing.Optional[builtins.bool] = None,
     ) -> "Template":
@@ -1559,7 +1563,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param skip_cyclical_dependencies_check: If set to true, will skip checking for cyclical / circular dependencies. Should be set to false other than for templates that are valid despite containing cycles, such as unprocessed transform stacks. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1f7e8bf67e204c5ef6dc59535ca21a2927ff210c4e9ba8b3594ecf4c86254eb)
+            type_hints = cached_type_hints(_typecheckingstub__c1f7e8bf67e204c5ef6dc59535ca21a2927ff210c4e9ba8b3594ecf4c86254eb)
             check_type(argname="argument stack", value=stack, expected_type=type_hints["stack"])
         template_parsing_options = TemplateParsingOptions(
             skip_cyclical_dependencies_check=skip_cyclical_dependencies_check
@@ -1581,7 +1585,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param skip_cyclical_dependencies_check: If set to true, will skip checking for cyclical / circular dependencies. Should be set to false other than for templates that are valid despite containing cycles, such as unprocessed transform stacks. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d6c783089c3a8e3fd10427e78eb00145b81512c3fc6b0c113e7bb35e3a80716)
+            type_hints = cached_type_hints(_typecheckingstub__2d6c783089c3a8e3fd10427e78eb00145b81512c3fc6b0c113e7bb35e3a80716)
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
         template_parsing_options = TemplateParsingOptions(
             skip_cyclical_dependencies_check=skip_cyclical_dependencies_check
@@ -1600,7 +1604,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the entire definition of the resources as they should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c5c638f8664deb5211661650329fc0a12cdab2ecda1a1825a8a8575e0b6fe30)
+            type_hints = cached_type_hints(_typecheckingstub__1c5c638f8664deb5211661650329fc0a12cdab2ecda1a1825a8a8575e0b6fe30)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "allResources", [type, props]))
@@ -1616,7 +1620,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the 'Properties' section of the resource as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__491ada0b4de838e2ab094795ac179de198543b8fd37b4a8d294d42c7d7a7563e)
+            type_hints = cached_type_hints(_typecheckingstub__491ada0b4de838e2ab094795ac179de198543b8fd37b4a8d294d42c7d7a7563e)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "allResourcesProperties", [type, props]))
@@ -1633,7 +1637,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: by default, matches all Conditions in the template. When a literal object is provided, performs a partial match via ``Match.objectLike()``. Use the ``Match`` APIs to configure a different behaviour.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__044d164db8c00240ea1576f4d5575e8be0907ca080005764d7de0d08a013bb10)
+            type_hints = cached_type_hints(_typecheckingstub__044d164db8c00240ea1576f4d5575e8be0907ca080005764d7de0d08a013bb10)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.invoke(self, "findConditions", [logical_id, props]))
@@ -1650,7 +1654,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: by default, matches all Mappings in the template. When a literal object is provided, performs a partial match via ``Match.objectLike()``. Use the ``Match`` APIs to configure a different behaviour.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c3407588afd1cdbe14644ae428ecc3fe37a424aeb66c8bdf1c91e74f45d9149)
+            type_hints = cached_type_hints(_typecheckingstub__2c3407588afd1cdbe14644ae428ecc3fe37a424aeb66c8bdf1c91e74f45d9149)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.invoke(self, "findMappings", [logical_id, props]))
@@ -1667,7 +1671,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: by default, matches all Outputs in the template. When a literal object is provided, performs a partial match via ``Match.objectLike()``. Use the ``Match`` APIs to configure a different behaviour.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49e46c6a2e20ca04dd4c6671d9f59b5b9da1bb9deeed3e6209ac69f0afdb4435)
+            type_hints = cached_type_hints(_typecheckingstub__49e46c6a2e20ca04dd4c6671d9f59b5b9da1bb9deeed3e6209ac69f0afdb4435)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.invoke(self, "findOutputs", [logical_id, props]))
@@ -1684,7 +1688,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: by default, matches all Parameters in the template. When a literal object is provided, performs a partial match via ``Match.objectLike()``. Use the ``Match`` APIs to configure a different behaviour.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a4fa7893d75011aa8e81115ebd00a067b2660a4bd77001b61a9101d7870bf61)
+            type_hints = cached_type_hints(_typecheckingstub__2a4fa7893d75011aa8e81115ebd00a067b2660a4bd77001b61a9101d7870bf61)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.invoke(self, "findParameters", [logical_id, props]))
@@ -1701,7 +1705,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: by default, matches all resources with the given type. When a literal is provided, performs a partial match via ``Match.objectLike()``. Use the ``Match`` APIs to configure a different behaviour.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8dfdecc696a85cbadb9124975e7619b743acea4afb3b4cfdbc07ad48abf7e1ca)
+            type_hints = cached_type_hints(_typecheckingstub__8dfdecc696a85cbadb9124975e7619b743acea4afb3b4cfdbc07ad48abf7e1ca)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]], jsii.invoke(self, "findResources", [type, props]))
@@ -1725,7 +1729,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         Performs a partial match via ``Match.objectLike()``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f7c6944fc7b237368ae228a894f8b38d522a3e852eff794e0f83205175667d4)
+            type_hints = cached_type_hints(_typecheckingstub__2f7c6944fc7b237368ae228a894f8b38d522a3e852eff794e0f83205175667d4)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(builtins.str, jsii.invoke(self, "getResourceId", [type, props]))
@@ -1741,7 +1745,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the output as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac5b639f55bbadd46a290effbbbd13769b71a711bcc8b3e04c9b2e4f29931a84)
+            type_hints = cached_type_hints(_typecheckingstub__ac5b639f55bbadd46a290effbbbd13769b71a711bcc8b3e04c9b2e4f29931a84)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasCondition", [logical_id, props]))
@@ -1757,7 +1761,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the output as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7a46161e4bc7b293d2404210f7aaf235f78e54e42227340184ce19cb219c37d)
+            type_hints = cached_type_hints(_typecheckingstub__f7a46161e4bc7b293d2404210f7aaf235f78e54e42227340184ce19cb219c37d)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasMapping", [logical_id, props]))
@@ -1773,7 +1777,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the output as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e8b9e1ad01747ba055720917c870b66308eaecc32d0a018ee9bf5e84f09cbf3)
+            type_hints = cached_type_hints(_typecheckingstub__1e8b9e1ad01747ba055720917c870b66308eaecc32d0a018ee9bf5e84f09cbf3)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasOutput", [logical_id, props]))
@@ -1789,7 +1793,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the parameter as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea2aad30c104b14a79f11a1c63591a323523bc13706d223a2c1b3a43927381fa)
+            type_hints = cached_type_hints(_typecheckingstub__ea2aad30c104b14a79f11a1c63591a323523bc13706d223a2c1b3a43927381fa)
             check_type(argname="argument logical_id", value=logical_id, expected_type=type_hints["logical_id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasParameter", [logical_id, props]))
@@ -1805,7 +1809,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the entire definition of the resource as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a7729907f2e5da95bef367aee244e65ed0dd005ebe4b1567fc3ce3bee49a969)
+            type_hints = cached_type_hints(_typecheckingstub__0a7729907f2e5da95bef367aee244e65ed0dd005ebe4b1567fc3ce3bee49a969)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasResource", [type, props]))
@@ -1821,7 +1825,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param props: the 'Properties' section of the resource as should be expected in the template.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2751c68339334102bcc7c1684b1fb5b8251d6b449a6be2c4d6e0ca5d07e9478a)
+            type_hints = cached_type_hints(_typecheckingstub__2751c68339334102bcc7c1684b1fb5b8251d6b449a6be2c4d6e0ca5d07e9478a)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(None, jsii.invoke(self, "hasResourceProperties", [type, props]))
@@ -1834,7 +1838,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param count: number of expected instances.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38945080515cb1f2bcfa31e2d79145a229e31c7ad9f3a16282da008a6453614b)
+            type_hints = cached_type_hints(_typecheckingstub__38945080515cb1f2bcfa31e2d79145a229e31c7ad9f3a16282da008a6453614b)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
         return typing.cast(None, jsii.invoke(self, "resourceCountIs", [type, count]))
@@ -1853,7 +1857,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param count: number of expected instances.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c629ce8cc817df9be71c03845c0b0cf2bd8bd44bfef55b72f0edfa4140ef743d)
+            type_hints = cached_type_hints(_typecheckingstub__c629ce8cc817df9be71c03845c0b0cf2bd8bd44bfef55b72f0edfa4140ef743d)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
@@ -1866,7 +1870,7 @@ class Template(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.assertions.Templa
         :param expected: the expected CloudFormation template as key-value pairs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6a27c45f2dfd24a135882cdb36c7aac9836faf61c11bc3ed504ec8b564ef9c6)
+            type_hints = cached_type_hints(_typecheckingstub__f6a27c45f2dfd24a135882cdb36c7aac9836faf61c11bc3ed504ec8b564ef9c6)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
         return typing.cast(None, jsii.invoke(self, "templateMatches", [expected]))
 
@@ -1904,7 +1908,7 @@ class TemplateParsingOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__856b9d83a60c8b00ab2fa26da737d8d8b453dbb2f01dfe4d0a263ef8ae0944a7)
+            type_hints = cached_type_hints(_typecheckingstub__856b9d83a60c8b00ab2fa26da737d8d8b453dbb2f01dfe4d0a263ef8ae0944a7)
             check_type(argname="argument skip_cyclical_dependencies_check", value=skip_cyclical_dependencies_check, expected_type=type_hints["skip_cyclical_dependencies_check"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if skip_cyclical_dependencies_check is not None:
@@ -1982,7 +1986,7 @@ class Capture(
         :param pattern: a nested pattern or Matcher. If a nested pattern is provided ``objectLike()`` matching is applied.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66ec0ba3a693bb7603deea5eda438de4e7bd7d8baeeb015451d3b7569689a20f)
+            type_hints = cached_type_hints(_typecheckingstub__66ec0ba3a693bb7603deea5eda438de4e7bd7d8baeeb015451d3b7569689a20f)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         jsii.create(self.__class__, self, [pattern])
 
@@ -2044,7 +2048,7 @@ class Capture(
         :param actual: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d43e7554eaf5c3b4fbf1ccc90f5143c9879eed7bb7aea11e1251059a18833c67)
+            type_hints = cached_type_hints(_typecheckingstub__d43e7554eaf5c3b4fbf1ccc90f5143c9879eed7bb7aea11e1251059a18833c67)
             check_type(argname="argument actual", value=actual, expected_type=type_hints["actual"])
         return typing.cast("MatchResult", jsii.invoke(self, "test", [actual]))
 
@@ -2074,7 +2078,7 @@ __all__ = [
 publication.publish()
 
 def _typecheckingstub__6dffec3a2a7a1a9f1b88ff9e3533fd5895867e3261f050f0b21259953c59554f(
-    stack: _Stack_2866e57f,
+    stack: _aws_cdk_0cae9daa.Stack,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2242,7 +2246,7 @@ def _typecheckingstub__4a8e18e5d3147fdd105018b28e92d58ac6230fc3d6ea5c23d1d4328a3
     pass
 
 def _typecheckingstub__38acc2085aca209d4ba0849d7a04a1d024d47494c951663654a83bb9b25aa963(
-    stack: _Stack_2866e57f,
+    stack: _aws_cdk_0cae9daa.Stack,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2262,7 +2266,7 @@ def _typecheckingstub__c6531cbb828e6143d2d6e79da05413d429d384d7cb2bdd314dfee1e6b
     pass
 
 def _typecheckingstub__c1f7e8bf67e204c5ef6dc59535ca21a2927ff210c4e9ba8b3594ecf4c86254eb(
-    stack: _Stack_2866e57f,
+    stack: _aws_cdk_0cae9daa.Stack,
     *,
     skip_cyclical_dependencies_check: typing.Optional[builtins.bool] = None,
 ) -> None:

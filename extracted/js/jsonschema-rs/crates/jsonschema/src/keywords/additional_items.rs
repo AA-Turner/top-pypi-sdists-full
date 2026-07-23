@@ -6,20 +6,22 @@ use crate::{
     paths::{LazyLocation, Location, RefTracker},
     types::{JsonType, JsonTypeSet},
     validator::{Validate, ValidationContext},
+    Json, JsonArrayAccess, JsonNode, SerdeJson,
 };
 use serde_json::{Map, Value};
+use std::borrow::Cow;
 
-pub(crate) struct AdditionalItemsObjectValidator {
-    node: SchemaNode,
+pub(crate) struct AdditionalItemsObjectValidator<F: Json = SerdeJson> {
+    node: SchemaNode<F>,
     items_count: usize,
 }
 impl AdditionalItemsObjectValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
-        ctx: &compiler::Context,
+    pub(crate) fn compile<'a, F: Json>(
+        ctx: &compiler::Context<F>,
         schema: &'a Value,
         items_count: usize,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         let node = compiler::compile(ctx, ctx.as_resource_ref(schema))?;
         Ok(Box::new(AdditionalItemsObjectValidator {
             node,
@@ -27,13 +29,13 @@ impl AdditionalItemsObjectValidator {
         }))
     }
 }
-impl Validate for AdditionalItemsObjectValidator {
-    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
-            items
-                .iter()
+impl<F: Json> Validate<F> for AdditionalItemsObjectValidator<F> {
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
+            array
+                .elements()
                 .skip(self.items_count)
-                .all(|item| self.node.is_valid(item, ctx))
+                .all(|item| self.node.is_valid(&item, ctx))
         } else {
             true
         }
@@ -41,15 +43,15 @@ impl Validate for AdditionalItemsObjectValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
-            for (idx, item) in items.iter().enumerate().skip(self.items_count) {
+        if let Some(array) = instance.as_array() {
+            for (idx, item) in array.elements().enumerate().skip(self.items_count) {
                 self.node
-                    .validate(item, &location.push(idx), tracker, ctx)?;
+                    .validate(&item, &location.push(idx), tracker, ctx)?;
             }
         }
         Ok(())
@@ -57,17 +59,17 @@ impl Validate for AdditionalItemsObjectValidator {
 
     fn iter_errors<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> ErrorIterator<'i> {
-        if let Value::Array(items) = instance {
+        if let Some(array) = instance.as_array() {
             let mut errors = Vec::new();
-            for (idx, item) in items.iter().enumerate().skip(self.items_count) {
+            for (idx, item) in array.elements().enumerate().skip(self.items_count) {
                 errors.extend(
                     self.node
-                        .iter_errors(item, &location.push(idx), tracker, ctx),
+                        .iter_errors(&item, &location.push(idx), tracker, ctx),
                 );
             }
             ErrorIterator::from_iterator(errors.into_iter())
@@ -83,17 +85,20 @@ pub(crate) struct AdditionalItemsBooleanValidator {
 }
 impl AdditionalItemsBooleanValidator {
     #[inline]
-    pub(crate) fn compile<'a>(items_count: usize, location: Location) -> CompilationResult<'a> {
+    pub(crate) fn compile<'a, F: Json>(
+        items_count: usize,
+        location: Location,
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(AdditionalItemsBooleanValidator {
             items_count,
             location,
         }))
     }
 }
-impl Validate for AdditionalItemsBooleanValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Array(items) = instance {
-            if items.len() > self.items_count {
+impl<F: Json> Validate<F> for AdditionalItemsBooleanValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(array) = instance.as_array() {
+            if array.len() > self.items_count {
                 return false;
             }
         }
@@ -102,18 +107,18 @@ impl Validate for AdditionalItemsBooleanValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Value::Array(items) = instance {
-            if items.len() > self.items_count {
+        if let Some(array) = instance.as_array() {
+            if array.len() > self.items_count {
                 return Err(ValidationError::additional_items(
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     self.items_count,
                 ));
             }
@@ -123,11 +128,11 @@ impl Validate for AdditionalItemsBooleanValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     parent: &Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     if let Some(items) = parent.get("items") {
         match items {
             Value::Object(_) => None,
@@ -161,7 +166,7 @@ pub(crate) fn compile<'a>(
                     location.clone(),
                     location,
                     Location::new(),
-                    schema,
+                    Cow::Borrowed(schema),
                     JsonTypeSet::from(JsonType::Object)
                         .insert(JsonType::Array)
                         .insert(JsonType::Boolean),

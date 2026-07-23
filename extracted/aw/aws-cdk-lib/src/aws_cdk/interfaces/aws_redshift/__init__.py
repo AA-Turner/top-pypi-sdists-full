@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ClusterParameterGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8207d9739fddf9bee99f46badc5817541c863d35187199e3c41f06b36d513c50)
+            type_hints = cached_type_hints(_typecheckingstub__8207d9739fddf9bee99f46badc5817541c863d35187199e3c41f06b36d513c50)
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "parameter_group_name": parameter_group_name,
@@ -107,7 +111,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4abec531fe93c1d3d14551c34ebfab9758412e37d9e635dc02aa6d0a1a974f8c)
+            type_hints = cached_type_hints(_typecheckingstub__4abec531fe93c1d3d14551c34ebfab9758412e37d9e635dc02aa6d0a1a974f8c)
             check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_identifier": cluster_identifier,
@@ -158,7 +162,7 @@ class ClusterSecurityGroupIngressReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bf9a11dd59303950537cf82b8bbb4df53e3fb37abb63a9bf7e727b7850f2d68)
+            type_hints = cached_type_hints(_typecheckingstub__1bf9a11dd59303950537cf82b8bbb4df53e3fb37abb63a9bf7e727b7850f2d68)
             check_type(argname="argument cluster_security_group_ingress_id", value=cluster_security_group_ingress_id, expected_type=type_hints["cluster_security_group_ingress_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_security_group_ingress_id": cluster_security_group_ingress_id,
@@ -207,7 +211,7 @@ class ClusterSecurityGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e53c92e67edf20766ca87d9586ec5234ca030e908ae52dfdfd245695e403078)
+            type_hints = cached_type_hints(_typecheckingstub__0e53c92e67edf20766ca87d9586ec5234ca030e908ae52dfdfd245695e403078)
             check_type(argname="argument cluster_security_group_id", value=cluster_security_group_id, expected_type=type_hints["cluster_security_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_security_group_id": cluster_security_group_id,
@@ -256,7 +260,7 @@ class ClusterSubnetGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11e00959438c9959adef3f2c6e93f32e22432ff65e25589e85db08fa857637c9)
+            type_hints = cached_type_hints(_typecheckingstub__11e00959438c9959adef3f2c6e93f32e22432ff65e25589e85db08fa857637c9)
             check_type(argname="argument cluster_subnet_group_name", value=cluster_subnet_group_name, expected_type=type_hints["cluster_subnet_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_subnet_group_name": cluster_subnet_group_name,
@@ -305,7 +309,7 @@ class EndpointAccessReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c61a1ff9c367fde46732b504ac0347d48edbd568f27884b69c96be0e1d65294d)
+            type_hints = cached_type_hints(_typecheckingstub__c61a1ff9c367fde46732b504ac0347d48edbd568f27884b69c96be0e1d65294d)
             check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_name": endpoint_name,
@@ -361,7 +365,7 @@ class EndpointAuthorizationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5086efb4cbf53f01fb1b32c6f932eeab03e8752fcd9ab3e063cbd2de584a32e1)
+            type_hints = cached_type_hints(_typecheckingstub__5086efb4cbf53f01fb1b32c6f932eeab03e8752fcd9ab3e063cbd2de584a32e1)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -419,7 +423,7 @@ class EventSubscriptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0a4b02a8b85126ef6c2ccf6fa9dc42b082f9c895466223431f5a80642b88925)
+            type_hints = cached_type_hints(_typecheckingstub__f0a4b02a8b85126ef6c2ccf6fa9dc42b082f9c895466223431f5a80642b88925)
             check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "subscription_name": subscription_name,
@@ -449,7 +453,7 @@ class EventSubscriptionReference:
 )
 class IClusterParameterGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterParameterGroup.
@@ -469,7 +473,7 @@ class IClusterParameterGroupRef(
 
 class _IClusterParameterGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterParameterGroup.
 
@@ -494,7 +498,7 @@ typing.cast(typing.Any, IClusterParameterGroupRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -514,7 +518,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -541,7 +545,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 )
 class IClusterSecurityGroupIngressRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroupIngress.
@@ -563,7 +567,7 @@ class IClusterSecurityGroupIngressRef(
 
 class _IClusterSecurityGroupIngressRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroupIngress.
 
@@ -592,7 +596,7 @@ typing.cast(typing.Any, IClusterSecurityGroupIngressRef).__jsii_proxy_class__ = 
 )
 class IClusterSecurityGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroup.
@@ -612,7 +616,7 @@ class IClusterSecurityGroupRef(
 
 class _IClusterSecurityGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSecurityGroup.
 
@@ -637,7 +641,7 @@ typing.cast(typing.Any, IClusterSecurityGroupRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IClusterSubnetGroupRef")
 class IClusterSubnetGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSubnetGroup.
@@ -657,7 +661,7 @@ class IClusterSubnetGroupRef(
 
 class _IClusterSubnetGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterSubnetGroup.
 
@@ -682,7 +686,7 @@ typing.cast(typing.Any, IClusterSubnetGroupRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IEndpointAccessRef")
 class IEndpointAccessRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointAccess.
@@ -702,7 +706,7 @@ class IEndpointAccessRef(
 
 class _IEndpointAccessRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointAccess.
 
@@ -729,7 +733,7 @@ typing.cast(typing.Any, IEndpointAccessRef).__jsii_proxy_class__ = lambda : _IEn
 )
 class IEndpointAuthorizationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointAuthorization.
@@ -749,7 +753,7 @@ class IEndpointAuthorizationRef(
 
 class _IEndpointAuthorizationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointAuthorization.
 
@@ -774,7 +778,7 @@ typing.cast(typing.Any, IEndpointAuthorizationRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IEventSubscriptionRef")
 class IEventSubscriptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
@@ -794,7 +798,7 @@ class IEventSubscriptionRef(
 
 class _IEventSubscriptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
 
@@ -819,7 +823,7 @@ typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IIntegrationRef")
 class IIntegrationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Integration.
@@ -839,7 +843,7 @@ class IIntegrationRef(
 
 class _IIntegrationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Integration.
 
@@ -864,7 +868,7 @@ typing.cast(typing.Any, IIntegrationRef).__jsii_proxy_class__ = lambda : _IInteg
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_redshift.IScheduledActionRef")
 class IScheduledActionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
@@ -884,7 +888,7 @@ class IScheduledActionRef(
 
 class _IScheduledActionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ScheduledAction.
 
@@ -930,7 +934,7 @@ class IntegrationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__728632c7aa139882a2948f73866352d960014a68b5bbba0fa13131ecabe2b548)
+            type_hints = cached_type_hints(_typecheckingstub__728632c7aa139882a2948f73866352d960014a68b5bbba0fa13131ecabe2b548)
             check_type(argname="argument integration_arn", value=integration_arn, expected_type=type_hints["integration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "integration_arn": integration_arn,
@@ -979,7 +983,7 @@ class ScheduledActionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70d902e960d555dbfb1b278976b8cd3991371d19399bfcea38c0af9308c1ce6f)
+            type_hints = cached_type_hints(_typecheckingstub__70d902e960d555dbfb1b278976b8cd3991371d19399bfcea38c0af9308c1ce6f)
             check_type(argname="argument scheduled_action_name", value=scheduled_action_name, expected_type=type_hints["scheduled_action_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "scheduled_action_name": scheduled_action_name,

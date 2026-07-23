@@ -22,7 +22,7 @@ use crate::{
             Condition, ConditionOperator, ConditionType, Rule, Spec, SpecsResponseFull,
             SpecsResponsePartial,
         },
-        specs_hash_map::{SpecPointer, SpecsHashMap},
+        specs_hash_map::{seed_spec_decode_stats, SpecDecodeStats, SpecPointer, SpecsHashMap},
         statsig_config_specs::{self as pb, any_value},
     },
     StatsigErr,
@@ -56,8 +56,10 @@ impl ParseState {
         &mut self,
         current_specs: &SpecsResponseFull,
         next_specs: &mut SpecsResponseFull,
+        previous_spec_decode_stats: SpecDecodeStats,
     ) {
         if *self == Self::DeltaDeferred {
+            seed_spec_decode_stats(previous_spec_decode_stats);
             next_specs.copy_previous_values_from(current_specs);
             *self = Self::DeltaMaterialized;
         }
@@ -71,7 +73,13 @@ pub fn deserialize_protobuf(
     data: &mut ResponseData,
 ) -> Result<(), StatsigErr> {
     if matches!(
-        deserialize_protobuf_for_store(ops_stats, current_specs, next_specs, data)?,
+        deserialize_protobuf_for_store(
+            ops_stats,
+            current_specs,
+            SpecDecodeStats::default(),
+            next_specs,
+            data,
+        )?,
         ProtobufUpdate::CursorOnly { .. }
     ) {
         next_specs.copy_previous_values_from(current_specs);
@@ -83,6 +91,7 @@ pub fn deserialize_protobuf(
 pub(crate) fn deserialize_protobuf_for_store(
     ops_stats: &OpsStatsForInstance,
     current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
+    previous_spec_decode_stats: SpecDecodeStats,
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
 ) -> Result<ProtobufUpdate, StatsigErr> {
@@ -162,6 +171,7 @@ pub(crate) fn deserialize_protobuf_for_store(
                         }
                     }
 
+                    seed_spec_decode_stats(previous_spec_decode_stats);
                     next_specs.copy_previous_values_from(current_specs);
                     return Ok(ProtobufUpdate::Materialized { is_delta: true });
                 }
@@ -205,7 +215,7 @@ pub(crate) fn deserialize_protobuf_for_store(
                     );
                 }
                 ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
-                    state.materialize(current_specs, next_specs);
+                    state.materialize(current_specs, next_specs, previous_spec_decode_stats);
                     log_parse_result(
                         ops_stats,
                         apply_entity_update(kind, env, current_specs, next_specs),
@@ -234,7 +244,7 @@ pub(crate) fn deserialize_protobuf_for_store(
                 ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
                     let deletions = log_parse_result(ops_stats, decode_deletions_update(env))?;
                     if !deletions_are_empty(&deletions) {
-                        state.materialize(current_specs, next_specs);
+                        state.materialize(current_specs, next_specs, previous_spec_decode_stats);
                         next_specs.apply_deletions(deletions);
                     }
                 }
@@ -893,6 +903,7 @@ fn spec_from_pb(checksum: String, spec: pb::Spec) -> Result<Spec, StatsigErr> {
         fields_used,
         default_value: return_value_from_pb(spec.default_value)?,
         use_new_layer_eval: spec.use_new_layer_eval,
+        session_update_mode: spec.session_update_mode.map(InternedString::from_string),
     };
 
     Ok(spec)
@@ -1096,8 +1107,8 @@ mod tests {
 
     use super::{
         checksum_for_condition, checksum_for_param_store, checksum_for_spec, condition_from_pb,
-        deserialize_protobuf, deserialize_protobuf_for_store, pb, rules_from_pb, sum_checksums,
-        ProtobufUpdate, SpecsResponseFull,
+        deserialize_protobuf, deserialize_protobuf_for_store, pb, rules_from_pb, spec_from_pb,
+        sum_checksums, ProtobufUpdate, SpecDecodeStats, SpecsResponseFull,
     };
     use crate::{
         networking::ResponseData,
@@ -1205,6 +1216,21 @@ mod tests {
     }
 
     #[test]
+    fn spec_from_pb_preserves_session_update_mode() {
+        let spec = spec_from_pb(
+            "checksum".to_string(),
+            pb::Spec {
+                entity: pb::EntityType::EntityFeatureGate as i32,
+                session_update_mode: Some("live".to_string()),
+                ..pb::Spec::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(spec.session_update_mode.as_deref(), Some("live"));
+    }
+
+    #[test]
     fn checksum_only_delta_defers_copy_prev_for_the_store() {
         let current: SpecsResponseFull =
             serde_json::from_slice(include_bytes!("../../tests/data/eval_proj_dcs.json")).unwrap();
@@ -1215,6 +1241,7 @@ mod tests {
         let update = deserialize_protobuf_for_store(
             &OpsStatsForInstance::new(),
             &current,
+            SpecDecodeStats::default(),
             &mut next,
             &mut data,
         )

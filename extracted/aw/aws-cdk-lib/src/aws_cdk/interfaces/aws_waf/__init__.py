@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ByteMatchSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25df697b9ab17fe1b773d854b2f5c70aa159a6fb8d6756627245e05ed77a4b31)
+            type_hints = cached_type_hints(_typecheckingstub__25df697b9ab17fe1b773d854b2f5c70aa159a6fb8d6756627245e05ed77a4b31)
             check_type(argname="argument byte_match_set_id", value=byte_match_set_id, expected_type=type_hints["byte_match_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "byte_match_set_id": byte_match_set_id,
@@ -86,7 +90,7 @@ class ByteMatchSetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.IByteMatchSetRef")
 class IByteMatchSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ByteMatchSet.
@@ -106,7 +110,7 @@ class IByteMatchSetRef(
 
 class _IByteMatchSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ByteMatchSet.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IByteMatchSetRef).__jsii_proxy_class__ = lambda : _IByte
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.IIPSetRef")
 class IIPSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPSet.
@@ -151,7 +155,7 @@ class IIPSetRef(
 
 class _IIPSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IPSet.
 
@@ -197,7 +201,7 @@ class IPSetReference:
             }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35cdf0c2cdfab07f6acf02567f8ab2a59bc9c91ce52aa62128f6acabcd469724)
+            type_hints = cached_type_hints(_typecheckingstub__35cdf0c2cdfab07f6acf02567f8ab2a59bc9c91ce52aa62128f6acabcd469724)
             check_type(argname="argument ip_set_id", value=ip_set_id, expected_type=type_hints["ip_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ip_set_id": ip_set_id,
@@ -225,7 +229,7 @@ class IPSetReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.IRuleRef")
 class IRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rule.
@@ -245,7 +249,7 @@ class IRuleRef(
 
 class _IRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Rule.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.ISizeConstraintSetRef")
 class ISizeConstraintSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SizeConstraintSet.
@@ -290,7 +294,7 @@ class ISizeConstraintSetRef(
 
 class _ISizeConstraintSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SizeConstraintSet.
 
@@ -315,7 +319,7 @@ typing.cast(typing.Any, ISizeConstraintSetRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.ISqlInjectionMatchSetRef")
 class ISqlInjectionMatchSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SqlInjectionMatchSet.
@@ -335,7 +339,7 @@ class ISqlInjectionMatchSetRef(
 
 class _ISqlInjectionMatchSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SqlInjectionMatchSet.
 
@@ -360,7 +364,7 @@ typing.cast(typing.Any, ISqlInjectionMatchSetRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.IWebACLRef")
 class IWebACLRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACL.
@@ -380,7 +384,7 @@ class IWebACLRef(
 
 class _IWebACLRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a WebACL.
 
@@ -405,7 +409,7 @@ typing.cast(typing.Any, IWebACLRef).__jsii_proxy_class__ = lambda : _IWebACLRefP
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_waf.IXssMatchSetRef")
 class IXssMatchSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a XssMatchSet.
@@ -425,7 +429,7 @@ class IXssMatchSetRef(
 
 class _IXssMatchSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a XssMatchSet.
 
@@ -471,7 +475,7 @@ class RuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74149078d582bf68f4aacb1a305d1d3f2fb45ef261ccc56e7c63591ae7891f54)
+            type_hints = cached_type_hints(_typecheckingstub__74149078d582bf68f4aacb1a305d1d3f2fb45ef261ccc56e7c63591ae7891f54)
             check_type(argname="argument rule_id", value=rule_id, expected_type=type_hints["rule_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "rule_id": rule_id,
@@ -520,7 +524,7 @@ class SizeConstraintSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__889a99e81fb5a8b4397ad10771420e66c45fd8386b16f0211edae8fdfd3c8a9f)
+            type_hints = cached_type_hints(_typecheckingstub__889a99e81fb5a8b4397ad10771420e66c45fd8386b16f0211edae8fdfd3c8a9f)
             check_type(argname="argument size_constraint_set_id", value=size_constraint_set_id, expected_type=type_hints["size_constraint_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "size_constraint_set_id": size_constraint_set_id,
@@ -569,7 +573,7 @@ class SqlInjectionMatchSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b37e736344b81273bb8636bc1ea52a0a94dfcff852b60dd7acd02273847608d2)
+            type_hints = cached_type_hints(_typecheckingstub__b37e736344b81273bb8636bc1ea52a0a94dfcff852b60dd7acd02273847608d2)
             check_type(argname="argument sql_injection_match_set_id", value=sql_injection_match_set_id, expected_type=type_hints["sql_injection_match_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "sql_injection_match_set_id": sql_injection_match_set_id,
@@ -618,7 +622,7 @@ class WebACLReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4616ed55dce429e29803eeaefdfe2153afe64613d3092f3533830df30b7cb020)
+            type_hints = cached_type_hints(_typecheckingstub__4616ed55dce429e29803eeaefdfe2153afe64613d3092f3533830df30b7cb020)
             check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "web_acl_id": web_acl_id,
@@ -667,7 +671,7 @@ class XssMatchSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0941d18d86d76f76e620d1215586bd4683d80fbb7ca0f33f98d02a056a327c3)
+            type_hints = cached_type_hints(_typecheckingstub__c0941d18d86d76f76e620d1215586bd4683d80fbb7ca0f33f98d02a056a327c3)
             check_type(argname="argument xss_match_set_id", value=xss_match_set_id, expected_type=type_hints["xss_match_set_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "xss_match_set_id": xss_match_set_id,

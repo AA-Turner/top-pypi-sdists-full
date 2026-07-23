@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_evs import (
-    EnvironmentReference as _EnvironmentReference_c5354bd6,
-    IEnvironmentRef as _IEnvironmentRef_fdb7318a,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_evs as _aws_evs_9e804622
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_evs_9e804622 = _LazyImport("aws_cdk.interfaces.aws_evs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IEnvironmentRef_fdb7318a, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_evs_9e804622.IEnvironmentRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnEnvironment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_evs.CfnEnvironment",
 ):
@@ -110,31 +104,15 @@ class CfnEnvironment(
         from aws_cdk import aws_evs as evs
         
         cfn_environment = evs.CfnEnvironment(self, "MyCfnEnvironment",
-            connectivity_info=evs.CfnEnvironment.ConnectivityInfoProperty(
-                private_route_server_peerings=["privateRouteServerPeerings"]
-            ),
-            license_info=evs.CfnEnvironment.LicenseInfoProperty(
-                solution_key="solutionKey",
-                vsan_key="vsanKey"
-            ),
             service_access_subnet_id="serviceAccessSubnetId",
-            site_id="siteId",
             terms_accepted=False,
-            vcf_hostnames=evs.CfnEnvironment.VcfHostnamesProperty(
-                cloud_builder="cloudBuilder",
-                nsx="nsx",
-                nsx_edge1="nsxEdge1",
-                nsx_edge2="nsxEdge2",
-                nsx_manager1="nsxManager1",
-                nsx_manager2="nsxManager2",
-                nsx_manager3="nsxManager3",
-                sddc_manager="sddcManager",
-                v_center="vCenter"
-            ),
             vcf_version="vcfVersion",
             vpc_id="vpcId",
         
             # the properties below are optional
+            connectivity_info=evs.CfnEnvironment.ConnectivityInfoProperty(
+                private_route_server_peerings=["privateRouteServerPeerings"]
+            ),
             environment_name="environmentName",
             hosts=[evs.CfnEnvironment.HostInfoForCreateProperty(
                 host_name="hostName",
@@ -182,13 +160,29 @@ class CfnEnvironment(
                 is_hcx_public=False
             ),
             kms_key_id="kmsKeyId",
+            license_info=evs.CfnEnvironment.LicenseInfoProperty(
+                solution_key="solutionKey",
+                vsan_key="vsanKey"
+            ),
             service_access_security_groups=evs.CfnEnvironment.ServiceAccessSecurityGroupsProperty(
                 security_groups=["securityGroups"]
             ),
+            site_id="siteId",
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            vcf_hostnames=evs.CfnEnvironment.VcfHostnamesProperty(
+                cloud_builder="cloudBuilder",
+                nsx="nsx",
+                nsx_edge1="nsxEdge1",
+                nsx_edge2="nsxEdge2",
+                nsx_manager1="nsxManager1",
+                nsx_manager2="nsxManager2",
+                nsx_manager3="nsxManager3",
+                sddc_manager="sddcManager",
+                v_center="vCenter"
+            )
         )
     '''
 
@@ -197,71 +191,74 @@ class CfnEnvironment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connectivity_info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ConnectivityInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-        license_info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.LicenseInfoProperty", typing.Dict[builtins.str, typing.Any]]],
         service_access_subnet_id: builtins.str,
-        site_id: builtins.str,
-        terms_accepted: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        vcf_hostnames: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.VcfHostnamesProperty", typing.Dict[builtins.str, typing.Any]]],
+        terms_accepted: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         vcf_version: builtins.str,
         vpc_id: builtins.str,
+        connectivity_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ConnectivityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        hosts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.HostInfoForCreateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        initial_vlans: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlansProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.HostInfoForCreateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        initial_vlans: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlansProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        service_access_security_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ServiceAccessSecurityGroupsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        license_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.LicenseInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_access_security_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ServiceAccessSecurityGroupsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        site_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vcf_hostnames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.VcfHostnamesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::EVS::Environment``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param connectivity_info: The connectivity configuration for the environment. Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
-        :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_subnet_id: The subnet that is used to establish connectivity between the Amazon EVS control plane and VPC. Amazon EVS uses this subnet to perform validations and create the environment.
-        :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
         :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
-        :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
         :param vcf_version: The VCF version of the environment.
         :param vpc_id: The VPC associated with the environment.
+        :param connectivity_info: The connectivity configuration for the environment. Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
         :param environment_name: The name of the environment.
         :param hosts: Required for environment resource creation.
         :param initial_vlans: .. epigraph:: Amazon EVS is in public preview release and is subject to change. The initial VLAN subnets for the environment. Amazon EVS VLAN subnets have a minimum CIDR block size of /28 and a maximum size of /24. Amazon EVS VLAN subnet CIDR blocks must not overlap with other subnets in the VPC. Required for environment resource creation.
         :param kms_key_id: The AWS KMS key ID that AWS Secrets Manager uses to encrypt secrets that are associated with the environment. These secrets contain the VCF credentials that are needed to install vCenter Server, NSX, and SDDC Manager. By default, Amazon EVS use the AWS Secrets Manager managed key ``aws/secretsmanager`` . You can also specify a customer managed key.
+        :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_security_groups: The security groups that allow traffic between the Amazon EVS control plane and your VPC for service access. If a security group is not specified, Amazon EVS uses the default security group in your account for service access.
+        :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources.
+        :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fd5abd7fe71e306d7b1cc2c3ef834eb9af874a0b9fed902c6923bbc07b00b63)
+            type_hints = cached_type_hints(_typecheckingstub__0fd5abd7fe71e306d7b1cc2c3ef834eb9af874a0b9fed902c6923bbc07b00b63)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnEnvironmentProps(
-            connectivity_info=connectivity_info,
-            license_info=license_info,
             service_access_subnet_id=service_access_subnet_id,
-            site_id=site_id,
             terms_accepted=terms_accepted,
-            vcf_hostnames=vcf_hostnames,
             vcf_version=vcf_version,
             vpc_id=vpc_id,
+            connectivity_info=connectivity_info,
             environment_name=environment_name,
             hosts=hosts,
             initial_vlans=initial_vlans,
             kms_key_id=kms_key_id,
+            license_info=license_info,
             service_access_security_groups=service_access_security_groups,
+            site_id=site_id,
             tags=tags,
+            vcf_hostnames=vcf_hostnames,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="arnForEnvironment")
     @builtins.classmethod
-    def arn_for_environment(cls, resource: "_IEnvironmentRef_fdb7318a") -> builtins.str:
+    def arn_for_environment(
+        cls,
+        resource: "_aws_evs_9e804622.IEnvironmentRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6de1de5e0aec969903d6c69983363792ec3a112c55a7b988fa7399135299798)
+            type_hints = cached_type_hints(_typecheckingstub__e6de1de5e0aec969903d6c69983363792ec3a112c55a7b988fa7399135299798)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironment", [resource]))
 
@@ -273,18 +270,18 @@ class CfnEnvironment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ade7968631b7dab92dc075bd606c62c251dba905554904c518c49660fa9b51db)
+            type_hints = cached_type_hints(_typecheckingstub__ade7968631b7dab92dc075bd606c62c251dba905554904c518c49660fa9b51db)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97c8e6ce05b681569d057e41cd3b8f77e1403e7a3da8aebf629d5b36513ac407)
+            type_hints = cached_type_hints(_typecheckingstub__97c8e6ce05b681569d057e41cd3b8f77e1403e7a3da8aebf629d5b36513ac407)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -297,7 +294,7 @@ class CfnEnvironment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5933d5785ec1ac628e3fd45b05b1c5bc9e333cb80c6d102fb738934f3f5c15da)
+            type_hints = cached_type_hints(_typecheckingstub__5933d5785ec1ac628e3fd45b05b1c5bc9e333cb80c6d102fb738934f3f5c15da)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -309,14 +306,14 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="attrChecks")
-    def attr_checks(self) -> "_IResolvable_da3f097b":
+    def attr_checks(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''A check on the environment to identify instance health and VMware VCF licensing issues. For example:.
 
         ``{ "checks": [ { "type": "KEY_REUSE", "result": "PASSED" }, { "type": "KEY_COVERAGE", "result": "PASSED" }, { "type": "REACHABILITY", "result": "PASSED" }, { "type": "HOST_COUNT", "result": "PASSED" } ] }``
 
         :cloudformationAttribute: Checks
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrChecks"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrChecks"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -331,7 +328,7 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="attrCredentials")
-    def attr_credentials(self) -> "_IResolvable_da3f097b":
+    def attr_credentials(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''The VCF credentials that are stored as Amazon EVS managed secrets in AWS Secrets Manager.
 
         Amazon EVS stores credentials that are needed to install vCenter Server, NSX, and SDDC Manager. For example:
@@ -340,7 +337,7 @@ class CfnEnvironment(
 
         :cloudformationAttribute: Credentials
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCredentials"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrCredentials"))
 
     @builtins.property
     @jsii.member(jsii_name="attrEnvironmentArn")
@@ -399,9 +396,9 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -415,45 +412,9 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> "_EnvironmentReference_c5354bd6":
+    def environment_ref(self) -> "_aws_evs_9e804622.EnvironmentReference":
         '''A reference to a Environment resource.'''
-        return typing.cast("_EnvironmentReference_c5354bd6", jsii.get(self, "environmentRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connectivityInfo")
-    def connectivity_info(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ConnectivityInfoProperty"]:
-        '''The connectivity configuration for the environment.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ConnectivityInfoProperty"], jsii.get(self, "connectivityInfo"))
-
-    @connectivity_info.setter
-    def connectivity_info(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ConnectivityInfoProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf81c76587f8aaaaa50fc18d1384cc1e8ff44f1cd0d764c0355340e0f0839c21)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectivityInfo", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="licenseInfo")
-    def license_info(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LicenseInfoProperty"]:
-        '''The license information that Amazon EVS requires to create an environment.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LicenseInfoProperty"], jsii.get(self, "licenseInfo"))
-
-    @license_info.setter
-    def license_info(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LicenseInfoProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb6e498dbb5d87feb34dfe26b3466fa6383016c37a4ea21caecc26f60b5ce901)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseInfo", value) # pyright: ignore[reportArgumentType]
+        return typing.cast("_aws_evs_9e804622.EnvironmentReference", jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccessSubnetId")
@@ -464,56 +425,27 @@ class CfnEnvironment(
     @service_access_subnet_id.setter
     def service_access_subnet_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f01a5018beaa28fab7b0d068a7a6fe45dbeee0ab15ecdf25462887288ace66cb)
+            type_hints = cached_type_hints(_typecheckingstub__f01a5018beaa28fab7b0d068a7a6fe45dbeee0ab15ecdf25462887288ace66cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceAccessSubnetId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="siteId")
-    def site_id(self) -> builtins.str:
-        '''The Broadcom Site ID that is associated with your Amazon EVS environment.'''
-        return typing.cast(builtins.str, jsii.get(self, "siteId"))
-
-    @site_id.setter
-    def site_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dc69ff9904f782ce993fe0884901782c11a2214109cfd4cf83020946119b99f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="termsAccepted")
-    def terms_accepted(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def terms_accepted(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "termsAccepted"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "termsAccepted"))
 
     @terms_accepted.setter
     def terms_accepted(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93808d5eb28c6837a5047d6d1811bd832bd6250809b9c84a0b609bb88989d45e)
+            type_hints = cached_type_hints(_typecheckingstub__93808d5eb28c6837a5047d6d1811bd832bd6250809b9c84a0b609bb88989d45e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "termsAccepted", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vcfHostnames")
-    def vcf_hostnames(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.VcfHostnamesProperty"]:
-        '''The DNS hostnames to be used by the VCF management appliances in your environment.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.VcfHostnamesProperty"], jsii.get(self, "vcfHostnames"))
-
-    @vcf_hostnames.setter
-    def vcf_hostnames(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnEnvironment.VcfHostnamesProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98651cf572ae807d1eccd57a45d3ecc81f79063879b068927b5130df235e0b0c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vcfHostnames", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vcfVersion")
@@ -524,7 +456,7 @@ class CfnEnvironment(
     @vcf_version.setter
     def vcf_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77294c8299a96e3407af4323a38741fc1be8bdc06d14be597ecf158dcf011c14)
+            type_hints = cached_type_hints(_typecheckingstub__77294c8299a96e3407af4323a38741fc1be8bdc06d14be597ecf158dcf011c14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vcfVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -537,9 +469,27 @@ class CfnEnvironment(
     @vpc_id.setter
     def vpc_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60ce2bd3161be4b835be56a05bdccfd9639c58eea7d09baeab4884c9a906852e)
+            type_hints = cached_type_hints(_typecheckingstub__60ce2bd3161be4b835be56a05bdccfd9639c58eea7d09baeab4884c9a906852e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectivityInfo")
+    def connectivity_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ConnectivityInfoProperty"]]:
+        '''The connectivity configuration for the environment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ConnectivityInfoProperty"]], jsii.get(self, "connectivityInfo"))
+
+    @connectivity_info.setter
+    def connectivity_info(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ConnectivityInfoProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf81c76587f8aaaaa50fc18d1384cc1e8ff44f1cd0d764c0355340e0f0839c21)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectivityInfo", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="environmentName")
@@ -550,7 +500,7 @@ class CfnEnvironment(
     @environment_name.setter
     def environment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16c81b6578fa573cefa89abf7b2fbcfcf6b8db97f8f8b8e2a8c44d8009af03ed)
+            type_hints = cached_type_hints(_typecheckingstub__16c81b6578fa573cefa89abf7b2fbcfcf6b8db97f8f8b8e2a8c44d8009af03ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
 
@@ -558,17 +508,17 @@ class CfnEnvironment(
     @jsii.member(jsii_name="hosts")
     def hosts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.HostInfoForCreateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.HostInfoForCreateProperty"]]]]:
         '''Required for environment resource creation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.HostInfoForCreateProperty"]]]], jsii.get(self, "hosts"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.HostInfoForCreateProperty"]]]], jsii.get(self, "hosts"))
 
     @hosts.setter
     def hosts(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.HostInfoForCreateProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.HostInfoForCreateProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18c17b2a1d9ccb9d1cd534e31c376d097f1d59794abd3093f8587758af40bc2e)
+            type_hints = cached_type_hints(_typecheckingstub__18c17b2a1d9ccb9d1cd534e31c376d097f1d59794abd3093f8587758af40bc2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hosts", value) # pyright: ignore[reportArgumentType]
 
@@ -576,19 +526,19 @@ class CfnEnvironment(
     @jsii.member(jsii_name="initialVlans")
     def initial_vlans(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlansProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlansProperty"]]:
         '''.. epigraph::
 
    Amazon EVS is in public preview release and is subject to change.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlansProperty"]], jsii.get(self, "initialVlans"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlansProperty"]], jsii.get(self, "initialVlans"))
 
     @initial_vlans.setter
     def initial_vlans(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlansProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlansProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15ccc5cc405553a6a5463668babc67ef1dc4049150ba7dddfc07bee61251bcfe)
+            type_hints = cached_type_hints(_typecheckingstub__15ccc5cc405553a6a5463668babc67ef1dc4049150ba7dddfc07bee61251bcfe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVlans", value) # pyright: ignore[reportArgumentType]
 
@@ -601,40 +551,92 @@ class CfnEnvironment(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5b585f35cde6963f33953b58455872fcf621844d2b3fa8f7f85b96542463156)
+            type_hints = cached_type_hints(_typecheckingstub__d5b585f35cde6963f33953b58455872fcf621844d2b3fa8f7f85b96542463156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseInfo")
+    def license_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LicenseInfoProperty"]]:
+        '''The license information that Amazon EVS requires to create an environment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LicenseInfoProperty"]], jsii.get(self, "licenseInfo"))
+
+    @license_info.setter
+    def license_info(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LicenseInfoProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb6e498dbb5d87feb34dfe26b3466fa6383016c37a4ea21caecc26f60b5ce901)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseInfo", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccessSecurityGroups")
     def service_access_security_groups(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]]:
         '''The security groups that allow traffic between the Amazon EVS control plane and your VPC for service access.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]], jsii.get(self, "serviceAccessSecurityGroups"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]], jsii.get(self, "serviceAccessSecurityGroups"))
 
     @service_access_security_groups.setter
     def service_access_security_groups(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df95c894cd990c7a318fa3e3397c915f2a30df40bd79003673d83a2d1016e1b9)
+            type_hints = cached_type_hints(_typecheckingstub__df95c894cd990c7a318fa3e3397c915f2a30df40bd79003673d83a2d1016e1b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceAccessSecurityGroups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="siteId")
+    def site_id(self) -> typing.Optional[builtins.str]:
+        '''The Broadcom Site ID that is associated with your Amazon EVS environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "siteId"))
+
+    @site_id.setter
+    def site_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0dc69ff9904f782ce993fe0884901782c11a2214109cfd4cf83020946119b99f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that assists with categorization and organization.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c420c54db733392f5b59d4f5a9ded1bfdc781dbe1df45ec2312e16a4c3655efd)
+            type_hints = cached_type_hints(_typecheckingstub__c420c54db733392f5b59d4f5a9ded1bfdc781dbe1df45ec2312e16a4c3655efd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vcfHostnames")
+    def vcf_hostnames(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.VcfHostnamesProperty"]]:
+        '''The DNS hostnames to be used by the VCF management appliances in your environment.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.VcfHostnamesProperty"]], jsii.get(self, "vcfHostnames"))
+
+    @vcf_hostnames.setter
+    def vcf_hostnames(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.VcfHostnamesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__98651cf572ae807d1eccd57a45d3ecc81f79063879b068927b5130df235e0b0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vcfHostnames", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_evs.CfnEnvironment.CheckProperty",
@@ -677,7 +679,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fab870dfa28349d9079dfaa9f8d7d27975ec4da1aec540075bef6f41926da444)
+                type_hints = cached_type_hints(_typecheckingstub__fab870dfa28349d9079dfaa9f8d7d27975ec4da1aec540075bef6f41926da444)
                 check_type(argname="argument result", value=result, expected_type=type_hints["result"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument impaired_since", value=impaired_since, expected_type=type_hints["impaired_since"])
@@ -766,7 +768,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2cb3d22ab966fb57bf85a281b91db18f25f2e9b843fa76b2414f9c1ca1285629)
+                type_hints = cached_type_hints(_typecheckingstub__2cb3d22ab966fb57bf85a281b91db18f25f2e9b843fa76b2414f9c1ca1285629)
                 check_type(argname="argument private_route_server_peerings", value=private_route_server_peerings, expected_type=type_hints["private_route_server_peerings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "private_route_server_peerings": private_route_server_peerings,
@@ -846,7 +848,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3b92e04ba9146f120cc657bac8562ffe8ba1683c2cda51e8edf7837916efbff4)
+                type_hints = cached_type_hints(_typecheckingstub__3b92e04ba9146f120cc657bac8562ffe8ba1683c2cda51e8edf7837916efbff4)
                 check_type(argname="argument host_name", value=host_name, expected_type=type_hints["host_name"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
@@ -953,7 +955,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__620167df6fd78af7ecffe1762889e66c6a24ac02786c4e7ca2d324fab050513a)
+                type_hints = cached_type_hints(_typecheckingstub__620167df6fd78af7ecffe1762889e66c6a24ac02786c4e7ca2d324fab050513a)
                 check_type(argname="argument cidr", value=cidr, expected_type=type_hints["cidr"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cidr": cidr,
@@ -1004,18 +1006,18 @@ class CfnEnvironment(
         def __init__(
             self,
             *,
-            edge_v_tep: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            expansion_vlan1: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            expansion_vlan2: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            hcx: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            nsx_up_link: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            vmk_management: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            vm_management: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            v_motion: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            v_san: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-            v_tep: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            edge_v_tep: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            expansion_vlan1: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            expansion_vlan2: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            hcx: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            nsx_up_link: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            vmk_management: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            vm_management: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            v_motion: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            v_san: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            v_tep: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
             hcx_network_acl_id: typing.Optional[builtins.str] = None,
-            is_hcx_public: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_hcx_public: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The initial VLAN subnets for the environment.
 
@@ -1081,7 +1083,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a70b9547ba64740f8b44168dbcdcd80e75a75a1dc2ed733c834ad336fe27001d)
+                type_hints = cached_type_hints(_typecheckingstub__a70b9547ba64740f8b44168dbcdcd80e75a75a1dc2ed733c834ad336fe27001d)
                 check_type(argname="argument edge_v_tep", value=edge_v_tep, expected_type=type_hints["edge_v_tep"])
                 check_type(argname="argument expansion_vlan1", value=expansion_vlan1, expected_type=type_hints["expansion_vlan1"])
                 check_type(argname="argument expansion_vlan2", value=expansion_vlan2, expected_type=type_hints["expansion_vlan2"])
@@ -1114,7 +1116,7 @@ class CfnEnvironment(
         @builtins.property
         def edge_v_tep(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The edge VTEP VLAN subnet.
 
             This VLAN subnet manages traffic flowing between the internal network and external networks, including internet access and other site connections.
@@ -1123,12 +1125,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("edge_v_tep")
             assert result is not None, "Required property 'edge_v_tep' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def expansion_vlan1(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''An additional VLAN subnet that can be used to extend VCF capabilities once configured.
 
             For example, you can configure an expansion VLAN subnet to use NSX Federation for centralized management and synchronization of multiple NSX deployments across different locations.
@@ -1137,12 +1139,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("expansion_vlan1")
             assert result is not None, "Required property 'expansion_vlan1' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def expansion_vlan2(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''An additional VLAN subnet that can be used to extend VCF capabilities once configured.
 
             For example, you can configure an expansion VLAN subnet to use NSX Federation for centralized management and synchronization of multiple NSX deployments across different locations.
@@ -1151,12 +1153,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("expansion_vlan2")
             assert result is not None, "Required property 'expansion_vlan2' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def hcx(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The HCX VLAN subnet.
 
             This VLAN subnet allows the HCX Interconnnect (IX) and HCX Network Extension (NE) to reach their peers and enable HCX Service Mesh creation.
@@ -1171,12 +1173,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("hcx")
             assert result is not None, "Required property 'hcx' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def nsx_up_link(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The NSX uplink VLAN subnet.
 
             This VLAN subnet allows connectivity to the NSX overlay network.
@@ -1185,12 +1187,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("nsx_up_link")
             assert result is not None, "Required property 'nsx_up_link' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def vmk_management(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The host VMkernel management VLAN subnet.
 
             This VLAN subnet carries traffic for managing ESXi hosts and communicating with VMware vCenter Server.
@@ -1199,12 +1201,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("vmk_management")
             assert result is not None, "Required property 'vmk_management' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def vm_management(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The VM management VLAN subnet.
 
             This VLAN subnet carries traffic for vSphere virtual machines.
@@ -1213,12 +1215,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("vm_management")
             assert result is not None, "Required property 'vm_management' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def v_motion(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The vMotion VLAN subnet.
 
             This VLAN subnet carries traffic for vSphere vMotion.
@@ -1227,12 +1229,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("v_motion")
             assert result is not None, "Required property 'v_motion' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def v_san(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The vSAN VLAN subnet.
 
             This VLAN subnet carries the communication between ESXi hosts to implement a vSAN shared storage pool.
@@ -1241,12 +1243,12 @@ class CfnEnvironment(
             '''
             result = self._values.get("v_san")
             assert result is not None, "Required property 'v_san' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def v_tep(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"]:
             '''The VTEP VLAN subnet.
 
             This VLAN subnet handles internal network traffic between virtual machines within a VCF instance.
@@ -1255,7 +1257,7 @@ class CfnEnvironment(
             '''
             result = self._values.get("v_tep")
             assert result is not None, "Required property 'v_tep' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlanInfoProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlanInfoProperty"], result)
 
         @builtins.property
         def hcx_network_acl_id(self) -> typing.Optional[builtins.str]:
@@ -1271,13 +1273,13 @@ class CfnEnvironment(
         @builtins.property
         def is_hcx_public(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Determines if the HCX VLAN that Amazon EVS provisions is public or private.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-evs-environment-initialvlans.html#cfn-evs-environment-initialvlans-ishcxpublic
             '''
             result = self._values.get("is_hcx_public")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1324,7 +1326,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6bb631c066ce7fa55edfeac94e8c8a5337b818eed4292c5b3aced9cad6d1cad3)
+                type_hints = cached_type_hints(_typecheckingstub__6bb631c066ce7fa55edfeac94e8c8a5337b818eed4292c5b3aced9cad6d1cad3)
                 check_type(argname="argument solution_key", value=solution_key, expected_type=type_hints["solution_key"])
                 check_type(argname="argument vsan_key", value=vsan_key, expected_type=type_hints["vsan_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1394,7 +1396,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33967b6ef3400afc32ce0af5c9e428f01559afa67ae04decfe8e700e94b87a50)
+                type_hints = cached_type_hints(_typecheckingstub__33967b6ef3400afc32ce0af5c9e428f01559afa67ae04decfe8e700e94b87a50)
                 check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if secret_arn is not None:
@@ -1451,7 +1453,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35c3da17a2fce469ae79744d181a61b0265e29008e2b55604fbe06fb54b01d0d)
+                type_hints = cached_type_hints(_typecheckingstub__35c3da17a2fce469ae79744d181a61b0265e29008e2b55604fbe06fb54b01d0d)
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if security_groups is not None:
@@ -1544,7 +1546,7 @@ class CfnEnvironment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1ba5fd1a9e5e7dc84687933a99fd65aef3da8840e139b66bfd40a66914e4a834)
+                type_hints = cached_type_hints(_typecheckingstub__1ba5fd1a9e5e7dc84687933a99fd65aef3da8840e139b66bfd40a66914e4a834)
                 check_type(argname="argument cloud_builder", value=cloud_builder, expected_type=type_hints["cloud_builder"])
                 check_type(argname="argument nsx", value=nsx, expected_type=type_hints["nsx"])
                 check_type(argname="argument nsx_edge1", value=nsx_edge1, expected_type=type_hints["nsx_edge1"])
@@ -1672,57 +1674,57 @@ class CfnEnvironment(
     jsii_type="aws-cdk-lib.aws_evs.CfnEnvironmentProps",
     jsii_struct_bases=[],
     name_mapping={
-        "connectivity_info": "connectivityInfo",
-        "license_info": "licenseInfo",
         "service_access_subnet_id": "serviceAccessSubnetId",
-        "site_id": "siteId",
         "terms_accepted": "termsAccepted",
-        "vcf_hostnames": "vcfHostnames",
         "vcf_version": "vcfVersion",
         "vpc_id": "vpcId",
+        "connectivity_info": "connectivityInfo",
         "environment_name": "environmentName",
         "hosts": "hosts",
         "initial_vlans": "initialVlans",
         "kms_key_id": "kmsKeyId",
+        "license_info": "licenseInfo",
         "service_access_security_groups": "serviceAccessSecurityGroups",
+        "site_id": "siteId",
         "tags": "tags",
+        "vcf_hostnames": "vcfHostnames",
     },
 )
 class CfnEnvironmentProps:
     def __init__(
         self,
         *,
-        connectivity_info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ConnectivityInfoProperty", typing.Dict[builtins.str, typing.Any]]],
-        license_info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.LicenseInfoProperty", typing.Dict[builtins.str, typing.Any]]],
         service_access_subnet_id: builtins.str,
-        site_id: builtins.str,
-        terms_accepted: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        vcf_hostnames: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.VcfHostnamesProperty", typing.Dict[builtins.str, typing.Any]]],
+        terms_accepted: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         vcf_version: builtins.str,
         vpc_id: builtins.str,
+        connectivity_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ConnectivityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         environment_name: typing.Optional[builtins.str] = None,
-        hosts: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.HostInfoForCreateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        initial_vlans: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.InitialVlansProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hosts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.HostInfoForCreateProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        initial_vlans: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.InitialVlansProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        service_access_security_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.ServiceAccessSecurityGroupsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        license_info: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.LicenseInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        service_access_security_groups: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.ServiceAccessSecurityGroupsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        site_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vcf_hostnames: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEnvironment.VcfHostnamesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironment``.
 
-        :param connectivity_info: The connectivity configuration for the environment. Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
-        :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_subnet_id: The subnet that is used to establish connectivity between the Amazon EVS control plane and VPC. Amazon EVS uses this subnet to perform validations and create the environment.
-        :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
         :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
-        :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
         :param vcf_version: The VCF version of the environment.
         :param vpc_id: The VPC associated with the environment.
+        :param connectivity_info: The connectivity configuration for the environment. Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
         :param environment_name: The name of the environment.
         :param hosts: Required for environment resource creation.
         :param initial_vlans: .. epigraph:: Amazon EVS is in public preview release and is subject to change. The initial VLAN subnets for the environment. Amazon EVS VLAN subnets have a minimum CIDR block size of /28 and a maximum size of /24. Amazon EVS VLAN subnet CIDR blocks must not overlap with other subnets in the VPC. Required for environment resource creation.
         :param kms_key_id: The AWS KMS key ID that AWS Secrets Manager uses to encrypt secrets that are associated with the environment. These secrets contain the VCF credentials that are needed to install vCenter Server, NSX, and SDDC Manager. By default, Amazon EVS use the AWS Secrets Manager managed key ``aws/secretsmanager`` . You can also specify a customer managed key.
+        :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_security_groups: The security groups that allow traffic between the Amazon EVS control plane and your VPC for service access. If a security group is not specified, Amazon EVS uses the default security group in your account for service access.
+        :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources.
+        :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html
         :exampleMetadata: fixture=_generated
@@ -1735,31 +1737,15 @@ class CfnEnvironmentProps:
             from aws_cdk import aws_evs as evs
             
             cfn_environment_props = evs.CfnEnvironmentProps(
-                connectivity_info=evs.CfnEnvironment.ConnectivityInfoProperty(
-                    private_route_server_peerings=["privateRouteServerPeerings"]
-                ),
-                license_info=evs.CfnEnvironment.LicenseInfoProperty(
-                    solution_key="solutionKey",
-                    vsan_key="vsanKey"
-                ),
                 service_access_subnet_id="serviceAccessSubnetId",
-                site_id="siteId",
                 terms_accepted=False,
-                vcf_hostnames=evs.CfnEnvironment.VcfHostnamesProperty(
-                    cloud_builder="cloudBuilder",
-                    nsx="nsx",
-                    nsx_edge1="nsxEdge1",
-                    nsx_edge2="nsxEdge2",
-                    nsx_manager1="nsxManager1",
-                    nsx_manager2="nsxManager2",
-                    nsx_manager3="nsxManager3",
-                    sddc_manager="sddcManager",
-                    v_center="vCenter"
-                ),
                 vcf_version="vcfVersion",
                 vpc_id="vpcId",
             
                 # the properties below are optional
+                connectivity_info=evs.CfnEnvironment.ConnectivityInfoProperty(
+                    private_route_server_peerings=["privateRouteServerPeerings"]
+                ),
                 environment_name="environmentName",
                 hosts=[evs.CfnEnvironment.HostInfoForCreateProperty(
                     host_name="hostName",
@@ -1807,41 +1793,55 @@ class CfnEnvironmentProps:
                     is_hcx_public=False
                 ),
                 kms_key_id="kmsKeyId",
+                license_info=evs.CfnEnvironment.LicenseInfoProperty(
+                    solution_key="solutionKey",
+                    vsan_key="vsanKey"
+                ),
                 service_access_security_groups=evs.CfnEnvironment.ServiceAccessSecurityGroupsProperty(
                     security_groups=["securityGroups"]
                 ),
+                site_id="siteId",
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                vcf_hostnames=evs.CfnEnvironment.VcfHostnamesProperty(
+                    cloud_builder="cloudBuilder",
+                    nsx="nsx",
+                    nsx_edge1="nsxEdge1",
+                    nsx_edge2="nsxEdge2",
+                    nsx_manager1="nsxManager1",
+                    nsx_manager2="nsxManager2",
+                    nsx_manager3="nsxManager3",
+                    sddc_manager="sddcManager",
+                    v_center="vCenter"
+                )
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13a1fb4e59a516dd42610d3a93252ed2060e4948f1e22e6ac66a5c31e9d3fb06)
-            check_type(argname="argument connectivity_info", value=connectivity_info, expected_type=type_hints["connectivity_info"])
-            check_type(argname="argument license_info", value=license_info, expected_type=type_hints["license_info"])
+            type_hints = cached_type_hints(_typecheckingstub__13a1fb4e59a516dd42610d3a93252ed2060e4948f1e22e6ac66a5c31e9d3fb06)
             check_type(argname="argument service_access_subnet_id", value=service_access_subnet_id, expected_type=type_hints["service_access_subnet_id"])
-            check_type(argname="argument site_id", value=site_id, expected_type=type_hints["site_id"])
             check_type(argname="argument terms_accepted", value=terms_accepted, expected_type=type_hints["terms_accepted"])
-            check_type(argname="argument vcf_hostnames", value=vcf_hostnames, expected_type=type_hints["vcf_hostnames"])
             check_type(argname="argument vcf_version", value=vcf_version, expected_type=type_hints["vcf_version"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument connectivity_info", value=connectivity_info, expected_type=type_hints["connectivity_info"])
             check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
             check_type(argname="argument hosts", value=hosts, expected_type=type_hints["hosts"])
             check_type(argname="argument initial_vlans", value=initial_vlans, expected_type=type_hints["initial_vlans"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument license_info", value=license_info, expected_type=type_hints["license_info"])
             check_type(argname="argument service_access_security_groups", value=service_access_security_groups, expected_type=type_hints["service_access_security_groups"])
+            check_type(argname="argument site_id", value=site_id, expected_type=type_hints["site_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vcf_hostnames", value=vcf_hostnames, expected_type=type_hints["vcf_hostnames"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connectivity_info": connectivity_info,
-            "license_info": license_info,
             "service_access_subnet_id": service_access_subnet_id,
-            "site_id": site_id,
             "terms_accepted": terms_accepted,
-            "vcf_hostnames": vcf_hostnames,
             "vcf_version": vcf_version,
             "vpc_id": vpc_id,
         }
+        if connectivity_info is not None:
+            self._values["connectivity_info"] = connectivity_info
         if environment_name is not None:
             self._values["environment_name"] = environment_name
         if hosts is not None:
@@ -1850,38 +1850,16 @@ class CfnEnvironmentProps:
             self._values["initial_vlans"] = initial_vlans
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if license_info is not None:
+            self._values["license_info"] = license_info
         if service_access_security_groups is not None:
             self._values["service_access_security_groups"] = service_access_security_groups
+        if site_id is not None:
+            self._values["site_id"] = site_id
         if tags is not None:
             self._values["tags"] = tags
-
-    @builtins.property
-    def connectivity_info(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ConnectivityInfoProperty"]:
-        '''The connectivity configuration for the environment.
-
-        Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-connectivityinfo
-        '''
-        result = self._values.get("connectivity_info")
-        assert result is not None, "Required property 'connectivity_info' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ConnectivityInfoProperty"], result)
-
-    @builtins.property
-    def license_info(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LicenseInfoProperty"]:
-        '''The license information that Amazon EVS requires to create an environment.
-
-        Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-licenseinfo
-        '''
-        result = self._values.get("license_info")
-        assert result is not None, "Required property 'license_info' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.LicenseInfoProperty"], result)
+        if vcf_hostnames is not None:
+            self._values["vcf_hostnames"] = vcf_hostnames
 
     @builtins.property
     def service_access_subnet_id(self) -> builtins.str:
@@ -1896,19 +1874,9 @@ class CfnEnvironmentProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def site_id(self) -> builtins.str:
-        '''The Broadcom Site ID that is associated with your Amazon EVS environment.
-
-        Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-siteid
-        '''
-        result = self._values.get("site_id")
-        assert result is not None, "Required property 'site_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def terms_accepted(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    def terms_accepted(
+        self,
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment.
 
         Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
@@ -1917,21 +1885,7 @@ class CfnEnvironmentProps:
         '''
         result = self._values.get("terms_accepted")
         assert result is not None, "Required property 'terms_accepted' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
-
-    @builtins.property
-    def vcf_hostnames(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnEnvironment.VcfHostnamesProperty"]:
-        '''The DNS hostnames to be used by the VCF management appliances in your environment.
-
-        For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-vcfhostnames
-        '''
-        result = self._values.get("vcf_hostnames")
-        assert result is not None, "Required property 'vcf_hostnames' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEnvironment.VcfHostnamesProperty"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def vcf_version(self) -> builtins.str:
@@ -1954,6 +1908,19 @@ class CfnEnvironmentProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def connectivity_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ConnectivityInfoProperty"]]:
+        '''The connectivity configuration for the environment.
+
+        Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-connectivityinfo
+        '''
+        result = self._values.get("connectivity_info")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ConnectivityInfoProperty"]], result)
+
+    @builtins.property
     def environment_name(self) -> typing.Optional[builtins.str]:
         '''The name of the environment.
 
@@ -1965,18 +1932,18 @@ class CfnEnvironmentProps:
     @builtins.property
     def hosts(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.HostInfoForCreateProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.HostInfoForCreateProperty"]]]]:
         '''Required for environment resource creation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-hosts
         '''
         result = self._values.get("hosts")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.HostInfoForCreateProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.HostInfoForCreateProperty"]]]], result)
 
     @builtins.property
     def initial_vlans(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlansProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlansProperty"]]:
         '''.. epigraph::
 
    Amazon EVS is in public preview release and is subject to change.
@@ -1988,7 +1955,7 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-initialvlans
         '''
         result = self._values.get("initial_vlans")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.InitialVlansProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.InitialVlansProperty"]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -2004,9 +1971,22 @@ class CfnEnvironmentProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def license_info(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LicenseInfoProperty"]]:
+        '''The license information that Amazon EVS requires to create an environment.
+
+        Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-licenseinfo
+        '''
+        result = self._values.get("license_info")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.LicenseInfoProperty"]], result)
+
+    @builtins.property
     def service_access_security_groups(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]]:
         '''The security groups that allow traffic between the Amazon EVS control plane and your VPC for service access.
 
         If a security group is not specified, Amazon EVS uses the default security group in your account for service access.
@@ -2014,10 +1994,21 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-serviceaccesssecuritygroups
         '''
         result = self._values.get("service_access_security_groups")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.ServiceAccessSecurityGroupsProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def site_id(self) -> typing.Optional[builtins.str]:
+        '''The Broadcom Site ID that is associated with your Amazon EVS environment.
+
+        Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-siteid
+        '''
+        result = self._values.get("site_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Metadata that assists with categorization and organization.
 
         Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources.
@@ -2025,7 +2016,20 @@ class CfnEnvironmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def vcf_hostnames(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.VcfHostnamesProperty"]]:
+        '''The DNS hostnames to be used by the VCF management appliances in your environment.
+
+        For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-vcfhostnames
+        '''
+        result = self._values.get("vcf_hostnames")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEnvironment.VcfHostnamesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2050,26 +2054,26 @@ def _typecheckingstub__0fd5abd7fe71e306d7b1cc2c3ef834eb9af874a0b9fed902c6923bbc0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    connectivity_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ConnectivityInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    license_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.LicenseInfoProperty, typing.Dict[builtins.str, typing.Any]]],
     service_access_subnet_id: builtins.str,
-    site_id: builtins.str,
-    terms_accepted: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    vcf_hostnames: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.VcfHostnamesProperty, typing.Dict[builtins.str, typing.Any]]],
+    terms_accepted: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     vcf_version: builtins.str,
     vpc_id: builtins.str,
+    connectivity_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ConnectivityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    hosts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.HostInfoForCreateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    initial_vlans: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlansProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.HostInfoForCreateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    initial_vlans: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlansProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    service_access_security_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ServiceAccessSecurityGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    license_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.LicenseInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_access_security_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ServiceAccessSecurityGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    site_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vcf_hostnames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.VcfHostnamesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e6de1de5e0aec969903d6c69983363792ec3a112c55a7b988fa7399135299798(
-    resource: _IEnvironmentRef_fdb7318a,
+    resource: _aws_evs_9e804622.IEnvironmentRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2081,7 +2085,7 @@ def _typecheckingstub__ade7968631b7dab92dc075bd606c62c251dba905554904c518c49660f
     pass
 
 def _typecheckingstub__97c8e6ce05b681569d057e41cd3b8f77e1403e7a3da8aebf629d5b36513ac407(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2092,38 +2096,14 @@ def _typecheckingstub__5933d5785ec1ac628e3fd45b05b1c5bc9e333cb80c6d102fb738934f3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bf81c76587f8aaaaa50fc18d1384cc1e8ff44f1cd0d764c0355340e0f0839c21(
-    value: typing.Union[_IResolvable_da3f097b, CfnEnvironment.ConnectivityInfoProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fb6e498dbb5d87feb34dfe26b3466fa6383016c37a4ea21caecc26f60b5ce901(
-    value: typing.Union[_IResolvable_da3f097b, CfnEnvironment.LicenseInfoProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f01a5018beaa28fab7b0d068a7a6fe45dbeee0ab15ecdf25462887288ace66cb(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0dc69ff9904f782ce993fe0884901782c11a2214109cfd4cf83020946119b99f(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__93808d5eb28c6837a5047d6d1811bd832bd6250809b9c84a0b609bb88989d45e(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98651cf572ae807d1eccd57a45d3ecc81f79063879b068927b5130df235e0b0c(
-    value: typing.Union[_IResolvable_da3f097b, CfnEnvironment.VcfHostnamesProperty],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2140,6 +2120,12 @@ def _typecheckingstub__60ce2bd3161be4b835be56a05bdccfd9639c58eea7d09baeab4884c9a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf81c76587f8aaaaa50fc18d1384cc1e8ff44f1cd0d764c0355340e0f0839c21(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.ConnectivityInfoProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__16c81b6578fa573cefa89abf7b2fbcfcf6b8db97f8f8b8e2a8c44d8009af03ed(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -2147,13 +2133,13 @@ def _typecheckingstub__16c81b6578fa573cefa89abf7b2fbcfcf6b8db97f8f8b8e2a8c44d800
     pass
 
 def _typecheckingstub__18c17b2a1d9ccb9d1cd534e31c376d097f1d59794abd3093f8587758af40bc2e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironment.HostInfoForCreateProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.HostInfoForCreateProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__15ccc5cc405553a6a5463668babc67ef1dc4049150ba7dddfc07bee61251bcfe(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.InitialVlansProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.InitialVlansProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2164,14 +2150,32 @@ def _typecheckingstub__d5b585f35cde6963f33953b58455872fcf621844d2b3fa8f7f85b9654
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fb6e498dbb5d87feb34dfe26b3466fa6383016c37a4ea21caecc26f60b5ce901(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.LicenseInfoProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__df95c894cd990c7a318fa3e3397c915f2a30df40bd79003673d83a2d1016e1b9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEnvironment.ServiceAccessSecurityGroupsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.ServiceAccessSecurityGroupsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dc69ff9904f782ce993fe0884901782c11a2214109cfd4cf83020946119b99f(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c420c54db733392f5b59d4f5a9ded1bfdc781dbe1df45ec2312e16a4c3655efd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98651cf572ae807d1eccd57a45d3ecc81f79063879b068927b5130df235e0b0c(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnEnvironment.VcfHostnamesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2212,18 +2216,18 @@ def _typecheckingstub__620167df6fd78af7ecffe1762889e66c6a24ac02786c4e7ca2d324fab
 
 def _typecheckingstub__a70b9547ba64740f8b44168dbcdcd80e75a75a1dc2ed733c834ad336fe27001d(
     *,
-    edge_v_tep: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    expansion_vlan1: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    expansion_vlan2: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    hcx: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    nsx_up_link: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    vmk_management: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    vm_management: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    v_motion: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    v_san: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    v_tep: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    edge_v_tep: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    expansion_vlan1: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    expansion_vlan2: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    hcx: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    nsx_up_link: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    vmk_management: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    vm_management: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    v_motion: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    v_san: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    v_tep: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlanInfoProperty, typing.Dict[builtins.str, typing.Any]]],
     hcx_network_acl_id: typing.Optional[builtins.str] = None,
-    is_hcx_public: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_hcx_public: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2267,20 +2271,20 @@ def _typecheckingstub__1ba5fd1a9e5e7dc84687933a99fd65aef3da8840e139b66bfd40a6691
 
 def _typecheckingstub__13a1fb4e59a516dd42610d3a93252ed2060e4948f1e22e6ac66a5c31e9d3fb06(
     *,
-    connectivity_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ConnectivityInfoProperty, typing.Dict[builtins.str, typing.Any]]],
-    license_info: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.LicenseInfoProperty, typing.Dict[builtins.str, typing.Any]]],
     service_access_subnet_id: builtins.str,
-    site_id: builtins.str,
-    terms_accepted: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    vcf_hostnames: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.VcfHostnamesProperty, typing.Dict[builtins.str, typing.Any]]],
+    terms_accepted: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     vcf_version: builtins.str,
     vpc_id: builtins.str,
+    connectivity_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ConnectivityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     environment_name: typing.Optional[builtins.str] = None,
-    hosts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.HostInfoForCreateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    initial_vlans: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.InitialVlansProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hosts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.HostInfoForCreateProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    initial_vlans: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.InitialVlansProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
-    service_access_security_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.ServiceAccessSecurityGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    license_info: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.LicenseInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_access_security_groups: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.ServiceAccessSecurityGroupsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    site_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vcf_hostnames: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEnvironment.VcfHostnamesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

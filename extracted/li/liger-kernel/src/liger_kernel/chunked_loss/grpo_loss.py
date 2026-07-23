@@ -120,6 +120,7 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
         vespo_lambda_pos=3.0,  # VESPO gamma rate lambda for non-negative advantages
         vespo_k_neg=3.0,  # VESPO gamma shape k for negative advantages
         vespo_lambda_neg=2.0,  # VESPO gamma rate lambda for negative advantages
+        num_items_in_batch=None,  # Total active tokens across the entire generation batch (TRL-compat)
         **kwargs,
     ):
         """GRPO Loss Function matching GRPOTrainer implementation."""
@@ -162,17 +163,16 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
             # Uses sigmoid-based soft gating instead of hard clipping
             # Reference: https://huggingface.co/papers/2511.20347
             # TRL implementation: https://github.com/huggingface/trl/blob/1bd2a52ec2d8344050af736d60cdc735181ae4b8/trl/trainer/grpo_trainer.py#L2037-L2046
-            per_token_loss = torch.empty_like(coef_1)
-            # Expand advantages to match coef_1 shape for masking
             advantages_expanded = advantages.unsqueeze(1).expand_as(coef_1)
             positive_advantages_mask = advantages_expanded > 0
 
-            # Apply different temperatures based on advantage sign
-            per_token_loss[positive_advantages_mask] = sapo_loss_fn(
-                coef_1[positive_advantages_mask], sapo_temperature_pos
-            )
-            per_token_loss[~positive_advantages_mask] = sapo_loss_fn(
-                coef_1[~positive_advantages_mask], sapo_temperature_neg
+            # torch.where over both branches rather than boolean-mask assignment:
+            # mask indexing lowers to aten.nonzero, which graph-breaks under
+            # torch.compile. sapo_loss_fn is elementwise so this is identical.
+            per_token_loss = torch.where(
+                positive_advantages_mask,
+                sapo_loss_fn(coef_1, sapo_temperature_pos),
+                sapo_loss_fn(coef_1, sapo_temperature_neg),
             )
             per_token_loss = -per_token_loss * advantages_expanded
         elif loss_type == "vespo":
@@ -209,9 +209,11 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
             # Compute KL penalty (approximates KL[per_token_logps, ref_per_token_logps])
             kl_div = k3_loss_fn(ref_per_token_logps, per_token_logps)
             if use_bias_correction_kl:
-                # Importance-sampling-corrected KL (DeepSeek-V3.2): kl *= token-level coef_1
-                token_coef_1 = torch.exp(per_token_logps - old_per_token_logps)
-                kl_div = kl_div * token_coef_1
+                # Importance-sampling-corrected KL (DeepSeek-V3.2): kl *= coef_1.
+                # Use exp(log_importance_weights) so the ratio's shape matches
+                # importance_sampling_level (token: (B, T); sequence: (B, 1)),
+                # mirroring TRL's ``per_token_kl * coef_1`` (un-clamped, before delta).
+                kl_div = kl_div * torch.exp(log_importance_weights)
             # Combine losses
             per_token_loss = per_token_loss + beta * kl_div
 
@@ -233,7 +235,9 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
                 raise ValueError("max_completion_length must be provided for loss_type 'dr_grpo'")
             loss = (per_token_loss * attention_mask).sum() / (full_attention_mask.shape[0] * max_completion_length)
         elif loss_type in ("dapo", "cispo", "vespo"):
-            loss_normalizer = LigerFusedLinearPPOBase._compute_dapo_normalizer(full_attention_mask)
+            loss_normalizer = LigerFusedLinearPPOBase._compute_dapo_normalizer(
+                full_attention_mask, num_items_in_batch=num_items_in_batch
+            )
             loss = (per_token_loss * attention_mask).sum() / loss_normalizer
         elif loss_type == "luspo":
             # Match TRL exactly: loss = (per_token_loss * mask.sum(1, keepdim=True)).mean()
@@ -296,6 +300,7 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
         vespo_lambda_pos=3.0,
         vespo_k_neg=3.0,
         vespo_lambda_neg=2.0,
+        num_items_in_batch=None,
     ):
         """
         Fused linear layer with GRPO loss.
@@ -366,6 +371,7 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
             vespo_lambda_pos=vespo_lambda_pos,
             vespo_k_neg=vespo_k_neg,
             vespo_lambda_neg=vespo_lambda_neg,
+            num_items_in_batch=num_items_in_batch,
         )
 
     @staticmethod
@@ -405,6 +411,7 @@ class LigerFusedLinearGRPOFunction(LigerFusedLinearPPOBase):
             None,  # grad_vespo_lambda_pos
             None,  # grad_vespo_k_neg
             None,  # grad_vespo_lambda_neg
+            None,  # grad_num_items_in_batch
         )
 
 
@@ -492,6 +499,7 @@ class LigerFusedLinearGRPOLoss(torch.nn.Module):
         ref_weight=None,
         ref_bias=None,
         vllm_is_ratio=None,
+        num_items_in_batch=None,
     ):
         return LigerFusedLinearGRPOFunction.apply(
             _input,
@@ -524,4 +532,5 @@ class LigerFusedLinearGRPOLoss(torch.nn.Module):
             self.vespo_lambda_pos,
             self.vespo_k_neg,
             self.vespo_lambda_neg,
+            num_items_in_batch,
         )

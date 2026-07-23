@@ -798,6 +798,8 @@ When disabled, the default `imageType` remains `ECS_AL2` / `EKS_AL2` for backwar
 }
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -811,26 +813,27 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk.cloud_assembly_schema as _aws_cdk_cloud_assembly_schema_cae1d136
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.cloud_assembly_schema as _aws_cdk_cloud_assembly_schema_cae1d136
+else:
+
+    _aws_cdk_cloud_assembly_schema_cae1d136 = _LazyImport("aws_cdk.cloud_assembly_schema")
 
 
 @jsii.data_type(
@@ -866,7 +869,7 @@ class AssemblyBuildOptions:
         if isinstance(runtime_info, dict):
             runtime_info = RuntimeInfo(**runtime_info)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daa68838904e95af78ad71aaaa258911a30bbcfbf888d3a236797ec1e35dbe40)
+            type_hints = cached_type_hints(_typecheckingstub__daa68838904e95af78ad71aaaa258911a30bbcfbf888d3a236797ec1e35dbe40)
             check_type(argname="argument runtime_info", value=runtime_info, expected_type=type_hints["runtime_info"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if runtime_info is not None:
@@ -949,7 +952,7 @@ class AwsCloudFormationStackProperties:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5abac3cf66d2656ed285dd725dabe6b7b816561b0242ad43f05f3887f603039f)
+            type_hints = cached_type_hints(_typecheckingstub__5abac3cf66d2656ed285dd725dabe6b7b816561b0242ad43f05f3887f603039f)
             check_type(argname="argument template_file", value=template_file, expected_type=type_hints["template_file"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
@@ -1112,7 +1115,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ed62a7c2247dd4c625ec6c28ed3100e2bf8bc293ce9accfb5aa199e5f21828d)
+            type_hints = cached_type_hints(_typecheckingstub__1ed62a7c2247dd4c625ec6c28ed3100e2bf8bc293ce9accfb5aa199e5f21828d)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         manifest = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -1157,7 +1160,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         :return: the ``CloudArtifact`` that matches the artifact type or ``undefined`` if it's an artifact type that is unrecognized by this module.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a9e7172494e8d6e1062852f66a87eb480f31763995170a9b158baa1ffddadd5)
+            type_hints = cached_type_hints(_typecheckingstub__9a9e7172494e8d6e1062852f66a87eb480f31763995170a9b158baa1ffddadd5)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -1183,7 +1186,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         :return: all the metadata entries of a specific type in this artifact.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__416d0c9fb492f0f72aac608c080f047ac0acafa65234c5815fe1b80983f910c4)
+            type_hints = cached_type_hints(_typecheckingstub__416d0c9fb492f0f72aac608c080f047ac0acafa65234c5815fe1b80983f910c4)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(typing.List["MetadataEntryResult"], jsii.invoke(self, "findMetadataByType", [type]))
 
@@ -1272,7 +1275,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f166d3cdd543050e1f6916d3f8b21148d9dce169d0973ba379565d8cc49a4601)
+            type_hints = cached_type_hints(_typecheckingstub__f166d3cdd543050e1f6916d3f8b21148d9dce169d0973ba379565d8cc49a4601)
             check_type(argname="argument directory", value=directory, expected_type=type_hints["directory"])
         load_options = _aws_cdk_cloud_assembly_schema_cae1d136.LoadManifestOptions(
             skip_enum_check=skip_enum_check,
@@ -1332,7 +1335,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__896de0ab238f2d25a3c91a759c5498ef6b66f487ca63a69dddf3c7c53b6e77b3)
+            type_hints = cached_type_hints(_typecheckingstub__896de0ab238f2d25a3c91a759c5498ef6b66f487ca63a69dddf3c7c53b6e77b3)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCloudAssembly", [x]))
 
@@ -1343,7 +1346,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b18409e446ee0849b8e8bd80b844cb7b7741d0e1ffbece4d0bba5e5384aae08)
+            type_hints = cached_type_hints(_typecheckingstub__5b18409e446ee0849b8e8bd80b844cb7b7741d0e1ffbece4d0bba5e5384aae08)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("CloudAssembly", jsii.invoke(self, "getNestedAssembly", [artifact_id]))
 
@@ -1357,7 +1360,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :param artifact_id: - The artifact ID of the nested assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eae4105194b7e2c98dcfcbef6974da5251f42682a55afedb4ea8ee4c32d2d00a)
+            type_hints = cached_type_hints(_typecheckingstub__eae4105194b7e2c98dcfcbef6974da5251f42682a55afedb4ea8ee4c32d2d00a)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("NestedCloudAssemblyArtifact", jsii.invoke(self, "getNestedAssemblyArtifact", [artifact_id]))
 
@@ -1372,7 +1375,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df5c3c74fbdaeb76862e505de8eed6f079bd2ac80b0a9276df89cb7c90cb5318)
+            type_hints = cached_type_hints(_typecheckingstub__df5c3c74fbdaeb76862e505de8eed6f079bd2ac80b0a9276df89cb7c90cb5318)
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         return typing.cast("CloudFormationStackArtifact", jsii.invoke(self, "getStack", [stack_name]))
 
@@ -1390,7 +1393,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :throws: if there is no stack artifact with that id
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5054a2a6bbf5f1e2a435b0cdb24dbe521aab27336f9218c06f211c43cbee2ab)
+            type_hints = cached_type_hints(_typecheckingstub__e5054a2a6bbf5f1e2a435b0cdb24dbe521aab27336f9218c06f211c43cbee2ab)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         return typing.cast("CloudFormationStackArtifact", jsii.invoke(self, "getStackArtifact", [artifact_id]))
 
@@ -1413,7 +1416,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         use ``getStackArtifact(stack.artifactId)`` instead.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d245325ac9235c92867d3da54c9d16e39018e88d191b329b4511a5e7d9bcdbb8)
+            type_hints = cached_type_hints(_typecheckingstub__d245325ac9235c92867d3da54c9d16e39018e88d191b329b4511a5e7d9bcdbb8)
             check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         return typing.cast("CloudFormationStackArtifact", jsii.invoke(self, "getStackByName", [stack_name]))
 
@@ -1436,7 +1439,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :return: A ``CloudArtifact`` object or ``undefined`` if the artifact does not exist in this assembly.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e63d4b9de8dea3f9eae2c52ce338ea515eba253503b1e6e804b839ce0360de2f)
+            type_hints = cached_type_hints(_typecheckingstub__e63d4b9de8dea3f9eae2c52ce338ea515eba253503b1e6e804b839ce0360de2f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast(typing.Optional["CloudArtifact"], jsii.invoke(self, "tryGetArtifact", [id]))
 
@@ -1527,7 +1530,7 @@ class CloudAssemblyBuilder(
         :param parent_builder: If this builder is for a nested assembly, the parent assembly builder. Default: - This is a root assembly
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6b2ffce7acd02f5311418a32047ed5a4f383a8142836c154af00b430ba5f1a0)
+            type_hints = cached_type_hints(_typecheckingstub__a6b2ffce7acd02f5311418a32047ed5a4f383a8142836c154af00b430ba5f1a0)
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
         props = CloudAssemblyBuilderProps(
             asset_outdir=asset_outdir, parent_builder=parent_builder
@@ -1560,7 +1563,7 @@ class CloudAssemblyBuilder(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46e80c3b6bfd97977edd543650bf180354083f8f8ac476e020cef138121d5a55)
+            type_hints = cached_type_hints(_typecheckingstub__46e80c3b6bfd97977edd543650bf180354083f8f8ac476e020cef138121d5a55)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         manifest = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
@@ -1620,7 +1623,7 @@ class CloudAssemblyBuilder(
         :param display_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b80c2e5a5495b4c83a559cb3869d9e65464358c666b26e1943bb7442e853bd92)
+            type_hints = cached_type_hints(_typecheckingstub__b80c2e5a5495b4c83a559cb3869d9e65464358c666b26e1943bb7442e853bd92)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
         return typing.cast("CloudAssemblyBuilder", jsii.invoke(self, "createNestedAssembly", [artifact_id, display_name]))
@@ -1676,7 +1679,7 @@ class CloudAssemblyBuilderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__590a3b3a71f6b2c893878940a87374b9d91553fa42dcff113d27a028bfc186fd)
+            type_hints = cached_type_hints(_typecheckingstub__590a3b3a71f6b2c893878940a87374b9d91553fa42dcff113d27a028bfc186fd)
             check_type(argname="argument asset_outdir", value=asset_outdir, expected_type=type_hints["asset_outdir"])
             check_type(argname="argument parent_builder", value=parent_builder, expected_type=type_hints["parent_builder"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1813,7 +1816,7 @@ class CloudFormationStackArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4221f8243cf17c04683af8c1bce956c1e255ee17738e4524551c650531afde0)
+            type_hints = cached_type_hints(_typecheckingstub__e4221f8243cf17c04683af8c1bce956c1e255ee17738e4524551c650531afde0)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -1850,7 +1853,7 @@ class CloudFormationStackArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6ddc106a98d29269a05ecee4077f4757a1b742e277b8955eb04db7d138855ae)
+            type_hints = cached_type_hints(_typecheckingstub__f6ddc106a98d29269a05ecee4077f4757a1b742e277b8955eb04db7d138855ae)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCloudFormationStackArtifact", [art]))
 
@@ -2078,7 +2081,7 @@ class EndpointServiceAvailabilityZonesContextQuery:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09d00185a251267ba4f39a802205f730232aa3a577ccd2ace1dfd11b775a1f9d)
+            type_hints = cached_type_hints(_typecheckingstub__09d00185a251267ba4f39a802205f730232aa3a577ccd2ace1dfd11b775a1f9d)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
@@ -2166,7 +2169,7 @@ class Environment:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df1d0215d31b92e7792e2396126db1d49440a9efab1489fe2455535f51940e4)
+            type_hints = cached_type_hints(_typecheckingstub__0df1d0215d31b92e7792e2396126db1d49440a9efab1489fe2455535f51940e4)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -2259,7 +2262,7 @@ class EnvironmentPlaceholderValues:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8763a8c0f7fb0ef16db2ca1379324e371cb48ba0b37f6a1d9b3a2d5d6f2d14f)
+            type_hints = cached_type_hints(_typecheckingstub__e8763a8c0f7fb0ef16db2ca1379324e371cb48ba0b37f6a1d9b3a2d5d6f2d14f)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument partition", value=partition, expected_type=type_hints["partition"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -2360,7 +2363,7 @@ class EnvironmentPlaceholders(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__974e95ef64524df9118eec4c7232d1a7cf643d704ffed09b31569bb74c1025e3)
+            type_hints = cached_type_hints(_typecheckingstub__974e95ef64524df9118eec4c7232d1a7cf643d704ffed09b31569bb74c1025e3)
             check_type(argname="argument object", value=object, expected_type=type_hints["object"])
         values = EnvironmentPlaceholderValues(
             account_id=account_id, partition=partition, region=region
@@ -2383,7 +2386,7 @@ class EnvironmentPlaceholders(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de03889e580fb74fa4267c869df09d728f9377cec619989cc7e1ce5106f15b70)
+            type_hints = cached_type_hints(_typecheckingstub__de03889e580fb74fa4267c869df09d728f9377cec619989cc7e1ce5106f15b70)
             check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(typing.Any, jsii.sinvoke(cls, "replaceAsync", [object, provider]))
@@ -2449,7 +2452,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__985fd1b8a51c8f31746e4fea4e11de47b0e182515d90486e7bea7c7be8ff003d)
+            type_hints = cached_type_hints(_typecheckingstub__985fd1b8a51c8f31746e4fea4e11de47b0e182515d90486e7bea7c7be8ff003d)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "format", [account, region]))
@@ -2465,7 +2468,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cfb55df07761ce610adba5578402205172bce1da7a531dc6bee64c6545f6202)
+            type_hints = cached_type_hints(_typecheckingstub__0cfb55df07761ce610adba5578402205172bce1da7a531dc6bee64c6545f6202)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         return typing.cast("Environment", jsii.sinvoke(cls, "make", [account, region]))
@@ -2479,7 +2482,7 @@ class EnvironmentUtils(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2ed84c3997c13929dd0a6a30eb314cba65838a150b4138c07d5a1ae458e1a45)
+            type_hints = cached_type_hints(_typecheckingstub__a2ed84c3997c13929dd0a6a30eb314cba65838a150b4138c07d5a1ae458e1a45)
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
         return typing.cast("Environment", jsii.sinvoke(cls, "parse", [environment]))
 
@@ -2583,7 +2586,7 @@ class KeyContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86cfd8a621a93502bf0b60207be4830c74691486ed80331a590d027d441ee9e9)
+            type_hints = cached_type_hints(_typecheckingstub__86cfd8a621a93502bf0b60207be4830c74691486ed80331a590d027d441ee9e9)
             check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "key_id": key_id,
@@ -2664,7 +2667,7 @@ class LoadBalancerContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8945ab7e16ce61f6a29a939b761748fb0d49053fccc5fc2002bc8d37dd3a5bd)
+            type_hints = cached_type_hints(_typecheckingstub__b8945ab7e16ce61f6a29a939b761748fb0d49053fccc5fc2002bc8d37dd3a5bd)
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument load_balancer_arn", value=load_balancer_arn, expected_type=type_hints["load_balancer_arn"])
             check_type(argname="argument load_balancer_canonical_hosted_zone_id", value=load_balancer_canonical_hosted_zone_id, expected_type=type_hints["load_balancer_canonical_hosted_zone_id"])
@@ -2819,7 +2822,7 @@ class LoadBalancerListenerContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b54b307c2b08922d6c877b21587304c7faf7770ba07126997e90cdeb3cd1ddd9)
+            type_hints = cached_type_hints(_typecheckingstub__b54b307c2b08922d6c877b21587304c7faf7770ba07126997e90cdeb3cd1ddd9)
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
             check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
@@ -2914,7 +2917,7 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__555559c755818fb0c68e54d294338ddd2443772e16a9484abbd3cdbd79b25a32)
+            type_hints = cached_type_hints(_typecheckingstub__555559c755818fb0c68e54d294338ddd2443772e16a9484abbd3cdbd79b25a32)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument trace", value=trace, expected_type=type_hints["trace"])
@@ -3006,7 +3009,7 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de77435a8388b388a3788abe2a0f532fff7b7f8c48d501d071411098e021c1e2)
+            type_hints = cached_type_hints(_typecheckingstub__de77435a8388b388a3788abe2a0f532fff7b7f8c48d501d071411098e021c1e2)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument trace", value=trace, expected_type=type_hints["trace"])
@@ -3110,7 +3113,7 @@ class MissingContext:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__faa8580408b4b25abbe43bb63e83052ea0a5a67641036fa507e56a9ef76ac4f4)
+            type_hints = cached_type_hints(_typecheckingstub__faa8580408b4b25abbe43bb63e83052ea0a5a67641036fa507e56a9ef76ac4f4)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
@@ -3267,7 +3270,7 @@ class NestedCloudAssemblyArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aa6af50763dddea1d45ad3308472b2d2ff5763ed26b8f4919b6ff4170143bf8)
+            type_hints = cached_type_hints(_typecheckingstub__1aa6af50763dddea1d45ad3308472b2d2ff5763ed26b8f4919b6ff4170143bf8)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -3304,7 +3307,7 @@ class NestedCloudAssemblyArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e76603f0c26dfdf7a739dfbfef611ec0059c720f7ae5a71ec1081aee87c6e666)
+            type_hints = cached_type_hints(_typecheckingstub__e76603f0c26dfdf7a739dfbfef611ec0059c720f7ae5a71ec1081aee87c6e666)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isNestedCloudAssemblyArtifact", [art]))
 
@@ -3370,7 +3373,7 @@ class RuntimeInfo(_aws_cdk_cloud_assembly_schema_cae1d136.RuntimeInfo):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d51482104ea3fa68deb1c050d0e523e514d2613d58a79e039cdc6181382b29f9)
+            type_hints = cached_type_hints(_typecheckingstub__d51482104ea3fa68deb1c050d0e523e514d2613d58a79e039cdc6181382b29f9)
             check_type(argname="argument libraries", value=libraries, expected_type=type_hints["libraries"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "libraries": libraries,
@@ -3432,7 +3435,7 @@ class SecurityGroupContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__231a71ac92c47c072852256e9f75691a20383f73321be22b4b51a234b13e59d8)
+            type_hints = cached_type_hints(_typecheckingstub__231a71ac92c47c072852256e9f75691a20383f73321be22b4b51a234b13e59d8)
             check_type(argname="argument allow_all_outbound", value=allow_all_outbound, expected_type=type_hints["allow_all_outbound"])
             check_type(argname="argument security_group_id", value=security_group_id, expected_type=type_hints["security_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3521,7 +3524,7 @@ class SynthesisMessage:
         if isinstance(entry, dict):
             entry = _aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry(**entry)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__950d7330995c45ff3e79c61f6e84656d9502366187829008914a3816c8bae6f3)
+            type_hints = cached_type_hints(_typecheckingstub__950d7330995c45ff3e79c61f6e84656d9502366187829008914a3816c8bae6f3)
             check_type(argname="argument entry", value=entry, expected_type=type_hints["entry"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
@@ -3690,7 +3693,7 @@ class TreeCloudArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d44839b2c4ac38a89725b61338793da24a9add3afea876d70e9f06e986bafcd4)
+            type_hints = cached_type_hints(_typecheckingstub__d44839b2c4ac38a89725b61338793da24a9add3afea876d70e9f06e986bafcd4)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -3727,7 +3730,7 @@ class TreeCloudArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebf73cca2e94d96eae133e271a1758d879ebd92648adc26d328d69dee275230a)
+            type_hints = cached_type_hints(_typecheckingstub__ebf73cca2e94d96eae133e271a1758d879ebd92648adc26d328d69dee275230a)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isTreeCloudArtifact", [art]))
 
@@ -3843,7 +3846,7 @@ class VpcContextResponse:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5802148645cd66cb183df454c12036a746516413f0ee0c5eb65ff04423ebbf5d)
+            type_hints = cached_type_hints(_typecheckingstub__5802148645cd66cb183df454c12036a746516413f0ee0c5eb65ff04423ebbf5d)
             check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             check_type(argname="argument isolated_subnet_ids", value=isolated_subnet_ids, expected_type=type_hints["isolated_subnet_ids"])
@@ -4135,7 +4138,7 @@ class VpcSubnet:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__313c359e3b8a4b9eeba5b4eeb84f0738c9490c028aebc9ded4ee2f03660719ce)
+            type_hints = cached_type_hints(_typecheckingstub__313c359e3b8a4b9eeba5b4eeb84f0738c9490c028aebc9ded4ee2f03660719ce)
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument route_table_id", value=route_table_id, expected_type=type_hints["route_table_id"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
@@ -4247,7 +4250,7 @@ class VpcSubnetGroup:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76a1073a81d668b09b32ca10634a87254ebe5f94de23a606acb6e44d3b170041)
+            type_hints = cached_type_hints(_typecheckingstub__76a1073a81d668b09b32ca10634a87254ebe5f94de23a606acb6e44d3b170041)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -4430,7 +4433,7 @@ class AssetManifestArtifact(
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f357f6d07a16e0dfa09eb27eac736f3cba2a46289700a94afedb335cfc26fc5)
+            type_hints = cached_type_hints(_typecheckingstub__2f357f6d07a16e0dfa09eb27eac736f3cba2a46289700a94afedb335cfc26fc5)
             check_type(argname="argument assembly", value=assembly, expected_type=type_hints["assembly"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
@@ -4467,7 +4470,7 @@ class AssetManifestArtifact(
         :param art: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f13a4defa9d74d578442cc9dbb25cbe53318785930cd66e40d43ac92a3c7cbd)
+            type_hints = cached_type_hints(_typecheckingstub__0f13a4defa9d74d578442cc9dbb25cbe53318785930cd66e40d43ac92a3c7cbd)
             check_type(argname="argument art", value=art, expected_type=type_hints["art"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isAssetManifestArtifact", [art]))
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class AccessPointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d8292ad24c15f1775d3f1e33e17d9614177190ac15468bd3a79855e159f7af3)
+            type_hints = cached_type_hints(_typecheckingstub__7d8292ad24c15f1775d3f1e33e17d9614177190ac15468bd3a79855e159f7af3)
             check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
             check_type(argname="argument access_point_id", value=access_point_id, expected_type=type_hints["access_point_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class FileSystemPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1498df5bb66bb0f2d22bcf24016066a5dfcae1a2a034e34cf7346e4be12d6250)
+            type_hints = cached_type_hints(_typecheckingstub__1498df5bb66bb0f2d22bcf24016066a5dfcae1a2a034e34cf7346e4be12d6250)
             check_type(argname="argument file_system_id", value=file_system_id, expected_type=type_hints["file_system_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "file_system_id": file_system_id,
@@ -175,7 +179,7 @@ class FileSystemReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4975421ac615ba8e89a441e928f37471f5d3e89b1d9fc809de8c21f5a6949b5)
+            type_hints = cached_type_hints(_typecheckingstub__a4975421ac615ba8e89a441e928f37471f5d3e89b1d9fc809de8c21f5a6949b5)
             check_type(argname="argument file_system_arn", value=file_system_arn, expected_type=type_hints["file_system_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "file_system_arn": file_system_arn,
@@ -203,7 +207,7 @@ class FileSystemReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3files.IAccessPointRef")
 class IAccessPointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
@@ -223,7 +227,7 @@ class IAccessPointRef(
 
 class _IAccessPointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
 
@@ -248,7 +252,7 @@ typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAcces
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3files.IFileSystemPolicyRef")
 class IFileSystemPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystemPolicy.
@@ -268,7 +272,7 @@ class IFileSystemPolicyRef(
 
 class _IFileSystemPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystemPolicy.
 
@@ -293,7 +297,7 @@ typing.cast(typing.Any, IFileSystemPolicyRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3files.IFileSystemRef")
 class IFileSystemRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystem.
@@ -313,7 +317,7 @@ class IFileSystemRef(
 
 class _IFileSystemRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FileSystem.
 
@@ -338,7 +342,7 @@ typing.cast(typing.Any, IFileSystemRef).__jsii_proxy_class__ = lambda : _IFileSy
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_s3files.IMountTargetRef")
 class IMountTargetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a MountTarget.
@@ -358,7 +362,7 @@ class IMountTargetRef(
 
 class _IMountTargetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a MountTarget.
 
@@ -404,7 +408,7 @@ class MountTargetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b63fc91aa063efff738c4df140762ee44f66e6f8dd8d49c8884be5693dfc10f)
+            type_hints = cached_type_hints(_typecheckingstub__2b63fc91aa063efff738c4df140762ee44f66e6f8dd8d49c8884be5693dfc10f)
             check_type(argname="argument mount_target_id", value=mount_target_id, expected_type=type_hints["mount_target_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "mount_target_id": mount_target_id,

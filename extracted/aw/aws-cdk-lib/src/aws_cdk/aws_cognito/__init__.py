@@ -1275,6 +1275,8 @@ cognito.UserPoolClient(self, "Client",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -1288,85 +1290,43 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_pinpoint import CfnApp as _CfnApp_e8bac60b
-from ..interfaces.aws_certificatemanager import (
-    ICertificateRef as _ICertificateRef_1878d79b
-)
-from ..interfaces.aws_cognito import (
-    IIdentityPoolPrincipalTagRef as _IIdentityPoolPrincipalTagRef_9e692705,
-    IIdentityPoolRef as _IIdentityPoolRef_5cf45895,
-    IIdentityPoolRoleAttachmentRef as _IIdentityPoolRoleAttachmentRef_2e8a15ee,
-    ILogDeliveryConfigurationRef as _ILogDeliveryConfigurationRef_0c0b6844,
-    IManagedLoginBrandingRef as _IManagedLoginBrandingRef_2fdc5419,
-    ITermsRef as _ITermsRef_3aea4e86,
-    IUserPoolClientRef as _IUserPoolClientRef_4466eeba,
-    IUserPoolDomainRef as _IUserPoolDomainRef_2fa54b0c,
-    IUserPoolGroupRef as _IUserPoolGroupRef_89b16d48,
-    IUserPoolIdentityProviderRef as _IUserPoolIdentityProviderRef_935eed62,
-    IUserPoolRef as _IUserPoolRef_0b7d02b5,
-    IUserPoolResourceServerRef as _IUserPoolResourceServerRef_fda874c5,
-    IUserPoolRiskConfigurationAttachmentRef as _IUserPoolRiskConfigurationAttachmentRef_b5390b06,
-    IUserPoolUICustomizationAttachmentRef as _IUserPoolUICustomizationAttachmentRef_855e6497,
-    IUserPoolUserRef as _IUserPoolUserRef_cbf1b211,
-    IUserPoolUserToGroupAttachmentRef as _IUserPoolUserToGroupAttachmentRef_04a5a41e,
-    IdentityPoolPrincipalTagReference as _IdentityPoolPrincipalTagReference_aaa53261,
-    IdentityPoolReference as _IdentityPoolReference_3ad34644,
-    IdentityPoolRoleAttachmentReference as _IdentityPoolRoleAttachmentReference_d6aa4828,
-    LogDeliveryConfigurationReference as _LogDeliveryConfigurationReference_3ea56b01,
-    ManagedLoginBrandingReference as _ManagedLoginBrandingReference_f305ff72,
-    TermsReference as _TermsReference_01199e92,
-    UserPoolClientReference as _UserPoolClientReference_2e04ee48,
-    UserPoolDomainReference as _UserPoolDomainReference_8e0aecda,
-    UserPoolGroupReference as _UserPoolGroupReference_5e435fdd,
-    UserPoolIdentityProviderReference as _UserPoolIdentityProviderReference_a5d59f88,
-    UserPoolReference as _UserPoolReference_0ef20aae,
-    UserPoolResourceServerReference as _UserPoolResourceServerReference_5b196bf5,
-    UserPoolRiskConfigurationAttachmentReference as _UserPoolRiskConfigurationAttachmentReference_815104e9,
-    UserPoolUICustomizationAttachmentReference as _UserPoolUICustomizationAttachmentReference_2c1e7860,
-    UserPoolUserReference as _UserPoolUserReference_b50e0a97,
-    UserPoolUserToGroupAttachmentReference as _UserPoolUserToGroupAttachmentReference_fa1a0479,
-)
-from ..interfaces.aws_iam import (
-    IOIDCProviderRef as _IOIDCProviderRef_a866c7c8, IRoleRef as _IRoleRef_8400221f
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.aws_pinpoint as _aws_pinpoint_9e5a1ec8
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
+    import aws_cdk.interfaces.aws_cognito as _aws_cognito_aa210b15
+    import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
+    _aws_cognito_aa210b15 = _LazyImport("aws_cdk.interfaces.aws_cognito")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_iam_632e20f6 = _LazyImport("aws_cdk.interfaces.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_pinpoint_9e5a1ec8 = _LazyImport("aws_cdk.aws_pinpoint")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cognito.AccountRecovery")
@@ -1479,7 +1439,7 @@ class AllowedFirstAuthFactors:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a30a69cc954e920b5bb7f1163c7b6bd8507e3477eca92e83467d77025b4258f)
+            type_hints = cached_type_hints(_typecheckingstub__8a30a69cc954e920b5bb7f1163c7b6bd8507e3477eca92e83467d77025b4258f)
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
             check_type(argname="argument email_otp", value=email_otp, expected_type=type_hints["email_otp"])
             check_type(argname="argument passkey", value=passkey, expected_type=type_hints["passkey"])
@@ -1558,10 +1518,10 @@ class AnalyticsConfiguration:
     def __init__(
         self,
         *,
-        application: typing.Optional["_CfnApp_e8bac60b"] = None,
+        application: typing.Optional["_aws_pinpoint_9e5a1ec8.CfnApp"] = None,
         application_id: typing.Optional[builtins.str] = None,
         external_id: typing.Optional[builtins.str] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
         share_user_data: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''The settings for Amazon Pinpoint analytics configuration.
@@ -1599,7 +1559,7 @@ class AnalyticsConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f67277ee392b3c256b3bd87e4afcb7bb83df8d226097757f9c92610348c4456b)
+            type_hints = cached_type_hints(_typecheckingstub__f67277ee392b3c256b3bd87e4afcb7bb83df8d226097757f9c92610348c4456b)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
             check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
@@ -1618,7 +1578,7 @@ class AnalyticsConfiguration:
             self._values["share_user_data"] = share_user_data
 
     @builtins.property
-    def application(self) -> typing.Optional["_CfnApp_e8bac60b"]:
+    def application(self) -> typing.Optional["_aws_pinpoint_9e5a1ec8.CfnApp"]:
         '''The Amazon Pinpoint project that you want to connect to your user pool app client.
 
         Amazon Cognito publishes events to the Amazon Pinpoint project.
@@ -1628,7 +1588,7 @@ class AnalyticsConfiguration:
         :default: - no configuration, you need to specify either ``application`` or all of ``applicationId``, ``externalId``, and ``role``.
         '''
         result = self._values.get("application")
-        return typing.cast(typing.Optional["_CfnApp_e8bac60b"], result)
+        return typing.cast(typing.Optional["_aws_pinpoint_9e5a1ec8.CfnApp"], result)
 
     @builtins.property
     def application_id(self) -> typing.Optional[builtins.str]:
@@ -1651,13 +1611,13 @@ class AnalyticsConfiguration:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The IAM role that has the permissions required for Amazon Cognito to publish events to Amazon Pinpoint analytics.
 
         :default: - no configuration, you need to specify either this property along with ``applicationId`` and ``externalId`` or ``application``.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def share_user_data(self) -> typing.Optional[builtins.bool]:
@@ -1772,7 +1732,7 @@ class AttributeMapping:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1994c9f3057f350dfde37c21bef42d2ad1a87ae2900a0e48fd7c2506ddbeca5d)
+            type_hints = cached_type_hints(_typecheckingstub__1994c9f3057f350dfde37c21bef42d2ad1a87ae2900a0e48fd7c2506ddbeca5d)
             check_type(argname="argument address", value=address, expected_type=type_hints["address"])
             check_type(argname="argument birthdate", value=birthdate, expected_type=type_hints["birthdate"])
             check_type(argname="argument custom", value=custom, expected_type=type_hints["custom"])
@@ -2068,7 +2028,7 @@ class AuthFlow:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dd38e6e4617deee919f37d20a9ae635331043b4cf42c8d31fdbb0d3c29baeda)
+            type_hints = cached_type_hints(_typecheckingstub__3dd38e6e4617deee919f37d20a9ae635331043b4cf42c8d31fdbb0d3c29baeda)
             check_type(argname="argument admin_user_password", value=admin_user_password, expected_type=type_hints["admin_user_password"])
             check_type(argname="argument custom", value=custom, expected_type=type_hints["custom"])
             check_type(argname="argument user", value=user, expected_type=type_hints["user"])
@@ -2172,7 +2132,7 @@ class AutoVerifiedAttrs:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7fb7225ae10a05ff7664a35abd96c1ef10430ed4dad8308ba28708c6ad65bf5)
+            type_hints = cached_type_hints(_typecheckingstub__d7fb7225ae10a05ff7664a35abd96c1ef10430ed4dad8308ba28708c6ad65bf5)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2238,7 +2198,7 @@ class BaseUrlOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__108bae0fda2d22e93d38a433ec7ec439788ef3214362d7282ce6bfca76e72635)
+            type_hints = cached_type_hints(_typecheckingstub__108bae0fda2d22e93d38a433ec7ec439788ef3214362d7282ce6bfca76e72635)
             check_type(argname="argument fips", value=fips, expected_type=type_hints["fips"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if fips is not None:
@@ -2265,9 +2225,9 @@ class BaseUrlOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIdentityPoolRef_5cf45895, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IIdentityPoolRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnIdentityPool(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPool",
 ):
@@ -2297,16 +2257,16 @@ class CfnIdentityPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        allow_unauthenticated_identities: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        allow_classic_flow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_unauthenticated_identities: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        allow_classic_flow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cognito_events: typing.Any = None,
-        cognito_identity_providers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.CognitoIdentityProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cognito_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.CognitoStreamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_identity_providers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.CognitoIdentityProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cognito_streams: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.CognitoStreamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         developer_provider_name: typing.Optional[builtins.str] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
-        identity_pool_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IOIDCProviderRef_a866c7c8"]]] = None,
-        push_sync: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.PushSyncProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_pool_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IOIDCProviderRef"]]] = None,
+        push_sync: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.PushSyncProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         saml_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         supported_login_providers: typing.Any = None,
     ) -> None:
@@ -2328,7 +2288,7 @@ class CfnIdentityPool(
         :param supported_login_providers: Key-value pairs that map provider names to provider app IDs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5156c08d9bb3b0ceca6f4ec485d84f9775d7be40128a6614e1b9cbf098f4c86)
+            type_hints = cached_type_hints(_typecheckingstub__d5156c08d9bb3b0ceca6f4ec485d84f9775d7be40128a6614e1b9cbf098f4c86)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIdentityPoolProps(
@@ -2352,13 +2312,13 @@ class CfnIdentityPool(
     @builtins.classmethod
     def arn_for_identity_pool(
         cls,
-        resource: "_IIdentityPoolRef_5cf45895",
+        resource: "_aws_cognito_aa210b15.IIdentityPoolRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__912ed8f8aad117802c963bedb0856e57b3d9c2ac50b13a8663c7bf0fe865cc8f)
+            type_hints = cached_type_hints(_typecheckingstub__912ed8f8aad117802c963bedb0856e57b3d9c2ac50b13a8663c7bf0fe865cc8f)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIdentityPool", [resource]))
 
@@ -2369,7 +2329,7 @@ class CfnIdentityPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         identity_pool_id: builtins.str,
-    ) -> "_IIdentityPoolRef_5cf45895":
+    ) -> "_aws_cognito_aa210b15.IIdentityPoolRef":
         '''Creates a new IIdentityPoolRef from a identityPoolId.
 
         :param scope: -
@@ -2377,11 +2337,11 @@ class CfnIdentityPool(
         :param identity_pool_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23c766eb59af70f92541dfd9c9cae67b99255f21efd59868b8feff44354f4e77)
+            type_hints = cached_type_hints(_typecheckingstub__23c766eb59af70f92541dfd9c9cae67b99255f21efd59868b8feff44354f4e77)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
-        return typing.cast("_IIdentityPoolRef_5cf45895", jsii.sinvoke(cls, "fromIdentityPoolId", [scope, id, identity_pool_id]))
+        return typing.cast("_aws_cognito_aa210b15.IIdentityPoolRef", jsii.sinvoke(cls, "fromIdentityPoolId", [scope, id, identity_pool_id]))
 
     @jsii.member(jsii_name="isCfnIdentityPool")
     @builtins.classmethod
@@ -2391,18 +2351,18 @@ class CfnIdentityPool(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68da4104ea1f9e9a96f5dcd02ee6186d7a10a8592672d26f6469f863b8ba3c2b)
+            type_hints = cached_type_hints(_typecheckingstub__68da4104ea1f9e9a96f5dcd02ee6186d7a10a8592672d26f6469f863b8ba3c2b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdentityPool", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0046422699f4c95c1d9df0a173b8caf8590dc3fcb3ada38e03f96cba1a359bc)
+            type_hints = cached_type_hints(_typecheckingstub__d0046422699f4c95c1d9df0a173b8caf8590dc3fcb3ada38e03f96cba1a359bc)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2415,7 +2375,7 @@ class CfnIdentityPool(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3d9795be15a85f1c5807d837aa5f58acf557934826ab8cafaa6e80c3d04eeb1)
+            type_hints = cached_type_hints(_typecheckingstub__a3d9795be15a85f1c5807d837aa5f58acf557934826ab8cafaa6e80c3d04eeb1)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2444,9 +2404,9 @@ class CfnIdentityPool(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2460,25 +2420,25 @@ class CfnIdentityPool(
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolRef")
-    def identity_pool_ref(self) -> "_IdentityPoolReference_3ad34644":
+    def identity_pool_ref(self) -> "_aws_cognito_aa210b15.IdentityPoolReference":
         '''A reference to a IdentityPool resource.'''
-        return typing.cast("_IdentityPoolReference_3ad34644", jsii.get(self, "identityPoolRef"))
+        return typing.cast("_aws_cognito_aa210b15.IdentityPoolReference", jsii.get(self, "identityPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="allowUnauthenticatedIdentities")
     def allow_unauthenticated_identities(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Specifies whether the identity pool supports unauthenticated logins.'''
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "allowUnauthenticatedIdentities"))
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], jsii.get(self, "allowUnauthenticatedIdentities"))
 
     @allow_unauthenticated_identities.setter
     def allow_unauthenticated_identities(
         self,
-        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        value: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db6ea31d27c717c9763b6408e0f3923cd9b6dc2e5d79b1a66ce864122450159f)
+            type_hints = cached_type_hints(_typecheckingstub__db6ea31d27c717c9763b6408e0f3923cd9b6dc2e5d79b1a66ce864122450159f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowUnauthenticatedIdentities", value) # pyright: ignore[reportArgumentType]
 
@@ -2491,7 +2451,7 @@ class CfnIdentityPool(
     @cognito_events.setter
     def cognito_events(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de)
+            type_hints = cached_type_hints(_typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cognitoEvents", value) # pyright: ignore[reportArgumentType]
 
@@ -2504,7 +2464,7 @@ class CfnIdentityPool(
     @supported_login_providers.setter
     def supported_login_providers(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a)
+            type_hints = cached_type_hints(_typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "supportedLoginProviders", value) # pyright: ignore[reportArgumentType]
 
@@ -2512,17 +2472,17 @@ class CfnIdentityPool(
     @jsii.member(jsii_name="allowClassicFlow")
     def allow_classic_flow(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables the Basic (Classic) authentication flow.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowClassicFlow"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowClassicFlow"))
 
     @allow_classic_flow.setter
     def allow_classic_flow(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606)
+            type_hints = cached_type_hints(_typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowClassicFlow", value) # pyright: ignore[reportArgumentType]
 
@@ -2530,17 +2490,17 @@ class CfnIdentityPool(
     @jsii.member(jsii_name="cognitoIdentityProviders")
     def cognito_identity_providers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]]:
         '''The Amazon Cognito user pools and their client IDs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]], jsii.get(self, "cognitoIdentityProviders"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]], jsii.get(self, "cognitoIdentityProviders"))
 
     @cognito_identity_providers.setter
     def cognito_identity_providers(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb45d26060f7e1f74033e6a37741666fb843374b7a2b735483dea6f9b824230)
+            type_hints = cached_type_hints(_typecheckingstub__fbb45d26060f7e1f74033e6a37741666fb843374b7a2b735483dea6f9b824230)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cognitoIdentityProviders", value) # pyright: ignore[reportArgumentType]
 
@@ -2548,17 +2508,17 @@ class CfnIdentityPool(
     @jsii.member(jsii_name="cognitoStreams")
     def cognito_streams(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoStreamsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoStreamsProperty"]]:
         '''Configuration options for configuring Amazon Cognito streams.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoStreamsProperty"]], jsii.get(self, "cognitoStreams"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoStreamsProperty"]], jsii.get(self, "cognitoStreams"))
 
     @cognito_streams.setter
     def cognito_streams(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoStreamsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoStreamsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__502164af12ab71961d7f4f2e11817973d435bc4577d049f15a4cf62796079879)
+            type_hints = cached_type_hints(_typecheckingstub__502164af12ab71961d7f4f2e11817973d435bc4577d049f15a4cf62796079879)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cognitoStreams", value) # pyright: ignore[reportArgumentType]
 
@@ -2571,7 +2531,7 @@ class CfnIdentityPool(
     @developer_provider_name.setter
     def developer_provider_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2b5f037f02889c2a585909dfa772a6165c4470d0984cfa622e1374ed7852936)
+            type_hints = cached_type_hints(_typecheckingstub__f2b5f037f02889c2a585909dfa772a6165c4470d0984cfa622e1374ed7852936)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "developerProviderName", value) # pyright: ignore[reportArgumentType]
 
@@ -2584,23 +2544,25 @@ class CfnIdentityPool(
     @identity_pool_name.setter
     def identity_pool_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6010d0ddbf0b577c8e7ea0796913ba4085881df0b32cec744c271c99300165af)
+            type_hints = cached_type_hints(_typecheckingstub__6010d0ddbf0b577c8e7ea0796913ba4085881df0b32cec744c271c99300165af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityPoolName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolTags")
-    def identity_pool_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def identity_pool_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the identity pool.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "identityPoolTags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "identityPoolTags"))
 
     @identity_pool_tags.setter
     def identity_pool_tags(
         self,
-        value: typing.Optional[typing.List["_CfnTag_f6864754"]],
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__caf91efc577806bf48a176729ecabaf6b30c2d71ecfff869256e7500e4dcb9bc)
+            type_hints = cached_type_hints(_typecheckingstub__caf91efc577806bf48a176729ecabaf6b30c2d71ecfff869256e7500e4dcb9bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityPoolTags", value) # pyright: ignore[reportArgumentType]
 
@@ -2618,7 +2580,7 @@ class CfnIdentityPool(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61d80fcbd99af6003aec5d0b96e0ec9abdb3d4f6e2f44f67bdd2e746351a3517)
+            type_hints = cached_type_hints(_typecheckingstub__61d80fcbd99af6003aec5d0b96e0ec9abdb3d4f6e2f44f67bdd2e746351a3517)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "openIdConnectProviderArns", value) # pyright: ignore[reportArgumentType]
 
@@ -2626,17 +2588,17 @@ class CfnIdentityPool(
     @jsii.member(jsii_name="pushSync")
     def push_sync(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.PushSyncProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.PushSyncProperty"]]:
         '''The configuration options to be applied to the identity pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.PushSyncProperty"]], jsii.get(self, "pushSync"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.PushSyncProperty"]], jsii.get(self, "pushSync"))
 
     @push_sync.setter
     def push_sync(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.PushSyncProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.PushSyncProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37451572b0d939f18081b9fd4743a223e16c702244d56835c0e577ed22f85c70)
+            type_hints = cached_type_hints(_typecheckingstub__37451572b0d939f18081b9fd4743a223e16c702244d56835c0e577ed22f85c70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pushSync", value) # pyright: ignore[reportArgumentType]
 
@@ -2652,7 +2614,7 @@ class CfnIdentityPool(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2aad48eb5d6c1e553867325f44b35ef0b577c7971cf240ed4b646c07303a760)
+            type_hints = cached_type_hints(_typecheckingstub__d2aad48eb5d6c1e553867325f44b35ef0b577c7971cf240ed4b646c07303a760)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "samlProviderArns", value) # pyright: ignore[reportArgumentType]
 
@@ -2671,7 +2633,7 @@ class CfnIdentityPool(
             *,
             client_id: builtins.str,
             provider_name: builtins.str,
-            server_side_token_check: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            server_side_token_check: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''``CognitoIdentityProvider`` is a property of the `AWS::Cognito::IdentityPool <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html>`_ resource that represents an Amazon Cognito user pool and its client ID.
 
@@ -2697,7 +2659,7 @@ class CfnIdentityPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__98390431af098ce09b1be6f97cb9f1634533afc529f7b7abc1b708017f1c008a)
+                type_hints = cached_type_hints(_typecheckingstub__98390431af098ce09b1be6f97cb9f1634533afc529f7b7abc1b708017f1c008a)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
                 check_type(argname="argument server_side_token_check", value=server_side_token_check, expected_type=type_hints["server_side_token_check"])
@@ -2733,7 +2695,7 @@ class CfnIdentityPool(
         @builtins.property
         def server_side_token_check(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''TRUE if server-side token validation is enabled for the identity provider’s token.
 
             After you set the ``ServerSideTokenCheck`` to TRUE for an identity pool, that identity pool checks with the integrated user pools to make sure the user has not been globally signed out or deleted before the identity pool provides an OIDC token or AWS credentials for the user.
@@ -2743,7 +2705,7 @@ class CfnIdentityPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-identitypool-cognitoidentityprovider.html#cfn-cognito-identitypool-cognitoidentityprovider-serversidetokencheck
             '''
             result = self._values.get("server_side_token_check")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2795,7 +2757,7 @@ class CfnIdentityPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cad9ed028ee87a8ede4635fd244b918bed85d1ccf15c83ee6642fb1dc2245b13)
+                type_hints = cached_type_hints(_typecheckingstub__cad9ed028ee87a8ede4635fd244b918bed85d1ccf15c83ee6642fb1dc2245b13)
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument streaming_status", value=streaming_status, expected_type=type_hints["streaming_status"])
                 check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
@@ -2883,7 +2845,7 @@ class CfnIdentityPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__539d8a92287340332dc17b7e75525701018eb45d5761572dde506535aa5b92d8)
+                type_hints = cached_type_hints(_typecheckingstub__539d8a92287340332dc17b7e75525701018eb45d5761572dde506535aa5b92d8)
                 check_type(argname="argument application_arns", value=application_arns, expected_type=type_hints["application_arns"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2922,9 +2884,9 @@ class CfnIdentityPool(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIdentityPoolPrincipalTagRef_9e692705)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IIdentityPoolPrincipalTagRef)
 class CfnIdentityPoolPrincipalTag(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPoolPrincipalTag",
 ):
@@ -2960,7 +2922,7 @@ class CfnIdentityPoolPrincipalTag(
         identity_pool_id: builtins.str,
         identity_provider_name: builtins.str,
         principal_tags: typing.Any = None,
-        use_defaults: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_defaults: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::IdentityPoolPrincipalTag``.
 
@@ -2972,7 +2934,7 @@ class CfnIdentityPoolPrincipalTag(
         :param use_defaults: Use a default set of mappings between claims and tags for this provider, instead of a custom map.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__036c02730249ce227e84b1b6d6f563004dc63ae9f5f1d1b135ebaf7125703598)
+            type_hints = cached_type_hints(_typecheckingstub__036c02730249ce227e84b1b6d6f563004dc63ae9f5f1d1b135ebaf7125703598)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIdentityPoolPrincipalTagProps(
@@ -2992,18 +2954,18 @@ class CfnIdentityPoolPrincipalTag(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67b708619f8f6ec0745020da0546b3736efc89425bacb15a6f6618febf25d80b)
+            type_hints = cached_type_hints(_typecheckingstub__67b708619f8f6ec0745020da0546b3736efc89425bacb15a6f6618febf25d80b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdentityPoolPrincipalTag", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3f48484f4649e6d58d093801018075e48fd42dcf857d13ad24a164c0f41e989)
+            type_hints = cached_type_hints(_typecheckingstub__f3f48484f4649e6d58d093801018075e48fd42dcf857d13ad24a164c0f41e989)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3016,7 +2978,7 @@ class CfnIdentityPoolPrincipalTag(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e7f66a11cbbdc2a9e0dfc148a09d585162367190407d6814791c05805193623)
+            type_hints = cached_type_hints(_typecheckingstub__6e7f66a11cbbdc2a9e0dfc148a09d585162367190407d6814791c05805193623)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3040,9 +3002,9 @@ class CfnIdentityPoolPrincipalTag(
     @jsii.member(jsii_name="identityPoolPrincipalTagRef")
     def identity_pool_principal_tag_ref(
         self,
-    ) -> "_IdentityPoolPrincipalTagReference_aaa53261":
+    ) -> "_aws_cognito_aa210b15.IdentityPoolPrincipalTagReference":
         '''A reference to a IdentityPoolPrincipalTag resource.'''
-        return typing.cast("_IdentityPoolPrincipalTagReference_aaa53261", jsii.get(self, "identityPoolPrincipalTagRef"))
+        return typing.cast("_aws_cognito_aa210b15.IdentityPoolPrincipalTagReference", jsii.get(self, "identityPoolPrincipalTagRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolId")
@@ -3053,7 +3015,7 @@ class CfnIdentityPoolPrincipalTag(
     @identity_pool_id.setter
     def identity_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18add40294e453336d39c4b2518445fd0e172f25c23bd78b598609632a714548)
+            type_hints = cached_type_hints(_typecheckingstub__18add40294e453336d39c4b2518445fd0e172f25c23bd78b598609632a714548)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -3066,7 +3028,7 @@ class CfnIdentityPoolPrincipalTag(
     @identity_provider_name.setter
     def identity_provider_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__671325bd1b5eb381434a0ced3b0ca5b3646c379113e1014679b7ebacca38cc3e)
+            type_hints = cached_type_hints(_typecheckingstub__671325bd1b5eb381434a0ced3b0ca5b3646c379113e1014679b7ebacca38cc3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityProviderName", value) # pyright: ignore[reportArgumentType]
 
@@ -3079,7 +3041,7 @@ class CfnIdentityPoolPrincipalTag(
     @principal_tags.setter
     def principal_tags(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__941cd9f870d419478e147197cb0134b687f7c233a8bc805887d04a761669aefc)
+            type_hints = cached_type_hints(_typecheckingstub__941cd9f870d419478e147197cb0134b687f7c233a8bc805887d04a761669aefc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principalTags", value) # pyright: ignore[reportArgumentType]
 
@@ -3087,17 +3049,17 @@ class CfnIdentityPoolPrincipalTag(
     @jsii.member(jsii_name="useDefaults")
     def use_defaults(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Use a default set of mappings between claims and tags for this provider, instead of a custom map.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useDefaults"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "useDefaults"))
 
     @use_defaults.setter
     def use_defaults(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__615ac6e1fae0725987511e0b22108f8d03202321eadeee202779d4e5248fd19a)
+            type_hints = cached_type_hints(_typecheckingstub__615ac6e1fae0725987511e0b22108f8d03202321eadeee202779d4e5248fd19a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "useDefaults", value) # pyright: ignore[reportArgumentType]
 
@@ -3119,7 +3081,7 @@ class CfnIdentityPoolPrincipalTagProps:
         identity_pool_id: builtins.str,
         identity_provider_name: builtins.str,
         principal_tags: typing.Any = None,
-        use_defaults: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_defaults: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIdentityPoolPrincipalTag``.
 
@@ -3149,7 +3111,7 @@ class CfnIdentityPoolPrincipalTagProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d001e3233492e51cba8dc8c26ce2203a307bedc54524056815ba7fa51d7fa93)
+            type_hints = cached_type_hints(_typecheckingstub__4d001e3233492e51cba8dc8c26ce2203a307bedc54524056815ba7fa51d7fa93)
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
             check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
             check_type(argname="argument principal_tags", value=principal_tags, expected_type=type_hints["principal_tags"])
@@ -3197,13 +3159,13 @@ class CfnIdentityPoolPrincipalTagProps:
     @builtins.property
     def use_defaults(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Use a default set of mappings between claims and tags for this provider, instead of a custom map.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypoolprincipaltag.html#cfn-cognito-identitypoolprincipaltag-usedefaults
         '''
         result = self._values.get("use_defaults")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3239,16 +3201,16 @@ class CfnIdentityPoolProps:
     def __init__(
         self,
         *,
-        allow_unauthenticated_identities: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
-        allow_classic_flow: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allow_unauthenticated_identities: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        allow_classic_flow: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         cognito_events: typing.Any = None,
-        cognito_identity_providers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.CognitoIdentityProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        cognito_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.CognitoStreamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cognito_identity_providers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.CognitoIdentityProviderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cognito_streams: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.CognitoStreamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         developer_provider_name: typing.Optional[builtins.str] = None,
         identity_pool_name: typing.Optional[builtins.str] = None,
-        identity_pool_tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IOIDCProviderRef_a866c7c8"]]] = None,
-        push_sync: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPool.PushSyncProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        identity_pool_tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_iam_632e20f6.IOIDCProviderRef"]]] = None,
+        push_sync: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPool.PushSyncProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         saml_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         supported_login_providers: typing.Any = None,
     ) -> None:
@@ -3283,7 +3245,7 @@ class CfnIdentityPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f190bc45ca19526ebd4b37441370bac2bb0babaadb5489ad9375252a5441596)
+            type_hints = cached_type_hints(_typecheckingstub__3f190bc45ca19526ebd4b37441370bac2bb0babaadb5489ad9375252a5441596)
             check_type(argname="argument allow_unauthenticated_identities", value=allow_unauthenticated_identities, expected_type=type_hints["allow_unauthenticated_identities"])
             check_type(argname="argument allow_classic_flow", value=allow_classic_flow, expected_type=type_hints["allow_classic_flow"])
             check_type(argname="argument cognito_events", value=cognito_events, expected_type=type_hints["cognito_events"])
@@ -3325,25 +3287,25 @@ class CfnIdentityPoolProps:
     @builtins.property
     def allow_unauthenticated_identities(
         self,
-    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+    ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
         '''Specifies whether the identity pool supports unauthenticated logins.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-allowunauthenticatedidentities
         '''
         result = self._values.get("allow_unauthenticated_identities")
         assert result is not None, "Required property 'allow_unauthenticated_identities' is missing"
-        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+        return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
     @builtins.property
     def allow_classic_flow(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Enables the Basic (Classic) authentication flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-allowclassicflow
         '''
         result = self._values.get("allow_classic_flow")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def cognito_events(self) -> typing.Any:
@@ -3357,24 +3319,24 @@ class CfnIdentityPoolProps:
     @builtins.property
     def cognito_identity_providers(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]]:
         '''The Amazon Cognito user pools and their client IDs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-cognitoidentityproviders
         '''
         result = self._values.get("cognito_identity_providers")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoIdentityProviderProperty"]]]], result)
 
     @builtins.property
     def cognito_streams(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoStreamsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoStreamsProperty"]]:
         '''Configuration options for configuring Amazon Cognito streams.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-cognitostreams
         '''
         result = self._values.get("cognito_streams")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.CognitoStreamsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.CognitoStreamsProperty"]], result)
 
     @builtins.property
     def developer_provider_name(self) -> typing.Optional[builtins.str]:
@@ -3407,7 +3369,9 @@ class CfnIdentityPoolProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def identity_pool_tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def identity_pool_tags(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags to assign to the identity pool.
 
         A tag is a label that you can apply to identity pools to categorize and manage them in different ways, such as by purpose, owner, environment, or other criteria.
@@ -3415,29 +3379,29 @@ class CfnIdentityPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-identitypooltags
         '''
         result = self._values.get("identity_pool_tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def open_id_connect_provider_arns(
         self,
-    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IOIDCProviderRef_a866c7c8"]]]:
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IOIDCProviderRef"]]]:
         '''The Amazon Resource Names (ARNs) of the OpenID connect providers.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-openidconnectproviderarns
         '''
         result = self._values.get("open_id_connect_provider_arns")
-        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IOIDCProviderRef_a866c7c8"]]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_aws_iam_632e20f6.IOIDCProviderRef"]]], result)
 
     @builtins.property
     def push_sync(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.PushSyncProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.PushSyncProperty"]]:
         '''The configuration options to be applied to the identity pool.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html#cfn-cognito-identitypool-pushsync
         '''
         result = self._values.get("push_sync")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPool.PushSyncProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPool.PushSyncProperty"]], result)
 
     @builtins.property
     def saml_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3469,9 +3433,9 @@ class CfnIdentityPoolProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIdentityPoolRoleAttachmentRef_2e8a15ee)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IIdentityPoolRoleAttachmentRef)
 class CfnIdentityPoolRoleAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPoolRoleAttachment",
 ):
@@ -3519,8 +3483,8 @@ class CfnIdentityPoolRoleAttachment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        identity_pool_id: typing.Union[builtins.str, "_IIdentityPoolRef_5cf45895"],
-        role_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPoolRoleAttachment.RoleMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        identity_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IIdentityPoolRef"],
+        role_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPoolRoleAttachment.RoleMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         roles: typing.Any = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::IdentityPoolRoleAttachment``.
@@ -3532,7 +3496,7 @@ class CfnIdentityPoolRoleAttachment(
         :param roles: The map of the roles associated with this pool. For a given role, the key is either "authenticated" or "unauthenticated". The value is the role ARN.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0686a984bb6b75dbf3aca8c723d268e911604e9a4aafa6bc4c2a74b934449b5)
+            type_hints = cached_type_hints(_typecheckingstub__e0686a984bb6b75dbf3aca8c723d268e911604e9a4aafa6bc4c2a74b934449b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIdentityPoolRoleAttachmentProps(
@@ -3549,18 +3513,18 @@ class CfnIdentityPoolRoleAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e655015c3929a5adf06cfc02236b3d0ea55668ba307b402d58ae344e257abb1)
+            type_hints = cached_type_hints(_typecheckingstub__9e655015c3929a5adf06cfc02236b3d0ea55668ba307b402d58ae344e257abb1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIdentityPoolRoleAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__031bc41cc76f616fd91865be2d561b3fb548a456a85a4fa0fa4bb0e5a7d9b565)
+            type_hints = cached_type_hints(_typecheckingstub__031bc41cc76f616fd91865be2d561b3fb548a456a85a4fa0fa4bb0e5a7d9b565)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3573,7 +3537,7 @@ class CfnIdentityPoolRoleAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f9cad81f550438d748031d5745c6929d3a81e6a11179973b40195624704b706)
+            type_hints = cached_type_hints(_typecheckingstub__0f9cad81f550438d748031d5745c6929d3a81e6a11179973b40195624704b706)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3606,9 +3570,9 @@ class CfnIdentityPoolRoleAttachment(
     @jsii.member(jsii_name="identityPoolRoleAttachmentRef")
     def identity_pool_role_attachment_ref(
         self,
-    ) -> "_IdentityPoolRoleAttachmentReference_d6aa4828":
+    ) -> "_aws_cognito_aa210b15.IdentityPoolRoleAttachmentReference":
         '''A reference to a IdentityPoolRoleAttachment resource.'''
-        return typing.cast("_IdentityPoolRoleAttachmentReference_d6aa4828", jsii.get(self, "identityPoolRoleAttachmentRef"))
+        return typing.cast("_aws_cognito_aa210b15.IdentityPoolRoleAttachmentReference", jsii.get(self, "identityPoolRoleAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolId")
@@ -3619,7 +3583,7 @@ class CfnIdentityPoolRoleAttachment(
     @identity_pool_id.setter
     def identity_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c00bf0f77c984f55d1c0f4d659a057ac347b7a1e253f7f07e04e7cb5836f96be)
+            type_hints = cached_type_hints(_typecheckingstub__c00bf0f77c984f55d1c0f4d659a057ac347b7a1e253f7f07e04e7cb5836f96be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identityPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -3632,7 +3596,7 @@ class CfnIdentityPoolRoleAttachment(
     @roles.setter
     def roles(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c)
+            type_hints = cached_type_hints(_typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
 
@@ -3640,17 +3604,17 @@ class CfnIdentityPoolRoleAttachment(
     @jsii.member(jsii_name="roleMappings")
     def role_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]]:
         '''How users for a specific identity provider are mapped to roles.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]], jsii.get(self, "roleMappings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]], jsii.get(self, "roleMappings"))
 
     @role_mappings.setter
     def role_mappings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091)
+            type_hints = cached_type_hints(_typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleMappings", value) # pyright: ignore[reportArgumentType]
 
@@ -3697,7 +3661,7 @@ class CfnIdentityPoolRoleAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a2e874c3b25f3cabfefd5a244c8efe26a7d11d7166f90c0e58b82360db3936be)
+                type_hints = cached_type_hints(_typecheckingstub__a2e874c3b25f3cabfefd5a244c8efe26a7d11d7166f90c0e58b82360db3936be)
                 check_type(argname="argument claim", value=claim, expected_type=type_hints["claim"])
                 check_type(argname="argument match_type", value=match_type, expected_type=type_hints["match_type"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
@@ -3783,7 +3747,7 @@ class CfnIdentityPoolRoleAttachment(
             type: builtins.str,
             ambiguous_role_resolution: typing.Optional[builtins.str] = None,
             identity_provider: typing.Optional[builtins.str] = None,
-            rules_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rules_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''One of a set of ``RoleMappings`` , a property of the `AWS::Cognito::IdentityPoolRoleAttachment <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypoolroleattachment.html>`_ resource that defines the role-mapping attributes of an Amazon Cognito identity pool.
 
@@ -3818,7 +3782,7 @@ class CfnIdentityPoolRoleAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5a272c28ab03d1edcc86eddc7b9aa71f25398c059d8be5f7af4ea057dabe7082)
+                type_hints = cached_type_hints(_typecheckingstub__5a272c28ab03d1edcc86eddc7b9aa71f25398c059d8be5f7af4ea057dabe7082)
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument ambiguous_role_resolution", value=ambiguous_role_resolution, expected_type=type_hints["ambiguous_role_resolution"])
                 check_type(argname="argument identity_provider", value=identity_provider, expected_type=type_hints["identity_provider"])
@@ -3872,7 +3836,7 @@ class CfnIdentityPoolRoleAttachment(
         @builtins.property
         def rules_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty"]]:
             '''The rules to be used for mapping users to roles.
 
             If you specify "Rules" as the role-mapping type, RulesConfiguration is required.
@@ -3880,7 +3844,7 @@ class CfnIdentityPoolRoleAttachment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-identitypoolroleattachment-rolemapping.html#cfn-cognito-identitypoolroleattachment-rolemapping-rulesconfiguration
             '''
             result = self._values.get("rules_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3902,7 +3866,7 @@ class CfnIdentityPoolRoleAttachment(
         def __init__(
             self,
             *,
-            rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPoolRoleAttachment.MappingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            rules: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPoolRoleAttachment.MappingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''``RulesConfigurationType`` is a subproperty of the `RoleMapping <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-identitypoolroleattachment-rolemapping.html>`_ property that defines the rules to be used for mapping users to roles.
 
@@ -3927,7 +3891,7 @@ class CfnIdentityPoolRoleAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ee34c709dd9513ee04193cc48ac24cd57fca8873fec78fe528978c6e1d719347)
+                type_hints = cached_type_hints(_typecheckingstub__ee34c709dd9513ee04193cc48ac24cd57fca8873fec78fe528978c6e1d719347)
                 check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "rules": rules,
@@ -3936,7 +3900,7 @@ class CfnIdentityPoolRoleAttachment(
         @builtins.property
         def rules(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.MappingRuleProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.MappingRuleProperty"]]]:
             '''The rules.
 
             You can specify up to 25 rules per identity provider.
@@ -3945,7 +3909,7 @@ class CfnIdentityPoolRoleAttachment(
             '''
             result = self._values.get("rules")
             assert result is not None, "Required property 'rules' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.MappingRuleProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.MappingRuleProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3972,8 +3936,8 @@ class CfnIdentityPoolRoleAttachmentProps:
     def __init__(
         self,
         *,
-        identity_pool_id: typing.Union[builtins.str, "_IIdentityPoolRef_5cf45895"],
-        role_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnIdentityPoolRoleAttachment.RoleMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        identity_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IIdentityPoolRef"],
+        role_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIdentityPoolRoleAttachment.RoleMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         roles: typing.Any = None,
     ) -> None:
         '''Properties for defining a ``CfnIdentityPoolRoleAttachment``.
@@ -4018,7 +3982,7 @@ class CfnIdentityPoolRoleAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7531b732f0c0a047085fd9c4031282884fde57038e57a1ebd6d247d39ccd050b)
+            type_hints = cached_type_hints(_typecheckingstub__7531b732f0c0a047085fd9c4031282884fde57038e57a1ebd6d247d39ccd050b)
             check_type(argname="argument identity_pool_id", value=identity_pool_id, expected_type=type_hints["identity_pool_id"])
             check_type(argname="argument role_mappings", value=role_mappings, expected_type=type_hints["role_mappings"])
             check_type(argname="argument roles", value=roles, expected_type=type_hints["roles"])
@@ -4033,19 +3997,19 @@ class CfnIdentityPoolRoleAttachmentProps:
     @builtins.property
     def identity_pool_id(
         self,
-    ) -> typing.Union[builtins.str, "_IIdentityPoolRef_5cf45895"]:
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IIdentityPoolRef"]:
         '''An identity pool ID in the format ``REGION:GUID`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypoolroleattachment.html#cfn-cognito-identitypoolroleattachment-identitypoolid
         '''
         result = self._values.get("identity_pool_id")
         assert result is not None, "Required property 'identity_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IIdentityPoolRef_5cf45895"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IIdentityPoolRef"], result)
 
     @builtins.property
     def role_mappings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]]:
         '''How users for a specific identity provider are mapped to roles.
 
         This is a string to the ``RoleMapping`` object map. The string identifies the identity provider. For example: ``graph.facebook.com`` or ``cognito-idp.us-east-1.amazonaws.com/us-east-1_abcdefghi:app_client_id`` .
@@ -4057,7 +4021,7 @@ class CfnIdentityPoolRoleAttachmentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypoolroleattachment.html#cfn-cognito-identitypoolroleattachment-rolemappings
         '''
         result = self._values.get("role_mappings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIdentityPoolRoleAttachment.RoleMappingProperty"]]]], result)
 
     @builtins.property
     def roles(self) -> typing.Any:
@@ -4082,9 +4046,9 @@ class CfnIdentityPoolRoleAttachmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ILogDeliveryConfigurationRef_0c0b6844)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.ILogDeliveryConfigurationRef)
 class CfnLogDeliveryConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnLogDeliveryConfiguration",
 ):
@@ -4128,7 +4092,7 @@ class CfnLogDeliveryConfiguration(
         id: builtins.str,
         *,
         user_pool_id: builtins.str,
-        log_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogDeliveryConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogDeliveryConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::LogDeliveryConfiguration``.
 
@@ -4138,7 +4102,7 @@ class CfnLogDeliveryConfiguration(
         :param log_configurations: A logging destination of a user pool. User pools can have multiple logging destinations for message-delivery and user-activity logs.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e29530a80c41b2b01a02705536af0f4120664e64afaf6cf445105a2dd4a7023d)
+            type_hints = cached_type_hints(_typecheckingstub__e29530a80c41b2b01a02705536af0f4120664e64afaf6cf445105a2dd4a7023d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLogDeliveryConfigurationProps(
@@ -4155,18 +4119,18 @@ class CfnLogDeliveryConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__203ff2a38d6a161e1172d7f8852a5ad8398f3ba214f39ff1f73b5b9e562c7ba5)
+            type_hints = cached_type_hints(_typecheckingstub__203ff2a38d6a161e1172d7f8852a5ad8398f3ba214f39ff1f73b5b9e562c7ba5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogDeliveryConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c754043d52de2809138bd323abb0b034a1950dd042f21ac2f36d2f80c2f6ab5)
+            type_hints = cached_type_hints(_typecheckingstub__9c754043d52de2809138bd323abb0b034a1950dd042f21ac2f36d2f80c2f6ab5)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4179,7 +4143,7 @@ class CfnLogDeliveryConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__089ac90c3942f7680901a3873d6f480819579f6ee19698ffe4041808f8ddfb54)
+            type_hints = cached_type_hints(_typecheckingstub__089ac90c3942f7680901a3873d6f480819579f6ee19698ffe4041808f8ddfb54)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4212,9 +4176,9 @@ class CfnLogDeliveryConfiguration(
     @jsii.member(jsii_name="logDeliveryConfigurationRef")
     def log_delivery_configuration_ref(
         self,
-    ) -> "_LogDeliveryConfigurationReference_3ea56b01":
+    ) -> "_aws_cognito_aa210b15.LogDeliveryConfigurationReference":
         '''A reference to a LogDeliveryConfiguration resource.'''
-        return typing.cast("_LogDeliveryConfigurationReference_3ea56b01", jsii.get(self, "logDeliveryConfigurationRef"))
+        return typing.cast("_aws_cognito_aa210b15.LogDeliveryConfigurationReference", jsii.get(self, "logDeliveryConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -4225,7 +4189,7 @@ class CfnLogDeliveryConfiguration(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2182e97aaa93da941d4811edec2c32bd2af08481e5b611636933cf688c72d4a5)
+            type_hints = cached_type_hints(_typecheckingstub__2182e97aaa93da941d4811edec2c32bd2af08481e5b611636933cf688c72d4a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -4233,17 +4197,17 @@ class CfnLogDeliveryConfiguration(
     @jsii.member(jsii_name="logConfigurations")
     def log_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]]:
         '''A logging destination of a user pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]], jsii.get(self, "logConfigurations"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]], jsii.get(self, "logConfigurations"))
 
     @log_configurations.setter
     def log_configurations(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40a6b8e2f773442c634fa6b71515839097ae56e3de02083447219aae5f9c1a9f)
+            type_hints = cached_type_hints(_typecheckingstub__40a6b8e2f773442c634fa6b71515839097ae56e3de02083447219aae5f9c1a9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfigurations", value) # pyright: ignore[reportArgumentType]
 
@@ -4276,7 +4240,7 @@ class CfnLogDeliveryConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ff46bbb404bb2daaadf6da44499aa85e733a076298ca686e738f64972365712b)
+                type_hints = cached_type_hints(_typecheckingstub__ff46bbb404bb2daaadf6da44499aa85e733a076298ca686e738f64972365712b)
                 check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_group_arn is not None:
@@ -4331,7 +4295,7 @@ class CfnLogDeliveryConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ae072d70f2bbea287c140340ad4ca6d5b9e1b95bf2308803bfb1cfbd9e23e5e0)
+                type_hints = cached_type_hints(_typecheckingstub__ae072d70f2bbea287c140340ad4ca6d5b9e1b95bf2308803bfb1cfbd9e23e5e0)
                 check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if stream_arn is not None:
@@ -4372,11 +4336,11 @@ class CfnLogDeliveryConfiguration(
         def __init__(
             self,
             *,
-            cloud_watch_logs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             event_source: typing.Optional[builtins.str] = None,
-            firehose_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogDeliveryConfiguration.FirehoseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogDeliveryConfiguration.FirehoseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             log_level: typing.Optional[builtins.str] = None,
-            s3_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogDeliveryConfiguration.S3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogDeliveryConfiguration.S3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of user event logs to an external AWS service like Amazon Data Firehose, Amazon S3, or Amazon CloudWatch Logs.
 
@@ -4410,7 +4374,7 @@ class CfnLogDeliveryConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3fcaff05e87f499492c9c4ac6949463926f4833510675569310df4f8cb619149)
+                type_hints = cached_type_hints(_typecheckingstub__3fcaff05e87f499492c9c4ac6949463926f4833510675569310df4f8cb619149)
                 check_type(argname="argument cloud_watch_logs_configuration", value=cloud_watch_logs_configuration, expected_type=type_hints["cloud_watch_logs_configuration"])
                 check_type(argname="argument event_source", value=event_source, expected_type=type_hints["event_source"])
                 check_type(argname="argument firehose_configuration", value=firehose_configuration, expected_type=type_hints["firehose_configuration"])
@@ -4431,13 +4395,13 @@ class CfnLogDeliveryConfiguration(
         @builtins.property
         def cloud_watch_logs_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty"]]:
             '''Configuration for the CloudWatch log group destination of user pool detailed activity logging, or of user activity log export with advanced security features.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-logdeliveryconfiguration-logconfiguration.html#cfn-cognito-logdeliveryconfiguration-logconfiguration-cloudwatchlogsconfiguration
             '''
             result = self._values.get("cloud_watch_logs_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty"]], result)
 
         @builtins.property
         def event_source(self) -> typing.Optional[builtins.str]:
@@ -4453,13 +4417,13 @@ class CfnLogDeliveryConfiguration(
         @builtins.property
         def firehose_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.FirehoseConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.FirehoseConfigurationProperty"]]:
             '''Configuration for the Amazon Data Firehose stream destination of user activity log export with threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-logdeliveryconfiguration-logconfiguration.html#cfn-cognito-logdeliveryconfiguration-logconfiguration-firehoseconfiguration
             '''
             result = self._values.get("firehose_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.FirehoseConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.FirehoseConfigurationProperty"]], result)
 
         @builtins.property
         def log_level(self) -> typing.Optional[builtins.str]:
@@ -4475,13 +4439,13 @@ class CfnLogDeliveryConfiguration(
         @builtins.property
         def s3_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.S3ConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.S3ConfigurationProperty"]]:
             '''Configuration for the Amazon S3 bucket destination of user activity log export with threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-logdeliveryconfiguration-logconfiguration.html#cfn-cognito-logdeliveryconfiguration-logconfiguration-s3configuration
             '''
             result = self._values.get("s3_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.S3ConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.S3ConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4519,7 +4483,7 @@ class CfnLogDeliveryConfiguration(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35855407409f14c2401e604d3e25c83bb2d207f28090618c8174149befb93967)
+                type_hints = cached_type_hints(_typecheckingstub__35855407409f14c2401e604d3e25c83bb2d207f28090618c8174149befb93967)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if bucket_arn is not None:
@@ -4559,7 +4523,7 @@ class CfnLogDeliveryConfigurationProps:
         self,
         *,
         user_pool_id: builtins.str,
-        log_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogDeliveryConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        log_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogDeliveryConfiguration.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnLogDeliveryConfiguration``.
 
@@ -4595,7 +4559,7 @@ class CfnLogDeliveryConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__585789fa8816c3e4ed9b3aa9967435c1474787f750de3db35983f11efef27366)
+            type_hints = cached_type_hints(_typecheckingstub__585789fa8816c3e4ed9b3aa9967435c1474787f750de3db35983f11efef27366)
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument log_configurations", value=log_configurations, expected_type=type_hints["log_configurations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4617,7 +4581,7 @@ class CfnLogDeliveryConfigurationProps:
     @builtins.property
     def log_configurations(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]]:
         '''A logging destination of a user pool.
 
         User pools can have multiple logging destinations for message-delivery and user-activity logs.
@@ -4625,7 +4589,7 @@ class CfnLogDeliveryConfigurationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-logdeliveryconfiguration.html#cfn-cognito-logdeliveryconfiguration-logconfigurations
         '''
         result = self._values.get("log_configurations")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogDeliveryConfiguration.LogConfigurationProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4639,9 +4603,9 @@ class CfnLogDeliveryConfigurationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IManagedLoginBrandingRef_2fdc5419)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IManagedLoginBrandingRef)
 class CfnManagedLoginBranding(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnManagedLoginBranding",
 ):
@@ -4693,11 +4657,11 @@ class CfnManagedLoginBranding(
         id: builtins.str,
         *,
         user_pool_id: builtins.str,
-        assets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnManagedLoginBranding.AssetTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        assets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnManagedLoginBranding.AssetTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         client_id: typing.Optional[builtins.str] = None,
-        return_merged_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        return_merged_resources: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         settings: typing.Any = None,
-        use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::ManagedLoginBranding``.
 
@@ -4711,7 +4675,7 @@ class CfnManagedLoginBranding(
         :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__478f8899894ffccc3f20b06ae18c36beb41bf5c5c9aa65a99dbdbf95ce00be03)
+            type_hints = cached_type_hints(_typecheckingstub__478f8899894ffccc3f20b06ae18c36beb41bf5c5c9aa65a99dbdbf95ce00be03)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnManagedLoginBrandingProps(
@@ -4733,18 +4697,18 @@ class CfnManagedLoginBranding(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce9a19ca9ae4e25b8f6aa753ce5ce24a0209cbc2731ca9a27a4ce514408279b1)
+            type_hints = cached_type_hints(_typecheckingstub__ce9a19ca9ae4e25b8f6aa753ce5ce24a0209cbc2731ca9a27a4ce514408279b1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedLoginBranding", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0d347f9b2c0101529861e949ebe0a802ebc429100648b4c870711c733b50faa)
+            type_hints = cached_type_hints(_typecheckingstub__a0d347f9b2c0101529861e949ebe0a802ebc429100648b4c870711c733b50faa)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -4757,7 +4721,7 @@ class CfnManagedLoginBranding(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1112e058064e524fbe515ff8791467e6949341c6ddd8deb9c33af3658b16d447)
+            type_hints = cached_type_hints(_typecheckingstub__1112e058064e524fbe515ff8791467e6949341c6ddd8deb9c33af3658b16d447)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -4788,9 +4752,11 @@ class CfnManagedLoginBranding(
 
     @builtins.property
     @jsii.member(jsii_name="managedLoginBrandingRef")
-    def managed_login_branding_ref(self) -> "_ManagedLoginBrandingReference_f305ff72":
+    def managed_login_branding_ref(
+        self,
+    ) -> "_aws_cognito_aa210b15.ManagedLoginBrandingReference":
         '''A reference to a ManagedLoginBranding resource.'''
-        return typing.cast("_ManagedLoginBrandingReference_f305ff72", jsii.get(self, "managedLoginBrandingRef"))
+        return typing.cast("_aws_cognito_aa210b15.ManagedLoginBrandingReference", jsii.get(self, "managedLoginBrandingRef"))
 
     @builtins.property
     @jsii.member(jsii_name="settings")
@@ -4801,7 +4767,7 @@ class CfnManagedLoginBranding(
     @settings.setter
     def settings(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c)
+            type_hints = cached_type_hints(_typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
 
@@ -4814,7 +4780,7 @@ class CfnManagedLoginBranding(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b2532ea6e2300654d7fcc90b2b1fd38f772128b765556475cff8c1be577731)
+            type_hints = cached_type_hints(_typecheckingstub__73b2532ea6e2300654d7fcc90b2b1fd38f772128b765556475cff8c1be577731)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -4822,17 +4788,17 @@ class CfnManagedLoginBranding(
     @jsii.member(jsii_name="assets")
     def assets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnManagedLoginBranding.AssetTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnManagedLoginBranding.AssetTypeProperty"]]]]:
         '''An array of image files that you want to apply to roles like backgrounds, logos, and icons.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnManagedLoginBranding.AssetTypeProperty"]]]], jsii.get(self, "assets"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnManagedLoginBranding.AssetTypeProperty"]]]], jsii.get(self, "assets"))
 
     @assets.setter
     def assets(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnManagedLoginBranding.AssetTypeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnManagedLoginBranding.AssetTypeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc790275f28767420e82246bd64663082d888a2c93af667d6c769ece2924f786)
+            type_hints = cached_type_hints(_typecheckingstub__fc790275f28767420e82246bd64663082d888a2c93af667d6c769ece2924f786)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "assets", value) # pyright: ignore[reportArgumentType]
 
@@ -4845,7 +4811,7 @@ class CfnManagedLoginBranding(
     @client_id.setter
     def client_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a668420e0b3cbceec0ade65febad3505a8186912fb1310c4ecdfbbcd6bac7dc2)
+            type_hints = cached_type_hints(_typecheckingstub__a668420e0b3cbceec0ade65febad3505a8186912fb1310c4ecdfbbcd6bac7dc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
 
@@ -4853,17 +4819,17 @@ class CfnManagedLoginBranding(
     @jsii.member(jsii_name="returnMergedResources")
     def return_merged_resources(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "returnMergedResources"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "returnMergedResources"))
 
     @return_merged_resources.setter
     def return_merged_resources(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc)
+            type_hints = cached_type_hints(_typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "returnMergedResources", value) # pyright: ignore[reportArgumentType]
 
@@ -4871,17 +4837,17 @@ class CfnManagedLoginBranding(
     @jsii.member(jsii_name="useCognitoProvidedValues")
     def use_cognito_provided_values(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When true, applies the default branding style options.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useCognitoProvidedValues"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "useCognitoProvidedValues"))
 
     @use_cognito_provided_values.setter
     def use_cognito_provided_values(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b61f0689e78fea36c23c402c48085be3f2c198b922507818947333d59445895)
+            type_hints = cached_type_hints(_typecheckingstub__4b61f0689e78fea36c23c402c48085be3f2c198b922507818947333d59445895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "useCognitoProvidedValues", value) # pyright: ignore[reportArgumentType]
 
@@ -4934,7 +4900,7 @@ class CfnManagedLoginBranding(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a8c0b7bdabc4393d484227225be1727f821e164eec56517d614639ac2059509c)
+                type_hints = cached_type_hints(_typecheckingstub__a8c0b7bdabc4393d484227225be1727f821e164eec56517d614639ac2059509c)
                 check_type(argname="argument category", value=category, expected_type=type_hints["category"])
                 check_type(argname="argument color_mode", value=color_mode, expected_type=type_hints["color_mode"])
                 check_type(argname="argument extension", value=extension, expected_type=type_hints["extension"])
@@ -5031,11 +4997,11 @@ class CfnManagedLoginBrandingProps:
         self,
         *,
         user_pool_id: builtins.str,
-        assets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnManagedLoginBranding.AssetTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        assets: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnManagedLoginBranding.AssetTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         client_id: typing.Optional[builtins.str] = None,
-        return_merged_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        return_merged_resources: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         settings: typing.Any = None,
-        use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnManagedLoginBranding``.
 
@@ -5077,7 +5043,7 @@ class CfnManagedLoginBrandingProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60e207e1aa2ab8ae23b36c3e1ae73765c6f328b13bf0c7b205865e93adc260df)
+            type_hints = cached_type_hints(_typecheckingstub__60e207e1aa2ab8ae23b36c3e1ae73765c6f328b13bf0c7b205865e93adc260df)
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument assets", value=assets, expected_type=type_hints["assets"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -5111,7 +5077,7 @@ class CfnManagedLoginBrandingProps:
     @builtins.property
     def assets(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnManagedLoginBranding.AssetTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnManagedLoginBranding.AssetTypeProperty"]]]]:
         '''An array of image files that you want to apply to roles like backgrounds, logos, and icons.
 
         Each object must also indicate whether it is for dark mode, light mode, or browser-adaptive mode.
@@ -5119,7 +5085,7 @@ class CfnManagedLoginBrandingProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html#cfn-cognito-managedloginbranding-assets
         '''
         result = self._values.get("assets")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnManagedLoginBranding.AssetTypeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnManagedLoginBranding.AssetTypeProperty"]]]], result)
 
     @builtins.property
     def client_id(self) -> typing.Optional[builtins.str]:
@@ -5135,7 +5101,7 @@ class CfnManagedLoginBrandingProps:
     @builtins.property
     def return_merged_resources(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults.
 
         When ``false`` or when you omit this parameter, returns only values that you customized in your branding style.
@@ -5143,7 +5109,7 @@ class CfnManagedLoginBrandingProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html#cfn-cognito-managedloginbranding-returnmergedresources
         '''
         result = self._values.get("return_merged_resources")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def settings(self) -> typing.Any:
@@ -5164,7 +5130,7 @@ class CfnManagedLoginBrandingProps:
     @builtins.property
     def use_cognito_provided_values(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When true, applies the default branding style options.
 
         This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor.
@@ -5174,7 +5140,7 @@ class CfnManagedLoginBrandingProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html#cfn-cognito-managedloginbranding-usecognitoprovidedvalues
         '''
         result = self._values.get("use_cognito_provided_values")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5188,9 +5154,9 @@ class CfnManagedLoginBrandingProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITermsRef_3aea4e86)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.ITermsRef)
 class CfnTerms(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnTerms",
 ):
@@ -5241,7 +5207,7 @@ class CfnTerms(
         id: builtins.str,
         *,
         enforcement: builtins.str,
-        links: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        links: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         terms_name: builtins.str,
         terms_source: builtins.str,
         user_pool_id: builtins.str,
@@ -5259,7 +5225,7 @@ class CfnTerms(
         :param client_id: The ID of the app client that the terms documents are assigned to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60ed6baa47f9012cc57d9cef7e22f15d5f04fd45aa55fc0e8672f7e89ef3f146)
+            type_hints = cached_type_hints(_typecheckingstub__60ed6baa47f9012cc57d9cef7e22f15d5f04fd45aa55fc0e8672f7e89ef3f146)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTermsProps(
@@ -5281,18 +5247,18 @@ class CfnTerms(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32770d5656ddcce643117a225779988aebdbcb97affb68fb24f76a84651cb365)
+            type_hints = cached_type_hints(_typecheckingstub__32770d5656ddcce643117a225779988aebdbcb97affb68fb24f76a84651cb365)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTerms", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c857e95caaea9926ffb4e0ab5c3a0bb7d8a82c05cf7bd42adce1312c203e7a6)
+            type_hints = cached_type_hints(_typecheckingstub__0c857e95caaea9926ffb4e0ab5c3a0bb7d8a82c05cf7bd42adce1312c203e7a6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5305,7 +5271,7 @@ class CfnTerms(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9dddb891f6e734bbc549324d30543ba3d862fb957be34e904236132737d7b71a)
+            type_hints = cached_type_hints(_typecheckingstub__9dddb891f6e734bbc549324d30543ba3d862fb957be34e904236132737d7b71a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5336,9 +5302,9 @@ class CfnTerms(
 
     @builtins.property
     @jsii.member(jsii_name="termsRef")
-    def terms_ref(self) -> "_TermsReference_01199e92":
+    def terms_ref(self) -> "_aws_cognito_aa210b15.TermsReference":
         '''A reference to a Terms resource.'''
-        return typing.cast("_TermsReference_01199e92", jsii.get(self, "termsRef"))
+        return typing.cast("_aws_cognito_aa210b15.TermsReference", jsii.get(self, "termsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="enforcement")
@@ -5349,7 +5315,7 @@ class CfnTerms(
     @enforcement.setter
     def enforcement(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f61b831431a9a8cd9abc071d0372ef9f7481c4297f99d22362f79e4456530000)
+            type_hints = cached_type_hints(_typecheckingstub__f61b831431a9a8cd9abc071d0372ef9f7481c4297f99d22362f79e4456530000)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enforcement", value) # pyright: ignore[reportArgumentType]
 
@@ -5357,17 +5323,17 @@ class CfnTerms(
     @jsii.member(jsii_name="links")
     def links(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''A map of URLs to languages.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "links"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "links"))
 
     @links.setter
     def links(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36)
+            type_hints = cached_type_hints(_typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "links", value) # pyright: ignore[reportArgumentType]
 
@@ -5380,7 +5346,7 @@ class CfnTerms(
     @terms_name.setter
     def terms_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68b51d1ab80adde15516db14033542fe90da3c6c88f931ab391ca9a06f2b57a2)
+            type_hints = cached_type_hints(_typecheckingstub__68b51d1ab80adde15516db14033542fe90da3c6c88f931ab391ca9a06f2b57a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "termsName", value) # pyright: ignore[reportArgumentType]
 
@@ -5393,7 +5359,7 @@ class CfnTerms(
     @terms_source.setter
     def terms_source(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5aa2b8f439bae6d46ca78a5e059a5ed10c4d8f1fa1e7624f714272d8d13b98e)
+            type_hints = cached_type_hints(_typecheckingstub__d5aa2b8f439bae6d46ca78a5e059a5ed10c4d8f1fa1e7624f714272d8d13b98e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "termsSource", value) # pyright: ignore[reportArgumentType]
 
@@ -5406,7 +5372,7 @@ class CfnTerms(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bedec026b3875318368cb2e1f7df8e4146e8efed23c452b2176302d00eac9db3)
+            type_hints = cached_type_hints(_typecheckingstub__bedec026b3875318368cb2e1f7df8e4146e8efed23c452b2176302d00eac9db3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -5419,7 +5385,7 @@ class CfnTerms(
     @client_id.setter
     def client_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b52c4f91e8237836ed692eed70ef894814f27cdb9a5c5fe5278b59f348ab3bb9)
+            type_hints = cached_type_hints(_typecheckingstub__b52c4f91e8237836ed692eed70ef894814f27cdb9a5c5fe5278b59f348ab3bb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
 
@@ -5441,7 +5407,7 @@ class CfnTermsProps:
         self,
         *,
         enforcement: builtins.str,
-        links: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        links: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         terms_name: builtins.str,
         terms_source: builtins.str,
         user_pool_id: builtins.str,
@@ -5479,7 +5445,7 @@ class CfnTermsProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285db7e3bc95478b571785bee7fa49951055cef4d8266009ed59e73fea5e4d4e)
+            type_hints = cached_type_hints(_typecheckingstub__285db7e3bc95478b571785bee7fa49951055cef4d8266009ed59e73fea5e4d4e)
             check_type(argname="argument enforcement", value=enforcement, expected_type=type_hints["enforcement"])
             check_type(argname="argument links", value=links, expected_type=type_hints["links"])
             check_type(argname="argument terms_name", value=terms_name, expected_type=type_hints["terms_name"])
@@ -5509,7 +5475,7 @@ class CfnTermsProps:
     @builtins.property
     def links(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''A map of URLs to languages.
 
         For each localized language that will view the requested ``TermsName`` , assign a URL. A selection of ``cognito:default`` displays for all languages that don't have a language-specific URL.
@@ -5520,7 +5486,7 @@ class CfnTermsProps:
         '''
         result = self._values.get("links")
         assert result is not None, "Required property 'links' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def terms_name(self) -> builtins.str:
@@ -5573,9 +5539,9 @@ class CfnTermsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolRef_0b7d02b5, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnUserPool(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool",
 ):
@@ -5633,6 +5599,13 @@ class CfnUserPool(
             email_verification_message="emailVerificationMessage",
             email_verification_subject="emailVerificationSubject",
             enabled_mfas=["enabledMfas"],
+            issuer_configuration=cognito.CfnUserPool.IssuerConfigurationProperty(
+                type="type"
+            ),
+            key_configuration=cognito.CfnUserPool.KeyConfigurationProperty(
+                key_type="keyType",
+                kms_key_arn="kmsKeyArn"
+            ),
             lambda_config=cognito.CfnUserPool.LambdaConfigProperty(
                 create_auth_challenge="createAuthChallenge",
                 custom_email_sender=cognito.CfnUserPool.CustomEmailSenderProperty(
@@ -5734,33 +5707,35 @@ class CfnUserPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        account_recovery_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.AccountRecoverySettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        admin_create_user_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.AdminCreateUserConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        account_recovery_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.AccountRecoverySettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        admin_create_user_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.AdminCreateUserConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         alias_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
         auto_verified_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
         deletion_protection: typing.Optional[builtins.str] = None,
-        device_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.DeviceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        device_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.DeviceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         email_authentication_message: typing.Optional[builtins.str] = None,
         email_authentication_subject: typing.Optional[builtins.str] = None,
-        email_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        email_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         email_verification_message: typing.Optional[builtins.str] = None,
         email_verification_subject: typing.Optional[builtins.str] = None,
         enabled_mfas: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lambda_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        issuer_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.IssuerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        key_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.KeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         mfa_configuration: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.SchemaAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.SchemaAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         sms_authentication_message: typing.Optional[builtins.str] = None,
-        sms_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sms_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sms_verification_message: typing.Optional[builtins.str] = None,
-        user_attribute_update_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UserAttributeUpdateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_attribute_update_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UserAttributeUpdateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         username_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        username_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UsernameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_pool_add_ons: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UserPoolAddOnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        username_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UsernameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_pool_add_ons: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UserPoolAddOnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_pool_name: typing.Optional[builtins.str] = None,
         user_pool_tags: typing.Any = None,
         user_pool_tier: typing.Optional[builtins.str] = None,
-        verification_message_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        verification_message_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_authn_factor_configuration: typing.Optional[builtins.str] = None,
         web_authn_relying_party_id: typing.Optional[builtins.str] = None,
         web_authn_user_verification: typing.Optional[builtins.str] = None,
@@ -5781,6 +5756,8 @@ class CfnUserPool(
         :param email_verification_message: This parameter is no longer used. See `VerificationMessageTemplateType <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-verificationmessagetemplate.html>`_ .
         :param email_verification_subject: This parameter is no longer used. See `VerificationMessageTemplateType <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-verificationmessagetemplate.html>`_ .
         :param enabled_mfas: Set enabled MFA options on a specified user pool. To disable all MFAs after it has been enabled, set ``MfaConfiguration`` to ``OFF`` and remove EnabledMfas. MFAs can only be all disabled if ``MfaConfiguration`` is ``OFF`` . After you enable ``SMS_MFA`` , you can only disable it by setting ``MfaConfiguration`` to ``OFF`` . Can be one of the following values: - ``SMS_MFA`` - Enables MFA with SMS for the user pool. To select this option, you must also provide values for ``SmsConfiguration`` . - ``SOFTWARE_TOKEN_MFA`` - Enables software token MFA for the user pool. - ``EMAIL_OTP`` - Enables MFA with email for the user pool. To select this option, you must provide values for ``EmailConfiguration`` and within those, set ``EmailSendingAccount`` to ``DEVELOPER`` . Allowed values: ``SMS_MFA`` | ``SOFTWARE_TOKEN_MFA`` | ``EMAIL_OTP``
+        :param issuer_configuration: 
+        :param key_configuration: 
         :param lambda_config: A collection of user pool Lambda triggers. Amazon Cognito invokes triggers at several possible stages of authentication operations. Triggers can modify the outcome of the operations that invoked them.
         :param mfa_configuration: Displays the state of multi-factor authentication (MFA) as on, off, or optional. When ``ON`` , all users must set up MFA before they can sign in. When ``OPTIONAL`` , your application must make a client-side determination of whether a user wants to register an MFA device. For user pools with adaptive authentication with threat protection, choose ``OPTIONAL`` . When ``MfaConfiguration`` is ``OPTIONAL`` , managed login doesn't automatically prompt users to set up MFA. Amazon Cognito generates MFA prompts in API responses and in managed login for users who have chosen and configured a preferred MFA factor.
         :param policies: A list of user pool policies. Contains the policy that sets password-complexity requirements.
@@ -5801,7 +5778,7 @@ class CfnUserPool(
         :param web_authn_user_verification: When ``required`` , users can only register and sign in users with passkeys that are capable of `user verification <https://docs.aws.amazon.com/https://www.w3.org/TR/webauthn-2/#enum-userVerificationRequirement>`_ . When ``preferred`` , your user pool doesn't require the use of authenticators with user verification but encourages it.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32d20f28e2758f9a461380e2ed5d06233baf0f45541047ba837f26ebc37ee551)
+            type_hints = cached_type_hints(_typecheckingstub__32d20f28e2758f9a461380e2ed5d06233baf0f45541047ba837f26ebc37ee551)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolProps(
@@ -5817,6 +5794,8 @@ class CfnUserPool(
             email_verification_message=email_verification_message,
             email_verification_subject=email_verification_subject,
             enabled_mfas=enabled_mfas,
+            issuer_configuration=issuer_configuration,
+            key_configuration=key_configuration,
             lambda_config=lambda_config,
             mfa_configuration=mfa_configuration,
             policies=policies,
@@ -5841,12 +5820,15 @@ class CfnUserPool(
 
     @jsii.member(jsii_name="arnForUserPool")
     @builtins.classmethod
-    def arn_for_user_pool(cls, resource: "_IUserPoolRef_0b7d02b5") -> builtins.str:
+    def arn_for_user_pool(
+        cls,
+        resource: "_aws_cognito_aa210b15.IUserPoolRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6ad258bbde251e2bd38155880bbd36070b3fcb013eccfc837a58d4eb98412dd)
+            type_hints = cached_type_hints(_typecheckingstub__f6ad258bbde251e2bd38155880bbd36070b3fcb013eccfc837a58d4eb98412dd)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUserPool", [resource]))
 
@@ -5857,7 +5839,7 @@ class CfnUserPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IUserPoolRef_0b7d02b5":
+    ) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''Creates a new IUserPoolRef from an ARN.
 
         :param scope: -
@@ -5865,11 +5847,11 @@ class CfnUserPool(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50cb94accc8d60746f0970af6f3f1428a04180d1d6c471b7ebb0c7eeaf6f5e11)
+            type_hints = cached_type_hints(_typecheckingstub__50cb94accc8d60746f0970af6f3f1428a04180d1d6c471b7ebb0c7eeaf6f5e11)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IUserPoolRef_0b7d02b5", jsii.sinvoke(cls, "fromUserPoolArn", [scope, id, arn]))
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", jsii.sinvoke(cls, "fromUserPoolArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromUserPoolId")
     @builtins.classmethod
@@ -5878,7 +5860,7 @@ class CfnUserPool(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         user_pool_id: builtins.str,
-    ) -> "_IUserPoolRef_0b7d02b5":
+    ) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''Creates a new IUserPoolRef from a userPoolId.
 
         :param scope: -
@@ -5886,11 +5868,11 @@ class CfnUserPool(
         :param user_pool_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77bca4d59ea1b80508c0fd60c8f34e3c4dff94c3e5dada90fee904207040ff1a)
+            type_hints = cached_type_hints(_typecheckingstub__77bca4d59ea1b80508c0fd60c8f34e3c4dff94c3e5dada90fee904207040ff1a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
-        return typing.cast("_IUserPoolRef_0b7d02b5", jsii.sinvoke(cls, "fromUserPoolId", [scope, id, user_pool_id]))
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", jsii.sinvoke(cls, "fromUserPoolId", [scope, id, user_pool_id]))
 
     @jsii.member(jsii_name="isCfnUserPool")
     @builtins.classmethod
@@ -5900,18 +5882,18 @@ class CfnUserPool(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7e2525fd1931da972c8e688a610002de203cd2cefb75bbb754cf77a89582cac)
+            type_hints = cached_type_hints(_typecheckingstub__b7e2525fd1931da972c8e688a610002de203cd2cefb75bbb754cf77a89582cac)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPool", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__190e7831a65154362cd300369d61a522f7add5d60374fc990db7dd8ecb232388)
+            type_hints = cached_type_hints(_typecheckingstub__190e7831a65154362cd300369d61a522f7add5d60374fc990db7dd8ecb232388)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -5924,7 +5906,7 @@ class CfnUserPool(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0f2e990078e39ddda95cb24d40eda32e024a9c8840bebebbe6ed0ffb0ab9353)
+            type_hints = cached_type_hints(_typecheckingstub__f0f2e990078e39ddda95cb24d40eda32e024a9c8840bebebbe6ed0ffb0ab9353)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -5982,15 +5964,15 @@ class CfnUserPool(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolRef")
-    def user_pool_ref(self) -> "_UserPoolReference_0ef20aae":
+    def user_pool_ref(self) -> "_aws_cognito_aa210b15.UserPoolReference":
         '''A reference to a UserPool resource.'''
-        return typing.cast("_UserPoolReference_0ef20aae", jsii.get(self, "userPoolRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolReference", jsii.get(self, "userPoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolTagsRaw")
@@ -6001,7 +5983,7 @@ class CfnUserPool(
     @user_pool_tags_raw.setter
     def user_pool_tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f)
+            type_hints = cached_type_hints(_typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolTagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -6009,17 +5991,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="accountRecoverySetting")
     def account_recovery_setting(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AccountRecoverySettingProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AccountRecoverySettingProperty"]]:
         '''The available verified method a user can use to recover their password when they call ``ForgotPassword`` .'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AccountRecoverySettingProperty"]], jsii.get(self, "accountRecoverySetting"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AccountRecoverySettingProperty"]], jsii.get(self, "accountRecoverySetting"))
 
     @account_recovery_setting.setter
     def account_recovery_setting(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AccountRecoverySettingProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AccountRecoverySettingProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da99efaebeb66459045576f8f7065b4ef07804424df0623f038bbd64d754aacc)
+            type_hints = cached_type_hints(_typecheckingstub__da99efaebeb66459045576f8f7065b4ef07804424df0623f038bbd64d754aacc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountRecoverySetting", value) # pyright: ignore[reportArgumentType]
 
@@ -6027,17 +6009,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="adminCreateUserConfig")
     def admin_create_user_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdminCreateUserConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdminCreateUserConfigProperty"]]:
         '''The settings for administrator creation of users in a user pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdminCreateUserConfigProperty"]], jsii.get(self, "adminCreateUserConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdminCreateUserConfigProperty"]], jsii.get(self, "adminCreateUserConfig"))
 
     @admin_create_user_config.setter
     def admin_create_user_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdminCreateUserConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdminCreateUserConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eaaa881203c259b6afa777936a9ca0096f8c631069a5ebd10e4ad0bd2c5229d4)
+            type_hints = cached_type_hints(_typecheckingstub__eaaa881203c259b6afa777936a9ca0096f8c631069a5ebd10e4ad0bd2c5229d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "adminCreateUserConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -6053,7 +6035,7 @@ class CfnUserPool(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc3f2402f4f88736f7b230549074e49d6aee20281b90dbeeb4a0bb5c031e81d2)
+            type_hints = cached_type_hints(_typecheckingstub__cc3f2402f4f88736f7b230549074e49d6aee20281b90dbeeb4a0bb5c031e81d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aliasAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -6069,7 +6051,7 @@ class CfnUserPool(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67b5b672ef087a1ed7f05991df5c156df67b6c51d144847ad452e5f52c4bcbe5)
+            type_hints = cached_type_hints(_typecheckingstub__67b5b672ef087a1ed7f05991df5c156df67b6c51d144847ad452e5f52c4bcbe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoVerifiedAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -6082,7 +6064,7 @@ class CfnUserPool(
     @deletion_protection.setter
     def deletion_protection(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__455a3b25859643cc12071049235f2feb590ee06f70ec42d2cd83bc166d9e9c9f)
+            type_hints = cached_type_hints(_typecheckingstub__455a3b25859643cc12071049235f2feb590ee06f70ec42d2cd83bc166d9e9c9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
@@ -6090,17 +6072,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="deviceConfiguration")
     def device_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.DeviceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.DeviceConfigurationProperty"]]:
         '''The device-remembering configuration for a user pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.DeviceConfigurationProperty"]], jsii.get(self, "deviceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.DeviceConfigurationProperty"]], jsii.get(self, "deviceConfiguration"))
 
     @device_configuration.setter
     def device_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.DeviceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.DeviceConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eb821a70b459056b6d26722d06f8b948b315111a936804d8aba0e7ff07d13bf)
+            type_hints = cached_type_hints(_typecheckingstub__7eb821a70b459056b6d26722d06f8b948b315111a936804d8aba0e7ff07d13bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deviceConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6115,7 +6097,7 @@ class CfnUserPool(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cf4765f879f49f79c6984252af6993fe6fdf6838989608b11e192c544fce53c)
+            type_hints = cached_type_hints(_typecheckingstub__3cf4765f879f49f79c6984252af6993fe6fdf6838989608b11e192c544fce53c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailAuthenticationMessage", value) # pyright: ignore[reportArgumentType]
 
@@ -6130,7 +6112,7 @@ class CfnUserPool(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e1d4523d17f0641e76142be67287be5dc758d191f5eba3fa217d8c5d0170791)
+            type_hints = cached_type_hints(_typecheckingstub__1e1d4523d17f0641e76142be67287be5dc758d191f5eba3fa217d8c5d0170791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailAuthenticationSubject", value) # pyright: ignore[reportArgumentType]
 
@@ -6138,17 +6120,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="emailConfiguration")
     def email_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.EmailConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EmailConfigurationProperty"]]:
         '''The email configuration of your user pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.EmailConfigurationProperty"]], jsii.get(self, "emailConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EmailConfigurationProperty"]], jsii.get(self, "emailConfiguration"))
 
     @email_configuration.setter
     def email_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.EmailConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EmailConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32d0b53f74dc294b25f20f54bcdaf8477a3dfc8b505387d70f97f7febe6ae209)
+            type_hints = cached_type_hints(_typecheckingstub__32d0b53f74dc294b25f20f54bcdaf8477a3dfc8b505387d70f97f7febe6ae209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6161,7 +6143,7 @@ class CfnUserPool(
     @email_verification_message.setter
     def email_verification_message(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82f2fd26b3ec2cf294bdc8be0a8bbae7dbacd31abbdbead2a75eac9566efd913)
+            type_hints = cached_type_hints(_typecheckingstub__82f2fd26b3ec2cf294bdc8be0a8bbae7dbacd31abbdbead2a75eac9566efd913)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailVerificationMessage", value) # pyright: ignore[reportArgumentType]
 
@@ -6174,7 +6156,7 @@ class CfnUserPool(
     @email_verification_subject.setter
     def email_verification_subject(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e72167174985dddad82c3fffee5bd2e72f61e1a560cae39101e0f0bfa55a6c74)
+            type_hints = cached_type_hints(_typecheckingstub__e72167174985dddad82c3fffee5bd2e72f61e1a560cae39101e0f0bfa55a6c74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "emailVerificationSubject", value) # pyright: ignore[reportArgumentType]
 
@@ -6187,25 +6169,59 @@ class CfnUserPool(
     @enabled_mfas.setter
     def enabled_mfas(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__043cb4b4941782c98919a853fc16bce8663c274df01579f9caeb0cc2a0e4c28a)
+            type_hints = cached_type_hints(_typecheckingstub__043cb4b4941782c98919a853fc16bce8663c274df01579f9caeb0cc2a0e4c28a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabledMfas", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="issuerConfiguration")
+    def issuer_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.IssuerConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.IssuerConfigurationProperty"]], jsii.get(self, "issuerConfiguration"))
+
+    @issuer_configuration.setter
+    def issuer_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.IssuerConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__837b254daa968778419c3daf6587e301f79a4cf136dccf6c46fe05c223e817be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "issuerConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyConfiguration")
+    def key_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.KeyConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.KeyConfigurationProperty"]], jsii.get(self, "keyConfiguration"))
+
+    @key_configuration.setter
+    def key_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.KeyConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__33595e077b6a8f08f618c063b74db1043509e8c51844f81306c50a1d1e1b9c0d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="lambdaConfig")
     def lambda_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.LambdaConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.LambdaConfigProperty"]]:
         '''A collection of user pool Lambda triggers.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.LambdaConfigProperty"]], jsii.get(self, "lambdaConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.LambdaConfigProperty"]], jsii.get(self, "lambdaConfig"))
 
     @lambda_config.setter
     def lambda_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.LambdaConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.LambdaConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c7be7c0b2e4badc8ab3ce5fb0f327b3c26ebcb18bb31bc39a369f1c5fd64877)
+            type_hints = cached_type_hints(_typecheckingstub__8c7be7c0b2e4badc8ab3ce5fb0f327b3c26ebcb18bb31bc39a369f1c5fd64877)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lambdaConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -6218,7 +6234,7 @@ class CfnUserPool(
     @mfa_configuration.setter
     def mfa_configuration(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02262b9b75d7d340810cfbaca693eeab69c3422010742739d64170db818cd1c5)
+            type_hints = cached_type_hints(_typecheckingstub__02262b9b75d7d340810cfbaca693eeab69c3422010742739d64170db818cd1c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mfaConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6226,17 +6242,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="policies")
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PoliciesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PoliciesProperty"]]:
         '''A list of user pool policies.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PoliciesProperty"]], jsii.get(self, "policies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PoliciesProperty"]], jsii.get(self, "policies"))
 
     @policies.setter
     def policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PoliciesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PoliciesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc547f06b5c5b29499b9c1debda606db3aa38d2243e5ea837490a194d6ee562d)
+            type_hints = cached_type_hints(_typecheckingstub__cc547f06b5c5b29499b9c1debda606db3aa38d2243e5ea837490a194d6ee562d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
 
@@ -6244,17 +6260,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="schema")
     def schema(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SchemaAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SchemaAttributeProperty"]]]]:
         '''An array of attributes for the new user pool.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SchemaAttributeProperty"]]]], jsii.get(self, "schema"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SchemaAttributeProperty"]]]], jsii.get(self, "schema"))
 
     @schema.setter
     def schema(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SchemaAttributeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SchemaAttributeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0e5b663faa7be35e96a6bb7a25793a3650b322376c4df96db6ab04037432ec8)
+            type_hints = cached_type_hints(_typecheckingstub__f0e5b663faa7be35e96a6bb7a25793a3650b322376c4df96db6ab04037432ec8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
 
@@ -6267,7 +6283,7 @@ class CfnUserPool(
     @sms_authentication_message.setter
     def sms_authentication_message(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0033e90845dce5d5ed18e8cdb36333bda83daa85a52bf9b317447a2b26bb923)
+            type_hints = cached_type_hints(_typecheckingstub__b0033e90845dce5d5ed18e8cdb36333bda83daa85a52bf9b317447a2b26bb923)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "smsAuthenticationMessage", value) # pyright: ignore[reportArgumentType]
 
@@ -6275,17 +6291,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="smsConfiguration")
     def sms_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SmsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SmsConfigurationProperty"]]:
         '''The settings for your Amazon Cognito user pool to send SMS messages with Amazon Simple Notification Service.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SmsConfigurationProperty"]], jsii.get(self, "smsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SmsConfigurationProperty"]], jsii.get(self, "smsConfiguration"))
 
     @sms_configuration.setter
     def sms_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SmsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SmsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7770291e207a266c6092133c98f74702280b1b762eadf5a38996872fd156c65d)
+            type_hints = cached_type_hints(_typecheckingstub__7770291e207a266c6092133c98f74702280b1b762eadf5a38996872fd156c65d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "smsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6298,7 +6314,7 @@ class CfnUserPool(
     @sms_verification_message.setter
     def sms_verification_message(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__698f1380b9328c4a773190401993fe201c403d6b9d10c9d4d82aac1836766754)
+            type_hints = cached_type_hints(_typecheckingstub__698f1380b9328c4a773190401993fe201c403d6b9d10c9d4d82aac1836766754)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "smsVerificationMessage", value) # pyright: ignore[reportArgumentType]
 
@@ -6306,17 +6322,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="userAttributeUpdateSettings")
     def user_attribute_update_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserAttributeUpdateSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserAttributeUpdateSettingsProperty"]]:
         '''The settings for updates to user attributes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserAttributeUpdateSettingsProperty"]], jsii.get(self, "userAttributeUpdateSettings"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserAttributeUpdateSettingsProperty"]], jsii.get(self, "userAttributeUpdateSettings"))
 
     @user_attribute_update_settings.setter
     def user_attribute_update_settings(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserAttributeUpdateSettingsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserAttributeUpdateSettingsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__092e452d396de66cdb0e7fad3a126dc88f5db6854ad416e350af1806e6465101)
+            type_hints = cached_type_hints(_typecheckingstub__092e452d396de66cdb0e7fad3a126dc88f5db6854ad416e350af1806e6465101)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userAttributeUpdateSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -6332,7 +6348,7 @@ class CfnUserPool(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70fd85fe188c058531323dc3601df251b6fe7e56cbb9e62fb3d7b9f710f2597c)
+            type_hints = cached_type_hints(_typecheckingstub__70fd85fe188c058531323dc3601df251b6fe7e56cbb9e62fb3d7b9f710f2597c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "usernameAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -6340,17 +6356,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="usernameConfiguration")
     def username_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UsernameConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UsernameConfigurationProperty"]]:
         '''Sets the case sensitivity option for sign-in usernames.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UsernameConfigurationProperty"]], jsii.get(self, "usernameConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UsernameConfigurationProperty"]], jsii.get(self, "usernameConfiguration"))
 
     @username_configuration.setter
     def username_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UsernameConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UsernameConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5021fa9a3421f51a3fb6735566cc12e369ce2d1a11bc37330e0278145be57e21)
+            type_hints = cached_type_hints(_typecheckingstub__5021fa9a3421f51a3fb6735566cc12e369ce2d1a11bc37330e0278145be57e21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "usernameConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6358,17 +6374,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="userPoolAddOns")
     def user_pool_add_ons(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserPoolAddOnsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserPoolAddOnsProperty"]]:
         '''Contains settings for activation of threat protection, including the operating mode and additional authentication types.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserPoolAddOnsProperty"]], jsii.get(self, "userPoolAddOns"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserPoolAddOnsProperty"]], jsii.get(self, "userPoolAddOns"))
 
     @user_pool_add_ons.setter
     def user_pool_add_ons(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserPoolAddOnsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserPoolAddOnsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9387d4cd9039881cdf533356e5c6db2db0d1781598e0bee842b7485eca8c8fb2)
+            type_hints = cached_type_hints(_typecheckingstub__9387d4cd9039881cdf533356e5c6db2db0d1781598e0bee842b7485eca8c8fb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolAddOns", value) # pyright: ignore[reportArgumentType]
 
@@ -6381,7 +6397,7 @@ class CfnUserPool(
     @user_pool_name.setter
     def user_pool_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a877e7ca735a6cf85b712d1b09de98f59adcdbef66ffacb8f24d5687caa6a37a)
+            type_hints = cached_type_hints(_typecheckingstub__a877e7ca735a6cf85b712d1b09de98f59adcdbef66ffacb8f24d5687caa6a37a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolName", value) # pyright: ignore[reportArgumentType]
 
@@ -6394,7 +6410,7 @@ class CfnUserPool(
     @user_pool_tier.setter
     def user_pool_tier(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b34a7e631952732eaf3564630f968b4a1066c2249e1bd77fa5894ac20d552db)
+            type_hints = cached_type_hints(_typecheckingstub__7b34a7e631952732eaf3564630f968b4a1066c2249e1bd77fa5894ac20d552db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolTier", value) # pyright: ignore[reportArgumentType]
 
@@ -6402,17 +6418,17 @@ class CfnUserPool(
     @jsii.member(jsii_name="verificationMessageTemplate")
     def verification_message_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.VerificationMessageTemplateProperty"]]:
         '''The template for the verification message that your user pool delivers to users who set an email address or phone number attribute.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]], jsii.get(self, "verificationMessageTemplate"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.VerificationMessageTemplateProperty"]], jsii.get(self, "verificationMessageTemplate"))
 
     @verification_message_template.setter
     def verification_message_template(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.VerificationMessageTemplateProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888)
+            type_hints = cached_type_hints(_typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "verificationMessageTemplate", value) # pyright: ignore[reportArgumentType]
 
@@ -6427,7 +6443,7 @@ class CfnUserPool(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__428cbd214650a4798db1a6db90368ed69e4abc45108aaef6c2e661eb91df94bf)
+            type_hints = cached_type_hints(_typecheckingstub__428cbd214650a4798db1a6db90368ed69e4abc45108aaef6c2e661eb91df94bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webAuthnFactorConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -6440,7 +6456,7 @@ class CfnUserPool(
     @web_authn_relying_party_id.setter
     def web_authn_relying_party_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a2852b3b820fa8903c8ee86e4c615c763dbc2f40270d7dddb4851a596a4b629)
+            type_hints = cached_type_hints(_typecheckingstub__2a2852b3b820fa8903c8ee86e4c615c763dbc2f40270d7dddb4851a596a4b629)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webAuthnRelyingPartyId", value) # pyright: ignore[reportArgumentType]
 
@@ -6453,7 +6469,7 @@ class CfnUserPool(
     @web_authn_user_verification.setter
     def web_authn_user_verification(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39e1b7a43a4375c7269c036061949915e9a6e4528f8341df4df0a6b046ac6a11)
+            type_hints = cached_type_hints(_typecheckingstub__39e1b7a43a4375c7269c036061949915e9a6e4528f8341df4df0a6b046ac6a11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "webAuthnUserVerification", value) # pyright: ignore[reportArgumentType]
 
@@ -6466,7 +6482,7 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            recovery_mechanisms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.RecoveryOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            recovery_mechanisms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.RecoveryOptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The available verified method a user can use to recover their password when they call ``ForgotPassword`` .
 
@@ -6491,7 +6507,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__79c7f36a6b9a834beef59493981fd8b3c56dae29d4d3d36bb9b0a65305ebd4ce)
+                type_hints = cached_type_hints(_typecheckingstub__79c7f36a6b9a834beef59493981fd8b3c56dae29d4d3d36bb9b0a65305ebd4ce)
                 check_type(argname="argument recovery_mechanisms", value=recovery_mechanisms, expected_type=type_hints["recovery_mechanisms"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if recovery_mechanisms is not None:
@@ -6500,7 +6516,7 @@ class CfnUserPool(
         @builtins.property
         def recovery_mechanisms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.RecoveryOptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.RecoveryOptionProperty"]]]]:
             '''The list of options and priorities for user message delivery in forgot-password operations.
 
             Sets or displays user pool preferences for email or SMS message priority, whether users should fall back to a second delivery method, and whether passwords should only be reset by administrators.
@@ -6508,7 +6524,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-accountrecoverysetting.html#cfn-cognito-userpool-accountrecoverysetting-recoverymechanisms
             '''
             result = self._values.get("recovery_mechanisms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.RecoveryOptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.RecoveryOptionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6534,8 +6550,8 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            allow_admin_create_user_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            invite_message_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.InviteMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allow_admin_create_user_only: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            invite_message_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.InviteMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             unused_account_validity_days: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The settings for administrator creation of users in a user pool.
@@ -6566,7 +6582,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eccc17237dcc735721e8ed9027a445ee9831366ce5b71c7ee0c61cc0654098be)
+                type_hints = cached_type_hints(_typecheckingstub__eccc17237dcc735721e8ed9027a445ee9831366ce5b71c7ee0c61cc0654098be)
                 check_type(argname="argument allow_admin_create_user_only", value=allow_admin_create_user_only, expected_type=type_hints["allow_admin_create_user_only"])
                 check_type(argname="argument invite_message_template", value=invite_message_template, expected_type=type_hints["invite_message_template"])
                 check_type(argname="argument unused_account_validity_days", value=unused_account_validity_days, expected_type=type_hints["unused_account_validity_days"])
@@ -6581,7 +6597,7 @@ class CfnUserPool(
         @builtins.property
         def allow_admin_create_user_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The setting for allowing self-service sign-up.
 
             When ``true`` , only administrators can create new user profiles. When ``false`` , users can register themselves and create a new user profile with the ``SignUp`` operation.
@@ -6589,12 +6605,12 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-admincreateuserconfig.html#cfn-cognito-userpool-admincreateuserconfig-allowadmincreateuseronly
             '''
             result = self._values.get("allow_admin_create_user_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def invite_message_template(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InviteMessageTemplateProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.InviteMessageTemplateProperty"]]:
             '''The template for the welcome message to new users.
 
             This template must include the ``{####}`` temporary password placeholder if you are creating users with passwords. If your users don't have passwords, you can omit the placeholder.
@@ -6604,7 +6620,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-admincreateuserconfig.html#cfn-cognito-userpool-admincreateuserconfig-invitemessagetemplate
             '''
             result = self._values.get("invite_message_template")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InviteMessageTemplateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.InviteMessageTemplateProperty"]], result)
 
         @builtins.property
         def unused_account_validity_days(self) -> typing.Optional[jsii.Number]:
@@ -6659,7 +6675,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__13d285bc1be8956472b23e9b2a73954ac4f3700dcebec3973e7b6cbad4639935)
+                type_hints = cached_type_hints(_typecheckingstub__13d285bc1be8956472b23e9b2a73954ac4f3700dcebec3973e7b6cbad4639935)
                 check_type(argname="argument custom_auth_mode", value=custom_auth_mode, expected_type=type_hints["custom_auth_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if custom_auth_mode is not None:
@@ -6719,7 +6735,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__820d7b1c7eb3367a1ba085ab349db46e7dfd21d8e9d99e1a78219dc6a2258553)
+                type_hints = cached_type_hints(_typecheckingstub__820d7b1c7eb3367a1ba085ab349db46e7dfd21d8e9d99e1a78219dc6a2258553)
                 check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
                 check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6795,7 +6811,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5d7a0658af79be04111d251e361312d42c0f9017a17b247a2d1638ccf82fe0b)
+                type_hints = cached_type_hints(_typecheckingstub__a5d7a0658af79be04111d251e361312d42c0f9017a17b247a2d1638ccf82fe0b)
                 check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
                 check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6849,8 +6865,8 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            challenge_required_on_new_device: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            challenge_required_on_new_device: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The device-remembering configuration for a user pool.
 
@@ -6872,7 +6888,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f9bd553445392044237353e227a2ec9bd347d85cebe0bacf0660ef00ac950f0)
+                type_hints = cached_type_hints(_typecheckingstub__4f9bd553445392044237353e227a2ec9bd347d85cebe0bacf0660ef00ac950f0)
                 check_type(argname="argument challenge_required_on_new_device", value=challenge_required_on_new_device, expected_type=type_hints["challenge_required_on_new_device"])
                 check_type(argname="argument device_only_remembered_on_user_prompt", value=device_only_remembered_on_user_prompt, expected_type=type_hints["device_only_remembered_on_user_prompt"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6884,7 +6900,7 @@ class CfnUserPool(
         @builtins.property
         def challenge_required_on_new_device(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, a remembered device can sign in with device authentication instead of SMS and time-based one-time password (TOTP) factors for multi-factor authentication (MFA).
 
             .. epigraph::
@@ -6894,12 +6910,12 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-deviceconfiguration.html#cfn-cognito-userpool-deviceconfiguration-challengerequiredonnewdevice
             '''
             result = self._values.get("challenge_required_on_new_device")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def device_only_remembered_on_user_prompt(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''When true, Amazon Cognito doesn't automatically remember a user's device when your app sends a ``ConfirmDevice`` API request.
 
             In your app, create a prompt for your user to choose whether they want to remember their device. Return the user's choice in an ``UpdateDeviceStatus`` API request.
@@ -6909,7 +6925,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-deviceconfiguration.html#cfn-cognito-userpool-deviceconfiguration-deviceonlyrememberedonuserprompt
             '''
             result = self._values.get("device_only_remembered_on_user_prompt")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6971,7 +6987,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__aec7382b1b4972784ecb012d15fbc2441bfecae360d5f26e90d1da3ce7841785)
+                type_hints = cached_type_hints(_typecheckingstub__aec7382b1b4972784ecb012d15fbc2441bfecae360d5f26e90d1da3ce7841785)
                 check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
                 check_type(argname="argument email_sending_account", value=email_sending_account, expected_type=type_hints["email_sending_account"])
                 check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
@@ -7104,7 +7120,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__da16d330cdb2c2cc3f11733a4e8ed7fe6dbe9cb03643a0949f55c29824318de5)
+                type_hints = cached_type_hints(_typecheckingstub__da16d330cdb2c2cc3f11733a4e8ed7fe6dbe9cb03643a0949f55c29824318de5)
                 check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
                 check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7183,7 +7199,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e181999cda105732a159cee174edaaedc5039f9a73ad613e48d7196c7034bf81)
+                type_hints = cached_type_hints(_typecheckingstub__e181999cda105732a159cee174edaaedc5039f9a73ad613e48d7196c7034bf81)
                 check_type(argname="argument email_message", value=email_message, expected_type=type_hints["email_message"])
                 check_type(argname="argument email_subject", value=email_subject, expected_type=type_hints["email_subject"])
                 check_type(argname="argument sms_message", value=sms_message, expected_type=type_hints["sms_message"])
@@ -7238,6 +7254,122 @@ class CfnUserPool(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.IssuerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type"},
+    )
+    class IssuerConfigurationProperty:
+        def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-issuerconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                issuer_configuration_property = cognito.CfnUserPool.IssuerConfigurationProperty(
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9c8e4e208f99b45848d794b507bdb60557ba5a557aeea75b56fcdeb9cff8e184)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-issuerconfiguration.html#cfn-cognito-userpool-issuerconfiguration-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IssuerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.KeyConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key_type": "keyType", "kms_key_arn": "kmsKeyArn"},
+    )
+    class KeyConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            key_type: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param key_type: 
+            :param kms_key_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-keyconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                key_configuration_property = cognito.CfnUserPool.KeyConfigurationProperty(
+                    key_type="keyType",
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__267060b06d1a8717310ad1b4ab971c25991638cc2bb9317e438be42e9fcbfd69)
+                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if key_type is not None:
+                self._values["key_type"] = key_type
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def key_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-keyconfiguration.html#cfn-cognito-userpool-keyconfiguration-keytype
+            '''
+            result = self._values.get("key_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-keyconfiguration.html#cfn-cognito-userpool-keyconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.LambdaConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -7263,18 +7395,18 @@ class CfnUserPool(
             self,
             *,
             create_auth_challenge: typing.Optional[builtins.str] = None,
-            custom_email_sender: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.CustomEmailSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_email_sender: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.CustomEmailSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             custom_message: typing.Optional[builtins.str] = None,
-            custom_sms_sender: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.CustomSMSSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_sms_sender: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.CustomSMSSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             define_auth_challenge: typing.Optional[builtins.str] = None,
-            inbound_federation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.InboundFederationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            inbound_federation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.InboundFederationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
             post_authentication: typing.Optional[builtins.str] = None,
             post_confirmation: typing.Optional[builtins.str] = None,
             pre_authentication: typing.Optional[builtins.str] = None,
             pre_sign_up: typing.Optional[builtins.str] = None,
             pre_token_generation: typing.Optional[builtins.str] = None,
-            pre_token_generation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.PreTokenGenerationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pre_token_generation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.PreTokenGenerationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             user_migration: typing.Optional[builtins.str] = None,
             verify_auth_challenge_response: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -7338,7 +7470,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7c28f17b2edc8643f21e960e612cea0cf88cbb14e55f37d1bab97e6fe5682843)
+                type_hints = cached_type_hints(_typecheckingstub__7c28f17b2edc8643f21e960e612cea0cf88cbb14e55f37d1bab97e6fe5682843)
                 check_type(argname="argument create_auth_challenge", value=create_auth_challenge, expected_type=type_hints["create_auth_challenge"])
                 check_type(argname="argument custom_email_sender", value=custom_email_sender, expected_type=type_hints["custom_email_sender"])
                 check_type(argname="argument custom_message", value=custom_message, expected_type=type_hints["custom_message"])
@@ -7398,7 +7530,7 @@ class CfnUserPool(
         @builtins.property
         def custom_email_sender(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.CustomEmailSenderProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.CustomEmailSenderProperty"]]:
             '''The configuration of a custom email sender Lambda trigger.
 
             This trigger routes all email notifications from a user pool to a Lambda function that delivers the message using custom logic.
@@ -7406,7 +7538,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-lambdaconfig.html#cfn-cognito-userpool-lambdaconfig-customemailsender
             '''
             result = self._values.get("custom_email_sender")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.CustomEmailSenderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.CustomEmailSenderProperty"]], result)
 
         @builtins.property
         def custom_message(self) -> typing.Optional[builtins.str]:
@@ -7422,7 +7554,7 @@ class CfnUserPool(
         @builtins.property
         def custom_sms_sender(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.CustomSMSSenderProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.CustomSMSSenderProperty"]]:
             '''The configuration of a custom SMS sender Lambda trigger.
 
             This trigger routes all SMS notifications from a user pool to a Lambda function that delivers the message using custom logic.
@@ -7430,7 +7562,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-lambdaconfig.html#cfn-cognito-userpool-lambdaconfig-customsmssender
             '''
             result = self._values.get("custom_sms_sender")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.CustomSMSSenderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.CustomSMSSenderProperty"]], result)
 
         @builtins.property
         def define_auth_challenge(self) -> typing.Optional[builtins.str]:
@@ -7444,12 +7576,12 @@ class CfnUserPool(
         @builtins.property
         def inbound_federation(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InboundFederationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.InboundFederationProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-lambdaconfig.html#cfn-cognito-userpool-lambdaconfig-inboundfederation
             '''
             result = self._values.get("inbound_federation")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InboundFederationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.InboundFederationProperty"]], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -7510,13 +7642,13 @@ class CfnUserPool(
         @builtins.property
         def pre_token_generation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PreTokenGenerationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PreTokenGenerationConfigProperty"]]:
             '''The detailed configuration of a `pre token generation Lambda trigger <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html>`_ in a user pool. If you also set an ARN in ``PreTokenGeneration`` , its value must be identical to ``PreTokenGenerationConfig`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-lambdaconfig.html#cfn-cognito-userpool-lambdaconfig-pretokengenerationconfig
             '''
             result = self._values.get("pre_token_generation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PreTokenGenerationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PreTokenGenerationConfigProperty"]], result)
 
         @builtins.property
         def user_migration(self) -> typing.Optional[builtins.str]:
@@ -7579,7 +7711,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fcd4fcf3db45f8dea604d1f3bcc70f5f37fb4061fc1c279ad00b155ccb10477f)
+                type_hints = cached_type_hints(_typecheckingstub__fcd4fcf3db45f8dea604d1f3bcc70f5f37fb4061fc1c279ad00b155ccb10477f)
                 check_type(argname="argument max_value", value=max_value, expected_type=type_hints["max_value"])
                 check_type(argname="argument min_value", value=min_value, expected_type=type_hints["min_value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7638,10 +7770,10 @@ class CfnUserPool(
             *,
             minimum_length: typing.Optional[jsii.Number] = None,
             password_history_size: typing.Optional[jsii.Number] = None,
-            require_lowercase: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            require_numbers: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            require_symbols: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            require_uppercase: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            require_lowercase: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            require_numbers: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            require_symbols: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            require_uppercase: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             temporary_password_validity_days: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The password policy settings for a user pool, including complexity, history, and length requirements.
@@ -7674,7 +7806,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__388245a445a407251a06f0f49f236a6b0a76ff7177f23a1d5cd9d4ffa819b2c0)
+                type_hints = cached_type_hints(_typecheckingstub__388245a445a407251a06f0f49f236a6b0a76ff7177f23a1d5cd9d4ffa819b2c0)
                 check_type(argname="argument minimum_length", value=minimum_length, expected_type=type_hints["minimum_length"])
                 check_type(argname="argument password_history_size", value=password_history_size, expected_type=type_hints["password_history_size"])
                 check_type(argname="argument require_lowercase", value=require_lowercase, expected_type=type_hints["require_lowercase"])
@@ -7723,46 +7855,46 @@ class CfnUserPool(
         @builtins.property
         def require_lowercase(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The requirement in a password policy that users must include at least one lowercase letter in their password.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-passwordpolicy.html#cfn-cognito-userpool-passwordpolicy-requirelowercase
             '''
             result = self._values.get("require_lowercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def require_numbers(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The requirement in a password policy that users must include at least one number in their password.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-passwordpolicy.html#cfn-cognito-userpool-passwordpolicy-requirenumbers
             '''
             result = self._values.get("require_numbers")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def require_symbols(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The requirement in a password policy that users must include at least one symbol in their password.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-passwordpolicy.html#cfn-cognito-userpool-passwordpolicy-requiresymbols
             '''
             result = self._values.get("require_symbols")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def require_uppercase(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The requirement in a password policy that users must include at least one uppercase letter in their password.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-passwordpolicy.html#cfn-cognito-userpool-passwordpolicy-requireuppercase
             '''
             result = self._values.get("require_uppercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def temporary_password_validity_days(self) -> typing.Optional[jsii.Number]:
@@ -7801,8 +7933,8 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            password_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.PasswordPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sign_in_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.SignInPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            password_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.PasswordPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sign_in_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.SignInPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A list of user pool policies.
 
@@ -7836,7 +7968,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9a9937f0b75c9ab1976e5dbd8fe12631390f6d478c894cb0164171b2f9dc39c5)
+                type_hints = cached_type_hints(_typecheckingstub__9a9937f0b75c9ab1976e5dbd8fe12631390f6d478c894cb0164171b2f9dc39c5)
                 check_type(argname="argument password_policy", value=password_policy, expected_type=type_hints["password_policy"])
                 check_type(argname="argument sign_in_policy", value=sign_in_policy, expected_type=type_hints["sign_in_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7848,18 +7980,18 @@ class CfnUserPool(
         @builtins.property
         def password_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PasswordPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PasswordPolicyProperty"]]:
             '''The password policy settings for a user pool, including complexity, history, and length requirements.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-policies.html#cfn-cognito-userpool-policies-passwordpolicy
             '''
             result = self._values.get("password_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PasswordPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PasswordPolicyProperty"]], result)
 
         @builtins.property
         def sign_in_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SignInPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SignInPolicyProperty"]]:
             '''The policy for allowed types of authentication in a user pool.
 
             To activate this setting, your user pool must be in the `Essentials tier <https://docs.aws.amazon.com/cognito/latest/developerguide/feature-plans-features-essentials.html>`_ or higher.
@@ -7867,7 +7999,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-policies.html#cfn-cognito-userpool-policies-signinpolicy
             '''
             result = self._values.get("sign_in_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SignInPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SignInPolicyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7912,7 +8044,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c435cb573a2ad1bbb4941ea6a84c25f5ac58315d4c18f57c87ed051fdbe8f389)
+                type_hints = cached_type_hints(_typecheckingstub__c435cb573a2ad1bbb4941ea6a84c25f5ac58315d4c18f57c87ed051fdbe8f389)
                 check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
                 check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7990,7 +8122,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c9742a28c55768ed927b752fb7849a5b2cd75a327e7ede06af406eb1c817b9b5)
+                type_hints = cached_type_hints(_typecheckingstub__c9742a28c55768ed927b752fb7849a5b2cd75a327e7ede06af406eb1c817b9b5)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8048,12 +8180,12 @@ class CfnUserPool(
             self,
             *,
             attribute_data_type: typing.Optional[builtins.str] = None,
-            developer_only_attribute: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            mutable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            developer_only_attribute: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            mutable: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             name: typing.Optional[builtins.str] = None,
-            number_attribute_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.NumberAttributeConstraintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            string_attribute_constraints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.StringAttributeConstraintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            number_attribute_constraints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.NumberAttributeConstraintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            required: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            string_attribute_constraints: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.StringAttributeConstraintsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A list of the user attributes and their properties in your user pool.
 
@@ -8095,7 +8227,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9814951786a68c04c05f6bdb7eb01a34fa749e2fb6491b5414b8e8e27d9a7faf)
+                type_hints = cached_type_hints(_typecheckingstub__9814951786a68c04c05f6bdb7eb01a34fa749e2fb6491b5414b8e8e27d9a7faf)
                 check_type(argname="argument attribute_data_type", value=attribute_data_type, expected_type=type_hints["attribute_data_type"])
                 check_type(argname="argument developer_only_attribute", value=developer_only_attribute, expected_type=type_hints["developer_only_attribute"])
                 check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -8133,7 +8265,7 @@ class CfnUserPool(
         @builtins.property
         def developer_only_attribute(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''.. epigraph::
 
    You should use `WriteAttributes <https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_UserPoolClientType.html#CognitoUserPools-Type-UserPoolClientType-WriteAttributes>`_ in the user pool client to control how attributes can be mutated for new use cases instead of using ``DeveloperOnlyAttribute`` .
@@ -8143,12 +8275,12 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-schemaattribute.html#cfn-cognito-userpool-schemaattribute-developeronlyattribute
             '''
             result = self._values.get("developer_only_attribute")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def mutable(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether the value of the attribute can be changed.
 
             Any user pool attribute whose value you map from an IdP attribute must be mutable, with a parameter value of ``true`` . Amazon Cognito updates mapped attributes when users sign in to your application through an IdP. If an attribute is immutable, Amazon Cognito throws an error when it attempts to update the attribute. For more information, see `Specifying Identity Provider Attribute Mappings for Your User Pool <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-specifying-attribute-mapping.html>`_ .
@@ -8156,7 +8288,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-schemaattribute.html#cfn-cognito-userpool-schemaattribute-mutable
             '''
             result = self._values.get("mutable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -8172,18 +8304,18 @@ class CfnUserPool(
         @builtins.property
         def number_attribute_constraints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.NumberAttributeConstraintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.NumberAttributeConstraintsProperty"]]:
             '''Specifies the constraints for an attribute of the number type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-schemaattribute.html#cfn-cognito-userpool-schemaattribute-numberattributeconstraints
             '''
             result = self._values.get("number_attribute_constraints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.NumberAttributeConstraintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.NumberAttributeConstraintsProperty"]], result)
 
         @builtins.property
         def required(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether a user pool attribute is required.
 
             If the attribute is required and the user doesn't provide a value, registration or sign-in will fail.
@@ -8191,18 +8323,18 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-schemaattribute.html#cfn-cognito-userpool-schemaattribute-required
             '''
             result = self._values.get("required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def string_attribute_constraints(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.StringAttributeConstraintsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.StringAttributeConstraintsProperty"]]:
             '''Specifies the constraints for an attribute of the string type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-schemaattribute.html#cfn-cognito-userpool-schemaattribute-stringattributeconstraints
             '''
             result = self._values.get("string_attribute_constraints")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.StringAttributeConstraintsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.StringAttributeConstraintsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8246,7 +8378,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__71f41ee8011d666621169ad6aeb915855a76a5e105809ce7914229f99c53dd8d)
+                type_hints = cached_type_hints(_typecheckingstub__71f41ee8011d666621169ad6aeb915855a76a5e105809ce7914229f99c53dd8d)
                 check_type(argname="argument allowed_first_auth_factors", value=allowed_first_auth_factors, expected_type=type_hints["allowed_first_auth_factors"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if allowed_first_auth_factors is not None:
@@ -8319,7 +8451,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7bdd79abbed6d1c2a56f92beb7e51f5c19f5fdeac49af18d379dda0e31605f6e)
+                type_hints = cached_type_hints(_typecheckingstub__7bdd79abbed6d1c2a56f92beb7e51f5c19f5fdeac49af18d379dda0e31605f6e)
                 check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
                 check_type(argname="argument sns_caller_arn", value=sns_caller_arn, expected_type=type_hints["sns_caller_arn"])
                 check_type(argname="argument sns_region", value=sns_region, expected_type=type_hints["sns_region"])
@@ -8411,7 +8543,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f41214770e927d123d991e256c57adae04d14e4535a0aba7a27061e61291dabb)
+                type_hints = cached_type_hints(_typecheckingstub__f41214770e927d123d991e256c57adae04d14e4535a0aba7a27061e61291dabb)
                 check_type(argname="argument max_length", value=max_length, expected_type=type_hints["max_length"])
                 check_type(argname="argument min_length", value=min_length, expected_type=type_hints["min_length"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8486,7 +8618,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9c5843901d71c5f7088f0e7c239f7dbd10ae5d4810ba8341e48b29354a6e36e7)
+                type_hints = cached_type_hints(_typecheckingstub__9c5843901d71c5f7088f0e7c239f7dbd10ae5d4810ba8341e48b29354a6e36e7)
                 check_type(argname="argument attributes_require_verification_before_update", value=attributes_require_verification_before_update, expected_type=type_hints["attributes_require_verification_before_update"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "attributes_require_verification_before_update": attributes_require_verification_before_update,
@@ -8531,7 +8663,7 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            advanced_security_additional_flows: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.AdvancedSecurityAdditionalFlowsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            advanced_security_additional_flows: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.AdvancedSecurityAdditionalFlowsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             advanced_security_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''User pool add-ons.
@@ -8560,7 +8692,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__134d2b8e9ae3077b4c1f940aca55cabaa1dcdc1e12d0cd06c074768ee425ce71)
+                type_hints = cached_type_hints(_typecheckingstub__134d2b8e9ae3077b4c1f940aca55cabaa1dcdc1e12d0cd06c074768ee425ce71)
                 check_type(argname="argument advanced_security_additional_flows", value=advanced_security_additional_flows, expected_type=type_hints["advanced_security_additional_flows"])
                 check_type(argname="argument advanced_security_mode", value=advanced_security_mode, expected_type=type_hints["advanced_security_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8572,13 +8704,13 @@ class CfnUserPool(
         @builtins.property
         def advanced_security_additional_flows(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdvancedSecurityAdditionalFlowsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdvancedSecurityAdditionalFlowsProperty"]]:
             '''Threat protection configuration options for additional authentication types in your user pool, including custom authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-userpooladdons.html#cfn-cognito-userpool-userpooladdons-advancedsecurityadditionalflows
             '''
             result = self._values.get("advanced_security_additional_flows")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdvancedSecurityAdditionalFlowsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdvancedSecurityAdditionalFlowsProperty"]], result)
 
         @builtins.property
         def advanced_security_mode(self) -> typing.Optional[builtins.str]:
@@ -8609,7 +8741,7 @@ class CfnUserPool(
         def __init__(
             self,
             *,
-            case_sensitive: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            case_sensitive: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''Case sensitivity of the username input for the selected sign-in option.
 
@@ -8631,7 +8763,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__db6dcc5455914ce6665f0af9e83e637f5f18b38787df8606b4fa8bba2c5f9744)
+                type_hints = cached_type_hints(_typecheckingstub__db6dcc5455914ce6665f0af9e83e637f5f18b38787df8606b4fa8bba2c5f9744)
                 check_type(argname="argument case_sensitive", value=case_sensitive, expected_type=type_hints["case_sensitive"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if case_sensitive is not None:
@@ -8640,7 +8772,7 @@ class CfnUserPool(
         @builtins.property
         def case_sensitive(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether user name case sensitivity will be applied for all users in the user pool through Amazon Cognito APIs.
 
             For most use cases, set case sensitivity to ``False`` (case insensitive) as a best practice. When usernames and email addresses are case insensitive, users can sign in as the same user when they enter a different capitalization of their user name.
@@ -8653,7 +8785,7 @@ class CfnUserPool(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-usernameconfiguration.html#cfn-cognito-userpool-usernameconfiguration-casesensitive
             '''
             result = self._values.get("case_sensitive")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8717,7 +8849,7 @@ class CfnUserPool(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__264d92574057582e7b8534e4d14b09988810009a53fd30e1df55ccea2a789c67)
+                type_hints = cached_type_hints(_typecheckingstub__264d92574057582e7b8534e4d14b09988810009a53fd30e1df55ccea2a789c67)
                 check_type(argname="argument default_email_option", value=default_email_option, expected_type=type_hints["default_email_option"])
                 check_type(argname="argument email_message", value=email_message, expected_type=type_hints["email_message"])
                 check_type(argname="argument email_message_by_link", value=email_message_by_link, expected_type=type_hints["email_message_by_link"])
@@ -8814,9 +8946,9 @@ class CfnUserPool(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolClientRef_4466eeba)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolClientRef)
 class CfnUserPoolClient(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClient",
 ):
@@ -8896,28 +9028,28 @@ class CfnUserPoolClient(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         access_token_validity: typing.Optional[jsii.Number] = None,
         allowed_o_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-        allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         allowed_o_auth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        analytics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        analytics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         auth_session_validity: typing.Optional[jsii.Number] = None,
         callback_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         client_name: typing.Optional[builtins.str] = None,
         default_redirect_uri: typing.Optional[builtins.str] = None,
-        enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_token_revocation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_token_revocation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         explicit_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-        generate_secret: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        generate_secret: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         id_token_validity: typing.Optional[jsii.Number] = None,
         logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.str] = None,
         read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        refresh_token_rotation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.RefreshTokenRotationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        refresh_token_rotation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.RefreshTokenRotationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         refresh_token_validity: typing.Optional[jsii.Number] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        token_validity_units: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.TokenValidityUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        token_validity_units: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.TokenValidityUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolClient``.
@@ -8949,7 +9081,7 @@ class CfnUserPoolClient(
         :param write_attributes: The list of user attributes that you want your app client to have write access to. After your user authenticates in your app, their access token authorizes them to set or modify their own attribute value for any attribute in this list. When you don't specify the ``WriteAttributes`` for your app client, your app can write the values of the Standard attributes of your user pool. When your user pool has write access to these default attributes, ``WriteAttributes`` doesn't return any information. Amazon Cognito only populates ``WriteAttributes`` in the API response if you have specified your own custom set of write attributes. If your app client allows users to sign in through an IdP, this array must include all attributes that you have mapped to IdP attributes. Amazon Cognito updates mapped attributes when users sign in to your application through an IdP. If your app client does not have write access to a mapped attribute, Amazon Cognito throws an error when it tries to update the attribute. For more information, see `Specifying IdP Attribute Mappings for Your user pool <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-specifying-attribute-mapping.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87712ca9ae8faf9f73a6c5d11987fcf280543ea093bcc4253c800c0151725828)
+            type_hints = cached_type_hints(_typecheckingstub__87712ca9ae8faf9f73a6c5d11987fcf280543ea093bcc4253c800c0151725828)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolClientProps(
@@ -8988,18 +9120,18 @@ class CfnUserPoolClient(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56deb60f193f9f102ed18b276bc08a270cce1dd3fc0c01350c1a24b17bb4c18e)
+            type_hints = cached_type_hints(_typecheckingstub__56deb60f193f9f102ed18b276bc08a270cce1dd3fc0c01350c1a24b17bb4c18e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolClient", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a9fb7182377f570d9a0052b4ec94ac913c9394d689704450911f34bf1b5d913)
+            type_hints = cached_type_hints(_typecheckingstub__8a9fb7182377f570d9a0052b4ec94ac913c9394d689704450911f34bf1b5d913)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -9012,7 +9144,7 @@ class CfnUserPoolClient(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24cd5fc10220261da123ffed55929e7f1d18d35b5e7d1850e552963aef79c436)
+            type_hints = cached_type_hints(_typecheckingstub__24cd5fc10220261da123ffed55929e7f1d18d35b5e7d1850e552963aef79c436)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -9059,9 +9191,9 @@ class CfnUserPoolClient(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolClientRef")
-    def user_pool_client_ref(self) -> "_UserPoolClientReference_2e04ee48":
+    def user_pool_client_ref(self) -> "_aws_cognito_aa210b15.UserPoolClientReference":
         '''A reference to a UserPoolClient resource.'''
-        return typing.cast("_UserPoolClientReference_2e04ee48", jsii.get(self, "userPoolClientRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolClientReference", jsii.get(self, "userPoolClientRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -9072,7 +9204,7 @@ class CfnUserPoolClient(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b25b3f1d7835d1e1c5594b9c3dffd6b2c3b2773f547e55b57c8e0919e93a204)
+            type_hints = cached_type_hints(_typecheckingstub__1b25b3f1d7835d1e1c5594b9c3dffd6b2c3b2773f547e55b57c8e0919e93a204)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -9085,7 +9217,7 @@ class CfnUserPoolClient(
     @access_token_validity.setter
     def access_token_validity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c22b177f80150859dd3fc0ec6040fd86d6718dde2ccbb4e6e2993f4f0179616)
+            type_hints = cached_type_hints(_typecheckingstub__9c22b177f80150859dd3fc0ec6040fd86d6718dde2ccbb4e6e2993f4f0179616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessTokenValidity", value) # pyright: ignore[reportArgumentType]
 
@@ -9101,7 +9233,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4e6becf32885d0d881b59d33ec61072e6d7812d751551a739cadf93d3754c73)
+            type_hints = cached_type_hints(_typecheckingstub__a4e6becf32885d0d881b59d33ec61072e6d7812d751551a739cadf93d3754c73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowedOAuthFlows", value) # pyright: ignore[reportArgumentType]
 
@@ -9109,17 +9241,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="allowedOAuthFlowsUserPoolClient")
     def allowed_o_auth_flows_user_pool_client(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Set to ``true`` to use OAuth 2.0 authorization server features in your app client.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowedOAuthFlowsUserPoolClient"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "allowedOAuthFlowsUserPoolClient"))
 
     @allowed_o_auth_flows_user_pool_client.setter
     def allowed_o_auth_flows_user_pool_client(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21873ac965a2fe0f5bdf6747b41efd7cf29a1e20f79888c68d664a70a929167f)
+            type_hints = cached_type_hints(_typecheckingstub__21873ac965a2fe0f5bdf6747b41efd7cf29a1e20f79888c68d664a70a929167f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowedOAuthFlowsUserPoolClient", value) # pyright: ignore[reportArgumentType]
 
@@ -9135,7 +9267,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96cd6c659670b16fdec9188b6f46c9069df3c2c6e960eb82c804a6eee58c0676)
+            type_hints = cached_type_hints(_typecheckingstub__96cd6c659670b16fdec9188b6f46c9069df3c2c6e960eb82c804a6eee58c0676)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowedOAuthScopes", value) # pyright: ignore[reportArgumentType]
 
@@ -9143,17 +9275,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="analyticsConfiguration")
     def analytics_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.AnalyticsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.AnalyticsConfigurationProperty"]]:
         '''The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.AnalyticsConfigurationProperty"]], jsii.get(self, "analyticsConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.AnalyticsConfigurationProperty"]], jsii.get(self, "analyticsConfiguration"))
 
     @analytics_configuration.setter
     def analytics_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.AnalyticsConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.AnalyticsConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20f4094b4b15bf8a99ce9e0a2bb559a164606de26b84fc2bb8855aa07e1b624b)
+            type_hints = cached_type_hints(_typecheckingstub__20f4094b4b15bf8a99ce9e0a2bb559a164606de26b84fc2bb8855aa07e1b624b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "analyticsConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -9166,7 +9298,7 @@ class CfnUserPoolClient(
     @auth_session_validity.setter
     def auth_session_validity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c933dc37f47234e60d586123e1b18e9c28a667f37c5d5427aa85b4409376ea07)
+            type_hints = cached_type_hints(_typecheckingstub__c933dc37f47234e60d586123e1b18e9c28a667f37c5d5427aa85b4409376ea07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "authSessionValidity", value) # pyright: ignore[reportArgumentType]
 
@@ -9179,7 +9311,7 @@ class CfnUserPoolClient(
     @callback_ur_ls.setter
     def callback_ur_ls(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d014efcb2549aac6515f36258ccaf4ecec07ac09bca5d035df6559947c4ac2c1)
+            type_hints = cached_type_hints(_typecheckingstub__d014efcb2549aac6515f36258ccaf4ecec07ac09bca5d035df6559947c4ac2c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "callbackUrLs", value) # pyright: ignore[reportArgumentType]
 
@@ -9192,7 +9324,7 @@ class CfnUserPoolClient(
     @client_name.setter
     def client_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0137f7e9c73233d74a2df7b39c8c4bb8d81b22d045b5741333e0b7f4cad603ba)
+            type_hints = cached_type_hints(_typecheckingstub__0137f7e9c73233d74a2df7b39c8c4bb8d81b22d045b5741333e0b7f4cad603ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientName", value) # pyright: ignore[reportArgumentType]
 
@@ -9205,7 +9337,7 @@ class CfnUserPoolClient(
     @default_redirect_uri.setter
     def default_redirect_uri(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfdc028ae25dd39e3553917a9d4209340b6c920f4ae1efe20b0c2c400f79d71b)
+            type_hints = cached_type_hints(_typecheckingstub__dfdc028ae25dd39e3553917a9d4209340b6c920f4ae1efe20b0c2c400f79d71b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultRedirectUri", value) # pyright: ignore[reportArgumentType]
 
@@ -9213,17 +9345,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="enablePropagateAdditionalUserContextData")
     def enable_propagate_additional_user_context_data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , your application can include additional ``UserContextData`` in authentication requests.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enablePropagateAdditionalUserContextData"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enablePropagateAdditionalUserContextData"))
 
     @enable_propagate_additional_user_context_data.setter
     def enable_propagate_additional_user_context_data(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c6e219444196075c25c38bf5995f93c8a7cec9a53523c8ac01a848afffefd1c)
+            type_hints = cached_type_hints(_typecheckingstub__1c6e219444196075c25c38bf5995f93c8a7cec9a53523c8ac01a848afffefd1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enablePropagateAdditionalUserContextData", value) # pyright: ignore[reportArgumentType]
 
@@ -9231,17 +9363,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="enableTokenRevocation")
     def enable_token_revocation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Activates or deactivates token revocation.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableTokenRevocation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableTokenRevocation"))
 
     @enable_token_revocation.setter
     def enable_token_revocation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb0c7908c7db28417fc0f3140fa5d8ceb244c98f8aa1729c6e2945ed0e1c43cb)
+            type_hints = cached_type_hints(_typecheckingstub__fb0c7908c7db28417fc0f3140fa5d8ceb244c98f8aa1729c6e2945ed0e1c43cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableTokenRevocation", value) # pyright: ignore[reportArgumentType]
 
@@ -9257,7 +9389,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40565d8b2082bb82a66f2c2881526bbe7e4d5f0f2f08ba6dc2976e98f59f7c8f)
+            type_hints = cached_type_hints(_typecheckingstub__40565d8b2082bb82a66f2c2881526bbe7e4d5f0f2f08ba6dc2976e98f59f7c8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "explicitAuthFlows", value) # pyright: ignore[reportArgumentType]
 
@@ -9265,17 +9397,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="generateSecret")
     def generate_secret(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , generates a client secret for the app client.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "generateSecret"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "generateSecret"))
 
     @generate_secret.setter
     def generate_secret(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__957788b79d759b4d61639c557602d69d56690104c1f0aaa40f50729534e68c16)
+            type_hints = cached_type_hints(_typecheckingstub__957788b79d759b4d61639c557602d69d56690104c1f0aaa40f50729534e68c16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "generateSecret", value) # pyright: ignore[reportArgumentType]
 
@@ -9288,7 +9420,7 @@ class CfnUserPoolClient(
     @id_token_validity.setter
     def id_token_validity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc02869bb5973b6100efb5c37bedca5b74e381117419f1bac379398aaffc2d11)
+            type_hints = cached_type_hints(_typecheckingstub__fc02869bb5973b6100efb5c37bedca5b74e381117419f1bac379398aaffc2d11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idTokenValidity", value) # pyright: ignore[reportArgumentType]
 
@@ -9301,7 +9433,7 @@ class CfnUserPoolClient(
     @logout_ur_ls.setter
     def logout_ur_ls(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__794ffdcf30a3962d0a3f7e5f05ddfd74a6fef4d201947dd6201c7a686f541188)
+            type_hints = cached_type_hints(_typecheckingstub__794ffdcf30a3962d0a3f7e5f05ddfd74a6fef4d201947dd6201c7a686f541188)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logoutUrLs", value) # pyright: ignore[reportArgumentType]
 
@@ -9317,7 +9449,7 @@ class CfnUserPoolClient(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69feb00103083800cef9fe6cb134d68a642b9492532f75a271736355bf5da06d)
+            type_hints = cached_type_hints(_typecheckingstub__69feb00103083800cef9fe6cb134d68a642b9492532f75a271736355bf5da06d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "preventUserExistenceErrors", value) # pyright: ignore[reportArgumentType]
 
@@ -9333,7 +9465,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0450b9a1c4091ecc8dc0197c1b8b862535cb1a705df2e839371c83db2f684ba)
+            type_hints = cached_type_hints(_typecheckingstub__d0450b9a1c4091ecc8dc0197c1b8b862535cb1a705df2e839371c83db2f684ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -9341,17 +9473,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="refreshTokenRotation")
     def refresh_token_rotation(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.RefreshTokenRotationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.RefreshTokenRotationProperty"]]:
         '''The configuration of your app client for refresh token rotation.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.RefreshTokenRotationProperty"]], jsii.get(self, "refreshTokenRotation"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.RefreshTokenRotationProperty"]], jsii.get(self, "refreshTokenRotation"))
 
     @refresh_token_rotation.setter
     def refresh_token_rotation(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.RefreshTokenRotationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.RefreshTokenRotationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781)
+            type_hints = cached_type_hints(_typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "refreshTokenRotation", value) # pyright: ignore[reportArgumentType]
 
@@ -9364,7 +9496,7 @@ class CfnUserPoolClient(
     @refresh_token_validity.setter
     def refresh_token_validity(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffd4a00853573a9063ab6bfb4bd488904d41fa8453a02d33cc8b44f6638125c5)
+            type_hints = cached_type_hints(_typecheckingstub__ffd4a00853573a9063ab6bfb4bd488904d41fa8453a02d33cc8b44f6638125c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "refreshTokenValidity", value) # pyright: ignore[reportArgumentType]
 
@@ -9382,7 +9514,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97736930ca8413d8b00c7851c37dde3d55fed9ca3778ecbfeb14cf25389e28c8)
+            type_hints = cached_type_hints(_typecheckingstub__97736930ca8413d8b00c7851c37dde3d55fed9ca3778ecbfeb14cf25389e28c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "supportedIdentityProviders", value) # pyright: ignore[reportArgumentType]
 
@@ -9390,17 +9522,17 @@ class CfnUserPoolClient(
     @jsii.member(jsii_name="tokenValidityUnits")
     def token_validity_units(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.TokenValidityUnitsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.TokenValidityUnitsProperty"]]:
         '''The units that validity times are represented in.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.TokenValidityUnitsProperty"]], jsii.get(self, "tokenValidityUnits"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.TokenValidityUnitsProperty"]], jsii.get(self, "tokenValidityUnits"))
 
     @token_validity_units.setter
     def token_validity_units(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.TokenValidityUnitsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.TokenValidityUnitsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd54ee51ef07c33acd2cbd8e02b234784fa5a6a1c7879a29066514822e4147fb)
+            type_hints = cached_type_hints(_typecheckingstub__dd54ee51ef07c33acd2cbd8e02b234784fa5a6a1c7879a29066514822e4147fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tokenValidityUnits", value) # pyright: ignore[reportArgumentType]
 
@@ -9416,7 +9548,7 @@ class CfnUserPoolClient(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9ed7bc7a68b64df6709c00059cae06196e10a1a3cf55f0554b70dc90d3f9945)
+            type_hints = cached_type_hints(_typecheckingstub__d9ed7bc7a68b64df6709c00059cae06196e10a1a3cf55f0554b70dc90d3f9945)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "writeAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -9439,7 +9571,7 @@ class CfnUserPoolClient(
             application_id: typing.Optional[builtins.str] = None,
             external_id: typing.Optional[builtins.str] = None,
             role_arn: typing.Optional[builtins.str] = None,
-            user_data_shared: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            user_data_shared: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The settings for Amazon Pinpoint analytics configuration.
 
@@ -9471,7 +9603,7 @@ class CfnUserPoolClient(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6d6536363f7e284c6e3822670ff24aa20b4a6cc176e0e696a1702da00bbe4816)
+                type_hints = cached_type_hints(_typecheckingstub__6d6536363f7e284c6e3822670ff24aa20b4a6cc176e0e696a1702da00bbe4816)
                 check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
                 check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
                 check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
@@ -9530,13 +9662,13 @@ class CfnUserPoolClient(
         @builtins.property
         def user_data_shared(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If ``UserDataShared`` is ``true`` , Amazon Cognito includes user data in the events that it publishes to Amazon Pinpoint analytics.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclient-analyticsconfiguration.html#cfn-cognito-userpoolclient-analyticsconfiguration-userdatashared
             '''
             result = self._values.get("user_data_shared")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9586,7 +9718,7 @@ class CfnUserPoolClient(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__695b10a90bf402ec0a4a1ee7c779f22b60df9baa874511aa2a177fac5b949f3f)
+                type_hints = cached_type_hints(_typecheckingstub__695b10a90bf402ec0a4a1ee7c779f22b60df9baa874511aa2a177fac5b949f3f)
                 check_type(argname="argument feature", value=feature, expected_type=type_hints["feature"])
                 check_type(argname="argument retry_grace_period_seconds", value=retry_grace_period_seconds, expected_type=type_hints["retry_grace_period_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -9667,7 +9799,7 @@ class CfnUserPoolClient(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7b0535ba992a4a94b92b965971fc09c8b8c0a72362c42aaf98b5ae4cbef4d7e6)
+                type_hints = cached_type_hints(_typecheckingstub__7b0535ba992a4a94b92b965971fc09c8b8c0a72362c42aaf98b5ae4cbef4d7e6)
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
                 check_type(argname="argument id_token", value=id_token, expected_type=type_hints["id_token"])
                 check_type(argname="argument refresh_token", value=refresh_token, expected_type=type_hints["refresh_token"])
@@ -9757,28 +9889,28 @@ class CfnUserPoolClientProps:
     def __init__(
         self,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         access_token_validity: typing.Optional[jsii.Number] = None,
         allowed_o_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-        allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         allowed_o_auth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        analytics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        analytics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         auth_session_validity: typing.Optional[jsii.Number] = None,
         callback_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         client_name: typing.Optional[builtins.str] = None,
         default_redirect_uri: typing.Optional[builtins.str] = None,
-        enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        enable_token_revocation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enable_token_revocation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         explicit_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-        generate_secret: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        generate_secret: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         id_token_validity: typing.Optional[jsii.Number] = None,
         logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.str] = None,
         read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        refresh_token_rotation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.RefreshTokenRotationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        refresh_token_rotation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.RefreshTokenRotationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         refresh_token_validity: typing.Optional[jsii.Number] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
-        token_validity_units: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolClient.TokenValidityUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        token_validity_units: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolClient.TokenValidityUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         write_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolClient``.
@@ -9858,7 +9990,7 @@ class CfnUserPoolClientProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__073ea5893b9cfc70c0362e57cd0c1b5397e1c6374434fc1d5c261da79307d954)
+            type_hints = cached_type_hints(_typecheckingstub__073ea5893b9cfc70c0362e57cd0c1b5397e1c6374434fc1d5c261da79307d954)
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument access_token_validity", value=access_token_validity, expected_type=type_hints["access_token_validity"])
             check_type(argname="argument allowed_o_auth_flows", value=allowed_o_auth_flows, expected_type=type_hints["allowed_o_auth_flows"])
@@ -9931,14 +10063,16 @@ class CfnUserPoolClientProps:
             self._values["write_attributes"] = write_attributes
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool where you want to create an app client.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def access_token_validity(self) -> typing.Optional[jsii.Number]:
@@ -9977,7 +10111,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def allowed_o_auth_flows_user_pool_client(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Set to ``true`` to use OAuth 2.0 authorization server features in your app client.
 
         This parameter must have a value of ``true`` before you can configure the following features in your app client.
@@ -9992,7 +10126,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-allowedoauthflowsuserpoolclient
         '''
         result = self._values.get("allowed_o_auth_flows_user_pool_client")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def allowed_o_auth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10008,7 +10142,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def analytics_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.AnalyticsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.AnalyticsConfigurationProperty"]]:
         '''The user pool analytics configuration for collecting metrics and sending them to your Amazon Pinpoint campaign.
 
         In AWS Regions where Amazon Pinpoint isn't available, user pools might not have access to analytics or might be configurable with campaigns in the US East (N. Virginia) Region. For more information, see `Using Amazon Pinpoint analytics <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-pinpoint-integration.html>`_ .
@@ -10016,7 +10150,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-analyticsconfiguration
         '''
         result = self._values.get("analytics_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.AnalyticsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.AnalyticsConfigurationProperty"]], result)
 
     @builtins.property
     def auth_session_validity(self) -> typing.Optional[jsii.Number]:
@@ -10075,7 +10209,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def enable_propagate_additional_user_context_data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , your application can include additional ``UserContextData`` in authentication requests.
 
         This data includes the IP address, and contributes to analysis by threat protection features. For more information about propagation of user context data, see `Adding session data to API requests <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pool-settings-adaptive-authentication.html#user-pool-settings-adaptive-authentication-device-fingerprint>`_ . If you don’t include this parameter, you can't send the source IP address to Amazon Cognito threat protection features. You can only activate ``EnablePropagateAdditionalUserContextData`` in an app client that has a client secret.
@@ -10083,12 +10217,12 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-enablepropagateadditionalusercontextdata
         '''
         result = self._values.get("enable_propagate_additional_user_context_data")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def enable_token_revocation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Activates or deactivates token revocation.
 
         If you don't include this parameter, token revocation is automatically activated for the new user pool client.
@@ -10096,7 +10230,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-enabletokenrevocation
         '''
         result = self._values.get("enable_token_revocation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def explicit_auth_flows(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10129,7 +10263,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def generate_secret(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''When ``true`` , generates a client secret for the app client.
 
         Client secrets are used with server-side and machine-to-machine applications. Client secrets are automatically generated; you can't specify a secret value. For more information, see `App client types <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-client-apps.html#user-pool-settings-client-app-client-types>`_ .
@@ -10137,7 +10271,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-generatesecret
         '''
         result = self._values.get("generate_secret")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def id_token_validity(self) -> typing.Optional[jsii.Number]:
@@ -10202,7 +10336,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def refresh_token_rotation(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.RefreshTokenRotationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.RefreshTokenRotationProperty"]]:
         '''The configuration of your app client for refresh token rotation.
 
         When enabled, your app client issues new ID, access, and refresh tokens when users renew their sessions with refresh tokens. When disabled, token refresh issues only ID and access tokens.
@@ -10210,7 +10344,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-refreshtokenrotation
         '''
         result = self._values.get("refresh_token_rotation")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.RefreshTokenRotationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.RefreshTokenRotationProperty"]], result)
 
     @builtins.property
     def refresh_token_validity(self) -> typing.Optional[jsii.Number]:
@@ -10249,7 +10383,7 @@ class CfnUserPoolClientProps:
     @builtins.property
     def token_validity_units(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.TokenValidityUnitsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.TokenValidityUnitsProperty"]]:
         '''The units that validity times are represented in.
 
         The default unit for refresh tokens is days, and the default for ID and access tokens are hours.
@@ -10257,7 +10391,7 @@ class CfnUserPoolClientProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-tokenvalidityunits
         '''
         result = self._values.get("token_validity_units")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolClient.TokenValidityUnitsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolClient.TokenValidityUnitsProperty"]], result)
 
     @builtins.property
     def write_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10286,9 +10420,9 @@ class CfnUserPoolClientProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolDomainRef_2fa54b0c)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolDomainRef)
 class CfnUserPoolDomain(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain",
 ):
@@ -10329,9 +10463,9 @@ class CfnUserPoolDomain(
         *,
         domain: builtins.str,
         user_pool_id: builtins.str,
-        custom_domain_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_domain_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_login_version: typing.Optional[jsii.Number] = None,
-        routing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        routing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolDomain``.
 
@@ -10344,7 +10478,7 @@ class CfnUserPoolDomain(
         :param routing: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386301d675)
+            type_hints = cached_type_hints(_typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386301d675)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolDomainProps(
@@ -10365,18 +10499,18 @@ class CfnUserPoolDomain(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf23e7886d72f797b39a140b202eda044a3ec13bb2f07ca150f0410509971ff5)
+            type_hints = cached_type_hints(_typecheckingstub__bf23e7886d72f797b39a140b202eda044a3ec13bb2f07ca150f0410509971ff5)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolDomain", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__847babb3c81b57d55437dd6a17098995090128630b1accb7f8cd0e345f7e39f6)
+            type_hints = cached_type_hints(_typecheckingstub__847babb3c81b57d55437dd6a17098995090128630b1accb7f8cd0e345f7e39f6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10389,7 +10523,7 @@ class CfnUserPoolDomain(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20a5c06e049fbdd5f26b1d38640e46140175b60b5ef53e207fd38f528ca24f48)
+            type_hints = cached_type_hints(_typecheckingstub__20a5c06e049fbdd5f26b1d38640e46140175b60b5ef53e207fd38f528ca24f48)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10420,9 +10554,9 @@ class CfnUserPoolDomain(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolDomainRef")
-    def user_pool_domain_ref(self) -> "_UserPoolDomainReference_8e0aecda":
+    def user_pool_domain_ref(self) -> "_aws_cognito_aa210b15.UserPoolDomainReference":
         '''A reference to a UserPoolDomain resource.'''
-        return typing.cast("_UserPoolDomainReference_8e0aecda", jsii.get(self, "userPoolDomainRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolDomainReference", jsii.get(self, "userPoolDomainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="domain")
@@ -10433,7 +10567,7 @@ class CfnUserPoolDomain(
     @domain.setter
     def domain(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60984af4b9f95693c974811dba163dc41c64348226be0621cde58067d75c2a75)
+            type_hints = cached_type_hints(_typecheckingstub__60984af4b9f95693c974811dba163dc41c64348226be0621cde58067d75c2a75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
@@ -10446,7 +10580,7 @@ class CfnUserPoolDomain(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01784117c77cfebe2ef420bdb95cfa641714c4080a504ef08ebfbc5cb9e64418)
+            type_hints = cached_type_hints(_typecheckingstub__01784117c77cfebe2ef420bdb95cfa641714c4080a504ef08ebfbc5cb9e64418)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -10454,17 +10588,17 @@ class CfnUserPoolDomain(
     @jsii.member(jsii_name="customDomainConfig")
     def custom_domain_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]]:
         '''The configuration for a custom domain that hosts the sign-up and sign-in pages for your application.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]], jsii.get(self, "customDomainConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]], jsii.get(self, "customDomainConfig"))
 
     @custom_domain_config.setter
     def custom_domain_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__534c4957c36eac9a89217ff1b762b65d25e33f26c5048218fc840dc7f7ee2b0e)
+            type_hints = cached_type_hints(_typecheckingstub__534c4957c36eac9a89217ff1b762b65d25e33f26c5048218fc840dc7f7ee2b0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customDomainConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -10477,7 +10611,7 @@ class CfnUserPoolDomain(
     @managed_login_version.setter
     def managed_login_version(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1d6e8e96816f3572291ff67691b98d76a166cf058320e0e73e58062b8093526)
+            type_hints = cached_type_hints(_typecheckingstub__b1d6e8e96816f3572291ff67691b98d76a166cf058320e0e73e58062b8093526)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "managedLoginVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -10485,16 +10619,16 @@ class CfnUserPoolDomain(
     @jsii.member(jsii_name="routing")
     def routing(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]], jsii.get(self, "routing"))
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.RoutingTypeProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.RoutingTypeProperty"]], jsii.get(self, "routing"))
 
     @routing.setter
     def routing(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.RoutingTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094)
+            type_hints = cached_type_hints(_typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routing", value) # pyright: ignore[reportArgumentType]
 
@@ -10527,7 +10661,7 @@ class CfnUserPoolDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dde97995e450b3b0c5468a27b415565086c00f64bdc255f297a8471e77b85243)
+                type_hints = cached_type_hints(_typecheckingstub__dde97995e450b3b0c5468a27b415565086c00f64bdc255f297a8471e77b85243)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if certificate_arn is not None:
@@ -10589,7 +10723,7 @@ class CfnUserPoolDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39af035b5a6ac4b1e532284da93372078c797c46d318cb837f007951b218755c)
+                type_hints = cached_type_hints(_typecheckingstub__39af035b5a6ac4b1e532284da93372078c797c46d318cb837f007951b218755c)
                 check_type(argname="argument primary_route53_health_check_id", value=primary_route53_health_check_id, expected_type=type_hints["primary_route53_health_check_id"])
                 check_type(argname="argument secondary_region", value=secondary_region, expected_type=type_hints["secondary_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10635,7 +10769,7 @@ class CfnUserPoolDomain(
         def __init__(
             self,
             *,
-            failover: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.FailoverTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            failover: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolDomain.FailoverTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param failover: 
@@ -10657,7 +10791,7 @@ class CfnUserPoolDomain(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__788c35d2518c6bd07dbb5583f09c117a31b0340e999cd4ef9f2d9d2e42b9674b)
+                type_hints = cached_type_hints(_typecheckingstub__788c35d2518c6bd07dbb5583f09c117a31b0340e999cd4ef9f2d9d2e42b9674b)
                 check_type(argname="argument failover", value=failover, expected_type=type_hints["failover"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if failover is not None:
@@ -10666,12 +10800,12 @@ class CfnUserPoolDomain(
         @builtins.property
         def failover(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.FailoverTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.FailoverTypeProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-routingtype.html#cfn-cognito-userpooldomain-routingtype-failover
             '''
             result = self._values.get("failover")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.FailoverTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.FailoverTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10702,9 +10836,9 @@ class CfnUserPoolDomainProps:
         *,
         domain: builtins.str,
         user_pool_id: builtins.str,
-        custom_domain_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_domain_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolDomain.CustomDomainConfigTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_login_version: typing.Optional[jsii.Number] = None,
-        routing: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        routing: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolDomain.RoutingTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolDomain``.
 
@@ -10741,7 +10875,7 @@ class CfnUserPoolDomainProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe5ef2b7c4347565bc988b8d9120bbd5feadcfadd061512019de1519e2cc9ef4)
+            type_hints = cached_type_hints(_typecheckingstub__fe5ef2b7c4347565bc988b8d9120bbd5feadcfadd061512019de1519e2cc9ef4)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument custom_domain_config", value=custom_domain_config, expected_type=type_hints["custom_domain_config"])
@@ -10783,7 +10917,7 @@ class CfnUserPoolDomainProps:
     @builtins.property
     def custom_domain_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]]:
         '''The configuration for a custom domain that hosts the sign-up and sign-in pages for your application.
 
         Use this object to specify an SSL certificate that is managed by ACM.
@@ -10793,7 +10927,7 @@ class CfnUserPoolDomainProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html#cfn-cognito-userpooldomain-customdomainconfig
         '''
         result = self._values.get("custom_domain_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.CustomDomainConfigTypeProperty"]], result)
 
     @builtins.property
     def managed_login_version(self) -> typing.Optional[jsii.Number]:
@@ -10809,12 +10943,12 @@ class CfnUserPoolDomainProps:
     @builtins.property
     def routing(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.RoutingTypeProperty"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html#cfn-cognito-userpooldomain-routing
         '''
         result = self._values.get("routing")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolDomain.RoutingTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolDomain.RoutingTypeProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10828,9 +10962,9 @@ class CfnUserPoolDomainProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolGroupRef_89b16d48)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolGroupRef)
 class CfnUserPoolGroup(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolGroup",
 ):
@@ -10864,11 +10998,11 @@ class CfnUserPoolGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolGroup``.
 
@@ -10881,7 +11015,7 @@ class CfnUserPoolGroup(
         :param role_arn: The Amazon Resource Name (ARN) for the IAM role that you want to associate with the group. A group role primarily declares a preferred role for the credentials that you get from an identity pool. Amazon Cognito ID tokens have a ``cognito:preferred_role`` claim that presents the highest-precedence group that a user belongs to. Both ID and access tokens also contain a ``cognito:groups`` claim that list all the groups that a user is a member of.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64c0c3e44e677deced2e13e5ab4d3c7550518140bbe9dfaf681651d95cc8ab55)
+            type_hints = cached_type_hints(_typecheckingstub__64c0c3e44e677deced2e13e5ab4d3c7550518140bbe9dfaf681651d95cc8ab55)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolGroupProps(
@@ -10902,18 +11036,18 @@ class CfnUserPoolGroup(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cda87d34ce41936d3debc164b98829d465aff48a90c90b60638c6c52a9824d67)
+            type_hints = cached_type_hints(_typecheckingstub__cda87d34ce41936d3debc164b98829d465aff48a90c90b60638c6c52a9824d67)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolGroup", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abc28a51aacedb7e9a644933fe12ec8d528ed92ffc139d943ff29a1cb3d0c875)
+            type_hints = cached_type_hints(_typecheckingstub__abc28a51aacedb7e9a644933fe12ec8d528ed92ffc139d943ff29a1cb3d0c875)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -10926,7 +11060,7 @@ class CfnUserPoolGroup(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37c5e9ee822db2aa6c46f1ec2a13dafe1becc09a4149823491d646c65d5f9d8a)
+            type_hints = cached_type_hints(_typecheckingstub__37c5e9ee822db2aa6c46f1ec2a13dafe1becc09a4149823491d646c65d5f9d8a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -10948,9 +11082,9 @@ class CfnUserPoolGroup(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolGroupRef")
-    def user_pool_group_ref(self) -> "_UserPoolGroupReference_5e435fdd":
+    def user_pool_group_ref(self) -> "_aws_cognito_aa210b15.UserPoolGroupReference":
         '''A reference to a UserPoolGroup resource.'''
-        return typing.cast("_UserPoolGroupReference_5e435fdd", jsii.get(self, "userPoolGroupRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolGroupReference", jsii.get(self, "userPoolGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -10961,7 +11095,7 @@ class CfnUserPoolGroup(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca8402c546b7f090c567d019103e9d2674bfb6e4c199608669a4b2acc2afc5f3)
+            type_hints = cached_type_hints(_typecheckingstub__ca8402c546b7f090c567d019103e9d2674bfb6e4c199608669a4b2acc2afc5f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -10974,7 +11108,7 @@ class CfnUserPoolGroup(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bda9e548a82a5206aec39e356f410d438353851dcd1f974bd59be186f5ff66a)
+            type_hints = cached_type_hints(_typecheckingstub__7bda9e548a82a5206aec39e356f410d438353851dcd1f974bd59be186f5ff66a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -10987,7 +11121,7 @@ class CfnUserPoolGroup(
     @group_name.setter
     def group_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50cee63463b0a00e9516a517c3ecba89edae39efb6890c70ea606f9e3cfca0bc)
+            type_hints = cached_type_hints(_typecheckingstub__50cee63463b0a00e9516a517c3ecba89edae39efb6890c70ea606f9e3cfca0bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -11000,7 +11134,7 @@ class CfnUserPoolGroup(
     @precedence.setter
     def precedence(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1542aa260237dd220738bd8c2fdd54d12089e9f7ff0f7f70cd927c2f8d90da2)
+            type_hints = cached_type_hints(_typecheckingstub__a1542aa260237dd220738bd8c2fdd54d12089e9f7ff0f7f70cd927c2f8d90da2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "precedence", value) # pyright: ignore[reportArgumentType]
 
@@ -11013,7 +11147,7 @@ class CfnUserPoolGroup(
     @role_arn.setter
     def role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a22fc1c6f27de296195da5e404a5a9d43aea635361d630ed9185ab2d04e6ee2)
+            type_hints = cached_type_hints(_typecheckingstub__3a22fc1c6f27de296195da5e404a5a9d43aea635361d630ed9185ab2d04e6ee2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -11033,11 +11167,11 @@ class CfnUserPoolGroupProps:
     def __init__(
         self,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolGroup``.
 
@@ -11067,7 +11201,7 @@ class CfnUserPoolGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c67d3106556c2dbeca0c87692e053d37b59118869232a8d862cf3afebbfdb774)
+            type_hints = cached_type_hints(_typecheckingstub__c67d3106556c2dbeca0c87692e053d37b59118869232a8d862cf3afebbfdb774)
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
@@ -11086,14 +11220,16 @@ class CfnUserPoolGroupProps:
             self._values["role_arn"] = role_arn
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool where you want to create a user group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolgroup.html#cfn-cognito-userpoolgroup-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -11133,7 +11269,7 @@ class CfnUserPoolGroupProps:
     @builtins.property
     def role_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]]:
         '''The Amazon Resource Name (ARN) for the IAM role that you want to associate with the group.
 
         A group role primarily declares a preferred role for the credentials that you get from an identity pool. Amazon Cognito ID tokens have a ``cognito:preferred_role`` claim that presents the highest-precedence group that a user belongs to. Both ID and access tokens also contain a ``cognito:groups`` claim that list all the groups that a user is a member of.
@@ -11141,7 +11277,7 @@ class CfnUserPoolGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolgroup.html#cfn-cognito-userpoolgroup-rolearn
         '''
         result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11155,9 +11291,9 @@ class CfnUserPoolGroupProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolIdentityProviderRef_935eed62)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolIdentityProviderRef)
 class CfnUserPoolIdentityProvider(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolIdentityProvider",
 ):
@@ -11212,7 +11348,7 @@ class CfnUserPoolIdentityProvider(
         :param idp_identifiers: An array of IdP identifiers, for example ``"IdPIdentifiers": [ "MyIdP", "MyIdP2" ]`` . Identifiers are friendly names that you can pass in the ``idp_identifier`` query parameter of requests to the `Authorize endpoint <https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html>`_ to silently redirect to sign-in with the associated IdP. Identifiers in a domain format also enable the use of `email-address matching with SAML providers <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managing-saml-idp-naming.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__759e90505ceb64aa7002be11d4da4a87090102263927799f662a83f606483634)
+            type_hints = cached_type_hints(_typecheckingstub__759e90505ceb64aa7002be11d4da4a87090102263927799f662a83f606483634)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolIdentityProviderProps(
@@ -11234,18 +11370,18 @@ class CfnUserPoolIdentityProvider(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a3af295bcb2f57e749ef37382981dea291f439869b4628b28918f31acbdad8)
+            type_hints = cached_type_hints(_typecheckingstub__95a3af295bcb2f57e749ef37382981dea291f439869b4628b28918f31acbdad8)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolIdentityProvider", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e932e2192b5a3559a5e803d6dd262a6ac5a8fe2ba71f404e3905fb3db10d9287)
+            type_hints = cached_type_hints(_typecheckingstub__e932e2192b5a3559a5e803d6dd262a6ac5a8fe2ba71f404e3905fb3db10d9287)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -11258,7 +11394,7 @@ class CfnUserPoolIdentityProvider(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff11acc316d5d73192edfeab5a5d7fb2aa7891c069fce7ccaa8763007889809)
+            type_hints = cached_type_hints(_typecheckingstub__7ff11acc316d5d73192edfeab5a5d7fb2aa7891c069fce7ccaa8763007889809)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -11282,9 +11418,9 @@ class CfnUserPoolIdentityProvider(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attributeMapping")
@@ -11295,7 +11431,7 @@ class CfnUserPoolIdentityProvider(
     @attribute_mapping.setter
     def attribute_mapping(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039)
+            type_hints = cached_type_hints(_typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attributeMapping", value) # pyright: ignore[reportArgumentType]
 
@@ -11308,7 +11444,7 @@ class CfnUserPoolIdentityProvider(
     @provider_details.setter
     def provider_details(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd9b80463fd736be9b8b32bf8d2368b0c44578e3b056d45e068ca1e5fdfdb299)
+            type_hints = cached_type_hints(_typecheckingstub__dd9b80463fd736be9b8b32bf8d2368b0c44578e3b056d45e068ca1e5fdfdb299)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerDetails", value) # pyright: ignore[reportArgumentType]
 
@@ -11321,7 +11457,7 @@ class CfnUserPoolIdentityProvider(
     @provider_name.setter
     def provider_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03fef1ca3436f487bdb2ac4c72e914ca702f01a40d12470aaa64c77a0f7e15a2)
+            type_hints = cached_type_hints(_typecheckingstub__03fef1ca3436f487bdb2ac4c72e914ca702f01a40d12470aaa64c77a0f7e15a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
 
@@ -11334,7 +11470,7 @@ class CfnUserPoolIdentityProvider(
     @provider_type.setter
     def provider_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee8fc97c7ce3a7223eabd6be18090c6fec027c8b81ecf420c175e278dafb535)
+            type_hints = cached_type_hints(_typecheckingstub__1ee8fc97c7ce3a7223eabd6be18090c6fec027c8b81ecf420c175e278dafb535)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "providerType", value) # pyright: ignore[reportArgumentType]
 
@@ -11347,7 +11483,7 @@ class CfnUserPoolIdentityProvider(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8f109ed40a77a3077cbab955821323c4293e2697420abd221b2032bb4abc2edb)
+            type_hints = cached_type_hints(_typecheckingstub__8f109ed40a77a3077cbab955821323c4293e2697420abd221b2032bb4abc2edb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -11363,7 +11499,7 @@ class CfnUserPoolIdentityProvider(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7662247fd2cd01f6776c3a84fedff308a45861e95cabe426cb256482aaeaead5)
+            type_hints = cached_type_hints(_typecheckingstub__7662247fd2cd01f6776c3a84fedff308a45861e95cabe426cb256482aaeaead5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "idpIdentifiers", value) # pyright: ignore[reportArgumentType]
 
@@ -11424,7 +11560,7 @@ class CfnUserPoolIdentityProviderProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41106943fcdd509be0174e1e1c8a8c320bd77587c77e22cfc1c1b7378dfb42ec)
+            type_hints = cached_type_hints(_typecheckingstub__41106943fcdd509be0174e1e1c8a8c320bd77587c77e22cfc1c1b7378dfb42ec)
             check_type(argname="argument provider_details", value=provider_details, expected_type=type_hints["provider_details"])
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
             check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
@@ -11571,6 +11707,8 @@ class CfnUserPoolIdentityProviderProps:
         "email_verification_message": "emailVerificationMessage",
         "email_verification_subject": "emailVerificationSubject",
         "enabled_mfas": "enabledMfas",
+        "issuer_configuration": "issuerConfiguration",
+        "key_configuration": "keyConfiguration",
         "lambda_config": "lambdaConfig",
         "mfa_configuration": "mfaConfiguration",
         "policies": "policies",
@@ -11595,33 +11733,35 @@ class CfnUserPoolProps:
     def __init__(
         self,
         *,
-        account_recovery_setting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.AccountRecoverySettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        admin_create_user_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.AdminCreateUserConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        account_recovery_setting: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.AccountRecoverySettingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        admin_create_user_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.AdminCreateUserConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         alias_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
         auto_verified_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
         deletion_protection: typing.Optional[builtins.str] = None,
-        device_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.DeviceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        device_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.DeviceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         email_authentication_message: typing.Optional[builtins.str] = None,
         email_authentication_subject: typing.Optional[builtins.str] = None,
-        email_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        email_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         email_verification_message: typing.Optional[builtins.str] = None,
         email_verification_subject: typing.Optional[builtins.str] = None,
         enabled_mfas: typing.Optional[typing.Sequence[builtins.str]] = None,
-        lambda_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        issuer_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.IssuerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        key_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.KeyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         mfa_configuration: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.SchemaAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.PoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        schema: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.SchemaAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         sms_authentication_message: typing.Optional[builtins.str] = None,
-        sms_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sms_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sms_verification_message: typing.Optional[builtins.str] = None,
-        user_attribute_update_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UserAttributeUpdateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_attribute_update_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UserAttributeUpdateSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         username_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        username_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UsernameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_pool_add_ons: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.UserPoolAddOnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        username_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UsernameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_pool_add_ons: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.UserPoolAddOnsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_pool_name: typing.Optional[builtins.str] = None,
         user_pool_tags: typing.Any = None,
         user_pool_tier: typing.Optional[builtins.str] = None,
-        verification_message_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        verification_message_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.VerificationMessageTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         web_authn_factor_configuration: typing.Optional[builtins.str] = None,
         web_authn_relying_party_id: typing.Optional[builtins.str] = None,
         web_authn_user_verification: typing.Optional[builtins.str] = None,
@@ -11640,6 +11780,8 @@ class CfnUserPoolProps:
         :param email_verification_message: This parameter is no longer used. See `VerificationMessageTemplateType <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-verificationmessagetemplate.html>`_ .
         :param email_verification_subject: This parameter is no longer used. See `VerificationMessageTemplateType <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-verificationmessagetemplate.html>`_ .
         :param enabled_mfas: Set enabled MFA options on a specified user pool. To disable all MFAs after it has been enabled, set ``MfaConfiguration`` to ``OFF`` and remove EnabledMfas. MFAs can only be all disabled if ``MfaConfiguration`` is ``OFF`` . After you enable ``SMS_MFA`` , you can only disable it by setting ``MfaConfiguration`` to ``OFF`` . Can be one of the following values: - ``SMS_MFA`` - Enables MFA with SMS for the user pool. To select this option, you must also provide values for ``SmsConfiguration`` . - ``SOFTWARE_TOKEN_MFA`` - Enables software token MFA for the user pool. - ``EMAIL_OTP`` - Enables MFA with email for the user pool. To select this option, you must provide values for ``EmailConfiguration`` and within those, set ``EmailSendingAccount`` to ``DEVELOPER`` . Allowed values: ``SMS_MFA`` | ``SOFTWARE_TOKEN_MFA`` | ``EMAIL_OTP``
+        :param issuer_configuration: 
+        :param key_configuration: 
         :param lambda_config: A collection of user pool Lambda triggers. Amazon Cognito invokes triggers at several possible stages of authentication operations. Triggers can modify the outcome of the operations that invoked them.
         :param mfa_configuration: Displays the state of multi-factor authentication (MFA) as on, off, or optional. When ``ON`` , all users must set up MFA before they can sign in. When ``OPTIONAL`` , your application must make a client-side determination of whether a user wants to register an MFA device. For user pools with adaptive authentication with threat protection, choose ``OPTIONAL`` . When ``MfaConfiguration`` is ``OPTIONAL`` , managed login doesn't automatically prompt users to set up MFA. Amazon Cognito generates MFA prompts in API responses and in managed login for users who have chosen and configured a preferred MFA factor.
         :param policies: A list of user pool policies. Contains the policy that sets password-complexity requirements.
@@ -11705,6 +11847,13 @@ class CfnUserPoolProps:
                 email_verification_message="emailVerificationMessage",
                 email_verification_subject="emailVerificationSubject",
                 enabled_mfas=["enabledMfas"],
+                issuer_configuration=cognito.CfnUserPool.IssuerConfigurationProperty(
+                    type="type"
+                ),
+                key_configuration=cognito.CfnUserPool.KeyConfigurationProperty(
+                    key_type="keyType",
+                    kms_key_arn="kmsKeyArn"
+                ),
                 lambda_config=cognito.CfnUserPool.LambdaConfigProperty(
                     create_auth_challenge="createAuthChallenge",
                     custom_email_sender=cognito.CfnUserPool.CustomEmailSenderProperty(
@@ -11801,7 +11950,7 @@ class CfnUserPoolProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00bbdbd31eb8d7342ce9883d0851b853acf61f6b243c0aa4323c025da52de96d)
+            type_hints = cached_type_hints(_typecheckingstub__00bbdbd31eb8d7342ce9883d0851b853acf61f6b243c0aa4323c025da52de96d)
             check_type(argname="argument account_recovery_setting", value=account_recovery_setting, expected_type=type_hints["account_recovery_setting"])
             check_type(argname="argument admin_create_user_config", value=admin_create_user_config, expected_type=type_hints["admin_create_user_config"])
             check_type(argname="argument alias_attributes", value=alias_attributes, expected_type=type_hints["alias_attributes"])
@@ -11814,6 +11963,8 @@ class CfnUserPoolProps:
             check_type(argname="argument email_verification_message", value=email_verification_message, expected_type=type_hints["email_verification_message"])
             check_type(argname="argument email_verification_subject", value=email_verification_subject, expected_type=type_hints["email_verification_subject"])
             check_type(argname="argument enabled_mfas", value=enabled_mfas, expected_type=type_hints["enabled_mfas"])
+            check_type(argname="argument issuer_configuration", value=issuer_configuration, expected_type=type_hints["issuer_configuration"])
+            check_type(argname="argument key_configuration", value=key_configuration, expected_type=type_hints["key_configuration"])
             check_type(argname="argument lambda_config", value=lambda_config, expected_type=type_hints["lambda_config"])
             check_type(argname="argument mfa_configuration", value=mfa_configuration, expected_type=type_hints["mfa_configuration"])
             check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
@@ -11857,6 +12008,10 @@ class CfnUserPoolProps:
             self._values["email_verification_subject"] = email_verification_subject
         if enabled_mfas is not None:
             self._values["enabled_mfas"] = enabled_mfas
+        if issuer_configuration is not None:
+            self._values["issuer_configuration"] = issuer_configuration
+        if key_configuration is not None:
+            self._values["key_configuration"] = key_configuration
         if lambda_config is not None:
             self._values["lambda_config"] = lambda_config
         if mfa_configuration is not None:
@@ -11897,7 +12052,7 @@ class CfnUserPoolProps:
     @builtins.property
     def account_recovery_setting(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AccountRecoverySettingProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AccountRecoverySettingProperty"]]:
         '''The available verified method a user can use to recover their password when they call ``ForgotPassword`` .
 
         You can use this setting to define a preferred method when a user has more than one method available. With this setting, SMS doesn't qualify for a valid password recovery mechanism if the user also has SMS multi-factor authentication (MFA) activated. In the absence of this setting, Amazon Cognito uses the legacy behavior to determine the recovery method where SMS is preferred through email.
@@ -11905,12 +12060,12 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-accountrecoverysetting
         '''
         result = self._values.get("account_recovery_setting")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AccountRecoverySettingProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AccountRecoverySettingProperty"]], result)
 
     @builtins.property
     def admin_create_user_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdminCreateUserConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdminCreateUserConfigProperty"]]:
         '''The settings for administrator creation of users in a user pool.
 
         Contains settings for allowing user sign-up, customizing invitation messages to new users, and the amount of time before temporary passwords expire.
@@ -11918,7 +12073,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-admincreateuserconfig
         '''
         result = self._values.get("admin_create_user_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.AdminCreateUserConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.AdminCreateUserConfigProperty"]], result)
 
     @builtins.property
     def alias_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -11959,7 +12114,7 @@ class CfnUserPoolProps:
     @builtins.property
     def device_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.DeviceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.DeviceConfigurationProperty"]]:
         '''The device-remembering configuration for a user pool.
 
         Device remembering or device tracking is a "Remember me on this device" option for user pools that perform authentication with the device key of a trusted device in the back end, instead of a user-provided MFA code. For more information about device authentication, see `Working with user devices in your user pool <https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-device-tracking.html>`_ . A null value indicates that you have deactivated device remembering in your user pool.
@@ -11970,7 +12125,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-deviceconfiguration
         '''
         result = self._values.get("device_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.DeviceConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.DeviceConfigurationProperty"]], result)
 
     @builtins.property
     def email_authentication_message(self) -> typing.Optional[builtins.str]:
@@ -11991,7 +12146,7 @@ class CfnUserPoolProps:
     @builtins.property
     def email_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.EmailConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EmailConfigurationProperty"]]:
         '''The email configuration of your user pool.
 
         The email configuration type sets your preferred sending method, AWS Region, and sender for messages from your user pool.
@@ -11999,7 +12154,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-emailconfiguration
         '''
         result = self._values.get("email_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.EmailConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EmailConfigurationProperty"]], result)
 
     @builtins.property
     def email_verification_message(self) -> typing.Optional[builtins.str]:
@@ -12041,9 +12196,29 @@ class CfnUserPoolProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def issuer_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.IssuerConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-issuerconfiguration
+        '''
+        result = self._values.get("issuer_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.IssuerConfigurationProperty"]], result)
+
+    @builtins.property
+    def key_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.KeyConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-keyconfiguration
+        '''
+        result = self._values.get("key_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.KeyConfigurationProperty"]], result)
+
+    @builtins.property
     def lambda_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.LambdaConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.LambdaConfigProperty"]]:
         '''A collection of user pool Lambda triggers.
 
         Amazon Cognito invokes triggers at several possible stages of authentication operations. Triggers can modify the outcome of the operations that invoked them.
@@ -12051,7 +12226,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-lambdaconfig
         '''
         result = self._values.get("lambda_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.LambdaConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.LambdaConfigProperty"]], result)
 
     @builtins.property
     def mfa_configuration(self) -> typing.Optional[builtins.str]:
@@ -12069,7 +12244,7 @@ class CfnUserPoolProps:
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PoliciesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PoliciesProperty"]]:
         '''A list of user pool policies.
 
         Contains the policy that sets password-complexity requirements.
@@ -12077,12 +12252,12 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.PoliciesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.PoliciesProperty"]], result)
 
     @builtins.property
     def schema(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SchemaAttributeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SchemaAttributeProperty"]]]]:
         '''An array of attributes for the new user pool.
 
         You can add custom attributes and modify the properties of default attributes. The specifications in this parameter set the required attributes in your user pool. For more information, see `Working with user attributes <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-attributes.html>`_ .
@@ -12090,7 +12265,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-schema
         '''
         result = self._values.get("schema")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SchemaAttributeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SchemaAttributeProperty"]]]], result)
 
     @builtins.property
     def sms_authentication_message(self) -> typing.Optional[builtins.str]:
@@ -12104,7 +12279,7 @@ class CfnUserPoolProps:
     @builtins.property
     def sms_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SmsConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SmsConfigurationProperty"]]:
         '''The settings for your Amazon Cognito user pool to send SMS messages with Amazon Simple Notification Service.
 
         To send SMS messages with Amazon SNS in the AWS Region that you want, the Amazon Cognito user pool uses an AWS Identity and Access Management (IAM) role in your AWS account . For more information see `SMS message settings <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-sms-settings.html>`_ .
@@ -12112,7 +12287,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-smsconfiguration
         '''
         result = self._values.get("sms_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.SmsConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.SmsConfigurationProperty"]], result)
 
     @builtins.property
     def sms_verification_message(self) -> typing.Optional[builtins.str]:
@@ -12128,7 +12303,7 @@ class CfnUserPoolProps:
     @builtins.property
     def user_attribute_update_settings(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserAttributeUpdateSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserAttributeUpdateSettingsProperty"]]:
         '''The settings for updates to user attributes.
 
         These settings include the property ``AttributesRequireVerificationBeforeUpdate`` ,
@@ -12138,7 +12313,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-userattributeupdatesettings
         '''
         result = self._values.get("user_attribute_update_settings")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserAttributeUpdateSettingsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserAttributeUpdateSettingsProperty"]], result)
 
     @builtins.property
     def username_attributes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12152,7 +12327,7 @@ class CfnUserPoolProps:
     @builtins.property
     def username_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UsernameConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UsernameConfigurationProperty"]]:
         '''Sets the case sensitivity option for sign-in usernames.
 
         When ``CaseSensitive`` is ``false`` (case insensitive), users can sign in with any combination of capital and lowercase letters. For example, ``username`` , ``USERNAME`` , or ``UserName`` , or for email, ``email@example.com`` or ``EMaiL@eXamplE.Com`` . For most use cases, set case sensitivity to ``false`` as a best practice. When usernames and email addresses are case insensitive, Amazon Cognito treats any variation in case as the same user, and prevents a case variation from being assigned to the same attribute for a different user.
@@ -12164,12 +12339,12 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-usernameconfiguration
         '''
         result = self._values.get("username_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UsernameConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UsernameConfigurationProperty"]], result)
 
     @builtins.property
     def user_pool_add_ons(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserPoolAddOnsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserPoolAddOnsProperty"]]:
         '''Contains settings for activation of threat protection, including the operating mode and additional authentication types.
 
         To log user security information but take no action, set to ``AUDIT`` . To configure automatic security responses to potentially unwanted traffic to your user pool, set to ``ENFORCED`` .
@@ -12179,7 +12354,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-userpooladdons
         '''
         result = self._values.get("user_pool_add_ons")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.UserPoolAddOnsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.UserPoolAddOnsProperty"]], result)
 
     @builtins.property
     def user_pool_name(self) -> typing.Optional[builtins.str]:
@@ -12213,7 +12388,7 @@ class CfnUserPoolProps:
     @builtins.property
     def verification_message_template(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.VerificationMessageTemplateProperty"]]:
         '''The template for the verification message that your user pool delivers to users who set an email address or phone number attribute.
 
         Set the email message type that corresponds to your ``DefaultEmailOption`` selection. For ``CONFIRM_WITH_LINK`` , specify an ``EmailMessageByLink`` and leave ``EmailMessage`` blank. For ``CONFIRM_WITH_CODE`` , specify an ``EmailMessage`` and leave ``EmailMessageByLink`` blank. When you supply both parameters with either choice, Amazon Cognito returns an error.
@@ -12221,7 +12396,7 @@ class CfnUserPoolProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html#cfn-cognito-userpool-verificationmessagetemplate
         '''
         result = self._values.get("verification_message_template")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.VerificationMessageTemplateProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.VerificationMessageTemplateProperty"]], result)
 
     @builtins.property
     def web_authn_factor_configuration(self) -> typing.Optional[builtins.str]:
@@ -12267,9 +12442,1477 @@ class CfnUserPoolProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolResourceServerRef_fda874c5)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolRegionalConfigurationAttachmentRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnUserPoolRegionalConfigurationAttachment(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment",
+):
+    '''Resource Type definition for AWS::Cognito::UserPoolRegionalConfigurationAttachment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html
+    :cloudformationResource: AWS::Cognito::UserPoolRegionalConfigurationAttachment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cognito as cognito
+        
+        cfn_user_pool_regional_configuration_attachment = cognito.CfnUserPoolRegionalConfigurationAttachment(self, "MyCfnUserPoolRegionalConfigurationAttachment",
+            user_pool_id="userPoolId",
+        
+            # the properties below are optional
+            email_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty(
+                configuration_set="configurationSet",
+                email_sending_account="emailSendingAccount",
+                from="from",
+                reply_to_email_address="replyToEmailAddress",
+                source_arn="sourceArn"
+            ),
+            lambda_config=cognito.CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty(
+                create_auth_challenge="createAuthChallenge",
+                custom_email_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                ),
+                custom_message="customMessage",
+                custom_sms_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                ),
+                define_auth_challenge="defineAuthChallenge",
+                inbound_federation=cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                ),
+                kms_key_id="kmsKeyId",
+                post_authentication="postAuthentication",
+                post_confirmation="postConfirmation",
+                pre_authentication="preAuthentication",
+                pre_sign_up="preSignUp",
+                pre_token_generation="preTokenGeneration",
+                pre_token_generation_config=cognito.CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                ),
+                user_migration="userMigration",
+                verify_auth_challenge_response="verifyAuthChallengeResponse"
+            ),
+            sms_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                external_id="externalId",
+                sns_caller_arn="snsCallerArn",
+                sns_region="snsRegion"
+            ),
+            status="status",
+            user_pool_tags={
+                "user_pool_tags_key": "userPoolTags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        user_pool_id: builtins.str,
+        email_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sms_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        user_pool_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Cognito::UserPoolRegionalConfigurationAttachment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param user_pool_id: 
+        :param email_configuration: 
+        :param lambda_config: 
+        :param sms_configuration: 
+        :param status: The status of the replica. Set to ACTIVE or INACTIVE.
+        :param user_pool_tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ed33bcae688ae37199e78e2b0bd5bae47725eb6cc7adbcef2db019918c5ccf32)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserPoolRegionalConfigurationAttachmentProps(
+            user_pool_id=user_pool_id,
+            email_configuration=email_configuration,
+            lambda_config=lambda_config,
+            sms_configuration=sms_configuration,
+            status=status,
+            user_pool_tags=user_pool_tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserPoolRegionalConfigurationAttachment")
+    @builtins.classmethod
+    def is_cfn_user_pool_regional_configuration_attachment(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserPoolRegionalConfigurationAttachment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1dc574f267a20a6bd51b116fe07457ac1dcd7a46f270de0a7d27db377d905585)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolRegionalConfigurationAttachment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__440c75ed7df69e805dcd9f92bd22b58db9d25c916110366d5425677ebffcc9ae)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b42875860835645f979bbfa60c0772aff62f0305755db4fc848620fee96c6441)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolRegionalConfigurationAttachmentRef")
+    def user_pool_regional_configuration_attachment_ref(
+        self,
+    ) -> "_aws_cognito_aa210b15.UserPoolRegionalConfigurationAttachmentReference":
+        '''A reference to a UserPoolRegionalConfigurationAttachment resource.'''
+        return typing.cast("_aws_cognito_aa210b15.UserPoolRegionalConfigurationAttachmentReference", jsii.get(self, "userPoolRegionalConfigurationAttachmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolId")
+    def user_pool_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "userPoolId"))
+
+    @user_pool_id.setter
+    def user_pool_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4bf0ebd473111dec12eaa8830bdb2a067a61c15d93bce1b3365b02949cc1a166)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="emailConfiguration")
+    def email_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty"]], jsii.get(self, "emailConfiguration"))
+
+    @email_configuration.setter
+    def email_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__42b2ba8449964fd827bddbf51611bae3d0da55b28cbf1beb899e13c6b0274c53)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "emailConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaConfig")
+    def lambda_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty"]], jsii.get(self, "lambdaConfig"))
+
+    @lambda_config.setter
+    def lambda_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__163d375cd6ba526ca525f623c9a0b9c3bb056399ba1a812adadd6c5e3b409439)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "lambdaConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="smsConfiguration")
+    def sms_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty"]], jsii.get(self, "smsConfiguration"))
+
+    @sms_configuration.setter
+    def sms_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d02bad06c3c1d23ce5aa21772b56cf6ad0d762e9922c71d392c41f7289620e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "smsConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the replica.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7bf7a6602d444a5f6d3334104a702b245659abe6b1619f90c1f41f428bb44abb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolTags")
+    def user_pool_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "userPoolTags"))
+
+    @user_pool_tags.setter
+    def user_pool_tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1b0ac7611ee47d696719018c2611d9bc010113852d245ac49408165ad5c81bfc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolTags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
+    )
+    class CustomEmailSenderProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: typing.Optional[builtins.str] = None,
+            lambda_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param lambda_arn: 
+            :param lambda_version: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customemailsender.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                custom_email_sender_property = cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d7fe657575fecdc10cc42bc0f4f0cef370edee51615ec3d218aa0597de154d69)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lambda_arn is not None:
+                self._values["lambda_arn"] = lambda_arn
+            if lambda_version is not None:
+                self._values["lambda_version"] = lambda_version
+
+        @builtins.property
+        def lambda_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customemailsender.html#cfn-cognito-userpoolregionalconfigurationattachment-customemailsender-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def lambda_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customemailsender.html#cfn-cognito-userpoolregionalconfigurationattachment-customemailsender-lambdaversion
+            '''
+            result = self._values.get("lambda_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomEmailSenderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
+    )
+    class CustomSMSSenderProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: typing.Optional[builtins.str] = None,
+            lambda_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param lambda_arn: 
+            :param lambda_version: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customsmssender.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                custom_sms_sender_property = cognito.CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__44d8e3c361fdf6c77e998a8db981951532233e6f3a22d33399d21792c9590320)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lambda_arn is not None:
+                self._values["lambda_arn"] = lambda_arn
+            if lambda_version is not None:
+                self._values["lambda_version"] = lambda_version
+
+        @builtins.property
+        def lambda_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customsmssender.html#cfn-cognito-userpoolregionalconfigurationattachment-customsmssender-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def lambda_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-customsmssender.html#cfn-cognito-userpoolregionalconfigurationattachment-customsmssender-lambdaversion
+            '''
+            result = self._values.get("lambda_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomSMSSenderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "configuration_set": "configurationSet",
+            "email_sending_account": "emailSendingAccount",
+            "from_": "from",
+            "reply_to_email_address": "replyToEmailAddress",
+            "source_arn": "sourceArn",
+        },
+    )
+    class EmailConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            configuration_set: typing.Optional[builtins.str] = None,
+            email_sending_account: typing.Optional[builtins.str] = None,
+            from_: typing.Optional[builtins.str] = None,
+            reply_to_email_address: typing.Optional[builtins.str] = None,
+            source_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param configuration_set: 
+            :param email_sending_account: 
+            :param from_: 
+            :param reply_to_email_address: 
+            :param source_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                email_configuration_property = cognito.CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty(
+                    configuration_set="configurationSet",
+                    email_sending_account="emailSendingAccount",
+                    from="from",
+                    reply_to_email_address="replyToEmailAddress",
+                    source_arn="sourceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d545bff337aa6363533a045df309531f81b8ce279fdf92425ce8db44b644f023)
+                check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
+                check_type(argname="argument email_sending_account", value=email_sending_account, expected_type=type_hints["email_sending_account"])
+                check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
+                check_type(argname="argument reply_to_email_address", value=reply_to_email_address, expected_type=type_hints["reply_to_email_address"])
+                check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if configuration_set is not None:
+                self._values["configuration_set"] = configuration_set
+            if email_sending_account is not None:
+                self._values["email_sending_account"] = email_sending_account
+            if from_ is not None:
+                self._values["from_"] = from_
+            if reply_to_email_address is not None:
+                self._values["reply_to_email_address"] = reply_to_email_address
+            if source_arn is not None:
+                self._values["source_arn"] = source_arn
+
+        @builtins.property
+        def configuration_set(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration-configurationset
+            '''
+            result = self._values.get("configuration_set")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def email_sending_account(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration-emailsendingaccount
+            '''
+            result = self._values.get("email_sending_account")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def from_(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration-from
+            '''
+            result = self._values.get("from_")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def reply_to_email_address(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration-replytoemailaddress
+            '''
+            result = self._values.get("reply_to_email_address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-emailconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration-sourcearn
+            '''
+            result = self._values.get("source_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EmailConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
+    )
+    class InboundFederationProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: typing.Optional[builtins.str] = None,
+            lambda_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param lambda_arn: 
+            :param lambda_version: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-inboundfederation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                inbound_federation_property = cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8384b0ddba0af6af7e834ad536e660de39c7cf9b76b4c5132201340d5e626567)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lambda_arn is not None:
+                self._values["lambda_arn"] = lambda_arn
+            if lambda_version is not None:
+                self._values["lambda_version"] = lambda_version
+
+        @builtins.property
+        def lambda_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-inboundfederation.html#cfn-cognito-userpoolregionalconfigurationattachment-inboundfederation-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def lambda_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-inboundfederation.html#cfn-cognito-userpoolregionalconfigurationattachment-inboundfederation-lambdaversion
+            '''
+            result = self._values.get("lambda_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InboundFederationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "create_auth_challenge": "createAuthChallenge",
+            "custom_email_sender": "customEmailSender",
+            "custom_message": "customMessage",
+            "custom_sms_sender": "customSmsSender",
+            "define_auth_challenge": "defineAuthChallenge",
+            "inbound_federation": "inboundFederation",
+            "kms_key_id": "kmsKeyId",
+            "post_authentication": "postAuthentication",
+            "post_confirmation": "postConfirmation",
+            "pre_authentication": "preAuthentication",
+            "pre_sign_up": "preSignUp",
+            "pre_token_generation": "preTokenGeneration",
+            "pre_token_generation_config": "preTokenGenerationConfig",
+            "user_migration": "userMigration",
+            "verify_auth_challenge_response": "verifyAuthChallengeResponse",
+        },
+    )
+    class LambdaConfigProperty:
+        def __init__(
+            self,
+            *,
+            create_auth_challenge: typing.Optional[builtins.str] = None,
+            custom_email_sender: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_message: typing.Optional[builtins.str] = None,
+            custom_sms_sender: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            define_auth_challenge: typing.Optional[builtins.str] = None,
+            inbound_federation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
+            post_authentication: typing.Optional[builtins.str] = None,
+            post_confirmation: typing.Optional[builtins.str] = None,
+            pre_authentication: typing.Optional[builtins.str] = None,
+            pre_sign_up: typing.Optional[builtins.str] = None,
+            pre_token_generation: typing.Optional[builtins.str] = None,
+            pre_token_generation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            user_migration: typing.Optional[builtins.str] = None,
+            verify_auth_challenge_response: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param create_auth_challenge: 
+            :param custom_email_sender: 
+            :param custom_message: 
+            :param custom_sms_sender: 
+            :param define_auth_challenge: 
+            :param inbound_federation: 
+            :param kms_key_id: 
+            :param post_authentication: 
+            :param post_confirmation: 
+            :param pre_authentication: 
+            :param pre_sign_up: 
+            :param pre_token_generation: 
+            :param pre_token_generation_config: 
+            :param user_migration: 
+            :param verify_auth_challenge_response: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                lambda_config_property = cognito.CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty(
+                    create_auth_challenge="createAuthChallenge",
+                    custom_email_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    custom_message="customMessage",
+                    custom_sms_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    define_auth_challenge="defineAuthChallenge",
+                    inbound_federation=cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    kms_key_id="kmsKeyId",
+                    post_authentication="postAuthentication",
+                    post_confirmation="postConfirmation",
+                    pre_authentication="preAuthentication",
+                    pre_sign_up="preSignUp",
+                    pre_token_generation="preTokenGeneration",
+                    pre_token_generation_config=cognito.CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    user_migration="userMigration",
+                    verify_auth_challenge_response="verifyAuthChallengeResponse"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1ef63673bd30bff83234a98299f8c92879cf2a436dd843056ff8992c9bd1d683)
+                check_type(argname="argument create_auth_challenge", value=create_auth_challenge, expected_type=type_hints["create_auth_challenge"])
+                check_type(argname="argument custom_email_sender", value=custom_email_sender, expected_type=type_hints["custom_email_sender"])
+                check_type(argname="argument custom_message", value=custom_message, expected_type=type_hints["custom_message"])
+                check_type(argname="argument custom_sms_sender", value=custom_sms_sender, expected_type=type_hints["custom_sms_sender"])
+                check_type(argname="argument define_auth_challenge", value=define_auth_challenge, expected_type=type_hints["define_auth_challenge"])
+                check_type(argname="argument inbound_federation", value=inbound_federation, expected_type=type_hints["inbound_federation"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument post_authentication", value=post_authentication, expected_type=type_hints["post_authentication"])
+                check_type(argname="argument post_confirmation", value=post_confirmation, expected_type=type_hints["post_confirmation"])
+                check_type(argname="argument pre_authentication", value=pre_authentication, expected_type=type_hints["pre_authentication"])
+                check_type(argname="argument pre_sign_up", value=pre_sign_up, expected_type=type_hints["pre_sign_up"])
+                check_type(argname="argument pre_token_generation", value=pre_token_generation, expected_type=type_hints["pre_token_generation"])
+                check_type(argname="argument pre_token_generation_config", value=pre_token_generation_config, expected_type=type_hints["pre_token_generation_config"])
+                check_type(argname="argument user_migration", value=user_migration, expected_type=type_hints["user_migration"])
+                check_type(argname="argument verify_auth_challenge_response", value=verify_auth_challenge_response, expected_type=type_hints["verify_auth_challenge_response"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if create_auth_challenge is not None:
+                self._values["create_auth_challenge"] = create_auth_challenge
+            if custom_email_sender is not None:
+                self._values["custom_email_sender"] = custom_email_sender
+            if custom_message is not None:
+                self._values["custom_message"] = custom_message
+            if custom_sms_sender is not None:
+                self._values["custom_sms_sender"] = custom_sms_sender
+            if define_auth_challenge is not None:
+                self._values["define_auth_challenge"] = define_auth_challenge
+            if inbound_federation is not None:
+                self._values["inbound_federation"] = inbound_federation
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+            if post_authentication is not None:
+                self._values["post_authentication"] = post_authentication
+            if post_confirmation is not None:
+                self._values["post_confirmation"] = post_confirmation
+            if pre_authentication is not None:
+                self._values["pre_authentication"] = pre_authentication
+            if pre_sign_up is not None:
+                self._values["pre_sign_up"] = pre_sign_up
+            if pre_token_generation is not None:
+                self._values["pre_token_generation"] = pre_token_generation
+            if pre_token_generation_config is not None:
+                self._values["pre_token_generation_config"] = pre_token_generation_config
+            if user_migration is not None:
+                self._values["user_migration"] = user_migration
+            if verify_auth_challenge_response is not None:
+                self._values["verify_auth_challenge_response"] = verify_auth_challenge_response
+
+        @builtins.property
+        def create_auth_challenge(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-createauthchallenge
+            '''
+            result = self._values.get("create_auth_challenge")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def custom_email_sender(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-customemailsender
+            '''
+            result = self._values.get("custom_email_sender")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty"]], result)
+
+        @builtins.property
+        def custom_message(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-custommessage
+            '''
+            result = self._values.get("custom_message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def custom_sms_sender(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-customsmssender
+            '''
+            result = self._values.get("custom_sms_sender")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty"]], result)
+
+        @builtins.property
+        def define_auth_challenge(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-defineauthchallenge
+            '''
+            result = self._values.get("define_auth_challenge")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def inbound_federation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-inboundfederation
+            '''
+            result = self._values.get("inbound_federation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty"]], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def post_authentication(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-postauthentication
+            '''
+            result = self._values.get("post_authentication")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def post_confirmation(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-postconfirmation
+            '''
+            result = self._values.get("post_confirmation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pre_authentication(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-preauthentication
+            '''
+            result = self._values.get("pre_authentication")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pre_sign_up(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-presignup
+            '''
+            result = self._values.get("pre_sign_up")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pre_token_generation(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-pretokengeneration
+            '''
+            result = self._values.get("pre_token_generation")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pre_token_generation_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-pretokengenerationconfig
+            '''
+            result = self._values.get("pre_token_generation_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty"]], result)
+
+        @builtins.property
+        def user_migration(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-usermigration
+            '''
+            result = self._values.get("user_migration")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def verify_auth_challenge_response(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-lambdaconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig-verifyauthchallengeresponse
+            '''
+            result = self._values.get("verify_auth_challenge_response")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
+    )
+    class PreTokenGenerationConfigProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: typing.Optional[builtins.str] = None,
+            lambda_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param lambda_arn: 
+            :param lambda_version: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-pretokengenerationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                pre_token_generation_config_property = cognito.CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f1a76c28230f9c451cc1f6326b68b320adc1dfdfd30c68ae0888d931cae9247b)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lambda_arn is not None:
+                self._values["lambda_arn"] = lambda_arn
+            if lambda_version is not None:
+                self._values["lambda_version"] = lambda_version
+
+        @builtins.property
+        def lambda_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-pretokengenerationconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-pretokengenerationconfig-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def lambda_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-pretokengenerationconfig.html#cfn-cognito-userpoolregionalconfigurationattachment-pretokengenerationconfig-lambdaversion
+            '''
+            result = self._values.get("lambda_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PreTokenGenerationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "external_id": "externalId",
+            "sns_caller_arn": "snsCallerArn",
+            "sns_region": "snsRegion",
+        },
+    )
+    class SmsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            external_id: typing.Optional[builtins.str] = None,
+            sns_caller_arn: typing.Optional[builtins.str] = None,
+            sns_region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param external_id: 
+            :param sns_caller_arn: 
+            :param sns_region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-smsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                sms_configuration_property = cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                    external_id="externalId",
+                    sns_caller_arn="snsCallerArn",
+                    sns_region="snsRegion"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__848c86a60a9ac24607c12c97ad7840115cf0399058e3eecdfd653f37b727c552)
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument sns_caller_arn", value=sns_caller_arn, expected_type=type_hints["sns_caller_arn"])
+                check_type(argname="argument sns_region", value=sns_region, expected_type=type_hints["sns_region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if sns_caller_arn is not None:
+                self._values["sns_caller_arn"] = sns_caller_arn
+            if sns_region is not None:
+                self._values["sns_region"] = sns_region
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-smsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-smsconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sns_caller_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-smsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-smsconfiguration-snscallerarn
+            '''
+            result = self._values.get("sns_caller_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sns_region(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-smsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-smsconfiguration-snsregion
+            '''
+            result = self._values.get("sns_region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SmsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "user_pool_id": "userPoolId",
+        "email_configuration": "emailConfiguration",
+        "lambda_config": "lambdaConfig",
+        "sms_configuration": "smsConfiguration",
+        "status": "status",
+        "user_pool_tags": "userPoolTags",
+    },
+)
+class CfnUserPoolRegionalConfigurationAttachmentProps:
+    def __init__(
+        self,
+        *,
+        user_pool_id: builtins.str,
+        email_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sms_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        user_pool_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserPoolRegionalConfigurationAttachment``.
+
+        :param user_pool_id: 
+        :param email_configuration: 
+        :param lambda_config: 
+        :param sms_configuration: 
+        :param status: The status of the replica. Set to ACTIVE or INACTIVE.
+        :param user_pool_tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cognito as cognito
+            
+            cfn_user_pool_regional_configuration_attachment_props = cognito.CfnUserPoolRegionalConfigurationAttachmentProps(
+                user_pool_id="userPoolId",
+            
+                # the properties below are optional
+                email_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty(
+                    configuration_set="configurationSet",
+                    email_sending_account="emailSendingAccount",
+                    from="from",
+                    reply_to_email_address="replyToEmailAddress",
+                    source_arn="sourceArn"
+                ),
+                lambda_config=cognito.CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty(
+                    create_auth_challenge="createAuthChallenge",
+                    custom_email_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    custom_message="customMessage",
+                    custom_sms_sender=cognito.CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    define_auth_challenge="defineAuthChallenge",
+                    inbound_federation=cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    kms_key_id="kmsKeyId",
+                    post_authentication="postAuthentication",
+                    post_confirmation="postConfirmation",
+                    pre_authentication="preAuthentication",
+                    pre_sign_up="preSignUp",
+                    pre_token_generation="preTokenGeneration",
+                    pre_token_generation_config=cognito.CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
+                    user_migration="userMigration",
+                    verify_auth_challenge_response="verifyAuthChallengeResponse"
+                ),
+                sms_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                    external_id="externalId",
+                    sns_caller_arn="snsCallerArn",
+                    sns_region="snsRegion"
+                ),
+                status="status",
+                user_pool_tags={
+                    "user_pool_tags_key": "userPoolTags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3445677d242048ce95cf8b1e30240cef3848a8c96ce750031fa59699bee7d948)
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+            check_type(argname="argument email_configuration", value=email_configuration, expected_type=type_hints["email_configuration"])
+            check_type(argname="argument lambda_config", value=lambda_config, expected_type=type_hints["lambda_config"])
+            check_type(argname="argument sms_configuration", value=sms_configuration, expected_type=type_hints["sms_configuration"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument user_pool_tags", value=user_pool_tags, expected_type=type_hints["user_pool_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_pool_id": user_pool_id,
+        }
+        if email_configuration is not None:
+            self._values["email_configuration"] = email_configuration
+        if lambda_config is not None:
+            self._values["lambda_config"] = lambda_config
+        if sms_configuration is not None:
+            self._values["sms_configuration"] = sms_configuration
+        if status is not None:
+            self._values["status"] = status
+        if user_pool_tags is not None:
+            self._values["user_pool_tags"] = user_pool_tags
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-userpoolid
+        '''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def email_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-emailconfiguration
+        '''
+        result = self._values.get("email_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty"]], result)
+
+    @builtins.property
+    def lambda_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-lambdaconfig
+        '''
+        result = self._values.get("lambda_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty"]], result)
+
+    @builtins.property
+    def sms_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-smsconfiguration
+        '''
+        result = self._values.get("sms_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty"]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the replica.
+
+        Set to ACTIVE or INACTIVE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def user_pool_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolregionalconfigurationattachment.html#cfn-cognito-userpoolregionalconfigurationattachment-userpooltags
+        '''
+        result = self._values.get("user_pool_tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserPoolRegionalConfigurationAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolReplicaRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnUserPoolReplica(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolReplica",
+):
+    '''Resource Type definition for AWS::Cognito::UserPoolReplica.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolreplica.html
+    :cloudformationResource: AWS::Cognito::UserPoolReplica
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cognito as cognito
+        
+        cfn_user_pool_replica = cognito.CfnUserPoolReplica(self, "MyCfnUserPoolReplica",
+            region_name="regionName",
+            user_pool_id="userPoolId",
+        
+            # the properties below are optional
+            user_pool_tags_at_create={
+                "user_pool_tags_at_create_key": "userPoolTagsAtCreate"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        region_name: builtins.str,
+        user_pool_id: builtins.str,
+        user_pool_tags_at_create: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Cognito::UserPoolReplica``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param region_name: 
+        :param user_pool_id: 
+        :param user_pool_tags_at_create: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__460eb9fed544365f6ac2052fc6ef6d906da8fa36ca99d9475480d4580a1ab453)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserPoolReplicaProps(
+            region_name=region_name,
+            user_pool_id=user_pool_id,
+            user_pool_tags_at_create=user_pool_tags_at_create,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserPoolReplica")
+    @builtins.classmethod
+    def is_cfn_user_pool_replica(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserPoolReplica.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73c930385c204dc44fa0c854b6758425fb06d4ee01c510ffb5a815c1a75f2ed2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolReplica", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f8aea30ddc3ea0024a57941f1f1153933cb2b8c1f615160e04b3cb561af402b5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f73319d66fd71135dd4234f1e6c8f19bf338a4d437436193e9f64a5ee8bc55c1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolReplicaRef")
+    def user_pool_replica_ref(self) -> "_aws_cognito_aa210b15.UserPoolReplicaReference":
+        '''A reference to a UserPoolReplica resource.'''
+        return typing.cast("_aws_cognito_aa210b15.UserPoolReplicaReference", jsii.get(self, "userPoolReplicaRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionName")
+    def region_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regionName"))
+
+    @region_name.setter
+    def region_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e051147647bb4e88af28fe069ca244f7afc9ee868869e826ce1588c07e0922ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolId")
+    def user_pool_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "userPoolId"))
+
+    @user_pool_id.setter
+    def user_pool_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d711db6ae7edbcf83393ccad6af8f3560c62ef18f9c5fb78842f81f6bf8ab71e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolTagsAtCreate")
+    def user_pool_tags_at_create(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "userPoolTagsAtCreate"))
+
+    @user_pool_tags_at_create.setter
+    def user_pool_tags_at_create(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a57c5f9867f2d553cc39d4153b55d0846ef7de91cec3a3e0c205a3e9ab4aa380)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolTagsAtCreate", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolReplicaProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "region_name": "regionName",
+        "user_pool_id": "userPoolId",
+        "user_pool_tags_at_create": "userPoolTagsAtCreate",
+    },
+)
+class CfnUserPoolReplicaProps:
+    def __init__(
+        self,
+        *,
+        region_name: builtins.str,
+        user_pool_id: builtins.str,
+        user_pool_tags_at_create: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserPoolReplica``.
+
+        :param region_name: 
+        :param user_pool_id: 
+        :param user_pool_tags_at_create: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolreplica.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cognito as cognito
+            
+            cfn_user_pool_replica_props = cognito.CfnUserPoolReplicaProps(
+                region_name="regionName",
+                user_pool_id="userPoolId",
+            
+                # the properties below are optional
+                user_pool_tags_at_create={
+                    "user_pool_tags_at_create_key": "userPoolTagsAtCreate"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee9612129bdb241328fe3899def13fc046b91958a9d2891e2134d686ca1c3b30)
+            check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
+            check_type(argname="argument user_pool_tags_at_create", value=user_pool_tags_at_create, expected_type=type_hints["user_pool_tags_at_create"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "region_name": region_name,
+            "user_pool_id": user_pool_id,
+        }
+        if user_pool_tags_at_create is not None:
+            self._values["user_pool_tags_at_create"] = user_pool_tags_at_create
+
+    @builtins.property
+    def region_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolreplica.html#cfn-cognito-userpoolreplica-regionname
+        '''
+        result = self._values.get("region_name")
+        assert result is not None, "Required property 'region_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_pool_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolreplica.html#cfn-cognito-userpoolreplica-userpoolid
+        '''
+        result = self._values.get("user_pool_id")
+        assert result is not None, "Required property 'user_pool_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_pool_tags_at_create(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolreplica.html#cfn-cognito-userpoolreplica-userpooltagsatcreate
+        '''
+        result = self._values.get("user_pool_tags_at_create")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserPoolReplicaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolResourceServerRef)
 class CfnUserPoolResourceServer(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolResourceServer",
 ):
@@ -12309,8 +13952,8 @@ class CfnUserPoolResourceServer(
         *,
         identifier: builtins.str,
         name: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        scopes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolResourceServer.ResourceServerScopeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        scopes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolResourceServer.ResourceServerScopeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolResourceServer``.
 
@@ -12322,7 +13965,7 @@ class CfnUserPoolResourceServer(
         :param scopes: A list of scopes. Each scope is a map with keys ``ScopeName`` and ``ScopeDescription`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ff380728a32f62434c91f2ef979d9f2a64ce347253fb0640fb5f618be47fd30)
+            type_hints = cached_type_hints(_typecheckingstub__5ff380728a32f62434c91f2ef979d9f2a64ce347253fb0640fb5f618be47fd30)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolResourceServerProps(
@@ -12339,18 +13982,18 @@ class CfnUserPoolResourceServer(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1b951e53dbb02cef3646308929658478365ec97ba606ec2c03f6a24d7a48348)
+            type_hints = cached_type_hints(_typecheckingstub__f1b951e53dbb02cef3646308929658478365ec97ba606ec2c03f6a24d7a48348)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolResourceServer", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2a96db567ceac3c2f12fc90cf5f16fbfc45a32b92f0b1c83858321911b0ed93)
+            type_hints = cached_type_hints(_typecheckingstub__e2a96db567ceac3c2f12fc90cf5f16fbfc45a32b92f0b1c83858321911b0ed93)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -12363,7 +14006,7 @@ class CfnUserPoolResourceServer(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b95c9d133fc1dc564adc0c1075c48bf5b8fc600c68e782923bd94e58be1bd65)
+            type_hints = cached_type_hints(_typecheckingstub__2b95c9d133fc1dc564adc0c1075c48bf5b8fc600c68e782923bd94e58be1bd65)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -12387,9 +14030,9 @@ class CfnUserPoolResourceServer(
     @jsii.member(jsii_name="userPoolResourceServerRef")
     def user_pool_resource_server_ref(
         self,
-    ) -> "_UserPoolResourceServerReference_5b196bf5":
+    ) -> "_aws_cognito_aa210b15.UserPoolResourceServerReference":
         '''A reference to a UserPoolResourceServer resource.'''
-        return typing.cast("_UserPoolResourceServerReference_5b196bf5", jsii.get(self, "userPoolResourceServerRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolResourceServerReference", jsii.get(self, "userPoolResourceServerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="identifier")
@@ -12400,7 +14043,7 @@ class CfnUserPoolResourceServer(
     @identifier.setter
     def identifier(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0784cedf1608a8758f1c44b7e3aacb96f3672ac970fc80673ae8a281382775da)
+            type_hints = cached_type_hints(_typecheckingstub__0784cedf1608a8758f1c44b7e3aacb96f3672ac970fc80673ae8a281382775da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "identifier", value) # pyright: ignore[reportArgumentType]
 
@@ -12413,7 +14056,7 @@ class CfnUserPoolResourceServer(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__091a350381e1228e09795024704316d40f0bce3ead6bff97b512b103b8bb1ee6)
+            type_hints = cached_type_hints(_typecheckingstub__091a350381e1228e09795024704316d40f0bce3ead6bff97b512b103b8bb1ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -12426,7 +14069,7 @@ class CfnUserPoolResourceServer(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__050918e589a6f0ea5348f6c36799b16672c9d8127f2e78e25499ac0ee092b4fa)
+            type_hints = cached_type_hints(_typecheckingstub__050918e589a6f0ea5348f6c36799b16672c9d8127f2e78e25499ac0ee092b4fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -12434,17 +14077,17 @@ class CfnUserPoolResourceServer(
     @jsii.member(jsii_name="scopes")
     def scopes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]]:
         '''A list of scopes.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]], jsii.get(self, "scopes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]], jsii.get(self, "scopes"))
 
     @scopes.setter
     def scopes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__160fcb672d8fdc3b92b02edf7b6742270c60fcaadc1b0091d06e1413b15e3583)
+            type_hints = cached_type_hints(_typecheckingstub__160fcb672d8fdc3b92b02edf7b6742270c60fcaadc1b0091d06e1413b15e3583)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scopes", value) # pyright: ignore[reportArgumentType]
 
@@ -12485,7 +14128,7 @@ class CfnUserPoolResourceServer(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__69c27b6d57821c89462fb3d9567a88f47d5ec8ef45574e28d0f8404ad66bb732)
+                type_hints = cached_type_hints(_typecheckingstub__69c27b6d57821c89462fb3d9567a88f47d5ec8ef45574e28d0f8404ad66bb732)
                 check_type(argname="argument scope_description", value=scope_description, expected_type=type_hints["scope_description"])
                 check_type(argname="argument scope_name", value=scope_name, expected_type=type_hints["scope_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12543,8 +14186,8 @@ class CfnUserPoolResourceServerProps:
         *,
         identifier: builtins.str,
         name: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        scopes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolResourceServer.ResourceServerScopeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        scopes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolResourceServer.ResourceServerScopeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolResourceServer``.
 
@@ -12575,7 +14218,7 @@ class CfnUserPoolResourceServerProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3ec779f0da483496b42d0bd063d70d51362c7b804d031893cdf65153d2094c1)
+            type_hints = cached_type_hints(_typecheckingstub__e3ec779f0da483496b42d0bd063d70d51362c7b804d031893cdf65153d2094c1)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
@@ -12613,19 +14256,21 @@ class CfnUserPoolResourceServerProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool where you want to create a resource server.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolresourceserver.html#cfn-cognito-userpoolresourceserver-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def scopes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]]:
         '''A list of scopes.
 
         Each scope is a map with keys ``ScopeName`` and ``ScopeDescription`` .
@@ -12633,7 +14278,7 @@ class CfnUserPoolResourceServerProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolresourceserver.html#cfn-cognito-userpoolresourceserver-scopes
         '''
         result = self._values.get("scopes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolResourceServer.ResourceServerScopeTypeProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12647,9 +14292,9 @@ class CfnUserPoolResourceServerProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolRiskConfigurationAttachmentRef_b5390b06)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolRiskConfigurationAttachmentRef)
 class CfnUserPoolRiskConfigurationAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRiskConfigurationAttachment",
 ):
@@ -12739,10 +14384,10 @@ class CfnUserPoolRiskConfigurationAttachment(
         id: builtins.str,
         *,
         client_id: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        account_takeover_risk_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        compromised_credentials_risk_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        risk_exception_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        account_takeover_risk_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compromised_credentials_risk_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        risk_exception_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolRiskConfigurationAttachment``.
 
@@ -12755,7 +14400,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         :param risk_exception_configuration: Exceptions to the risk evaluation configuration, including always-allow and always-block IP address ranges.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3245a667ca916eabc555ef843b4a36bfcb47060fa353bd730066a76dcad5a96)
+            type_hints = cached_type_hints(_typecheckingstub__e3245a667ca916eabc555ef843b4a36bfcb47060fa353bd730066a76dcad5a96)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolRiskConfigurationAttachmentProps(
@@ -12779,18 +14424,18 @@ class CfnUserPoolRiskConfigurationAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d04e43a127e8086b4ffee2617ba42eda163be8f5b5b3231a8a1b850a3ef1d6ba)
+            type_hints = cached_type_hints(_typecheckingstub__d04e43a127e8086b4ffee2617ba42eda163be8f5b5b3231a8a1b850a3ef1d6ba)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolRiskConfigurationAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c679cad8b164d6bad08830c9bfb57b908cf9c5bb391661d8ccf6732b7e486c2a)
+            type_hints = cached_type_hints(_typecheckingstub__c679cad8b164d6bad08830c9bfb57b908cf9c5bb391661d8ccf6732b7e486c2a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -12803,7 +14448,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__707c8b0947348e149e8012f6d888e4b17a607c761ae75b05be2e38be19814abc)
+            type_hints = cached_type_hints(_typecheckingstub__707c8b0947348e149e8012f6d888e4b17a607c761ae75b05be2e38be19814abc)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -12827,9 +14472,9 @@ class CfnUserPoolRiskConfigurationAttachment(
     @jsii.member(jsii_name="userPoolRiskConfigurationAttachmentRef")
     def user_pool_risk_configuration_attachment_ref(
         self,
-    ) -> "_UserPoolRiskConfigurationAttachmentReference_815104e9":
+    ) -> "_aws_cognito_aa210b15.UserPoolRiskConfigurationAttachmentReference":
         '''A reference to a UserPoolRiskConfigurationAttachment resource.'''
-        return typing.cast("_UserPoolRiskConfigurationAttachmentReference_815104e9", jsii.get(self, "userPoolRiskConfigurationAttachmentRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolRiskConfigurationAttachmentReference", jsii.get(self, "userPoolRiskConfigurationAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clientId")
@@ -12840,7 +14485,7 @@ class CfnUserPoolRiskConfigurationAttachment(
     @client_id.setter
     def client_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a5b05e9407391c0557e201e4e58dfac89a06f57c4adc732162c79169e069fc0)
+            type_hints = cached_type_hints(_typecheckingstub__3a5b05e9407391c0557e201e4e58dfac89a06f57c4adc732162c79169e069fc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
 
@@ -12853,7 +14498,7 @@ class CfnUserPoolRiskConfigurationAttachment(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__258e8ccdb5a39874f49d032edd3b21eafc55726e815291b2ba0aeb3d1e5e57f2)
+            type_hints = cached_type_hints(_typecheckingstub__258e8ccdb5a39874f49d032edd3b21eafc55726e815291b2ba0aeb3d1e5e57f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -12861,17 +14506,17 @@ class CfnUserPoolRiskConfigurationAttachment(
     @jsii.member(jsii_name="accountTakeoverRiskConfiguration")
     def account_takeover_risk_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]]:
         '''The settings for automated responses and notification templates for adaptive authentication with threat protection.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]], jsii.get(self, "accountTakeoverRiskConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]], jsii.get(self, "accountTakeoverRiskConfiguration"))
 
     @account_takeover_risk_configuration.setter
     def account_takeover_risk_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b17909dd0638cbbc0f1921202089390881098b016d096fd0e7523987a4e30ba9)
+            type_hints = cached_type_hints(_typecheckingstub__b17909dd0638cbbc0f1921202089390881098b016d096fd0e7523987a4e30ba9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountTakeoverRiskConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -12879,17 +14524,17 @@ class CfnUserPoolRiskConfigurationAttachment(
     @jsii.member(jsii_name="compromisedCredentialsRiskConfiguration")
     def compromised_credentials_risk_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]]:
         '''Settings for compromised-credentials actions and authentication types with threat protection in full-function ``ENFORCED`` mode.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]], jsii.get(self, "compromisedCredentialsRiskConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]], jsii.get(self, "compromisedCredentialsRiskConfiguration"))
 
     @compromised_credentials_risk_configuration.setter
     def compromised_credentials_risk_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__114c02dca6d5bbc7b9068e92676886981e1fa4247a8584ed917e5391b74f2d2d)
+            type_hints = cached_type_hints(_typecheckingstub__114c02dca6d5bbc7b9068e92676886981e1fa4247a8584ed917e5391b74f2d2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "compromisedCredentialsRiskConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -12897,17 +14542,17 @@ class CfnUserPoolRiskConfigurationAttachment(
     @jsii.member(jsii_name="riskExceptionConfiguration")
     def risk_exception_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]]:
         '''Exceptions to the risk evaluation configuration, including always-allow and always-block IP address ranges.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]], jsii.get(self, "riskExceptionConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]], jsii.get(self, "riskExceptionConfiguration"))
 
     @risk_exception_configuration.setter
     def risk_exception_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bce41f342258d692515e8eebb6c2745c7105edc270a2bbcfb45f41d2bf1ca46)
+            type_hints = cached_type_hints(_typecheckingstub__2bce41f342258d692515e8eebb6c2745c7105edc270a2bbcfb45f41d2bf1ca46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "riskExceptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -12921,7 +14566,7 @@ class CfnUserPoolRiskConfigurationAttachment(
             self,
             *,
             event_action: builtins.str,
-            notify: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            notify: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
         ) -> None:
             '''The automated response to a risk level for adaptive authentication in full-function, or ``ENFORCED`` , mode.
 
@@ -12945,7 +14590,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__30abf81ff553ddb63b2198e60e762f3aecf06b8e0f2991afb69ec6002c5483bd)
+                type_hints = cached_type_hints(_typecheckingstub__30abf81ff553ddb63b2198e60e762f3aecf06b8e0f2991afb69ec6002c5483bd)
                 check_type(argname="argument event_action", value=event_action, expected_type=type_hints["event_action"])
                 check_type(argname="argument notify", value=notify, expected_type=type_hints["notify"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -12971,14 +14616,16 @@ class CfnUserPoolRiskConfigurationAttachment(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def notify(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def notify(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Determines whether Amazon Cognito sends a user a notification message when your user pools assesses a user's session at the associated risk level.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoveractiontype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoveractiontype-notify
             '''
             result = self._values.get("notify")
             assert result is not None, "Required property 'notify' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13004,9 +14651,9 @@ class CfnUserPoolRiskConfigurationAttachment(
         def __init__(
             self,
             *,
-            high_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            low_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            medium_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            high_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            low_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            medium_action: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A list of account-takeover actions for each level of risk that Amazon Cognito might assess with advanced security features.
 
@@ -13039,7 +14686,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f069babb0e7383f87bfc13cebc53feb5f8120c387522f3256d59b144efff541f)
+                type_hints = cached_type_hints(_typecheckingstub__f069babb0e7383f87bfc13cebc53feb5f8120c387522f3256d59b144efff541f)
                 check_type(argname="argument high_action", value=high_action, expected_type=type_hints["high_action"])
                 check_type(argname="argument low_action", value=low_action, expected_type=type_hints["low_action"])
                 check_type(argname="argument medium_action", value=medium_action, expected_type=type_hints["medium_action"])
@@ -13054,35 +14701,35 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def high_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
             '''The action that you assign to a high-risk assessment by threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype-highaction
             '''
             result = self._values.get("high_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
 
         @builtins.property
         def low_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
             '''The action that you assign to a low-risk assessment by threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype-lowaction
             '''
             result = self._values.get("low_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
 
         @builtins.property
         def medium_action(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]]:
             '''The action that you assign to a medium-risk assessment by threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoveractionstype-mediumaction
             '''
             result = self._values.get("medium_action")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13107,8 +14754,8 @@ class CfnUserPoolRiskConfigurationAttachment(
         def __init__(
             self,
             *,
-            actions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty", typing.Dict[builtins.str, typing.Any]]],
-            notify_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            notify_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for automated responses and notification templates for adaptive authentication with advanced security features.
 
@@ -13172,7 +14819,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__171e16add5c171c71e588ba4dc5010b7f4eeed61b1de29de578818bd4f093f3a)
+                type_hints = cached_type_hints(_typecheckingstub__171e16add5c171c71e588ba4dc5010b7f4eeed61b1de29de578818bd4f093f3a)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument notify_configuration", value=notify_configuration, expected_type=type_hints["notify_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13184,19 +14831,19 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty"]:
             '''A list of account-takeover actions for each level of risk that Amazon Cognito might assess with threat protection.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoverriskconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoverriskconfigurationtype-actions
             '''
             result = self._values.get("actions")
             assert result is not None, "Required property 'actions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty"], result)
 
         @builtins.property
         def notify_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty"]]:
             '''The settings for composing and sending an email message when threat protection assesses a risk level with adaptive authentication.
 
             When you choose to notify users in ``AccountTakeoverRiskConfiguration`` , Amazon Cognito sends an email message using the method and template that you set with this data type.
@@ -13204,7 +14851,7 @@ class CfnUserPoolRiskConfigurationAttachment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-accounttakeoverriskconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoverriskconfigurationtype-notifyconfiguration
             '''
             result = self._values.get("notify_configuration")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13242,7 +14889,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d50d850b07485d85851db7411e74523ef2b236b4f79dc4882afa873cba24379e)
+                type_hints = cached_type_hints(_typecheckingstub__d50d850b07485d85851db7411e74523ef2b236b4f79dc4882afa873cba24379e)
                 check_type(argname="argument event_action", value=event_action, expected_type=type_hints["event_action"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "event_action": event_action,
@@ -13278,7 +14925,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         def __init__(
             self,
             *,
-            actions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            actions: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty", typing.Dict[builtins.str, typing.Any]]],
             event_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Settings for compromised-credentials actions and authentication-event sources with advanced security features in full-function ``ENFORCED`` mode.
@@ -13305,7 +14952,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c4a865171ee7a202a2dae96af5367bc1bbaf5644c4eeeb610126d5d16b69ed96)
+                type_hints = cached_type_hints(_typecheckingstub__c4a865171ee7a202a2dae96af5367bc1bbaf5644c4eeeb610126d5d16b69ed96)
                 check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
                 check_type(argname="argument event_filter", value=event_filter, expected_type=type_hints["event_filter"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13317,14 +14964,14 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def actions(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty"]:
             '''Settings for the actions that you want your user pool to take when Amazon Cognito detects compromised credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-compromisedcredentialsriskconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-compromisedcredentialsriskconfigurationtype-actions
             '''
             result = self._values.get("actions")
             assert result is not None, "Required property 'actions' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty"], result)
 
         @builtins.property
         def event_filter(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13365,10 +15012,10 @@ class CfnUserPoolRiskConfigurationAttachment(
             self,
             *,
             source_arn: builtins.str,
-            block_email: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            block_email: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             from_: typing.Optional[builtins.str] = None,
-            mfa_email: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            no_action_email: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mfa_email: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            no_action_email: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             reply_to: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration for Amazon SES email messages that advanced security features sends to a user when your adaptive authentication automated response has a *Notify* action.
@@ -13419,7 +15066,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2bf1c06aab9b28c8e948bfb55b05866a98728f29cf413f42daba637d09193e97)
+                type_hints = cached_type_hints(_typecheckingstub__2bf1c06aab9b28c8e948bfb55b05866a98728f29cf413f42daba637d09193e97)
                 check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
                 check_type(argname="argument block_email", value=block_email, expected_type=type_hints["block_email"])
                 check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
@@ -13455,13 +15102,13 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def block_email(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
             '''The template for the email message that your user pool sends when a detected risk event is blocked.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype-blockemail
             '''
             result = self._values.get("block_email")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
 
         @builtins.property
         def from_(self) -> typing.Optional[builtins.str]:
@@ -13477,24 +15124,24 @@ class CfnUserPoolRiskConfigurationAttachment(
         @builtins.property
         def mfa_email(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
             '''The template for the email message that your user pool sends when MFA is challenged in response to a detected risk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype-mfaemail
             '''
             result = self._values.get("mfa_email")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
 
         @builtins.property
         def no_action_email(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]]:
             '''The template for the email message that your user pool sends when no action is taken in response to a detected risk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype.html#cfn-cognito-userpoolriskconfigurationattachment-notifyconfigurationtype-noactionemail
             '''
             result = self._values.get("no_action_email")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty"]], result)
 
         @builtins.property
         def reply_to(self) -> typing.Optional[builtins.str]:
@@ -13559,7 +15206,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6800925bb1fbc1aba866bb6851b8782035e890449b40e2d78a413f3dcb79df79)
+                type_hints = cached_type_hints(_typecheckingstub__6800925bb1fbc1aba866bb6851b8782035e890449b40e2d78a413f3dcb79df79)
                 check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
                 check_type(argname="argument html_body", value=html_body, expected_type=type_hints["html_body"])
                 check_type(argname="argument text_body", value=text_body, expected_type=type_hints["text_body"])
@@ -13649,7 +15296,7 @@ class CfnUserPoolRiskConfigurationAttachment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__94550db26287873cca0c0acdb5d5eeb1043c346f4abf4c7e67a461cf6155f180)
+                type_hints = cached_type_hints(_typecheckingstub__94550db26287873cca0c0acdb5d5eeb1043c346f4abf4c7e67a461cf6155f180)
                 check_type(argname="argument blocked_ip_range_list", value=blocked_ip_range_list, expected_type=type_hints["blocked_ip_range_list"])
                 check_type(argname="argument skipped_ip_range_list", value=skipped_ip_range_list, expected_type=type_hints["skipped_ip_range_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13708,10 +15355,10 @@ class CfnUserPoolRiskConfigurationAttachmentProps:
         self,
         *,
         client_id: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        account_takeover_risk_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        compromised_credentials_risk_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        risk_exception_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        account_takeover_risk_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        compromised_credentials_risk_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        risk_exception_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolRiskConfigurationAttachment``.
 
@@ -13796,7 +15443,7 @@ class CfnUserPoolRiskConfigurationAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aae4da006a28eede974ab417d5b2bc68196cfdf7df68bb0ddfc79b19b8790f8b)
+            type_hints = cached_type_hints(_typecheckingstub__aae4da006a28eede974ab417d5b2bc68196cfdf7df68bb0ddfc79b19b8790f8b)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument account_takeover_risk_configuration", value=account_takeover_risk_configuration, expected_type=type_hints["account_takeover_risk_configuration"])
@@ -13826,47 +15473,49 @@ class CfnUserPoolRiskConfigurationAttachmentProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool that has the risk configuration applied.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolriskconfigurationattachment.html#cfn-cognito-userpoolriskconfigurationattachment-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def account_takeover_risk_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]]:
         '''The settings for automated responses and notification templates for adaptive authentication with threat protection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolriskconfigurationattachment.html#cfn-cognito-userpoolriskconfigurationattachment-accounttakeoverriskconfiguration
         '''
         result = self._values.get("account_takeover_risk_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty"]], result)
 
     @builtins.property
     def compromised_credentials_risk_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]]:
         '''Settings for compromised-credentials actions and authentication types with threat protection in full-function ``ENFORCED`` mode.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolriskconfigurationattachment.html#cfn-cognito-userpoolriskconfigurationattachment-compromisedcredentialsriskconfiguration
         '''
         result = self._values.get("compromised_credentials_risk_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty"]], result)
 
     @builtins.property
     def risk_exception_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]]:
         '''Exceptions to the risk evaluation configuration, including always-allow and always-block IP address ranges.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolriskconfigurationattachment.html#cfn-cognito-userpoolriskconfigurationattachment-riskexceptionconfiguration
         '''
         result = self._values.get("risk_exception_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13880,9 +15529,9 @@ class CfnUserPoolRiskConfigurationAttachmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolUICustomizationAttachmentRef_855e6497)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolUICustomizationAttachmentRef)
 class CfnUserPoolUICustomizationAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolUICustomizationAttachment",
 ):
@@ -13913,7 +15562,7 @@ class CfnUserPoolUICustomizationAttachment(
         id: builtins.str,
         *,
         client_id: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         css: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolUICustomizationAttachment``.
@@ -13925,7 +15574,7 @@ class CfnUserPoolUICustomizationAttachment(
         :param css: A plaintext CSS file that contains the custom fields that you want to apply to your user pool or app client. To download a template, go to the Amazon Cognito console. Navigate to your user pool *App clients* tab, select *Login pages* , edit *Hosted UI (classic) style* , and select the link to ``CSS template.css`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf3306ea8a9b6f4ebe73eb42059e52138281652a9e2e36e507fd8658eb5da33a)
+            type_hints = cached_type_hints(_typecheckingstub__bf3306ea8a9b6f4ebe73eb42059e52138281652a9e2e36e507fd8658eb5da33a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolUICustomizationAttachmentProps(
@@ -13945,18 +15594,18 @@ class CfnUserPoolUICustomizationAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e055cffa102f9950c3fe54680b77426adc87553a5321e47db1f656ca4964ddfd)
+            type_hints = cached_type_hints(_typecheckingstub__e055cffa102f9950c3fe54680b77426adc87553a5321e47db1f656ca4964ddfd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolUICustomizationAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80b3aec0691b38b614ccbfd3a409e8f6e5a07ef4b029f9f7451ae00fe408ecee)
+            type_hints = cached_type_hints(_typecheckingstub__80b3aec0691b38b614ccbfd3a409e8f6e5a07ef4b029f9f7451ae00fe408ecee)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -13969,7 +15618,7 @@ class CfnUserPoolUICustomizationAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff3c67f9277cb7242d2f8cc0f7c9422962350df6fafbc523b7d4b92250f80565)
+            type_hints = cached_type_hints(_typecheckingstub__ff3c67f9277cb7242d2f8cc0f7c9422962350df6fafbc523b7d4b92250f80565)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -13993,9 +15642,9 @@ class CfnUserPoolUICustomizationAttachment(
     @jsii.member(jsii_name="userPoolUiCustomizationAttachmentRef")
     def user_pool_ui_customization_attachment_ref(
         self,
-    ) -> "_UserPoolUICustomizationAttachmentReference_2c1e7860":
+    ) -> "_aws_cognito_aa210b15.UserPoolUICustomizationAttachmentReference":
         '''A reference to a UserPoolUICustomizationAttachment resource.'''
-        return typing.cast("_UserPoolUICustomizationAttachmentReference_2c1e7860", jsii.get(self, "userPoolUiCustomizationAttachmentRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolUICustomizationAttachmentReference", jsii.get(self, "userPoolUiCustomizationAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="clientId")
@@ -14006,7 +15655,7 @@ class CfnUserPoolUICustomizationAttachment(
     @client_id.setter
     def client_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2fb840d14a15822261415d3d8b15b58403a1bf218216b5d0aba1826076c9cb03)
+            type_hints = cached_type_hints(_typecheckingstub__2fb840d14a15822261415d3d8b15b58403a1bf218216b5d0aba1826076c9cb03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
 
@@ -14019,7 +15668,7 @@ class CfnUserPoolUICustomizationAttachment(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc21fab90e665a827c26364efaa1568390b907cce17d5fc3f8621bfe65268d7b)
+            type_hints = cached_type_hints(_typecheckingstub__bc21fab90e665a827c26364efaa1568390b907cce17d5fc3f8621bfe65268d7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -14032,7 +15681,7 @@ class CfnUserPoolUICustomizationAttachment(
     @css.setter
     def css(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95fdebc4b645acafac0d58bca95a8d84ac0be5fcf3ca3d612ad578dbb3faa891)
+            type_hints = cached_type_hints(_typecheckingstub__95fdebc4b645acafac0d58bca95a8d84ac0be5fcf3ca3d612ad578dbb3faa891)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "css", value) # pyright: ignore[reportArgumentType]
 
@@ -14047,7 +15696,7 @@ class CfnUserPoolUICustomizationAttachmentProps:
         self,
         *,
         client_id: builtins.str,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
         css: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolUICustomizationAttachment``.
@@ -14074,7 +15723,7 @@ class CfnUserPoolUICustomizationAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e4f062a7f00241b34ab17fd47a3486ca4cbd516aac965d87988b2f16d5ac603)
+            type_hints = cached_type_hints(_typecheckingstub__4e4f062a7f00241b34ab17fd47a3486ca4cbd516aac965d87988b2f16d5ac603)
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument css", value=css, expected_type=type_hints["css"])
@@ -14098,14 +15747,16 @@ class CfnUserPoolUICustomizationAttachmentProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool where you want to apply branding to the classic hosted UI.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluicustomizationattachment.html#cfn-cognito-userpooluicustomizationattachment-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def css(self) -> typing.Optional[builtins.str]:
@@ -14130,9 +15781,9 @@ class CfnUserPoolUICustomizationAttachmentProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolUserRef_cbf1b211)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolUserRef)
 class CfnUserPoolUser(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolUser",
 ):
@@ -14175,14 +15826,14 @@ class CfnUserPoolUser(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        client_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        client_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
-        force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         message_action: typing.Optional[builtins.str] = None,
-        user_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        user_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         username: typing.Optional[builtins.str] = None,
-        validation_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        validation_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolUser``.
 
@@ -14198,7 +15849,7 @@ class CfnUserPoolUser(
         :param validation_data: Temporary user attributes that contribute to the outcomes of your pre sign-up Lambda trigger. This set of key-value pairs are for custom validation of information that you collect from your users but don't need to retain. Your Lambda function can analyze this additional data and act on it. Your function can automatically confirm and verify select users or perform external API operations like logging user attributes and validation data to Amazon CloudWatch Logs. For more information about the pre sign-up Lambda trigger, see `Pre sign-up Lambda trigger <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-sign-up.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__392de74de1133635a0d4d21dbd0cb3290007171e021625ff9a125983463dd374)
+            type_hints = cached_type_hints(_typecheckingstub__392de74de1133635a0d4d21dbd0cb3290007171e021625ff9a125983463dd374)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolUserProps(
@@ -14222,18 +15873,18 @@ class CfnUserPoolUser(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b341febf1737e60d203510e1387628f331c5f9f9bc1b8d7ef81b64621d4fea1)
+            type_hints = cached_type_hints(_typecheckingstub__5b341febf1737e60d203510e1387628f331c5f9f9bc1b8d7ef81b64621d4fea1)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolUser", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a682a2322b995c054dfe4130e2fb7a0f0bc4eecc31485fdac372757331071a1)
+            type_hints = cached_type_hints(_typecheckingstub__7a682a2322b995c054dfe4130e2fb7a0f0bc4eecc31485fdac372757331071a1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -14246,7 +15897,7 @@ class CfnUserPoolUser(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c1d5d9ebca9f15e71312208c85763ef350bc2128b24951edf30f977cd99b8ca0)
+            type_hints = cached_type_hints(_typecheckingstub__c1d5d9ebca9f15e71312208c85763ef350bc2128b24951edf30f977cd99b8ca0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -14268,9 +15919,9 @@ class CfnUserPoolUser(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolUserRef")
-    def user_pool_user_ref(self) -> "_UserPoolUserReference_b50e0a97":
+    def user_pool_user_ref(self) -> "_aws_cognito_aa210b15.UserPoolUserReference":
         '''A reference to a UserPoolUser resource.'''
-        return typing.cast("_UserPoolUserReference_b50e0a97", jsii.get(self, "userPoolUserRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolUserReference", jsii.get(self, "userPoolUserRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -14281,7 +15932,7 @@ class CfnUserPoolUser(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feefc710cb336bda2be62c58dcbdfc764a535ab2e52aa19e44511aca0956258c)
+            type_hints = cached_type_hints(_typecheckingstub__feefc710cb336bda2be62c58dcbdfc764a535ab2e52aa19e44511aca0956258c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -14289,17 +15940,17 @@ class CfnUserPoolUser(
     @jsii.member(jsii_name="clientMetadata")
     def client_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "clientMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "clientMetadata"))
 
     @client_metadata.setter
     def client_metadata(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40)
+            type_hints = cached_type_hints(_typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -14315,7 +15966,7 @@ class CfnUserPoolUser(
         value: typing.Optional[typing.List[builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91542a3b74c01d216df5ff651d130ee1327aa0fc3c895cbd605609cf901699ba)
+            type_hints = cached_type_hints(_typecheckingstub__91542a3b74c01d216df5ff651d130ee1327aa0fc3c895cbd605609cf901699ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "desiredDeliveryMediums", value) # pyright: ignore[reportArgumentType]
 
@@ -14323,17 +15974,17 @@ class CfnUserPoolUser(
     @jsii.member(jsii_name="forceAliasCreation")
     def force_alias_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''This parameter is used only if the ``phone_number_verified`` or ``email_verified`` attribute is set to ``True`` .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "forceAliasCreation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "forceAliasCreation"))
 
     @force_alias_creation.setter
     def force_alias_creation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c2c789fa64d9c856de89108f23fbf51d514f0cffa783771cfbacd552aee676c)
+            type_hints = cached_type_hints(_typecheckingstub__7c2c789fa64d9c856de89108f23fbf51d514f0cffa783771cfbacd552aee676c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "forceAliasCreation", value) # pyright: ignore[reportArgumentType]
 
@@ -14346,7 +15997,7 @@ class CfnUserPoolUser(
     @message_action.setter
     def message_action(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f0192dc3faa77898f91fb1e03cf55e5b740abf20bba3ba939ce4df47ae4227d)
+            type_hints = cached_type_hints(_typecheckingstub__9f0192dc3faa77898f91fb1e03cf55e5b740abf20bba3ba939ce4df47ae4227d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "messageAction", value) # pyright: ignore[reportArgumentType]
 
@@ -14354,17 +16005,17 @@ class CfnUserPoolUser(
     @jsii.member(jsii_name="userAttributes")
     def user_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
         '''An array of name-value pairs that contain user attributes and attribute values to be set for the user to be created.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]], jsii.get(self, "userAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]], jsii.get(self, "userAttributes"))
 
     @user_attributes.setter
     def user_attributes(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a84d0d411d439647c27dc7ac7d1d6e760fe129e919aa8a0a8b4194179281b3e)
+            type_hints = cached_type_hints(_typecheckingstub__3a84d0d411d439647c27dc7ac7d1d6e760fe129e919aa8a0a8b4194179281b3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userAttributes", value) # pyright: ignore[reportArgumentType]
 
@@ -14377,7 +16028,7 @@ class CfnUserPoolUser(
     @username.setter
     def username(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__942108c1e34b7c1e541ffb7d9f565c31400708ae6fa3757029d02956f7e7086d)
+            type_hints = cached_type_hints(_typecheckingstub__942108c1e34b7c1e541ffb7d9f565c31400708ae6fa3757029d02956f7e7086d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
 
@@ -14385,17 +16036,17 @@ class CfnUserPoolUser(
     @jsii.member(jsii_name="validationData")
     def validation_data(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
         '''Temporary user attributes that contribute to the outcomes of your pre sign-up Lambda trigger.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]], jsii.get(self, "validationData"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]], jsii.get(self, "validationData"))
 
     @validation_data.setter
     def validation_data(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69a6ee7471fbb46c9acd4942399424982966d6d11c89f8748a188ab7f08e54be)
+            type_hints = cached_type_hints(_typecheckingstub__69a6ee7471fbb46c9acd4942399424982966d6d11c89f8748a188ab7f08e54be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "validationData", value) # pyright: ignore[reportArgumentType]
 
@@ -14431,7 +16082,7 @@ class CfnUserPoolUser(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__480fd17b16e7156f8c801d35ad2f0806c252a5a32182194061ca2a9566a36851)
+                type_hints = cached_type_hints(_typecheckingstub__480fd17b16e7156f8c801d35ad2f0806c252a5a32182194061ca2a9566a36851)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -14488,14 +16139,14 @@ class CfnUserPoolUserProps:
     def __init__(
         self,
         *,
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
-        client_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
+        client_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
-        force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        force_alias_creation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         message_action: typing.Optional[builtins.str] = None,
-        user_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        user_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         username: typing.Optional[builtins.str] = None,
-        validation_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        validation_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolUser.AttributeTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUserPoolUser``.
 
@@ -14539,7 +16190,7 @@ class CfnUserPoolUserProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__382fb58e358860ff3016c5f0203cf6f5b59ab27ba70ef920ce589784afe54f17)
+            type_hints = cached_type_hints(_typecheckingstub__382fb58e358860ff3016c5f0203cf6f5b59ab27ba70ef920ce589784afe54f17)
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
             check_type(argname="argument client_metadata", value=client_metadata, expected_type=type_hints["client_metadata"])
             check_type(argname="argument desired_delivery_mediums", value=desired_delivery_mediums, expected_type=type_hints["desired_delivery_mediums"])
@@ -14567,19 +16218,21 @@ class CfnUserPoolUserProps:
             self._values["validation_data"] = validation_data
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool where you want to create a user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     @builtins.property
     def client_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A map of custom key-value pairs that you can provide as input for any custom workflows that this action triggers.
 
         You create custom workflows by assigning AWS Lambda functions to user pool triggers.
@@ -14598,7 +16251,7 @@ class CfnUserPoolUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-clientmetadata
         '''
         result = self._values.get("client_metadata")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def desired_delivery_mediums(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14614,7 +16267,7 @@ class CfnUserPoolUserProps:
     @builtins.property
     def force_alias_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''This parameter is used only if the ``phone_number_verified`` or ``email_verified`` attribute is set to ``True`` .
 
         Otherwise, it is ignored.
@@ -14626,7 +16279,7 @@ class CfnUserPoolUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-forcealiascreation
         '''
         result = self._values.get("force_alias_creation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def message_action(self) -> typing.Optional[builtins.str]:
@@ -14642,7 +16295,7 @@ class CfnUserPoolUserProps:
     @builtins.property
     def user_attributes(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
         '''An array of name-value pairs that contain user attributes and attribute values to be set for the user to be created.
 
         You can create a user without specifying any attributes other than ``Username`` . However, any attributes that you specify as required (when creating a user pool or in the *Attributes* tab of the console) either you should supply (in your call to ``AdminCreateUser`` ) or the user should supply (when they sign up in response to your welcome message).
@@ -14661,7 +16314,7 @@ class CfnUserPoolUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-userattributes
         '''
         result = self._values.get("user_attributes")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
@@ -14681,7 +16334,7 @@ class CfnUserPoolUserProps:
     @builtins.property
     def validation_data(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]]:
         '''Temporary user attributes that contribute to the outcomes of your pre sign-up Lambda trigger.
 
         This set of key-value pairs are for custom validation of information that you collect from your users but don't need to retain.
@@ -14693,7 +16346,7 @@ class CfnUserPoolUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooluser.html#cfn-cognito-userpooluser-validationdata
         '''
         result = self._values.get("validation_data")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUserPoolUser.AttributeTypeProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolUser.AttributeTypeProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14707,9 +16360,9 @@ class CfnUserPoolUserProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IUserPoolUserToGroupAttachmentRef_04a5a41e)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cognito_aa210b15.IUserPoolUserToGroupAttachmentRef)
 class CfnUserPoolUserToGroupAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolUserToGroupAttachment",
 ):
@@ -14746,9 +16399,9 @@ class CfnUserPoolUserToGroupAttachment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        group_name: typing.Union[builtins.str, "_IUserPoolGroupRef_89b16d48"],
-        username: typing.Union[builtins.str, "_IUserPoolUserRef_cbf1b211"],
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        group_name: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolGroupRef"],
+        username: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolUserRef"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
     ) -> None:
         '''Create a new ``AWS::Cognito::UserPoolUserToGroupAttachment``.
 
@@ -14759,7 +16412,7 @@ class CfnUserPoolUserToGroupAttachment(
         :param user_pool_id: The ID of the user pool that contains the group that you want to add the user to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7364d75afc292798863e1183adee778bee531b8ea162e2882fe2861f9b8e33c)
+            type_hints = cached_type_hints(_typecheckingstub__a7364d75afc292798863e1183adee778bee531b8ea162e2882fe2861f9b8e33c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserPoolUserToGroupAttachmentProps(
@@ -14776,18 +16429,18 @@ class CfnUserPoolUserToGroupAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f31d5a90cf5a3519ffc7ff93530071681166eb0e5a27e47db9853d060edf229d)
+            type_hints = cached_type_hints(_typecheckingstub__f31d5a90cf5a3519ffc7ff93530071681166eb0e5a27e47db9853d060edf229d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPoolUserToGroupAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8646ff491f8e398241578077a82a538b7fc6168609db4df0a8980d20dc662a3a)
+            type_hints = cached_type_hints(_typecheckingstub__8646ff491f8e398241578077a82a538b7fc6168609db4df0a8980d20dc662a3a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -14800,7 +16453,7 @@ class CfnUserPoolUserToGroupAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52c72a8fcf1b906af13f00063c1d25b12e9b2225c5b995b65b452deee4ef4a3d)
+            type_hints = cached_type_hints(_typecheckingstub__52c72a8fcf1b906af13f00063c1d25b12e9b2225c5b995b65b452deee4ef4a3d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -14824,9 +16477,9 @@ class CfnUserPoolUserToGroupAttachment(
     @jsii.member(jsii_name="userPoolUserToGroupAttachmentRef")
     def user_pool_user_to_group_attachment_ref(
         self,
-    ) -> "_UserPoolUserToGroupAttachmentReference_fa1a0479":
+    ) -> "_aws_cognito_aa210b15.UserPoolUserToGroupAttachmentReference":
         '''A reference to a UserPoolUserToGroupAttachment resource.'''
-        return typing.cast("_UserPoolUserToGroupAttachmentReference_fa1a0479", jsii.get(self, "userPoolUserToGroupAttachmentRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolUserToGroupAttachmentReference", jsii.get(self, "userPoolUserToGroupAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -14837,7 +16490,7 @@ class CfnUserPoolUserToGroupAttachment(
     @group_name.setter
     def group_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76f277297f14c067592421ffe39f914d1d4341dd9bc83f4c42c66f73914f3488)
+            type_hints = cached_type_hints(_typecheckingstub__76f277297f14c067592421ffe39f914d1d4341dd9bc83f4c42c66f73914f3488)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
@@ -14850,7 +16503,7 @@ class CfnUserPoolUserToGroupAttachment(
     @username.setter
     def username(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a387f868c25297921e89f6892a60def04748b83f31771d79ae06623bc4eb435b)
+            type_hints = cached_type_hints(_typecheckingstub__a387f868c25297921e89f6892a60def04748b83f31771d79ae06623bc4eb435b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
 
@@ -14863,7 +16516,7 @@ class CfnUserPoolUserToGroupAttachment(
     @user_pool_id.setter
     def user_pool_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82177f095c7231924dc4eb6d3e0b1affc9151da04e151d35489d6ee497b571cc)
+            type_hints = cached_type_hints(_typecheckingstub__82177f095c7231924dc4eb6d3e0b1affc9151da04e151d35489d6ee497b571cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
 
@@ -14881,9 +16534,9 @@ class CfnUserPoolUserToGroupAttachmentProps:
     def __init__(
         self,
         *,
-        group_name: typing.Union[builtins.str, "_IUserPoolGroupRef_89b16d48"],
-        username: typing.Union[builtins.str, "_IUserPoolUserRef_cbf1b211"],
-        user_pool_id: typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"],
+        group_name: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolGroupRef"],
+        username: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolUserRef"],
+        user_pool_id: typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"],
     ) -> None:
         '''Properties for defining a ``CfnUserPoolUserToGroupAttachment``.
 
@@ -14907,7 +16560,7 @@ class CfnUserPoolUserToGroupAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__795e0d8c9020bae33ab9db3f6ee92c3fab525494304ae5dab03e978b4cc524b3)
+            type_hints = cached_type_hints(_typecheckingstub__795e0d8c9020bae33ab9db3f6ee92c3fab525494304ae5dab03e978b4cc524b3)
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
@@ -14918,34 +16571,40 @@ class CfnUserPoolUserToGroupAttachmentProps:
         }
 
     @builtins.property
-    def group_name(self) -> typing.Union[builtins.str, "_IUserPoolGroupRef_89b16d48"]:
+    def group_name(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolGroupRef"]:
         '''The name of the group that you want to add your user to.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolusertogroupattachment.html#cfn-cognito-userpoolusertogroupattachment-groupname
         '''
         result = self._values.get("group_name")
         assert result is not None, "Required property 'group_name' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolGroupRef_89b16d48"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolGroupRef"], result)
 
     @builtins.property
-    def username(self) -> typing.Union[builtins.str, "_IUserPoolUserRef_cbf1b211"]:
+    def username(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolUserRef"]:
         '''The user's username.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolusertogroupattachment.html#cfn-cognito-userpoolusertogroupattachment-username
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolUserRef_cbf1b211"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolUserRef"], result)
 
     @builtins.property
-    def user_pool_id(self) -> typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"]:
+    def user_pool_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"]:
         '''The ID of the user pool that contains the group that you want to add the user to.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolusertogroupattachment.html#cfn-cognito-userpoolusertogroupattachment-userpoolid
         '''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_IUserPoolRef_0b7d02b5"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15001,7 +16660,7 @@ class ClientAttributes(
         :param attributes: a list of custom attributes to add to the set.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8336134a8317e883dbac378420185ca4e7010dbcb09eb3d51235fc3568fbcee)
+            type_hints = cached_type_hints(_typecheckingstub__d8336134a8317e883dbac378420185ca4e7010dbcb09eb3d51235fc3568fbcee)
             check_type(argname="argument attributes", value=attributes, expected_type=typing.Tuple[type_hints["attributes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("ClientAttributes", jsii.invoke(self, "withCustomAttributes", [*attributes]))
 
@@ -15111,7 +16770,7 @@ class CognitoDomainOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba8eb526d56a50ba180bfdc1cecba07c9bef023027dc66e58aa425ec1363f28f)
+            type_hints = cached_type_hints(_typecheckingstub__ba8eb526d56a50ba180bfdc1cecba07c9bef023027dc66e58aa425ec1363f28f)
             check_type(argname="argument domain_prefix", value=domain_prefix, expected_type=type_hints["domain_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_prefix": domain_prefix,
@@ -15190,7 +16849,7 @@ class CustomAttributeConfig:
         if isinstance(string_constraints, dict):
             string_constraints = StringAttributeConstraints(**string_constraints)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c43f23a759d2790f0497ff70752305bfbbab58e89ea40928057b015346f4b0c3)
+            type_hints = cached_type_hints(_typecheckingstub__c43f23a759d2790f0497ff70752305bfbbab58e89ea40928057b015346f4b0c3)
             check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
             check_type(argname="argument number_constraints", value=number_constraints, expected_type=type_hints["number_constraints"])
@@ -15294,7 +16953,7 @@ class CustomAttributeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10625133998d7d4e7fac2876192aae9fef70ad558e321a4d1d6e442f4f99af42)
+            type_hints = cached_type_hints(_typecheckingstub__10625133998d7d4e7fac2876192aae9fef70ad558e321a4d1d6e442f4f99af42)
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if mutable is not None:
@@ -15334,7 +16993,7 @@ class CustomDomainOptions:
     def __init__(
         self,
         *,
-        certificate: "_ICertificateRef_1878d79b",
+        certificate: "_aws_certificatemanager_7969630d.ICertificateRef",
         domain_name: builtins.str,
     ) -> None:
         '''Options while specifying custom domain.
@@ -15366,7 +17025,7 @@ class CustomDomainOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3849940c95623161d3f30b88c048744039d927bcb31494b462f19441b4be2cbe)
+            type_hints = cached_type_hints(_typecheckingstub__3849940c95623161d3f30b88c048744039d927bcb31494b462f19441b4be2cbe)
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15375,11 +17034,11 @@ class CustomDomainOptions:
         }
 
     @builtins.property
-    def certificate(self) -> "_ICertificateRef_1878d79b":
+    def certificate(self) -> "_aws_certificatemanager_7969630d.ICertificateRef":
         '''The certificate to associate with this domain.'''
         result = self._values.get("certificate")
         assert result is not None, "Required property 'certificate' is missing"
-        return typing.cast("_ICertificateRef_1878d79b", result)
+        return typing.cast("_aws_certificatemanager_7969630d.ICertificateRef", result)
 
     @builtins.property
     def domain_name(self) -> builtins.str:
@@ -15449,7 +17108,7 @@ class DeviceTracking:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22d0ff37f33d5dc8927b832397fbf5dd702d37d7b312d0951c247fa3eae106f5)
+            type_hints = cached_type_hints(_typecheckingstub__22d0ff37f33d5dc8927b832397fbf5dd702d37d7b312d0951c247fa3eae106f5)
             check_type(argname="argument challenge_required_on_new_device", value=challenge_required_on_new_device, expected_type=type_hints["challenge_required_on_new_device"])
             check_type(argname="argument device_only_remembered_on_user_prompt", value=device_only_remembered_on_user_prompt, expected_type=type_hints["device_only_remembered_on_user_prompt"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -15526,7 +17185,7 @@ class EmailSettings:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__701ae53f91916b708c28b316d16f169e30e8e66c32936f4c4b3c96edd3f149ca)
+            type_hints = cached_type_hints(_typecheckingstub__701ae53f91916b708c28b316d16f169e30e8e66c32936f4c4b3c96edd3f149ca)
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
             check_type(argname="argument reply_to", value=reply_to, expected_type=type_hints["reply_to"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -15618,8 +17277,8 @@ typing.cast(typing.Any, ICustomAttribute).__jsii_proxy_class__ = lambda : _ICust
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPool")
 class IUserPool(
-    _IResource_c80c4260,
-    _IUserPoolRef_0b7d02b5,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Cognito UserPool.'''
@@ -15662,20 +17321,20 @@ class IUserPool(
         self,
         id: builtins.str,
         *,
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
@@ -15733,7 +17392,7 @@ class IUserPool(
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> "UserPoolGroup":
         '''Add a new group to this user pool.
 
@@ -15770,9 +17429,9 @@ class IUserPool(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Adds an IAM policy statement associated with this user pool to an IAM principal's policy.
 
         :param grantee: -
@@ -15783,7 +17442,7 @@ class IUserPool(
     @jsii.member(jsii_name="registerIdentityProvider")
     def register_identity_provider(
         self,
-        provider: "_IUserPoolIdentityProviderRef_935eed62",
+        provider: "_aws_cognito_aa210b15.IUserPoolIdentityProviderRef",
     ) -> None:
         '''Register an identity provider with this user pool.
 
@@ -15793,8 +17452,8 @@ class IUserPool(
 
 
 class _IUserPoolProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolRef_0b7d02b5), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolRef), # type: ignore[misc]
 ):
     '''Represents a Cognito UserPool.'''
 
@@ -15838,20 +17497,20 @@ class _IUserPoolProxy(
         self,
         id: builtins.str,
         *,
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
@@ -15880,7 +17539,7 @@ class _IUserPoolProxy(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-client-apps.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6eaa0ebaf797c6ac4bac11bd73d9ad61c50892a9450e0ff58809034348d71166)
+            type_hints = cached_type_hints(_typecheckingstub__6eaa0ebaf797c6ac4bac11bd73d9ad61c50892a9450e0ff58809034348d71166)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolClientOptions(
             access_token_validity=access_token_validity,
@@ -15923,7 +17582,7 @@ class _IUserPoolProxy(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-assign-domain.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__792921e0d9eecd6253eadd31c7fba82fdce9c0ba38f25dcba7dcd063e7b1a458)
+            type_hints = cached_type_hints(_typecheckingstub__792921e0d9eecd6253eadd31c7fba82fdce9c0ba38f25dcba7dcd063e7b1a458)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolDomainOptions(
             cognito_domain=cognito_domain,
@@ -15941,7 +17600,7 @@ class _IUserPoolProxy(
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> "UserPoolGroup":
         '''Add a new group to this user pool.
 
@@ -15954,7 +17613,7 @@ class _IUserPoolProxy(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-user-groups.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e70d406698753c50dbab4e4d1f9837fc55e7c713f52b3937d20745b5ab2a221e)
+            type_hints = cached_type_hints(_typecheckingstub__e70d406698753c50dbab4e4d1f9837fc55e7c713f52b3937d20745b5ab2a221e)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolGroupOptions(
             description=description,
@@ -15984,7 +17643,7 @@ class _IUserPoolProxy(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-resource-servers.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e7f4643c9bff39b5095e7aa370612aed9ce88bfde927b1cbbd7b3a21df157a2)
+            type_hints = cached_type_hints(_typecheckingstub__6e7f4643c9bff39b5095e7aa370612aed9ce88bfde927b1cbbd7b3a21df157a2)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolResourceServerOptions(
             identifier=identifier,
@@ -15997,31 +17656,31 @@ class _IUserPoolProxy(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Adds an IAM policy statement associated with this user pool to an IAM principal's policy.
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a4c5e8a4da82b394a07fc77ae4614ba300e995b69a268ebd9c41430ee2f184)
+            type_hints = cached_type_hints(_typecheckingstub__d3a4c5e8a4da82b394a07fc77ae4614ba300e995b69a268ebd9c41430ee2f184)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="registerIdentityProvider")
     def register_identity_provider(
         self,
-        provider: "_IUserPoolIdentityProviderRef_935eed62",
+        provider: "_aws_cognito_aa210b15.IUserPoolIdentityProviderRef",
     ) -> None:
         '''Register an identity provider with this user pool.
 
         :param provider: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2136c7c5f1f487c9abafff099214714783c966a26ecba5010a34c74ee3f5cb01)
+            type_hints = cached_type_hints(_typecheckingstub__2136c7c5f1f487c9abafff099214714783c966a26ecba5010a34c74ee3f5cb01)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(None, jsii.invoke(self, "registerIdentityProvider", [provider]))
 
@@ -16031,8 +17690,8 @@ typing.cast(typing.Any, IUserPool).__jsii_proxy_class__ = lambda : _IUserPoolPro
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPoolClient")
 class IUserPoolClient(
-    _IResource_c80c4260,
-    _IUserPoolClientRef_4466eeba,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolClientRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Cognito user pool client.'''
@@ -16048,7 +17707,7 @@ class IUserPoolClient(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolClientSecret")
-    def user_pool_client_secret(self) -> "_SecretValue_3dd0ddae":
+    def user_pool_client_secret(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The generated client secret.
 
         Only available if the "generateSecret" props is set to true
@@ -16059,8 +17718,8 @@ class IUserPoolClient(
 
 
 class _IUserPoolClientProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolClientRef_4466eeba), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolClientRef), # type: ignore[misc]
 ):
     '''Represents a Cognito user pool client.'''
 
@@ -16077,14 +17736,14 @@ class _IUserPoolClientProxy(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolClientSecret")
-    def user_pool_client_secret(self) -> "_SecretValue_3dd0ddae":
+    def user_pool_client_secret(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The generated client secret.
 
         Only available if the "generateSecret" props is set to true
 
         :attribute: true
         '''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "userPoolClientSecret"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "userPoolClientSecret"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IUserPoolClient).__jsii_proxy_class__ = lambda : _IUserPoolClientProxy
@@ -16092,8 +17751,8 @@ typing.cast(typing.Any, IUserPoolClient).__jsii_proxy_class__ = lambda : _IUserP
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPoolDomain")
 class IUserPoolDomain(
-    _IResource_c80c4260,
-    _IUserPoolDomainRef_2fa54b0c,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolDomainRef,
     typing_extensions.Protocol,
 ):
     '''Represents a user pool domain.'''
@@ -16112,8 +17771,8 @@ class IUserPoolDomain(
 
 
 class _IUserPoolDomainProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolDomainRef_2fa54b0c), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolDomainRef), # type: ignore[misc]
 ):
     '''Represents a user pool domain.'''
 
@@ -16137,8 +17796,8 @@ typing.cast(typing.Any, IUserPoolDomain).__jsii_proxy_class__ = lambda : _IUserP
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPoolGroup")
 class IUserPoolGroup(
-    _IResource_c80c4260,
-    _IUserPoolGroupRef_89b16d48,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolGroupRef,
     typing_extensions.Protocol,
 ):
     '''Represents a user pool group.'''
@@ -16154,8 +17813,8 @@ class IUserPoolGroup(
 
 
 class _IUserPoolGroupProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolGroupRef_89b16d48), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolGroupRef), # type: ignore[misc]
 ):
     '''Represents a user pool group.'''
 
@@ -16176,8 +17835,8 @@ typing.cast(typing.Any, IUserPoolGroup).__jsii_proxy_class__ = lambda : _IUserPo
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPoolIdentityProvider")
 class IUserPoolIdentityProvider(
-    _IResource_c80c4260,
-    _IUserPoolIdentityProviderRef_935eed62,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolIdentityProviderRef,
     typing_extensions.Protocol,
 ):
     '''Represents a UserPoolIdentityProvider.'''
@@ -16193,8 +17852,8 @@ class IUserPoolIdentityProvider(
 
 
 class _IUserPoolIdentityProviderProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolIdentityProviderRef_935eed62), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolIdentityProviderRef), # type: ignore[misc]
 ):
     '''Represents a UserPoolIdentityProvider.'''
 
@@ -16215,8 +17874,8 @@ typing.cast(typing.Any, IUserPoolIdentityProvider).__jsii_proxy_class__ = lambda
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cognito.IUserPoolResourceServer")
 class IUserPoolResourceServer(
-    _IResource_c80c4260,
-    _IUserPoolResourceServerRef_fda874c5,
+    _aws_cdk_0cae9daa.IResource,
+    _aws_cognito_aa210b15.IUserPoolResourceServerRef,
     typing_extensions.Protocol,
 ):
     '''Represents a Cognito user pool resource server.'''
@@ -16232,8 +17891,8 @@ class IUserPoolResourceServer(
 
 
 class _IUserPoolResourceServerProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_IUserPoolResourceServerRef_fda874c5), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cognito_aa210b15.IUserPoolResourceServerRef), # type: ignore[misc]
 ):
     '''Represents a Cognito user pool resource server.'''
 
@@ -16284,7 +17943,7 @@ class KeepOriginalAttrs:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__582b87d2527ed12a750d5fbc9acd4a298bed24b0a4cc1ae8299811b8002d93c5)
+            type_hints = cached_type_hints(_typecheckingstub__582b87d2527ed12a750d5fbc9acd4a298bed24b0a4cc1ae8299811b8002d93c5)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -16448,7 +18107,7 @@ class MfaSecondFactor:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd702328c87129c710daf17c5d6eb94fe91bfd54ab5fe2157a787ca7021ea599)
+            type_hints = cached_type_hints(_typecheckingstub__cd702328c87129c710daf17c5d6eb94fe91bfd54ab5fe2157a787ca7021ea599)
             check_type(argname="argument otp", value=otp, expected_type=type_hints["otp"])
             check_type(argname="argument sms", value=sms, expected_type=type_hints["sms"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
@@ -16594,7 +18253,7 @@ class NumberAttributeConstraints:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68475d8f214b5069a5668d8a206de9ffcb9d1608e01852482d3b7af5d5d4599d)
+            type_hints = cached_type_hints(_typecheckingstub__68475d8f214b5069a5668d8a206de9ffcb9d1608e01852482d3b7af5d5d4599d)
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -16677,7 +18336,7 @@ class NumberAttributeProps(NumberAttributeConstraints, CustomAttributeProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd7e8741a6775cc3a6eb71a3a56e03f2b42a7a15ca168c037eb31742783f6587)
+            type_hints = cached_type_hints(_typecheckingstub__cd7e8741a6775cc3a6eb71a3a56e03f2b42a7a15ca168c037eb31742783f6587)
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -16777,7 +18436,7 @@ class OAuthFlows:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9aa5ba53667700cdf4d217354a8b54484e7e7fa22880031485734768e7a3bf8b)
+            type_hints = cached_type_hints(_typecheckingstub__9aa5ba53667700cdf4d217354a8b54484e7e7fa22880031485734768e7a3bf8b)
             check_type(argname="argument authorization_code_grant", value=authorization_code_grant, expected_type=type_hints["authorization_code_grant"])
             check_type(argname="argument client_credentials", value=client_credentials, expected_type=type_hints["client_credentials"])
             check_type(argname="argument implicit_code_grant", value=implicit_code_grant, expected_type=type_hints["implicit_code_grant"])
@@ -16878,7 +18537,7 @@ class OAuthScope(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-define-resource-servers.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d22a67a9b2e1a844ab0a61af92d0eabd4b5c51b59a1303e77dab9d15737ec8e)
+            type_hints = cached_type_hints(_typecheckingstub__0d22a67a9b2e1a844ab0a61af92d0eabd4b5c51b59a1303e77dab9d15737ec8e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast("OAuthScope", jsii.sinvoke(cls, "custom", [name]))
 
@@ -16895,7 +18554,7 @@ class OAuthScope(
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b161664ae7bfb1838c23dd6d7b35e7c009bedb80545b644df24485522ad2b6ac)
+            type_hints = cached_type_hints(_typecheckingstub__b161664ae7bfb1838c23dd6d7b35e7c009bedb80545b644df24485522ad2b6ac)
             check_type(argname="argument server", value=server, expected_type=type_hints["server"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("OAuthScope", jsii.sinvoke(cls, "resourceServer", [server, scope]))
@@ -17008,7 +18667,7 @@ class OAuthSettings:
         if isinstance(flows, dict):
             flows = OAuthFlows(**flows)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9322fee969a93d621a972830c0fca7f51a16c368668af0d6da355939ca39b708)
+            type_hints = cached_type_hints(_typecheckingstub__9322fee969a93d621a972830c0fca7f51a16c368668af0d6da355939ca39b708)
             check_type(argname="argument callback_urls", value=callback_urls, expected_type=type_hints["callback_urls"])
             check_type(argname="argument default_redirect_uri", value=default_redirect_uri, expected_type=type_hints["default_redirect_uri"])
             check_type(argname="argument flows", value=flows, expected_type=type_hints["flows"])
@@ -17153,7 +18812,7 @@ class OidcEndpoints:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4661d75bb2c69171e02ca544be91ebb3d950a95f070c8471007dc24e8a0bcb33)
+            type_hints = cached_type_hints(_typecheckingstub__4661d75bb2c69171e02ca544be91ebb3d950a95f070c8471007dc24e8a0bcb33)
             check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
             check_type(argname="argument jwks_uri", value=jwks_uri, expected_type=type_hints["jwks_uri"])
             check_type(argname="argument token", value=token, expected_type=type_hints["token"])
@@ -17252,7 +18911,7 @@ class PasswordPolicy:
         require_lowercase: typing.Optional[builtins.bool] = None,
         require_symbols: typing.Optional[builtins.bool] = None,
         require_uppercase: typing.Optional[builtins.bool] = None,
-        temp_password_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        temp_password_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
     ) -> None:
         '''Password policy for User Pools.
 
@@ -17281,7 +18940,7 @@ class PasswordPolicy:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e884ae0f43a6b00e4ef287afca45bf6a9a7abbd94b7979efb6efa2a9cc11012b)
+            type_hints = cached_type_hints(_typecheckingstub__e884ae0f43a6b00e4ef287afca45bf6a9a7abbd94b7979efb6efa2a9cc11012b)
             check_type(argname="argument min_length", value=min_length, expected_type=type_hints["min_length"])
             check_type(argname="argument password_history_size", value=password_history_size, expected_type=type_hints["password_history_size"])
             check_type(argname="argument require_digits", value=require_digits, expected_type=type_hints["require_digits"])
@@ -17362,7 +19021,7 @@ class PasswordPolicy:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def temp_password_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def temp_password_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''The length of time the temporary password generated by an admin is valid.
 
         This must be provided as whole days, like Duration.days(3) or Duration.hours(48).
@@ -17371,7 +19030,7 @@ class PasswordPolicy:
         :default: Duration.days(7)
         '''
         result = self._values.get("temp_password_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17420,7 +19079,7 @@ class ProviderAttribute(
         :param attribute_name: the attribute value string as recognized by the provider.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__933f1896d041fda75048e9688dc72dd0e429afd1f6731de6fbfbbfef6d64e7d2)
+            type_hints = cached_type_hints(_typecheckingstub__933f1896d041fda75048e9688dc72dd0e429afd1f6731de6fbfbbfef6d64e7d2)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
         return typing.cast("ProviderAttribute", jsii.sinvoke(cls, "other", [attribute_name]))
 
@@ -17713,7 +19372,7 @@ class ResourceServerScopeProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2765bfbec7ddc9a6ea049a27d319f643f29be46bd4637a9cc4afd85536ee993c)
+            type_hints = cached_type_hints(_typecheckingstub__2765bfbec7ddc9a6ea049a27d319f643f29be46bd4637a9cc4afd85536ee993c)
             check_type(argname="argument scope_description", value=scope_description, expected_type=type_hints["scope_description"])
             check_type(argname="argument scope_name", value=scope_name, expected_type=type_hints["scope_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -17785,7 +19444,7 @@ class SignInAliases:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f85eb7769fbc2d73d7ddedb7d58312be06c85b0446415fcf926cc1e5c1343fa)
+            type_hints = cached_type_hints(_typecheckingstub__1f85eb7769fbc2d73d7ddedb7d58312be06c85b0446415fcf926cc1e5c1343fa)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument phone", value=phone, expected_type=type_hints["phone"])
             check_type(argname="argument preferred_username", value=preferred_username, expected_type=type_hints["preferred_username"])
@@ -17880,7 +19539,7 @@ class SignInPolicy:
         if isinstance(allowed_first_auth_factors, dict):
             allowed_first_auth_factors = AllowedFirstAuthFactors(**allowed_first_auth_factors)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bda8a1a812b13ba6dfe14c09bb234238503bd86905d8f363571b49c270280f4)
+            type_hints = cached_type_hints(_typecheckingstub__5bda8a1a812b13ba6dfe14c09bb234238503bd86905d8f363571b49c270280f4)
             check_type(argname="argument allowed_first_auth_factors", value=allowed_first_auth_factors, expected_type=type_hints["allowed_first_auth_factors"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allowed_first_auth_factors is not None:
@@ -17953,7 +19612,7 @@ class SignInUrlOptions(BaseUrlOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27aae9c398fe91d31540649394c2469df625de6993272c3b3cff19edc49ec8fa)
+            type_hints = cached_type_hints(_typecheckingstub__27aae9c398fe91d31540649394c2469df625de6993272c3b3cff19edc49ec8fa)
             check_type(argname="argument fips", value=fips, expected_type=type_hints["fips"])
             check_type(argname="argument redirect_uri", value=redirect_uri, expected_type=type_hints["redirect_uri"])
             check_type(argname="argument sign_in_path", value=sign_in_path, expected_type=type_hints["sign_in_path"])
@@ -18078,7 +19737,7 @@ class StandardAttribute:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd704ac88cb959f2d4b07ea6284afc3e90d8c8af6d1e6da921a72abd44411a54)
+            type_hints = cached_type_hints(_typecheckingstub__cd704ac88cb959f2d4b07ea6284afc3e90d8c8af6d1e6da921a72abd44411a54)
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
             check_type(argname="argument required", value=required, expected_type=type_hints["required"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -18248,7 +19907,7 @@ class StandardAttributes:
         if isinstance(website, dict):
             website = StandardAttribute(**website)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64f7191ddbe9c830c62d2138a193a9a032aec682c433a135521c64236ffd31a0)
+            type_hints = cached_type_hints(_typecheckingstub__64f7191ddbe9c830c62d2138a193a9a032aec682c433a135521c64236ffd31a0)
             check_type(argname="argument address", value=address, expected_type=type_hints["address"])
             check_type(argname="argument birthdate", value=birthdate, expected_type=type_hints["birthdate"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
@@ -18555,7 +20214,7 @@ class StandardAttributesMask:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d69b18388140163b26d368207c44796fc9e1de9fdcb86d95450748862b2f2cec)
+            type_hints = cached_type_hints(_typecheckingstub__d69b18388140163b26d368207c44796fc9e1de9fdcb86d95450748862b2f2cec)
             check_type(argname="argument address", value=address, expected_type=type_hints["address"])
             check_type(argname="argument birthdate", value=birthdate, expected_type=type_hints["birthdate"])
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
@@ -18900,7 +20559,7 @@ class StringAttributeConstraints:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c12752fb9e5b0fd3f61a8d670f16fc7cbb0b83fdc89804fff35e8eaaebfd835)
+            type_hints = cached_type_hints(_typecheckingstub__8c12752fb9e5b0fd3f61a8d670f16fc7cbb0b83fdc89804fff35e8eaaebfd835)
             check_type(argname="argument max_len", value=max_len, expected_type=type_hints["max_len"])
             check_type(argname="argument min_len", value=min_len, expected_type=type_hints["min_len"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -18983,7 +20642,7 @@ class StringAttributeProps(StringAttributeConstraints, CustomAttributeProps):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46e361ebde78ed7afe7fa5349f1067a61323ebd0896a8a0344f471814ec12ab6)
+            type_hints = cached_type_hints(_typecheckingstub__46e361ebde78ed7afe7fa5349f1067a61323ebd0896a8a0344f471814ec12ab6)
             check_type(argname="argument max_len", value=max_len, expected_type=type_hints["max_len"])
             check_type(argname="argument min_len", value=min_len, expected_type=type_hints["min_len"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
@@ -19075,7 +20734,7 @@ class UserInvitationConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__260bda5ebd1bd4e612fdd9f7339c4b2b5f85a737371b1bd17ac246aacaf1188d)
+            type_hints = cached_type_hints(_typecheckingstub__260bda5ebd1bd4e612fdd9f7339c4b2b5f85a737371b1bd17ac246aacaf1188d)
             check_type(argname="argument email_body", value=email_body, expected_type=type_hints["email_body"])
             check_type(argname="argument email_subject", value=email_subject, expected_type=type_hints["email_subject"])
             check_type(argname="argument sms_message", value=sms_message, expected_type=type_hints["sms_message"])
@@ -19128,7 +20787,7 @@ class UserInvitationConfig:
 
 @jsii.implements(IUserPool)
 class UserPool(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPool",
 ):
@@ -19160,7 +20819,7 @@ class UserPool(
         advanced_security_mode: typing.Optional["AdvancedSecurityMode"] = None,
         auto_verify: typing.Optional[typing.Union["AutoVerifiedAttrs", typing.Dict[builtins.str, typing.Any]]] = None,
         custom_attributes: typing.Optional[typing.Mapping[builtins.str, "ICustomAttribute"]] = None,
-        custom_sender_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        custom_sender_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         custom_threat_protection_mode: typing.Optional["CustomThreatProtectionMode"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         device_tracking: typing.Optional[typing.Union["DeviceTracking", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19175,12 +20834,12 @@ class UserPool(
         passkey_relying_party_id: typing.Optional[builtins.str] = None,
         passkey_user_verification: typing.Optional["PasskeyUserVerification"] = None,
         password_policy: typing.Optional[typing.Union["PasswordPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         self_sign_up_enabled: typing.Optional[builtins.bool] = None,
         sign_in_aliases: typing.Optional[typing.Union["SignInAliases", typing.Dict[builtins.str, typing.Any]]] = None,
         sign_in_case_sensitive: typing.Optional[builtins.bool] = None,
         sign_in_policy: typing.Optional[typing.Union["SignInPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        sms_role: typing.Optional["_IRoleRef_8400221f"] = None,
+        sms_role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
         sms_role_external_id: typing.Optional[builtins.str] = None,
         sns_region: typing.Optional[builtins.str] = None,
         standard_attributes: typing.Optional[typing.Union["StandardAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19226,7 +20885,7 @@ class UserPool(
         :param user_verification: Configuration around users signing themselves up to the user pool. Enable or disable self sign-up via the ``selfSignUpEnabled`` property. Default: - see defaults in UserVerificationConfig.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__677a8ec9a3f2a22d2dfde6fd6818121e4a071dc4e942f6bbe219e5a9b6675d99)
+            type_hints = cached_type_hints(_typecheckingstub__677a8ec9a3f2a22d2dfde6fd6818121e4a071dc4e942f6bbe219e5a9b6675d99)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolProps(
@@ -19281,7 +20940,7 @@ class UserPool(
         :param user_pool_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6dad1a058951bc57a9465969e5db396c0e2472506421e648ee89d2ef1a598cd3)
+            type_hints = cached_type_hints(_typecheckingstub__6dad1a058951bc57a9465969e5db396c0e2472506421e648ee89d2ef1a598cd3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_arn", value=user_pool_arn, expected_type=type_hints["user_pool_arn"])
@@ -19302,7 +20961,7 @@ class UserPool(
         :param user_pool_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__474923b0dab63be92b0f25ba2a7e28ad1ec96465ec0bb1490f4749131bcf55ad)
+            type_hints = cached_type_hints(_typecheckingstub__474923b0dab63be92b0f25ba2a7e28ad1ec96465ec0bb1490f4749131bcf55ad)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_id", value=user_pool_id, expected_type=type_hints["user_pool_id"])
@@ -19313,20 +20972,20 @@ class UserPool(
         self,
         id: builtins.str,
         *,
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
@@ -19353,7 +21012,7 @@ class UserPool(
         :param write_attributes: The set of attributes this client will be able to write. Default: - all standard and custom attributes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4ce1f762a6eeaca3920ca827a1685cfa2b670f96aa13d8cfdded4055078a3f9)
+            type_hints = cached_type_hints(_typecheckingstub__b4ce1f762a6eeaca3920ca827a1685cfa2b670f96aa13d8cfdded4055078a3f9)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolClientOptions(
             access_token_validity=access_token_validity,
@@ -19394,7 +21053,7 @@ class UserPool(
         :param managed_login_version: A version that indicates the state of managed login. This choice applies to all app clients that host services at the domain. Default: undefined - Cognito default setting is ManagedLoginVersion.CLASSIC_HOSTED_UI
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9659a33214c6a8f47e5cc02aec61f89c8bd48113d0c9b3e32a81fef2d48a103)
+            type_hints = cached_type_hints(_typecheckingstub__f9659a33214c6a8f47e5cc02aec61f89c8bd48113d0c9b3e32a81fef2d48a103)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolDomainOptions(
             cognito_domain=cognito_domain,
@@ -19412,7 +21071,7 @@ class UserPool(
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> "UserPoolGroup":
         '''Add a new group to this user pool.
 
@@ -19423,7 +21082,7 @@ class UserPool(
         :param role: The role for the group. Default: - no description
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__182df28f489c4d9ab970aca99503d45cd2196b431c6ce7b04bb1e343694049fa)
+            type_hints = cached_type_hints(_typecheckingstub__182df28f489c4d9ab970aca99503d45cd2196b431c6ce7b04bb1e343694049fa)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolGroupOptions(
             description=description,
@@ -19451,7 +21110,7 @@ class UserPool(
         :param user_pool_resource_server_name: A friendly name for the resource server. Default: - same as ``identifier``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15a655e8061891a027a61815d064f6a0d9d429f80e33f0c0c98213485f2beedd)
+            type_hints = cached_type_hints(_typecheckingstub__15a655e8061891a027a61815d064f6a0d9d429f80e33f0c0c98213485f2beedd)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = UserPoolResourceServerOptions(
             identifier=identifier,
@@ -19465,7 +21124,7 @@ class UserPool(
     def add_trigger(
         self,
         operation: "UserPoolOperation",
-        fn: "_IFunction_6adb0ab8",
+        fn: "_aws_lambda_b8f2f472.IFunction",
         lambda_version: typing.Optional["LambdaVersion"] = None,
     ) -> None:
         '''Add a lambda trigger to a user pool operation.
@@ -19477,7 +21136,7 @@ class UserPool(
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools-working-with-aws-lambda-triggers.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfd8cf59863da2ffc97b2db24d9948006aacfebdfb5beb2d1ae6fcabb21a90b7)
+            type_hints = cached_type_hints(_typecheckingstub__dfd8cf59863da2ffc97b2db24d9948006aacfebdfb5beb2d1ae6fcabb21a90b7)
             check_type(argname="argument operation", value=operation, expected_type=type_hints["operation"])
             check_type(argname="argument fn", value=fn, expected_type=type_hints["fn"])
             check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
@@ -19486,31 +21145,31 @@ class UserPool(
     @jsii.member(jsii_name="grant")
     def grant(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         *actions: builtins.str,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param actions: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c56e3605a4e5dd37206172217b5910f257caaebfe4e87e39c1137586243f7708)
+            type_hints = cached_type_hints(_typecheckingstub__c56e3605a4e5dd37206172217b5910f257caaebfe4e87e39c1137586243f7708)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="registerIdentityProvider")
     def register_identity_provider(
         self,
-        provider: "_IUserPoolIdentityProviderRef_935eed62",
+        provider: "_aws_cognito_aa210b15.IUserPoolIdentityProviderRef",
     ) -> None:
         '''Register an identity provider with this user pool.
 
         :param provider: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7cd7e47ca8ab5f3e133bc16c7dce60dea0ac59f9973766e02d16d28c19ec2b1)
+            type_hints = cached_type_hints(_typecheckingstub__b7cd7e47ca8ab5f3e133bc16c7dce60dea0ac59f9973766e02d16d28c19ec2b1)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(None, jsii.invoke(self, "registerIdentityProvider", [provider]))
 
@@ -19558,14 +21217,14 @@ class UserPool(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolRef")
-    def user_pool_ref(self) -> "_UserPoolReference_0ef20aae":
+    def user_pool_ref(self) -> "_aws_cognito_aa210b15.UserPoolReference":
         '''A reference to a UserPool resource.'''
-        return typing.cast("_UserPoolReference_0ef20aae", jsii.get(self, "userPoolRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolReference", jsii.get(self, "userPoolRef"))
 
 
 @jsii.implements(IUserPoolClient)
 class UserPoolClient(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolClient",
 ):
@@ -19596,21 +21255,21 @@ class UserPoolClient(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool: "_IUserPoolRef_0b7d02b5",
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
@@ -19638,7 +21297,7 @@ class UserPoolClient(
         :param write_attributes: The set of attributes this client will be able to write. Default: - all standard and custom attributes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e654de9921a676ab8214720f2ab2c7f212d67a62531595c721560e88c63ab1f7)
+            type_hints = cached_type_hints(_typecheckingstub__e654de9921a676ab8214720f2ab2c7f212d67a62531595c721560e88c63ab1f7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolClientProps(
@@ -19679,7 +21338,7 @@ class UserPoolClient(
         :param user_pool_client_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a68f0b24cbccfbf6f93e6094955003e04b2605c66f62452c31e485e0d81f2fef)
+            type_hints = cached_type_hints(_typecheckingstub__a68f0b24cbccfbf6f93e6094955003e04b2605c66f62452c31e485e0d81f2fef)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_client_id", value=user_pool_client_id, expected_type=type_hints["user_pool_client_id"])
@@ -19711,18 +21370,18 @@ class UserPoolClient(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolClientRef")
-    def user_pool_client_ref(self) -> "_UserPoolClientReference_2e04ee48":
+    def user_pool_client_ref(self) -> "_aws_cognito_aa210b15.UserPoolClientReference":
         '''A reference to a UserPoolClient resource.'''
-        return typing.cast("_UserPoolClientReference_2e04ee48", jsii.get(self, "userPoolClientRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolClientReference", jsii.get(self, "userPoolClientRef"))
 
     @builtins.property
     @jsii.member(jsii_name="userPoolClientSecret")
-    def user_pool_client_secret(self) -> "_SecretValue_3dd0ddae":
+    def user_pool_client_secret(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''The generated client secret.
 
         Only available if the "generateSecret" props is set to true
         '''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "userPoolClientSecret"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "userPoolClientSecret"))
 
 
 class UserPoolClientIdentityProvider(
@@ -19751,7 +21410,7 @@ class UserPoolClientIdentityProvider(
         :param name: name of the identity provider as recognized by CloudFormation property ``SupportedIdentityProviders``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14e7f4addf6b16821bea1f99db58ec36907e80587b70ed61044c1372d37f2acd)
+            type_hints = cached_type_hints(_typecheckingstub__14e7f4addf6b16821bea1f99db58ec36907e80587b70ed61044c1372d37f2acd)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast("UserPoolClientIdentityProvider", jsii.sinvoke(cls, "custom", [name]))
 
@@ -19831,20 +21490,20 @@ class UserPoolClientOptions:
     def __init__(
         self,
         *,
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
@@ -19892,7 +21551,7 @@ class UserPoolClientOptions:
         if isinstance(o_auth, dict):
             o_auth = OAuthSettings(**o_auth)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80185296586b917ea24ebc48255c627ce95ec5c85ae2ab4e52736240b27429fc)
+            type_hints = cached_type_hints(_typecheckingstub__80185296586b917ea24ebc48255c627ce95ec5c85ae2ab4e52736240b27429fc)
             check_type(argname="argument access_token_validity", value=access_token_validity, expected_type=type_hints["access_token_validity"])
             check_type(argname="argument analytics", value=analytics, expected_type=type_hints["analytics"])
             check_type(argname="argument auth_flows", value=auth_flows, expected_type=type_hints["auth_flows"])
@@ -19947,7 +21606,7 @@ class UserPoolClientOptions:
             self._values["write_attributes"] = write_attributes
 
     @builtins.property
-    def access_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def access_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the access token.
 
         Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
@@ -19957,7 +21616,7 @@ class UserPoolClientOptions:
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-access-token
         '''
         result = self._values.get("access_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def analytics(self) -> typing.Optional["AnalyticsConfiguration"]:
@@ -19980,7 +21639,7 @@ class UserPoolClientOptions:
         return typing.cast(typing.Optional["AuthFlow"], result)
 
     @builtins.property
-    def auth_session_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def auth_session_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Cognito creates a session token for each API request in an authentication flow.
 
         AuthSessionValidity is the duration, in minutes, of that session token.
@@ -19991,7 +21650,7 @@ class UserPoolClientOptions:
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-authsessionvalidity
         '''
         result = self._values.get("auth_session_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_o_auth(self) -> typing.Optional[builtins.bool]:
@@ -20038,7 +21697,7 @@ class UserPoolClientOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def id_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def id_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the ID token.
 
         Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
@@ -20048,7 +21707,7 @@ class UserPoolClientOptions:
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-id-token
         '''
         result = self._values.get("id_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def o_auth(self) -> typing.Optional["OAuthSettings"]:
@@ -20086,7 +21745,7 @@ class UserPoolClientOptions:
     @builtins.property
     def refresh_token_rotation_grace_period(
         self,
-    ) -> typing.Optional["_Duration_4839e8c3"]:
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Enables refresh token rotation when set.
 
         Defines the grace period for the original refresh token (0-60 seconds).
@@ -20096,10 +21755,10 @@ class UserPoolClientOptions:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html#using-the-refresh-token-rotation
         '''
         result = self._values.get("refresh_token_rotation_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def refresh_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def refresh_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the refresh token.
 
         Values between 60 minutes and 10 years are valid.
@@ -20109,7 +21768,7 @@ class UserPoolClientOptions:
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-refresh-token
         '''
         result = self._values.get("refresh_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def supported_identity_providers(
@@ -20186,24 +21845,24 @@ class UserPoolClientProps(UserPoolClientOptions):
     def __init__(
         self,
         *,
-        access_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        access_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         analytics: typing.Optional[typing.Union["AnalyticsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         auth_flows: typing.Optional[typing.Union["AuthFlow", typing.Dict[builtins.str, typing.Any]]] = None,
-        auth_session_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        auth_session_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         disable_o_auth: typing.Optional[builtins.bool] = None,
         enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
         enable_token_revocation: typing.Optional[builtins.bool] = None,
         generate_secret: typing.Optional[builtins.bool] = None,
-        id_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        id_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         o_auth: typing.Optional[typing.Union["OAuthSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
         read_attributes: typing.Optional["ClientAttributes"] = None,
-        refresh_token_rotation_grace_period: typing.Optional["_Duration_4839e8c3"] = None,
-        refresh_token_validity: typing.Optional["_Duration_4839e8c3"] = None,
+        refresh_token_rotation_grace_period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        refresh_token_validity: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         supported_identity_providers: typing.Optional[typing.Sequence["UserPoolClientIdentityProvider"]] = None,
         user_pool_client_name: typing.Optional[builtins.str] = None,
         write_attributes: typing.Optional["ClientAttributes"] = None,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
     ) -> None:
         '''Properties for the UserPoolClient construct.
 
@@ -20261,7 +21920,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         if isinstance(o_auth, dict):
             o_auth = OAuthSettings(**o_auth)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95c8cad8419f2fd5def82ad39281b322b9ec6b2f7d891de939bf1e9036145948)
+            type_hints = cached_type_hints(_typecheckingstub__95c8cad8419f2fd5def82ad39281b322b9ec6b2f7d891de939bf1e9036145948)
             check_type(argname="argument access_token_validity", value=access_token_validity, expected_type=type_hints["access_token_validity"])
             check_type(argname="argument analytics", value=analytics, expected_type=type_hints["analytics"])
             check_type(argname="argument auth_flows", value=auth_flows, expected_type=type_hints["auth_flows"])
@@ -20319,7 +21978,7 @@ class UserPoolClientProps(UserPoolClientOptions):
             self._values["write_attributes"] = write_attributes
 
     @builtins.property
-    def access_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def access_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the access token.
 
         Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
@@ -20329,7 +21988,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-access-token
         '''
         result = self._values.get("access_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def analytics(self) -> typing.Optional["AnalyticsConfiguration"]:
@@ -20352,7 +22011,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         return typing.cast(typing.Optional["AuthFlow"], result)
 
     @builtins.property
-    def auth_session_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def auth_session_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Cognito creates a session token for each API request in an authentication flow.
 
         AuthSessionValidity is the duration, in minutes, of that session token.
@@ -20363,7 +22022,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-authsessionvalidity
         '''
         result = self._values.get("auth_session_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def disable_o_auth(self) -> typing.Optional[builtins.bool]:
@@ -20410,7 +22069,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def id_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def id_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the ID token.
 
         Values between 5 minutes and 1 day are valid. The duration cannot be longer than the refresh token validity.
@@ -20420,7 +22079,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-id-token
         '''
         result = self._values.get("id_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def o_auth(self) -> typing.Optional["OAuthSettings"]:
@@ -20458,7 +22117,7 @@ class UserPoolClientProps(UserPoolClientOptions):
     @builtins.property
     def refresh_token_rotation_grace_period(
         self,
-    ) -> typing.Optional["_Duration_4839e8c3"]:
+    ) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Enables refresh token rotation when set.
 
         Defines the grace period for the original refresh token (0-60 seconds).
@@ -20468,10 +22127,10 @@ class UserPoolClientProps(UserPoolClientOptions):
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html#using-the-refresh-token-rotation
         '''
         result = self._values.get("refresh_token_rotation_grace_period")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def refresh_token_validity(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def refresh_token_validity(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Validity of the refresh token.
 
         Values between 60 minutes and 10 years are valid.
@@ -20481,7 +22140,7 @@ class UserPoolClientProps(UserPoolClientOptions):
         :see: https://docs.aws.amazon.com/en_us/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-with-identity-providers.html#amazon-cognito-user-pools-using-the-refresh-token
         '''
         result = self._values.get("refresh_token_validity")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def supported_identity_providers(
@@ -20519,11 +22178,11 @@ class UserPoolClientProps(UserPoolClientOptions):
         return typing.cast(typing.Optional["ClientAttributes"], result)
 
     @builtins.property
-    def user_pool(self) -> "_IUserPoolRef_0b7d02b5":
+    def user_pool(self) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''The UserPool resource this client will have access to.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPoolRef_0b7d02b5", result)
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20539,7 +22198,7 @@ class UserPoolClientProps(UserPoolClientOptions):
 
 @jsii.implements(IUserPoolDomain)
 class UserPoolDomain(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolDomain",
 ):
@@ -20571,7 +22230,7 @@ class UserPoolDomain(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
         cognito_domain: typing.Optional[typing.Union["CognitoDomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         custom_domain: typing.Optional[typing.Union["CustomDomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         managed_login_version: typing.Optional["ManagedLoginVersion"] = None,
@@ -20585,7 +22244,7 @@ class UserPoolDomain(
         :param managed_login_version: A version that indicates the state of managed login. This choice applies to all app clients that host services at the domain. Default: undefined - Cognito default setting is ManagedLoginVersion.CLASSIC_HOSTED_UI
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370554f0c705ae872638d9d90d00b13abf8230d3666aa0d882b882f94152b471)
+            type_hints = cached_type_hints(_typecheckingstub__370554f0c705ae872638d9d90d00b13abf8230d3666aa0d882b882f94152b471)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolDomainProps(
@@ -20612,7 +22271,7 @@ class UserPoolDomain(
         :param user_pool_domain_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b59d18e0660ff80a30a89412e78443d584fa2a66a9ef128b575dcea452f0c1d5)
+            type_hints = cached_type_hints(_typecheckingstub__b59d18e0660ff80a30a89412e78443d584fa2a66a9ef128b575dcea452f0c1d5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_domain_name", value=user_pool_domain_name, expected_type=type_hints["user_pool_domain_name"])
@@ -20645,7 +22304,7 @@ class UserPoolDomain(
         :param fips: Whether to return the FIPS-compliant endpoint. Default: return the standard URL
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7b07a2c4778412da2c5e5e96c0762eed0bbd03f035b2047bba4b03679ee46fb)
+            type_hints = cached_type_hints(_typecheckingstub__e7b07a2c4778412da2c5e5e96c0762eed0bbd03f035b2047bba4b03679ee46fb)
             check_type(argname="argument client", value=client, expected_type=type_hints["client"])
         options = SignInUrlOptions(
             redirect_uri=redirect_uri, sign_in_path=sign_in_path, fips=fips
@@ -20690,9 +22349,9 @@ class UserPoolDomain(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolDomainRef")
-    def user_pool_domain_ref(self) -> "_UserPoolDomainReference_8e0aecda":
+    def user_pool_domain_ref(self) -> "_aws_cognito_aa210b15.UserPoolDomainReference":
         '''A reference to a UserPoolDomain resource.'''
-        return typing.cast("_UserPoolDomainReference_8e0aecda", jsii.get(self, "userPoolDomainRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolDomainReference", jsii.get(self, "userPoolDomainRef"))
 
 
 @jsii.data_type(
@@ -20745,7 +22404,7 @@ class UserPoolDomainOptions:
         if isinstance(custom_domain, dict):
             custom_domain = CustomDomainOptions(**custom_domain)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a5105d96e2071a7239518797c0a84f12539bde7c8fda8d40c7b23af679070c0)
+            type_hints = cached_type_hints(_typecheckingstub__4a5105d96e2071a7239518797c0a84f12539bde7c8fda8d40c7b23af679070c0)
             check_type(argname="argument cognito_domain", value=cognito_domain, expected_type=type_hints["cognito_domain"])
             check_type(argname="argument custom_domain", value=custom_domain, expected_type=type_hints["custom_domain"])
             check_type(argname="argument managed_login_version", value=managed_login_version, expected_type=type_hints["managed_login_version"])
@@ -20821,7 +22480,7 @@ class UserPoolDomainProps(UserPoolDomainOptions):
         cognito_domain: typing.Optional[typing.Union["CognitoDomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         custom_domain: typing.Optional[typing.Union["CustomDomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         managed_login_version: typing.Optional["ManagedLoginVersion"] = None,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
     ) -> None:
         '''Props for UserPoolDomain construct.
 
@@ -20897,7 +22556,7 @@ class UserPoolDomainProps(UserPoolDomainOptions):
         if isinstance(custom_domain, dict):
             custom_domain = CustomDomainOptions(**custom_domain)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4336d5dce146abd75b1697dd55937affe308b1524f218d9eb3835531c34f7baa)
+            type_hints = cached_type_hints(_typecheckingstub__4336d5dce146abd75b1697dd55937affe308b1524f218d9eb3835531c34f7baa)
             check_type(argname="argument cognito_domain", value=cognito_domain, expected_type=type_hints["cognito_domain"])
             check_type(argname="argument custom_domain", value=custom_domain, expected_type=type_hints["custom_domain"])
             check_type(argname="argument managed_login_version", value=managed_login_version, expected_type=type_hints["managed_login_version"])
@@ -20948,11 +22607,11 @@ class UserPoolDomainProps(UserPoolDomainOptions):
         return typing.cast(typing.Optional["ManagedLoginVersion"], result)
 
     @builtins.property
-    def user_pool(self) -> "_IUserPoolRef_0b7d02b5":
+    def user_pool(self) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''The user pool to which this domain should be associated.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPoolRef_0b7d02b5", result)
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20999,7 +22658,7 @@ class UserPoolEmail(
         :param reply_to: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bae3bcd6b2ec774cf9e4981de492abd05cc31118c8ca51bb996ae3284eba6a1)
+            type_hints = cached_type_hints(_typecheckingstub__8bae3bcd6b2ec774cf9e4981de492abd05cc31118c8ca51bb996ae3284eba6a1)
             check_type(argname="argument reply_to", value=reply_to, expected_type=type_hints["reply_to"])
         return typing.cast("UserPoolEmail", jsii.sinvoke(cls, "withCognito", [reply_to]))
 
@@ -21089,7 +22748,7 @@ class UserPoolEmailConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3ce90cb9624f22600c6b33192c8ad7ad7f3946d65d49e2cf22b46b1dca4339e)
+            type_hints = cached_type_hints(_typecheckingstub__e3ce90cb9624f22600c6b33192c8ad7ad7f3946d65d49e2cf22b46b1dca4339e)
             check_type(argname="argument configuration_set", value=configuration_set, expected_type=type_hints["configuration_set"])
             check_type(argname="argument email_sending_account", value=email_sending_account, expected_type=type_hints["email_sending_account"])
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
@@ -21171,7 +22830,7 @@ class UserPoolEmailConfig:
 
 @jsii.implements(IUserPoolGroup)
 class UserPoolGroup(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolGroup",
 ):
@@ -21203,11 +22862,11 @@ class UserPoolGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -21219,7 +22878,7 @@ class UserPoolGroup(
         :param role: The role for the group. Default: - no description
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__775ac13db76309a928c26a49c092fd74e83d97ad55358f5e3e7abc39c87da53a)
+            type_hints = cached_type_hints(_typecheckingstub__775ac13db76309a928c26a49c092fd74e83d97ad55358f5e3e7abc39c87da53a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolGroupProps(
@@ -21247,7 +22906,7 @@ class UserPoolGroup(
         :param group_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d44902ed5a2acfdafc23199f3078ecfdbefe799f2ec29a5b0d850ee7b6d36ec)
+            type_hints = cached_type_hints(_typecheckingstub__9d44902ed5a2acfdafc23199f3078ecfdbefe799f2ec29a5b0d850ee7b6d36ec)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
@@ -21267,9 +22926,9 @@ class UserPoolGroup(
 
     @builtins.property
     @jsii.member(jsii_name="userPoolGroupRef")
-    def user_pool_group_ref(self) -> "_UserPoolGroupReference_5e435fdd":
+    def user_pool_group_ref(self) -> "_aws_cognito_aa210b15.UserPoolGroupReference":
         '''A reference to a UserPoolGroup resource.'''
-        return typing.cast("_UserPoolGroupReference_5e435fdd", jsii.get(self, "userPoolGroupRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolGroupReference", jsii.get(self, "userPoolGroupRef"))
 
 
 @jsii.data_type(
@@ -21289,7 +22948,7 @@ class UserPoolGroupOptions:
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
     ) -> None:
         '''Options to create a UserPoolGroup.
 
@@ -21319,7 +22978,7 @@ class UserPoolGroupOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a76259212a5e57f1375d5eb2940f0d6cde7a130c86d1a85fc682cc6597a4934b)
+            type_hints = cached_type_hints(_typecheckingstub__a76259212a5e57f1375d5eb2940f0d6cde7a130c86d1a85fc682cc6597a4934b)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument precedence", value=precedence, expected_type=type_hints["precedence"])
@@ -21375,13 +23034,13 @@ class UserPoolGroupOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The role for the group.
 
         :default: - no description
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21413,8 +23072,8 @@ class UserPoolGroupProps(UserPoolGroupOptions):
         description: typing.Optional[builtins.str] = None,
         group_name: typing.Optional[builtins.str] = None,
         precedence: typing.Optional[jsii.Number] = None,
-        role: typing.Optional["_IRoleRef_8400221f"] = None,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
     ) -> None:
         '''Props for UserPoolGroup construct.
 
@@ -21445,7 +23104,7 @@ class UserPoolGroupProps(UserPoolGroupOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f5beec5c4d6b11b4325b68ae8691c3f5f2eb75f4aa5ef1c6e333e5df0fe7e36)
+            type_hints = cached_type_hints(_typecheckingstub__6f5beec5c4d6b11b4325b68ae8691c3f5f2eb75f4aa5ef1c6e333e5df0fe7e36)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
             check_type(argname="argument precedence", value=precedence, expected_type=type_hints["precedence"])
@@ -21504,20 +23163,20 @@ class UserPoolGroupProps(UserPoolGroupOptions):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The role for the group.
 
         :default: - no description
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
-    def user_pool(self) -> "_IUserPoolRef_0b7d02b5":
+    def user_pool(self) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''The user pool to which this group is associated.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPoolRef_0b7d02b5", result)
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21552,7 +23211,7 @@ class UserPoolIdentityProvider(
         :param provider_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9db3563a94587e916fce47561a9ad603b26f36fbcb7b72d5e133ddf1e77b76d6)
+            type_hints = cached_type_hints(_typecheckingstub__9db3563a94587e916fce47561a9ad603b26f36fbcb7b72d5e133ddf1e77b76d6)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument provider_name", value=provider_name, expected_type=type_hints["provider_name"])
@@ -21561,7 +23220,7 @@ class UserPoolIdentityProvider(
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderAmazon(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderAmazon",
 ):
@@ -21609,7 +23268,7 @@ class UserPoolIdentityProviderAmazon(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75f8a192b25e8966acfade89209b00004af67e7fb11b8f70cd605ca097435355)
+            type_hints = cached_type_hints(_typecheckingstub__75f8a192b25e8966acfade89209b00004af67e7fb11b8f70cd605ca097435355)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderAmazonProps(
@@ -21642,14 +23301,14 @@ class UserPoolIdentityProviderAmazon(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderApple(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderApple",
 ):
@@ -21714,7 +23373,7 @@ class UserPoolIdentityProviderApple(
         key_id: builtins.str,
         team_id: builtins.str,
         private_key: typing.Optional[builtins.str] = None,
-        private_key_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        private_key_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
         user_pool: "IUserPool",
         attribute_mapping: typing.Optional[typing.Union["AttributeMapping", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -21732,7 +23391,7 @@ class UserPoolIdentityProviderApple(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61dda0b78f30fe868c5e696b0c3d3ee7c446cd2575608fc4036cf6dac0389fb7)
+            type_hints = cached_type_hints(_typecheckingstub__61dda0b78f30fe868c5e696b0c3d3ee7c446cd2575608fc4036cf6dac0389fb7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderAppleProps(
@@ -21768,14 +23427,14 @@ class UserPoolIdentityProviderApple(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderFacebook(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderFacebook",
 ):
@@ -21850,7 +23509,7 @@ class UserPoolIdentityProviderFacebook(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1aad7585ff8417e7f8bdda1fdc19bb4e7c0781a6cf29dbdd781dabf4830b48f)
+            type_hints = cached_type_hints(_typecheckingstub__f1aad7585ff8417e7f8bdda1fdc19bb4e7c0781a6cf29dbdd781dabf4830b48f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderFacebookProps(
@@ -21884,14 +23543,14 @@ class UserPoolIdentityProviderFacebook(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderGoogle(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderGoogle",
 ):
@@ -21921,7 +23580,7 @@ class UserPoolIdentityProviderGoogle(
         *,
         client_id: builtins.str,
         client_secret: typing.Optional[builtins.str] = None,
-        client_secret_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        client_secret_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
         user_pool: "IUserPool",
         attribute_mapping: typing.Optional[typing.Union["AttributeMapping", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -21937,7 +23596,7 @@ class UserPoolIdentityProviderGoogle(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c61919ba02521366aa4c11332157ab81975a78a5c2dc31e82b67e1d68c6fab1e)
+            type_hints = cached_type_hints(_typecheckingstub__c61919ba02521366aa4c11332157ab81975a78a5c2dc31e82b67e1d68c6fab1e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderGoogleProps(
@@ -21971,14 +23630,14 @@ class UserPoolIdentityProviderGoogle(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderOidc(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderOidc",
 ):
@@ -22070,7 +23729,7 @@ class UserPoolIdentityProviderOidc(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da071cf0237222fc09e13405820b2448f363751de7f926536e58f17f211f8292)
+            type_hints = cached_type_hints(_typecheckingstub__da071cf0237222fc09e13405820b2448f363751de7f926536e58f17f211f8292)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderOidcProps(
@@ -22108,9 +23767,9 @@ class UserPoolIdentityProviderOidc(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 @jsii.data_type(
@@ -22173,7 +23832,7 @@ class UserPoolIdentityProviderProps:
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7de0e12808e2d42f20e304ea93c4a09e9c061fcb7be109fab0274211ae256082)
+            type_hints = cached_type_hints(_typecheckingstub__7de0e12808e2d42f20e304ea93c4a09e9c061fcb7be109fab0274211ae256082)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -22212,7 +23871,7 @@ class UserPoolIdentityProviderProps:
 
 @jsii.implements(IUserPoolIdentityProvider)
 class UserPoolIdentityProviderSaml(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolIdentityProviderSaml",
 ):
@@ -22273,7 +23932,7 @@ class UserPoolIdentityProviderSaml(
         :param attribute_mapping: Mapping attributes from the identity provider to standard and custom attributes of the user pool. Default: - no attribute mapping
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__718ac630a451940587ebda0797cfbdec5b11e5bcd3f498d39d6663201630ae13)
+            type_hints = cached_type_hints(_typecheckingstub__718ac630a451940587ebda0797cfbdec5b11e5bcd3f498d39d6663201630ae13)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolIdentityProviderSamlProps(
@@ -22310,9 +23969,9 @@ class UserPoolIdentityProviderSaml(
     @jsii.member(jsii_name="userPoolIdentityProviderRef")
     def user_pool_identity_provider_ref(
         self,
-    ) -> "_UserPoolIdentityProviderReference_a5d59f88":
+    ) -> "_aws_cognito_aa210b15.UserPoolIdentityProviderReference":
         '''A reference to a UserPoolIdentityProvider resource.'''
-        return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolIdentityProviderReference", jsii.get(self, "userPoolIdentityProviderRef"))
 
 
 class UserPoolIdentityProviderSamlMetadata(
@@ -22354,7 +24013,7 @@ class UserPoolIdentityProviderSamlMetadata(
         :param file_content: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47ef49f73dc22bb395b54292ed4a564330bf7cdd9c3bf6cbe6447d2606c92b87)
+            type_hints = cached_type_hints(_typecheckingstub__47ef49f73dc22bb395b54292ed4a564330bf7cdd9c3bf6cbe6447d2606c92b87)
             check_type(argname="argument file_content", value=file_content, expected_type=type_hints["file_content"])
         return typing.cast("UserPoolIdentityProviderSamlMetadata", jsii.sinvoke(cls, "file", [file_content]))
 
@@ -22366,7 +24025,7 @@ class UserPoolIdentityProviderSamlMetadata(
         :param url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dd216a125c0227127d84a71ac2110037f795092a97be2aefedde5475f0d9a8b)
+            type_hints = cached_type_hints(_typecheckingstub__1dd216a125c0227127d84a71ac2110037f795092a97be2aefedde5475f0d9a8b)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         return typing.cast("UserPoolIdentityProviderSamlMetadata", jsii.sinvoke(cls, "url", [url]))
 
@@ -22463,7 +24122,7 @@ class UserPoolIdentityProviderSamlProps(UserPoolIdentityProviderProps):
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f52f706aa700f252fccd887b4c4fad1305e00535d6e476a5d2ee957793bc76e)
+            type_hints = cached_type_hints(_typecheckingstub__2f52f706aa700f252fccd887b4c4fad1305e00535d6e476a5d2ee957793bc76e)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
@@ -22627,7 +24286,7 @@ class UserPoolOperation(
         :param name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a894d4a51941876e1c5768d268ba971aea68c2f641d2e1e97f8f01f92557ce1)
+            type_hints = cached_type_hints(_typecheckingstub__8a894d4a51941876e1c5768d268ba971aea68c2f641d2e1e97f8f01f92557ce1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast("UserPoolOperation", jsii.sinvoke(cls, "of", [name]))
 
@@ -22805,7 +24464,7 @@ class UserPoolProps:
         advanced_security_mode: typing.Optional["AdvancedSecurityMode"] = None,
         auto_verify: typing.Optional[typing.Union["AutoVerifiedAttrs", typing.Dict[builtins.str, typing.Any]]] = None,
         custom_attributes: typing.Optional[typing.Mapping[builtins.str, "ICustomAttribute"]] = None,
-        custom_sender_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        custom_sender_kms_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
         custom_threat_protection_mode: typing.Optional["CustomThreatProtectionMode"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         device_tracking: typing.Optional[typing.Union["DeviceTracking", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -22820,12 +24479,12 @@ class UserPoolProps:
         passkey_relying_party_id: typing.Optional[builtins.str] = None,
         passkey_user_verification: typing.Optional["PasskeyUserVerification"] = None,
         password_policy: typing.Optional[typing.Union["PasswordPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         self_sign_up_enabled: typing.Optional[builtins.bool] = None,
         sign_in_aliases: typing.Optional[typing.Union["SignInAliases", typing.Dict[builtins.str, typing.Any]]] = None,
         sign_in_case_sensitive: typing.Optional[builtins.bool] = None,
         sign_in_policy: typing.Optional[typing.Union["SignInPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
-        sms_role: typing.Optional["_IRoleRef_8400221f"] = None,
+        sms_role: typing.Optional["_aws_iam_632e20f6.IRoleRef"] = None,
         sms_role_external_id: typing.Optional[builtins.str] = None,
         sns_region: typing.Optional[builtins.str] = None,
         standard_attributes: typing.Optional[typing.Union["StandardAttributes", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -22904,7 +24563,7 @@ class UserPoolProps:
         if isinstance(user_verification, dict):
             user_verification = UserVerificationConfig(**user_verification)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__754b1af40b4712720733e130c63a8ec0ca9a35d4cfb25450725d5aa025a08283)
+            type_hints = cached_type_hints(_typecheckingstub__754b1af40b4712720733e130c63a8ec0ca9a35d4cfb25450725d5aa025a08283)
             check_type(argname="argument account_recovery", value=account_recovery, expected_type=type_hints["account_recovery"])
             check_type(argname="argument advanced_security_mode", value=advanced_security_mode, expected_type=type_hints["advanced_security_mode"])
             check_type(argname="argument auto_verify", value=auto_verify, expected_type=type_hints["auto_verify"])
@@ -23051,7 +24710,7 @@ class UserPoolProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ICustomAttribute"]], result)
 
     @builtins.property
-    def custom_sender_kms_key(self) -> typing.Optional["_IKeyRef_d4fc6ef3"]:
+    def custom_sender_kms_key(self) -> typing.Optional["_aws_kms_18db7412.IKeyRef"]:
         '''This key will be used to encrypt temporary passwords and authorization codes that Amazon Cognito generates.
 
         :default: - no key ID configured
@@ -23059,7 +24718,7 @@ class UserPoolProps:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-custom-sender-triggers.html
         '''
         result = self._values.get("custom_sender_kms_key")
-        return typing.cast(typing.Optional["_IKeyRef_d4fc6ef3"], result)
+        return typing.cast(typing.Optional["_aws_kms_18db7412.IKeyRef"], result)
 
     @builtins.property
     def custom_threat_protection_mode(
@@ -23220,13 +24879,13 @@ class UserPoolProps:
         return typing.cast(typing.Optional["PasswordPolicy"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the user pool is removed from the stack.
 
         :default: RemovalPolicy.RETAIN
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def self_sign_up_enabled(self) -> typing.Optional[builtins.bool]:
@@ -23278,13 +24937,13 @@ class UserPoolProps:
         return typing.cast(typing.Optional["SignInPolicy"], result)
 
     @builtins.property
-    def sms_role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+    def sms_role(self) -> typing.Optional["_aws_iam_632e20f6.IRoleRef"]:
         '''The IAM role that Cognito will assume while sending SMS messages.
 
         :default: - a new IAM role is created.
         '''
         result = self._values.get("sms_role")
-        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
+        return typing.cast(typing.Optional["_aws_iam_632e20f6.IRoleRef"], result)
 
     @builtins.property
     def sms_role_external_id(self) -> typing.Optional[builtins.str]:
@@ -23379,7 +25038,7 @@ class UserPoolProps:
 
 @jsii.implements(IUserPoolResourceServer)
 class UserPoolResourceServer(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cognito.UserPoolResourceServer",
 ):
@@ -23421,7 +25080,7 @@ class UserPoolResourceServer(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
         identifier: builtins.str,
         scopes: typing.Optional[typing.Sequence["ResourceServerScope"]] = None,
         user_pool_resource_server_name: typing.Optional[builtins.str] = None,
@@ -23435,7 +25094,7 @@ class UserPoolResourceServer(
         :param user_pool_resource_server_name: A friendly name for the resource server. Default: - same as ``identifier``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45c6b182ece6db4ca44777c756fb5fb3ba678d72b113c2cec6e080042a65a621)
+            type_hints = cached_type_hints(_typecheckingstub__45c6b182ece6db4ca44777c756fb5fb3ba678d72b113c2cec6e080042a65a621)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = UserPoolResourceServerProps(
@@ -23462,7 +25121,7 @@ class UserPoolResourceServer(
         :param user_pool_resource_server_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8fc891c924899af63bfad4d65552adbe17aa5a8fa930a7265bd25b0f72e44de7)
+            type_hints = cached_type_hints(_typecheckingstub__8fc891c924899af63bfad4d65552adbe17aa5a8fa930a7265bd25b0f72e44de7)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_pool_resource_server_id", value=user_pool_resource_server_id, expected_type=type_hints["user_pool_resource_server_id"])
@@ -23484,9 +25143,9 @@ class UserPoolResourceServer(
     @jsii.member(jsii_name="userPoolResourceServerRef")
     def user_pool_resource_server_ref(
         self,
-    ) -> "_UserPoolResourceServerReference_5b196bf5":
+    ) -> "_aws_cognito_aa210b15.UserPoolResourceServerReference":
         '''A reference to a UserPoolResourceServer resource.'''
-        return typing.cast("_UserPoolResourceServerReference_5b196bf5", jsii.get(self, "userPoolResourceServerRef"))
+        return typing.cast("_aws_cognito_aa210b15.UserPoolResourceServerReference", jsii.get(self, "userPoolResourceServerRef"))
 
 
 @jsii.data_type(
@@ -23543,7 +25202,7 @@ class UserPoolResourceServerOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bbf683c73d7d6a5f4637133322dcafe1ccdba4b59ab8d39238cf65768f79bfe)
+            type_hints = cached_type_hints(_typecheckingstub__1bbf683c73d7d6a5f4637133322dcafe1ccdba4b59ab8d39238cf65768f79bfe)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument user_pool_resource_server_name", value=user_pool_resource_server_name, expected_type=type_hints["user_pool_resource_server_name"])
@@ -23609,7 +25268,7 @@ class UserPoolResourceServerProps(UserPoolResourceServerOptions):
         identifier: builtins.str,
         scopes: typing.Optional[typing.Sequence["ResourceServerScope"]] = None,
         user_pool_resource_server_name: typing.Optional[builtins.str] = None,
-        user_pool: "_IUserPoolRef_0b7d02b5",
+        user_pool: "_aws_cognito_aa210b15.IUserPoolRef",
     ) -> None:
         '''Properties for the UserPoolResourceServer construct.
 
@@ -23640,7 +25299,7 @@ class UserPoolResourceServerProps(UserPoolResourceServerOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2a1b213c8033e469b75312545b2cadd55df48a6ef2219112676c0fb37f3f2cc)
+            type_hints = cached_type_hints(_typecheckingstub__b2a1b213c8033e469b75312545b2cadd55df48a6ef2219112676c0fb37f3f2cc)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
             check_type(argname="argument user_pool_resource_server_name", value=user_pool_resource_server_name, expected_type=type_hints["user_pool_resource_server_name"])
@@ -23680,11 +25339,11 @@ class UserPoolResourceServerProps(UserPoolResourceServerOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def user_pool(self) -> "_IUserPoolRef_0b7d02b5":
+    def user_pool(self) -> "_aws_cognito_aa210b15.IUserPoolRef":
         '''The user pool to add this resource server to.'''
         result = self._values.get("user_pool")
         assert result is not None, "Required property 'user_pool' is missing"
-        return typing.cast("_IUserPoolRef_0b7d02b5", result)
+        return typing.cast("_aws_cognito_aa210b15.IUserPoolRef", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -23743,7 +25402,7 @@ class UserPoolSESOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__025689115111bd107205d0624d9510a3f43ab5914819156c5dda91078b080ed3)
+            type_hints = cached_type_hints(_typecheckingstub__025689115111bd107205d0624d9510a3f43ab5914819156c5dda91078b080ed3)
             check_type(argname="argument from_email", value=from_email, expected_type=type_hints["from_email"])
             check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
             check_type(argname="argument from_name", value=from_name, expected_type=type_hints["from_name"])
@@ -23864,18 +25523,18 @@ class UserPoolTriggers:
     def __init__(
         self,
         *,
-        create_auth_challenge: typing.Optional["_IFunction_6adb0ab8"] = None,
-        custom_email_sender: typing.Optional["_IFunction_6adb0ab8"] = None,
-        custom_message: typing.Optional["_IFunction_6adb0ab8"] = None,
-        custom_sms_sender: typing.Optional["_IFunction_6adb0ab8"] = None,
-        define_auth_challenge: typing.Optional["_IFunction_6adb0ab8"] = None,
-        post_authentication: typing.Optional["_IFunction_6adb0ab8"] = None,
-        post_confirmation: typing.Optional["_IFunction_6adb0ab8"] = None,
-        pre_authentication: typing.Optional["_IFunction_6adb0ab8"] = None,
-        pre_sign_up: typing.Optional["_IFunction_6adb0ab8"] = None,
-        pre_token_generation: typing.Optional["_IFunction_6adb0ab8"] = None,
-        user_migration: typing.Optional["_IFunction_6adb0ab8"] = None,
-        verify_auth_challenge_response: typing.Optional["_IFunction_6adb0ab8"] = None,
+        create_auth_challenge: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        custom_email_sender: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        custom_message: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        custom_sms_sender: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        define_auth_challenge: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        post_authentication: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        post_confirmation: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        pre_authentication: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        pre_sign_up: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        pre_token_generation: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        user_migration: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
+        verify_auth_challenge_response: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> None:
         '''Triggers for a user pool.
 
@@ -23917,7 +25576,7 @@ class UserPoolTriggers:
             ))
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d555fa01963e01bc855f3d033dfa093d00d5d3560b8398cde85ac66a7965e67e)
+            type_hints = cached_type_hints(_typecheckingstub__d555fa01963e01bc855f3d033dfa093d00d5d3560b8398cde85ac66a7965e67e)
             check_type(argname="argument create_auth_challenge", value=create_auth_challenge, expected_type=type_hints["create_auth_challenge"])
             check_type(argname="argument custom_email_sender", value=custom_email_sender, expected_type=type_hints["custom_email_sender"])
             check_type(argname="argument custom_message", value=custom_message, expected_type=type_hints["custom_message"])
@@ -23957,7 +25616,9 @@ class UserPoolTriggers:
             self._values["verify_auth_challenge_response"] = verify_auth_challenge_response
 
     @builtins.property
-    def create_auth_challenge(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def create_auth_challenge(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''Creates an authentication challenge.
 
         :default: - no trigger configured
@@ -23965,10 +25626,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-create-auth-challenge.html
         '''
         result = self._values.get("create_auth_challenge")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def custom_email_sender(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def custom_email_sender(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''Amazon Cognito invokes this trigger to send email notifications to users.
 
         :default: - no trigger configured
@@ -23976,10 +25637,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-custom-email-sender.html
         '''
         result = self._values.get("custom_email_sender")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def custom_message(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def custom_message(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A custom Message AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -23987,10 +25648,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-custom-message.html
         '''
         result = self._values.get("custom_message")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def custom_sms_sender(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def custom_sms_sender(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''Amazon Cognito invokes this trigger to send SMS notifications to users.
 
         :default: - no trigger configured
@@ -23998,10 +25659,12 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-custom-sms-sender.html
         '''
         result = self._values.get("custom_sms_sender")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def define_auth_challenge(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def define_auth_challenge(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''Defines the authentication challenge.
 
         :default: - no trigger configured
@@ -24009,10 +25672,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-define-auth-challenge.html
         '''
         result = self._values.get("define_auth_challenge")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def post_authentication(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def post_authentication(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A post-authentication AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24020,10 +25683,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-post-authentication.html
         '''
         result = self._values.get("post_authentication")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def post_confirmation(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def post_confirmation(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A post-confirmation AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24031,10 +25694,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-post-confirmation.html
         '''
         result = self._values.get("post_confirmation")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def pre_authentication(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def pre_authentication(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A pre-authentication AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24042,10 +25705,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-authentication.html
         '''
         result = self._values.get("pre_authentication")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def pre_sign_up(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def pre_sign_up(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A pre-registration AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24053,10 +25716,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-sign-up.html
         '''
         result = self._values.get("pre_sign_up")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def pre_token_generation(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def pre_token_generation(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A pre-token-generation AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24064,10 +25727,10 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html
         '''
         result = self._values.get("pre_token_generation")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def user_migration(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def user_migration(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A user-migration AWS Lambda trigger.
 
         :default: - no trigger configured
@@ -24075,10 +25738,12 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-migrate-user.html
         '''
         result = self._values.get("user_migration")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
-    def verify_auth_challenge_response(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def verify_auth_challenge_response(
+        self,
+    ) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''Verifies the authentication challenge response.
 
         :default: - no trigger configured
@@ -24086,7 +25751,7 @@ class UserPoolTriggers:
         :see: https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-verify-auth-challenge-response.html
         '''
         result = self._values.get("verify_auth_challenge_response")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -24142,7 +25807,7 @@ class UserVerificationConfig:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca0f0a6f8dc308df249ff0ebdd6d99b0aea84740125775a4fb8cbe423cc1f00b)
+            type_hints = cached_type_hints(_typecheckingstub__ca0f0a6f8dc308df249ff0ebdd6d99b0aea84740125775a4fb8cbe423cc1f00b)
             check_type(argname="argument email_body", value=email_body, expected_type=type_hints["email_body"])
             check_type(argname="argument email_style", value=email_style, expected_type=type_hints["email_style"])
             check_type(argname="argument email_subject", value=email_subject, expected_type=type_hints["email_subject"])
@@ -24391,7 +26056,7 @@ class UserPoolIdentityProviderAmazonProps(UserPoolIdentityProviderProps):
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd219bf0bf00d0c0e78b8da2a02e44bc58e74fded2c3c01abe42acbaf3a0cdd7)
+            type_hints = cached_type_hints(_typecheckingstub__fd219bf0bf00d0c0e78b8da2a02e44bc58e74fded2c3c01abe42acbaf3a0cdd7)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -24490,7 +26155,7 @@ class UserPoolIdentityProviderAppleProps(UserPoolIdentityProviderProps):
         key_id: builtins.str,
         team_id: builtins.str,
         private_key: typing.Optional[builtins.str] = None,
-        private_key_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        private_key_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties to initialize UserPoolAppleIdentityProvider.
@@ -24555,7 +26220,7 @@ class UserPoolIdentityProviderAppleProps(UserPoolIdentityProviderProps):
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca5d3950db19200b5bbdc4fb3e51e3c9b38fc4572683061b8e4485d0fdd526eb)
+            type_hints = cached_type_hints(_typecheckingstub__ca5d3950db19200b5bbdc4fb3e51e3c9b38fc4572683061b8e4485d0fdd526eb)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -24633,13 +26298,13 @@ class UserPoolIdentityProviderAppleProps(UserPoolIdentityProviderProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def private_key_value(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def private_key_value(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''The privateKey content for Apple APIs to authenticate the client.
 
         :default: none
         '''
         result = self._values.get("private_key_value")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     @builtins.property
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -24743,7 +26408,7 @@ class UserPoolIdentityProviderFacebookProps(UserPoolIdentityProviderProps):
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de6c3af8b400c13942df39eb8d283cb392c003ed624799a283536c7cbf4d744)
+            type_hints = cached_type_hints(_typecheckingstub__1de6c3af8b400c13942df39eb8d283cb392c003ed624799a283536c7cbf4d744)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -24847,7 +26512,7 @@ class UserPoolIdentityProviderGoogleProps(UserPoolIdentityProviderProps):
         attribute_mapping: typing.Optional[typing.Union["AttributeMapping", typing.Dict[builtins.str, typing.Any]]] = None,
         client_id: builtins.str,
         client_secret: typing.Optional[builtins.str] = None,
-        client_secret_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        client_secret_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties to initialize UserPoolGoogleIdentityProvider.
@@ -24877,7 +26542,7 @@ class UserPoolIdentityProviderGoogleProps(UserPoolIdentityProviderProps):
         if isinstance(attribute_mapping, dict):
             attribute_mapping = AttributeMapping(**attribute_mapping)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acc5c266cb03bdd7951b7d54a8d65c397f46363e3c4a64e809428c27de72172c)
+            type_hints = cached_type_hints(_typecheckingstub__acc5c266cb03bdd7951b7d54a8d65c397f46363e3c4a64e809428c27de72172c)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -24938,7 +26603,7 @@ class UserPoolIdentityProviderGoogleProps(UserPoolIdentityProviderProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def client_secret_value(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def client_secret_value(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''The client secret to be accompanied with clientId for Google APIs to authenticate the client as SecretValue.
 
         :default: none
@@ -24946,7 +26611,7 @@ class UserPoolIdentityProviderGoogleProps(UserPoolIdentityProviderProps):
         :see: https://developers.google.com/identity/sign-in/web/sign-in
         '''
         result = self._values.get("client_secret_value")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     @builtins.property
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -25073,7 +26738,7 @@ class UserPoolIdentityProviderOidcProps(UserPoolIdentityProviderProps):
         if isinstance(endpoints, dict):
             endpoints = OidcEndpoints(**endpoints)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7df3aca94dedaeba54fe7b775b3935c8ba1292a6334855a44eadaaf7c09c655)
+            type_hints = cached_type_hints(_typecheckingstub__b7df3aca94dedaeba54fe7b775b3935c8ba1292a6334855a44eadaaf7c09c655)
             check_type(argname="argument user_pool", value=user_pool, expected_type=type_hints["user_pool"])
             check_type(argname="argument attribute_mapping", value=attribute_mapping, expected_type=type_hints["attribute_mapping"])
             check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
@@ -25231,6 +26896,10 @@ __all__ = [
     "CfnUserPoolIdentityProvider",
     "CfnUserPoolIdentityProviderProps",
     "CfnUserPoolProps",
+    "CfnUserPoolRegionalConfigurationAttachment",
+    "CfnUserPoolRegionalConfigurationAttachmentProps",
+    "CfnUserPoolReplica",
+    "CfnUserPoolReplicaProps",
     "CfnUserPoolResourceServer",
     "CfnUserPoolResourceServerProps",
     "CfnUserPoolRiskConfigurationAttachment",
@@ -25342,10 +27011,10 @@ def _typecheckingstub__8a30a69cc954e920b5bb7f1163c7b6bd8507e3477eca92e83467d7702
 
 def _typecheckingstub__f67277ee392b3c256b3bd87e4afcb7bb83df8d226097757f9c92610348c4456b(
     *,
-    application: typing.Optional[_CfnApp_e8bac60b] = None,
+    application: typing.Optional[_aws_pinpoint_9e5a1ec8.CfnApp] = None,
     application_id: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
     share_user_data: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -25406,16 +27075,16 @@ def _typecheckingstub__d5156c08d9bb3b0ceca6f4ec485d84f9775d7be40128a6614e1b9cbf0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    allow_unauthenticated_identities: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    allow_classic_flow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_unauthenticated_identities: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    allow_classic_flow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cognito_events: typing.Any = None,
-    cognito_identity_providers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.CognitoIdentityProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cognito_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.CognitoStreamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_identity_providers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.CognitoIdentityProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cognito_streams: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.CognitoStreamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     developer_provider_name: typing.Optional[builtins.str] = None,
     identity_pool_name: typing.Optional[builtins.str] = None,
-    identity_pool_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IOIDCProviderRef_a866c7c8]]] = None,
-    push_sync: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.PushSyncProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_pool_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IOIDCProviderRef]]] = None,
+    push_sync: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.PushSyncProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     saml_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     supported_login_providers: typing.Any = None,
 ) -> None:
@@ -25423,7 +27092,7 @@ def _typecheckingstub__d5156c08d9bb3b0ceca6f4ec485d84f9775d7be40128a6614e1b9cbf0
     pass
 
 def _typecheckingstub__912ed8f8aad117802c963bedb0856e57b3d9c2ac50b13a8663c7bf0fe865cc8f(
-    resource: _IIdentityPoolRef_5cf45895,
+    resource: _aws_cognito_aa210b15.IIdentityPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25443,7 +27112,7 @@ def _typecheckingstub__68da4104ea1f9e9a96f5dcd02ee6186d7a10a8592672d26f6469f863b
     pass
 
 def _typecheckingstub__d0046422699f4c95c1d9df0a173b8caf8590dc3fcb3ada38e03f96cba1a359bc(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25455,7 +27124,7 @@ def _typecheckingstub__a3d9795be15a85f1c5807d837aa5f58acf557934826ab8cafaa6e80c3
     pass
 
 def _typecheckingstub__db6ea31d27c717c9763b6408e0f3923cd9b6dc2e5d79b1a66ce864122450159f(
-    value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    value: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25473,19 +27142,19 @@ def _typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b
     pass
 
 def _typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fbb45d26060f7e1f74033e6a37741666fb843374b7a2b735483dea6f9b824230(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIdentityPool.CognitoIdentityProviderProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIdentityPool.CognitoIdentityProviderProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__502164af12ab71961d7f4f2e11817973d435bc4577d049f15a4cf62796079879(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIdentityPool.CognitoStreamsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIdentityPool.CognitoStreamsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25503,7 +27172,7 @@ def _typecheckingstub__6010d0ddbf0b577c8e7ea0796913ba4085881df0b32cec744c271c993
     pass
 
 def _typecheckingstub__caf91efc577806bf48a176729ecabaf6b30c2d71ecfff869256e7500e4dcb9bc(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25515,7 +27184,7 @@ def _typecheckingstub__61d80fcbd99af6003aec5d0b96e0ec9abdb3d4f6e2f44f67bdd2e7463
     pass
 
 def _typecheckingstub__37451572b0d939f18081b9fd4743a223e16c702244d56835c0e577ed22f85c70(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnIdentityPool.PushSyncProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIdentityPool.PushSyncProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25530,7 +27199,7 @@ def _typecheckingstub__98390431af098ce09b1be6f97cb9f1634533afc529f7b7abc1b708017
     *,
     client_id: builtins.str,
     provider_name: builtins.str,
-    server_side_token_check: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    server_side_token_check: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25559,7 +27228,7 @@ def _typecheckingstub__036c02730249ce227e84b1b6d6f563004dc63ae9f5f1d1b135ebaf712
     identity_pool_id: builtins.str,
     identity_provider_name: builtins.str,
     principal_tags: typing.Any = None,
-    use_defaults: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_defaults: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25571,7 +27240,7 @@ def _typecheckingstub__67b708619f8f6ec0745020da0546b3736efc89425bacb15a6f6618feb
     pass
 
 def _typecheckingstub__f3f48484f4649e6d58d093801018075e48fd42dcf857d13ad24a164c0f41e989(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25601,7 +27270,7 @@ def _typecheckingstub__941cd9f870d419478e147197cb0134b687f7c233a8bc805887d04a761
     pass
 
 def _typecheckingstub__615ac6e1fae0725987511e0b22108f8d03202321eadeee202779d4e5248fd19a(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25611,23 +27280,23 @@ def _typecheckingstub__4d001e3233492e51cba8dc8c26ce2203a307bedc54524056815ba7fa5
     identity_pool_id: builtins.str,
     identity_provider_name: builtins.str,
     principal_tags: typing.Any = None,
-    use_defaults: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_defaults: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3f190bc45ca19526ebd4b37441370bac2bb0babaadb5489ad9375252a5441596(
     *,
-    allow_unauthenticated_identities: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    allow_classic_flow: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_unauthenticated_identities: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    allow_classic_flow: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     cognito_events: typing.Any = None,
-    cognito_identity_providers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.CognitoIdentityProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    cognito_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.CognitoStreamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cognito_identity_providers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.CognitoIdentityProviderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cognito_streams: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.CognitoStreamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     developer_provider_name: typing.Optional[builtins.str] = None,
     identity_pool_name: typing.Optional[builtins.str] = None,
-    identity_pool_tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IOIDCProviderRef_a866c7c8]]] = None,
-    push_sync: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPool.PushSyncProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    identity_pool_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    open_id_connect_provider_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_iam_632e20f6.IOIDCProviderRef]]] = None,
+    push_sync: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPool.PushSyncProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     saml_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     supported_login_providers: typing.Any = None,
 ) -> None:
@@ -25638,8 +27307,8 @@ def _typecheckingstub__e0686a984bb6b75dbf3aca8c723d268e911604e9a4aafa6bc4c2a74b9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    identity_pool_id: typing.Union[builtins.str, _IIdentityPoolRef_5cf45895],
-    role_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPoolRoleAttachment.RoleMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    identity_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IIdentityPoolRef],
+    role_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPoolRoleAttachment.RoleMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     roles: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -25652,7 +27321,7 @@ def _typecheckingstub__9e655015c3929a5adf06cfc02236b3d0ea55668ba307b402d58ae344e
     pass
 
 def _typecheckingstub__031bc41cc76f616fd91865be2d561b3fb548a456a85a4fa0fa4bb0e5a7d9b565(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25676,7 +27345,7 @@ def _typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d231
     pass
 
 def _typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnIdentityPoolRoleAttachment.RoleMappingProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIdentityPoolRoleAttachment.RoleMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25696,22 +27365,22 @@ def _typecheckingstub__5a272c28ab03d1edcc86eddc7b9aa71f25398c059d8be5f7af4ea057d
     type: builtins.str,
     ambiguous_role_resolution: typing.Optional[builtins.str] = None,
     identity_provider: typing.Optional[builtins.str] = None,
-    rules_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rules_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPoolRoleAttachment.RulesConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ee34c709dd9513ee04193cc48ac24cd57fca8873fec78fe528978c6e1d719347(
     *,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPoolRoleAttachment.MappingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    rules: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPoolRoleAttachment.MappingRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7531b732f0c0a047085fd9c4031282884fde57038e57a1ebd6d247d39ccd050b(
     *,
-    identity_pool_id: typing.Union[builtins.str, _IIdentityPoolRef_5cf45895],
-    role_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnIdentityPoolRoleAttachment.RoleMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    identity_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IIdentityPoolRef],
+    role_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdentityPoolRoleAttachment.RoleMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     roles: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -25722,7 +27391,7 @@ def _typecheckingstub__e29530a80c41b2b01a02705536af0f4120664e64afaf6cf445105a2dd
     id: builtins.str,
     *,
     user_pool_id: builtins.str,
-    log_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogDeliveryConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogDeliveryConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25734,7 +27403,7 @@ def _typecheckingstub__203ff2a38d6a161e1172d7f8852a5ad8398f3ba214f39ff1f73b5b9e5
     pass
 
 def _typecheckingstub__9c754043d52de2809138bd323abb0b034a1950dd042f21ac2f36d2f80c2f6ab5(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25752,7 +27421,7 @@ def _typecheckingstub__2182e97aaa93da941d4811edec2c32bd2af08481e5b611636933cf688
     pass
 
 def _typecheckingstub__40a6b8e2f773442c634fa6b71515839097ae56e3de02083447219aae5f9c1a9f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLogDeliveryConfiguration.LogConfigurationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLogDeliveryConfiguration.LogConfigurationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25773,11 +27442,11 @@ def _typecheckingstub__ae072d70f2bbea287c140340ad4ca6d5b9e1b95bf2308803bfb1cfbd9
 
 def _typecheckingstub__3fcaff05e87f499492c9c4ac6949463926f4833510675569310df4f8cb619149(
     *,
-    cloud_watch_logs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     event_source: typing.Optional[builtins.str] = None,
-    firehose_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogDeliveryConfiguration.FirehoseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogDeliveryConfiguration.FirehoseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_level: typing.Optional[builtins.str] = None,
-    s3_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogDeliveryConfiguration.S3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogDeliveryConfiguration.S3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25792,7 +27461,7 @@ def _typecheckingstub__35855407409f14c2401e604d3e25c83bb2d207f28090618c8174149be
 def _typecheckingstub__585789fa8816c3e4ed9b3aa9967435c1474787f750de3db35983f11efef27366(
     *,
     user_pool_id: builtins.str,
-    log_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogDeliveryConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    log_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogDeliveryConfiguration.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25802,11 +27471,11 @@ def _typecheckingstub__478f8899894ffccc3f20b06ae18c36beb41bf5c5c9aa65a99dbdbf95c
     id: builtins.str,
     *,
     user_pool_id: builtins.str,
-    assets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnManagedLoginBranding.AssetTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    assets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnManagedLoginBranding.AssetTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     client_id: typing.Optional[builtins.str] = None,
-    return_merged_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    return_merged_resources: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     settings: typing.Any = None,
-    use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25818,7 +27487,7 @@ def _typecheckingstub__ce9a19ca9ae4e25b8f6aa753ce5ce24a0209cbc2731ca9a27a4ce5144
     pass
 
 def _typecheckingstub__a0d347f9b2c0101529861e949ebe0a802ebc429100648b4c870711c733b50faa(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25842,7 +27511,7 @@ def _typecheckingstub__73b2532ea6e2300654d7fcc90b2b1fd38f772128b765556475cff8c1b
     pass
 
 def _typecheckingstub__fc790275f28767420e82246bd64663082d888a2c93af667d6c769ece2924f786(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnManagedLoginBranding.AssetTypeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnManagedLoginBranding.AssetTypeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25854,13 +27523,13 @@ def _typecheckingstub__a668420e0b3cbceec0ade65febad3505a8186912fb1310c4ecdfbbcd6
     pass
 
 def _typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4b61f0689e78fea36c23c402c48085be3f2c198b922507818947333d59445895(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25879,11 +27548,11 @@ def _typecheckingstub__a8c0b7bdabc4393d484227225be1727f821e164eec56517d614639ac2
 def _typecheckingstub__60e207e1aa2ab8ae23b36c3e1ae73765c6f328b13bf0c7b205865e93adc260df(
     *,
     user_pool_id: builtins.str,
-    assets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnManagedLoginBranding.AssetTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    assets: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnManagedLoginBranding.AssetTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     client_id: typing.Optional[builtins.str] = None,
-    return_merged_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    return_merged_resources: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     settings: typing.Any = None,
-    use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_cognito_provided_values: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25893,7 +27562,7 @@ def _typecheckingstub__60ed6baa47f9012cc57d9cef7e22f15d5f04fd45aa55fc0e8672f7e89
     id: builtins.str,
     *,
     enforcement: builtins.str,
-    links: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    links: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     terms_name: builtins.str,
     terms_source: builtins.str,
     user_pool_id: builtins.str,
@@ -25909,7 +27578,7 @@ def _typecheckingstub__32770d5656ddcce643117a225779988aebdbcb97affb68fb24f76a846
     pass
 
 def _typecheckingstub__0c857e95caaea9926ffb4e0ab5c3a0bb7d8a82c05cf7bd42adce1312c203e7a6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25927,7 +27596,7 @@ def _typecheckingstub__f61b831431a9a8cd9abc071d0372ef9f7481c4297f99d22362f79e445
     pass
 
 def _typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36(
-    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25959,7 +27628,7 @@ def _typecheckingstub__b52c4f91e8237836ed692eed70ef894814f27cdb9a5c5fe5278b59f34
 def _typecheckingstub__285db7e3bc95478b571785bee7fa49951055cef4d8266009ed59e73fea5e4d4e(
     *,
     enforcement: builtins.str,
-    links: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    links: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     terms_name: builtins.str,
     terms_source: builtins.str,
     user_pool_id: builtins.str,
@@ -25972,33 +27641,35 @@ def _typecheckingstub__32d20f28e2758f9a461380e2ed5d06233baf0f45541047ba837f26ebc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    account_recovery_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.AccountRecoverySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    admin_create_user_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.AdminCreateUserConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    account_recovery_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.AccountRecoverySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    admin_create_user_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.AdminCreateUserConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     alias_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     auto_verified_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     deletion_protection: typing.Optional[builtins.str] = None,
-    device_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.DeviceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    device_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.DeviceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     email_authentication_message: typing.Optional[builtins.str] = None,
     email_authentication_subject: typing.Optional[builtins.str] = None,
-    email_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    email_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     email_verification_message: typing.Optional[builtins.str] = None,
     email_verification_subject: typing.Optional[builtins.str] = None,
     enabled_mfas: typing.Optional[typing.Sequence[builtins.str]] = None,
-    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    issuer_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.IssuerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    key_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.KeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mfa_configuration: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.SchemaAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.SchemaAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     sms_authentication_message: typing.Optional[builtins.str] = None,
-    sms_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sms_verification_message: typing.Optional[builtins.str] = None,
-    user_attribute_update_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UserAttributeUpdateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_attribute_update_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UserAttributeUpdateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     username_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    username_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UsernameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_pool_add_ons: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UserPoolAddOnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UsernameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_pool_add_ons: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UserPoolAddOnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_pool_name: typing.Optional[builtins.str] = None,
     user_pool_tags: typing.Any = None,
     user_pool_tier: typing.Optional[builtins.str] = None,
-    verification_message_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    verification_message_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_authn_factor_configuration: typing.Optional[builtins.str] = None,
     web_authn_relying_party_id: typing.Optional[builtins.str] = None,
     web_authn_user_verification: typing.Optional[builtins.str] = None,
@@ -26007,7 +27678,7 @@ def _typecheckingstub__32d20f28e2758f9a461380e2ed5d06233baf0f45541047ba837f26ebc
     pass
 
 def _typecheckingstub__f6ad258bbde251e2bd38155880bbd36070b3fcb013eccfc837a58d4eb98412dd(
-    resource: _IUserPoolRef_0b7d02b5,
+    resource: _aws_cognito_aa210b15.IUserPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26035,7 +27706,7 @@ def _typecheckingstub__b7e2525fd1931da972c8e688a610002de203cd2cefb75bbb754cf77a8
     pass
 
 def _typecheckingstub__190e7831a65154362cd300369d61a522f7add5d60374fc990db7dd8ecb232388(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26053,13 +27724,13 @@ def _typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3f
     pass
 
 def _typecheckingstub__da99efaebeb66459045576f8f7065b4ef07804424df0623f038bbd64d754aacc(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.AccountRecoverySettingProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.AccountRecoverySettingProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eaaa881203c259b6afa777936a9ca0096f8c631069a5ebd10e4ad0bd2c5229d4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.AdminCreateUserConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.AdminCreateUserConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26083,7 +27754,7 @@ def _typecheckingstub__455a3b25859643cc12071049235f2feb590ee06f70ec42d2cd83bc166
     pass
 
 def _typecheckingstub__7eb821a70b459056b6d26722d06f8b948b315111a936804d8aba0e7ff07d13bf(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.DeviceConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.DeviceConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26101,7 +27772,7 @@ def _typecheckingstub__1e1d4523d17f0641e76142be67287be5dc758d191f5eba3fa217d8c5d
     pass
 
 def _typecheckingstub__32d0b53f74dc294b25f20f54bcdaf8477a3dfc8b505387d70f97f7febe6ae209(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.EmailConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.EmailConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26124,8 +27795,20 @@ def _typecheckingstub__043cb4b4941782c98919a853fc16bce8663c274df01579f9caeb0cc2a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__837b254daa968778419c3daf6587e301f79a4cf136dccf6c46fe05c223e817be(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.IssuerConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33595e077b6a8f08f618c063b74db1043509e8c51844f81306c50a1d1e1b9c0d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.KeyConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8c7be7c0b2e4badc8ab3ce5fb0f327b3c26ebcb18bb31bc39a369f1c5fd64877(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.LambdaConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.LambdaConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26137,13 +27820,13 @@ def _typecheckingstub__02262b9b75d7d340810cfbaca693eeab69c3422010742739d64170db8
     pass
 
 def _typecheckingstub__cc547f06b5c5b29499b9c1debda606db3aa38d2243e5ea837490a194d6ee562d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.PoliciesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.PoliciesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f0e5b663faa7be35e96a6bb7a25793a3650b322376c4df96db6ab04037432ec8(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUserPool.SchemaAttributeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.SchemaAttributeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26155,7 +27838,7 @@ def _typecheckingstub__b0033e90845dce5d5ed18e8cdb36333bda83daa85a52bf9b317447a2b
     pass
 
 def _typecheckingstub__7770291e207a266c6092133c98f74702280b1b762eadf5a38996872fd156c65d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.SmsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.SmsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26167,7 +27850,7 @@ def _typecheckingstub__698f1380b9328c4a773190401993fe201c403d6b9d10c9d4d82aac183
     pass
 
 def _typecheckingstub__092e452d396de66cdb0e7fad3a126dc88f5db6854ad416e350af1806e6465101(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.UserAttributeUpdateSettingsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.UserAttributeUpdateSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26179,13 +27862,13 @@ def _typecheckingstub__70fd85fe188c058531323dc3601df251b6fe7e56cbb9e62fb3d7b9f71
     pass
 
 def _typecheckingstub__5021fa9a3421f51a3fb6735566cc12e369ce2d1a11bc37330e0278145be57e21(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.UsernameConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.UsernameConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9387d4cd9039881cdf533356e5c6db2db0d1781598e0bee842b7485eca8c8fb2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.UserPoolAddOnsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.UserPoolAddOnsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26203,7 +27886,7 @@ def _typecheckingstub__7b34a7e631952732eaf3564630f968b4a1066c2249e1bd77fa5894ac2
     pass
 
 def _typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.VerificationMessageTemplateProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPool.VerificationMessageTemplateProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26228,15 +27911,15 @@ def _typecheckingstub__39e1b7a43a4375c7269c036061949915e9a6e4528f8341df4df0a6b04
 
 def _typecheckingstub__79c7f36a6b9a834beef59493981fd8b3c56dae29d4d3d36bb9b0a65305ebd4ce(
     *,
-    recovery_mechanisms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.RecoveryOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    recovery_mechanisms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.RecoveryOptionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eccc17237dcc735721e8ed9027a445ee9831366ce5b71c7ee0c61cc0654098be(
     *,
-    allow_admin_create_user_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    invite_message_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.InviteMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    allow_admin_create_user_only: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    invite_message_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.InviteMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     unused_account_validity_days: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26267,8 +27950,8 @@ def _typecheckingstub__a5d7a0658af79be04111d251e361312d42c0f9017a17b247a2d1638cc
 
 def _typecheckingstub__4f9bd553445392044237353e227a2ec9bd347d85cebe0bacf0660ef00ac950f0(
     *,
-    challenge_required_on_new_device: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    challenge_required_on_new_device: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    device_only_remembered_on_user_prompt: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26301,21 +27984,36 @@ def _typecheckingstub__e181999cda105732a159cee174edaaedc5039f9a73ad613e48d7196c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9c8e4e208f99b45848d794b507bdb60557ba5a557aeea75b56fcdeb9cff8e184(
+    *,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__267060b06d1a8717310ad1b4ab971c25991638cc2bb9317e438be42e9fcbfd69(
+    *,
+    key_type: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7c28f17b2edc8643f21e960e612cea0cf88cbb14e55f37d1bab97e6fe5682843(
     *,
     create_auth_challenge: typing.Optional[builtins.str] = None,
-    custom_email_sender: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.CustomEmailSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_email_sender: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.CustomEmailSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_message: typing.Optional[builtins.str] = None,
-    custom_sms_sender: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.CustomSMSSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_sms_sender: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.CustomSMSSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     define_auth_challenge: typing.Optional[builtins.str] = None,
-    inbound_federation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.InboundFederationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inbound_federation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.InboundFederationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     post_authentication: typing.Optional[builtins.str] = None,
     post_confirmation: typing.Optional[builtins.str] = None,
     pre_authentication: typing.Optional[builtins.str] = None,
     pre_sign_up: typing.Optional[builtins.str] = None,
     pre_token_generation: typing.Optional[builtins.str] = None,
-    pre_token_generation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.PreTokenGenerationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pre_token_generation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.PreTokenGenerationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_migration: typing.Optional[builtins.str] = None,
     verify_auth_challenge_response: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -26334,10 +28032,10 @@ def _typecheckingstub__388245a445a407251a06f0f49f236a6b0a76ff7177f23a1d5cd9d4ffa
     *,
     minimum_length: typing.Optional[jsii.Number] = None,
     password_history_size: typing.Optional[jsii.Number] = None,
-    require_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    require_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    require_symbols: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    require_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    require_lowercase: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    require_numbers: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    require_symbols: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    require_uppercase: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     temporary_password_validity_days: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26345,8 +28043,8 @@ def _typecheckingstub__388245a445a407251a06f0f49f236a6b0a76ff7177f23a1d5cd9d4ffa
 
 def _typecheckingstub__9a9937f0b75c9ab1976e5dbd8fe12631390f6d478c894cb0164171b2f9dc39c5(
     *,
-    password_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.PasswordPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sign_in_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.SignInPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    password_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.PasswordPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sign_in_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.SignInPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26370,12 +28068,12 @@ def _typecheckingstub__c9742a28c55768ed927b752fb7849a5b2cd75a327e7ede06af406eb1c
 def _typecheckingstub__9814951786a68c04c05f6bdb7eb01a34fa749e2fb6491b5414b8e8e27d9a7faf(
     *,
     attribute_data_type: typing.Optional[builtins.str] = None,
-    developer_only_attribute: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    mutable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    developer_only_attribute: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    mutable: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     name: typing.Optional[builtins.str] = None,
-    number_attribute_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.NumberAttributeConstraintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    string_attribute_constraints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.StringAttributeConstraintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    number_attribute_constraints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.NumberAttributeConstraintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    required: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    string_attribute_constraints: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.StringAttributeConstraintsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26413,7 +28111,7 @@ def _typecheckingstub__9c5843901d71c5f7088f0e7c239f7dbd10ae5d4810ba8341e48b29354
 
 def _typecheckingstub__134d2b8e9ae3077b4c1f940aca55cabaa1dcdc1e12d0cd06c074768ee425ce71(
     *,
-    advanced_security_additional_flows: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.AdvancedSecurityAdditionalFlowsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    advanced_security_additional_flows: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.AdvancedSecurityAdditionalFlowsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     advanced_security_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26421,7 +28119,7 @@ def _typecheckingstub__134d2b8e9ae3077b4c1f940aca55cabaa1dcdc1e12d0cd06c074768ee
 
 def _typecheckingstub__db6dcc5455914ce6665f0af9e83e637f5f18b38787df8606b4fa8bba2c5f9744(
     *,
-    case_sensitive: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    case_sensitive: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26442,28 +28140,28 @@ def _typecheckingstub__87712ca9ae8faf9f73a6c5d11987fcf280543ea093bcc4253c800c015
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     access_token_validity: typing.Optional[jsii.Number] = None,
     allowed_o_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-    allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     allowed_o_auth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    analytics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analytics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auth_session_validity: typing.Optional[jsii.Number] = None,
     callback_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     client_name: typing.Optional[builtins.str] = None,
     default_redirect_uri: typing.Optional[builtins.str] = None,
-    enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_token_revocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_token_revocation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     explicit_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-    generate_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    generate_secret: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     id_token_validity: typing.Optional[jsii.Number] = None,
     logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.str] = None,
     read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    refresh_token_rotation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token_validity: typing.Optional[jsii.Number] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_validity_units: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26476,7 +28174,7 @@ def _typecheckingstub__56deb60f193f9f102ed18b276bc08a270cce1dd3fc0c01350c1a24b17
     pass
 
 def _typecheckingstub__8a9fb7182377f570d9a0052b4ec94ac913c9394d689704450911f34bf1b5d913(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26506,7 +28204,7 @@ def _typecheckingstub__a4e6becf32885d0d881b59d33ec61072e6d7812d751551a739cadf93d
     pass
 
 def _typecheckingstub__21873ac965a2fe0f5bdf6747b41efd7cf29a1e20f79888c68d664a70a929167f(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26518,7 +28216,7 @@ def _typecheckingstub__96cd6c659670b16fdec9188b6f46c9069df3c2c6e960eb82c804a6eee
     pass
 
 def _typecheckingstub__20f4094b4b15bf8a99ce9e0a2bb559a164606de26b84fc2bb8855aa07e1b624b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.AnalyticsConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolClient.AnalyticsConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26548,13 +28246,13 @@ def _typecheckingstub__dfdc028ae25dd39e3553917a9d4209340b6c920f4ae1efe20b0c2c400
     pass
 
 def _typecheckingstub__1c6e219444196075c25c38bf5995f93c8a7cec9a53523c8ac01a848afffefd1c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fb0c7908c7db28417fc0f3140fa5d8ceb244c98f8aa1729c6e2945ed0e1c43cb(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26566,7 +28264,7 @@ def _typecheckingstub__40565d8b2082bb82a66f2c2881526bbe7e4d5f0f2f08ba6dc2976e98f
     pass
 
 def _typecheckingstub__957788b79d759b4d61639c557602d69d56690104c1f0aaa40f50729534e68c16(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26596,7 +28294,7 @@ def _typecheckingstub__d0450b9a1c4091ecc8dc0197c1b8b862535cb1a705df2e839371c83db
     pass
 
 def _typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.RefreshTokenRotationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolClient.RefreshTokenRotationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26614,7 +28312,7 @@ def _typecheckingstub__97736930ca8413d8b00c7851c37dde3d55fed9ca3778ecbfeb14cf253
     pass
 
 def _typecheckingstub__dd54ee51ef07c33acd2cbd8e02b234784fa5a6a1c7879a29066514822e4147fb(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.TokenValidityUnitsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolClient.TokenValidityUnitsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26631,7 +28329,7 @@ def _typecheckingstub__6d6536363f7e284c6e3822670ff24aa20b4a6cc176e0e696a1702da00
     application_id: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
-    user_data_shared: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    user_data_shared: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26655,28 +28353,28 @@ def _typecheckingstub__7b0535ba992a4a94b92b965971fc09c8b8c0a72362c42aaf98b5ae4cb
 
 def _typecheckingstub__073ea5893b9cfc70c0362e57cd0c1b5397e1c6374434fc1d5c261da79307d954(
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     access_token_validity: typing.Optional[jsii.Number] = None,
     allowed_o_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-    allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allowed_o_auth_flows_user_pool_client: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     allowed_o_auth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    analytics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    analytics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auth_session_validity: typing.Optional[jsii.Number] = None,
     callback_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     client_name: typing.Optional[builtins.str] = None,
     default_redirect_uri: typing.Optional[builtins.str] = None,
-    enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_token_revocation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_propagate_additional_user_context_data: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_token_revocation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     explicit_auth_flows: typing.Optional[typing.Sequence[builtins.str]] = None,
-    generate_secret: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    generate_secret: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     id_token_validity: typing.Optional[jsii.Number] = None,
     logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.str] = None,
     read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    refresh_token_rotation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token_validity: typing.Optional[jsii.Number] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
-    token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_validity_units: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -26688,9 +28386,9 @@ def _typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386
     *,
     domain: builtins.str,
     user_pool_id: builtins.str,
-    custom_domain_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_domain_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_login_version: typing.Optional[jsii.Number] = None,
-    routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    routing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26702,7 +28400,7 @@ def _typecheckingstub__bf23e7886d72f797b39a140b202eda044a3ec13bb2f07ca150f041050
     pass
 
 def _typecheckingstub__847babb3c81b57d55437dd6a17098995090128630b1accb7f8cd0e345f7e39f6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26726,7 +28424,7 @@ def _typecheckingstub__01784117c77cfebe2ef420bdb95cfa641714c4080a504ef08ebfbc5cb
     pass
 
 def _typecheckingstub__534c4957c36eac9a89217ff1b762b65d25e33f26c5048218fc840dc7f7ee2b0e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolDomain.CustomDomainConfigTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolDomain.CustomDomainConfigTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26738,7 +28436,7 @@ def _typecheckingstub__b1d6e8e96816f3572291ff67691b98d76a166cf058320e0e73e58062b
     pass
 
 def _typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolDomain.RoutingTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolDomain.RoutingTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26760,7 +28458,7 @@ def _typecheckingstub__39af035b5a6ac4b1e532284da93372078c797c46d318cb837f007951b
 
 def _typecheckingstub__788c35d2518c6bd07dbb5583f09c117a31b0340e999cd4ef9f2d9d2e42b9674b(
     *,
-    failover: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.FailoverTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    failover: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolDomain.FailoverTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26769,9 +28467,9 @@ def _typecheckingstub__fe5ef2b7c4347565bc988b8d9120bbd5feadcfadd061512019de1519e
     *,
     domain: builtins.str,
     user_pool_id: builtins.str,
-    custom_domain_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_domain_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolDomain.CustomDomainConfigTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_login_version: typing.Optional[jsii.Number] = None,
-    routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    routing: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolDomain.RoutingTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26780,11 +28478,11 @@ def _typecheckingstub__64c0c3e44e677deced2e13e5ab4d3c7550518140bbe9dfaf681651d95
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26796,7 +28494,7 @@ def _typecheckingstub__cda87d34ce41936d3debc164b98829d465aff48a90c90b60638c6c52a
     pass
 
 def _typecheckingstub__abc28a51aacedb7e9a644933fe12ec8d528ed92ffc139d943ff29a1cb3d0c875(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26839,11 +28537,11 @@ def _typecheckingstub__3a22fc1c6f27de296195da5e404a5a9d43aea635361d630ed9185ab2d
 
 def _typecheckingstub__c67d3106556c2dbeca0c87692e053d37b59118869232a8d862cf3afebbfdb774(
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26869,7 +28567,7 @@ def _typecheckingstub__95a3af295bcb2f57e749ef37382981dea291f439869b4628b28918f31
     pass
 
 def _typecheckingstub__e932e2192b5a3559a5e803d6dd262a6ac5a8fe2ba71f404e3905fb3db10d9287(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26930,36 +28628,247 @@ def _typecheckingstub__41106943fcdd509be0174e1e1c8a8c320bd77587c77e22cfc1c1b7378
 
 def _typecheckingstub__00bbdbd31eb8d7342ce9883d0851b853acf61f6b243c0aa4323c025da52de96d(
     *,
-    account_recovery_setting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.AccountRecoverySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    admin_create_user_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.AdminCreateUserConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    account_recovery_setting: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.AccountRecoverySettingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    admin_create_user_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.AdminCreateUserConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     alias_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     auto_verified_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
     deletion_protection: typing.Optional[builtins.str] = None,
-    device_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.DeviceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    device_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.DeviceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     email_authentication_message: typing.Optional[builtins.str] = None,
     email_authentication_subject: typing.Optional[builtins.str] = None,
-    email_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    email_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     email_verification_message: typing.Optional[builtins.str] = None,
     email_verification_subject: typing.Optional[builtins.str] = None,
     enabled_mfas: typing.Optional[typing.Sequence[builtins.str]] = None,
-    lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    issuer_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.IssuerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    key_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.KeyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mfa_configuration: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.SchemaAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.PoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.SchemaAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     sms_authentication_message: typing.Optional[builtins.str] = None,
-    sms_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sms_verification_message: typing.Optional[builtins.str] = None,
-    user_attribute_update_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UserAttributeUpdateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_attribute_update_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UserAttributeUpdateSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     username_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    username_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UsernameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_pool_add_ons: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.UserPoolAddOnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UsernameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_pool_add_ons: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.UserPoolAddOnsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_pool_name: typing.Optional[builtins.str] = None,
     user_pool_tags: typing.Any = None,
     user_pool_tier: typing.Optional[builtins.str] = None,
-    verification_message_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    verification_message_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.VerificationMessageTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     web_authn_factor_configuration: typing.Optional[builtins.str] = None,
     web_authn_relying_party_id: typing.Optional[builtins.str] = None,
     web_authn_user_verification: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed33bcae688ae37199e78e2b0bd5bae47725eb6cc7adbcef2db019918c5ccf32(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    user_pool_id: builtins.str,
+    email_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    user_pool_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dc574f267a20a6bd51b116fe07457ac1dcd7a46f270de0a7d27db377d905585(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__440c75ed7df69e805dcd9f92bd22b58db9d25c916110366d5425677ebffcc9ae(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b42875860835645f979bbfa60c0772aff62f0305755db4fc848620fee96c6441(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bf0ebd473111dec12eaa8830bdb2a067a61c15d93bce1b3365b02949cc1a166(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42b2ba8449964fd827bddbf51611bae3d0da55b28cbf1beb899e13c6b0274c53(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__163d375cd6ba526ca525f623c9a0b9c3bb056399ba1a812adadd6c5e3b409439(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d02bad06c3c1d23ce5aa21772b56cf6ad0d762e9922c71d392c41f7289620e5(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bf7a6602d444a5f6d3334104a702b245659abe6b1619f90c1f41f428bb44abb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b0ac7611ee47d696719018c2611d9bc010113852d245ac49408165ad5c81bfc(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7fe657575fecdc10cc42bc0f4f0cef370edee51615ec3d218aa0597de154d69(
+    *,
+    lambda_arn: typing.Optional[builtins.str] = None,
+    lambda_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44d8e3c361fdf6c77e998a8db981951532233e6f3a22d33399d21792c9590320(
+    *,
+    lambda_arn: typing.Optional[builtins.str] = None,
+    lambda_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d545bff337aa6363533a045df309531f81b8ce279fdf92425ce8db44b644f023(
+    *,
+    configuration_set: typing.Optional[builtins.str] = None,
+    email_sending_account: typing.Optional[builtins.str] = None,
+    from_: typing.Optional[builtins.str] = None,
+    reply_to_email_address: typing.Optional[builtins.str] = None,
+    source_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8384b0ddba0af6af7e834ad536e660de39c7cf9b76b4c5132201340d5e626567(
+    *,
+    lambda_arn: typing.Optional[builtins.str] = None,
+    lambda_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ef63673bd30bff83234a98299f8c92879cf2a436dd843056ff8992c9bd1d683(
+    *,
+    create_auth_challenge: typing.Optional[builtins.str] = None,
+    custom_email_sender: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_message: typing.Optional[builtins.str] = None,
+    custom_sms_sender: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.CustomSMSSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    define_auth_challenge: typing.Optional[builtins.str] = None,
+    inbound_federation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    post_authentication: typing.Optional[builtins.str] = None,
+    post_confirmation: typing.Optional[builtins.str] = None,
+    pre_authentication: typing.Optional[builtins.str] = None,
+    pre_sign_up: typing.Optional[builtins.str] = None,
+    pre_token_generation: typing.Optional[builtins.str] = None,
+    pre_token_generation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.PreTokenGenerationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_migration: typing.Optional[builtins.str] = None,
+    verify_auth_challenge_response: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1a76c28230f9c451cc1f6326b68b320adc1dfdfd30c68ae0888d931cae9247b(
+    *,
+    lambda_arn: typing.Optional[builtins.str] = None,
+    lambda_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__848c86a60a9ac24607c12c97ad7840115cf0399058e3eecdfd653f37b727c552(
+    *,
+    external_id: typing.Optional[builtins.str] = None,
+    sns_caller_arn: typing.Optional[builtins.str] = None,
+    sns_region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3445677d242048ce95cf8b1e30240cef3848a8c96ce750031fa59699bee7d948(
+    *,
+    user_pool_id: builtins.str,
+    email_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.EmailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.LambdaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sms_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    user_pool_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__460eb9fed544365f6ac2052fc6ef6d906da8fa36ca99d9475480d4580a1ab453(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    region_name: builtins.str,
+    user_pool_id: builtins.str,
+    user_pool_tags_at_create: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73c930385c204dc44fa0c854b6758425fb06d4ee01c510ffb5a815c1a75f2ed2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8aea30ddc3ea0024a57941f1f1153933cb2b8c1f615160e04b3cb561af402b5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f73319d66fd71135dd4234f1e6c8f19bf338a4d437436193e9f64a5ee8bc55c1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e051147647bb4e88af28fe069ca244f7afc9ee868869e826ce1588c07e0922ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d711db6ae7edbcf83393ccad6af8f3560c62ef18f9c5fb78842f81f6bf8ab71e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a57c5f9867f2d553cc39d4153b55d0846ef7de91cec3a3e0c205a3e9ab4aa380(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee9612129bdb241328fe3899def13fc046b91958a9d2891e2134d686ca1c3b30(
+    *,
+    region_name: builtins.str,
+    user_pool_id: builtins.str,
+    user_pool_tags_at_create: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26970,8 +28879,8 @@ def _typecheckingstub__5ff380728a32f62434c91f2ef979d9f2a64ce347253fb0640fb5f618b
     *,
     identifier: builtins.str,
     name: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    scopes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolResourceServer.ResourceServerScopeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    scopes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolResourceServer.ResourceServerScopeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26983,7 +28892,7 @@ def _typecheckingstub__f1b951e53dbb02cef3646308929658478365ec97ba606ec2c03f6a24d
     pass
 
 def _typecheckingstub__e2a96db567ceac3c2f12fc90cf5f16fbfc45a32b92f0b1c83858321911b0ed93(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27013,7 +28922,7 @@ def _typecheckingstub__050918e589a6f0ea5348f6c36799b16672c9d8127f2e78e25499ac0ee
     pass
 
 def _typecheckingstub__160fcb672d8fdc3b92b02edf7b6742270c60fcaadc1b0091d06e1413b15e3583(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUserPoolResourceServer.ResourceServerScopeTypeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolResourceServer.ResourceServerScopeTypeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27030,8 +28939,8 @@ def _typecheckingstub__e3ec779f0da483496b42d0bd063d70d51362c7b804d031893cdf65153
     *,
     identifier: builtins.str,
     name: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    scopes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolResourceServer.ResourceServerScopeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    scopes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolResourceServer.ResourceServerScopeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27041,10 +28950,10 @@ def _typecheckingstub__e3245a667ca916eabc555ef843b4a36bfcb47060fa353bd730066a76d
     id: builtins.str,
     *,
     client_id: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    account_takeover_risk_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    compromised_credentials_risk_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    risk_exception_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    account_takeover_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compromised_credentials_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    risk_exception_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27056,7 +28965,7 @@ def _typecheckingstub__d04e43a127e8086b4ffee2617ba42eda163be8f5b5b3231a8a1b850a3
     pass
 
 def _typecheckingstub__c679cad8b164d6bad08830c9bfb57b908cf9c5bb391661d8ccf6732b7e486c2a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27080,19 +28989,19 @@ def _typecheckingstub__258e8ccdb5a39874f49d032edd3b21eafc55726e815291b2ba0aeb3d1
     pass
 
 def _typecheckingstub__b17909dd0638cbbc0f1921202089390881098b016d096fd0e7523987a4e30ba9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__114c02dca6d5bbc7b9068e92676886981e1fa4247a8584ed917e5391b74f2d2d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2bce41f342258d692515e8eebb6c2745c7105edc270a2bbcfb45f41d2bf1ca46(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27100,24 +29009,24 @@ def _typecheckingstub__2bce41f342258d692515e8eebb6c2745c7105edc270a2bbcfb45f41d2
 def _typecheckingstub__30abf81ff553ddb63b2198e60e762f3aecf06b8e0f2991afb69ec6002c5483bd(
     *,
     event_action: builtins.str,
-    notify: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    notify: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f069babb0e7383f87bfc13cebc53feb5f8120c387522f3256d59b144efff541f(
     *,
-    high_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    low_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    medium_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    high_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    low_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    medium_action: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__171e16add5c171c71e588ba4dc5010b7f4eeed61b1de29de578818bd4f093f3a(
     *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty, typing.Dict[builtins.str, typing.Any]]],
-    notify_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionsTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    notify_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27131,7 +29040,7 @@ def _typecheckingstub__d50d850b07485d85851db7411e74523ef2b236b4f79dc4882afa873cb
 
 def _typecheckingstub__c4a865171ee7a202a2dae96af5367bc1bbaf5644c4eeeb610126d5d16b69ed96(
     *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsActionsTypeProperty, typing.Dict[builtins.str, typing.Any]]],
     event_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27140,10 +29049,10 @@ def _typecheckingstub__c4a865171ee7a202a2dae96af5367bc1bbaf5644c4eeeb610126d5d16
 def _typecheckingstub__2bf1c06aab9b28c8e948bfb55b05866a98728f29cf413f42daba637d09193e97(
     *,
     source_arn: builtins.str,
-    block_email: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    block_email: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     from_: typing.Optional[builtins.str] = None,
-    mfa_email: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    no_action_email: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mfa_email: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    no_action_email: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.NotifyEmailTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     reply_to: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27169,10 +29078,10 @@ def _typecheckingstub__94550db26287873cca0c0acdb5d5eeb1043c346f4abf4c7e67a461cf6
 def _typecheckingstub__aae4da006a28eede974ab417d5b2bc68196cfdf7df68bb0ddfc79b19b8790f8b(
     *,
     client_id: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    account_takeover_risk_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    compromised_credentials_risk_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    risk_exception_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    account_takeover_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.AccountTakeoverRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    compromised_credentials_risk_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.CompromisedCredentialsRiskConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    risk_exception_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRiskConfigurationAttachment.RiskExceptionConfigurationTypeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27182,7 +29091,7 @@ def _typecheckingstub__bf3306ea8a9b6f4ebe73eb42059e52138281652a9e2e36e507fd8658e
     id: builtins.str,
     *,
     client_id: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     css: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27195,7 +29104,7 @@ def _typecheckingstub__e055cffa102f9950c3fe54680b77426adc87553a5321e47db1f656ca4
     pass
 
 def _typecheckingstub__80b3aec0691b38b614ccbfd3a409e8f6e5a07ef4b029f9f7451ae00fe408ecee(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27227,7 +29136,7 @@ def _typecheckingstub__95fdebc4b645acafac0d58bca95a8d84ac0be5fcf3ca3d612ad578dbb
 def _typecheckingstub__4e4f062a7f00241b34ab17fd47a3486ca4cbd516aac965d87988b2f16d5ac603(
     *,
     client_id: builtins.str,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
     css: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27237,14 +29146,14 @@ def _typecheckingstub__392de74de1133635a0d4d21dbd0cb3290007171e021625ff9a1259834
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    client_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    client_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
-    force_alias_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    force_alias_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     message_action: typing.Optional[builtins.str] = None,
-    user_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     username: typing.Optional[builtins.str] = None,
-    validation_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    validation_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27256,7 +29165,7 @@ def _typecheckingstub__5b341febf1737e60d203510e1387628f331c5f9f9bc1b8d7ef81b6462
     pass
 
 def _typecheckingstub__7a682a2322b995c054dfe4130e2fb7a0f0bc4eecc31485fdac372757331071a1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27274,7 +29183,7 @@ def _typecheckingstub__feefc710cb336bda2be62c58dcbdfc764a535ab2e52aa19e44511aca0
     pass
 
 def _typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27286,7 +29195,7 @@ def _typecheckingstub__91542a3b74c01d216df5ff651d130ee1327aa0fc3c895cbd605609cf9
     pass
 
 def _typecheckingstub__7c2c789fa64d9c856de89108f23fbf51d514f0cffa783771cfbacd552aee676c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27298,7 +29207,7 @@ def _typecheckingstub__9f0192dc3faa77898f91fb1e03cf55e5b740abf20bba3ba939ce4df47
     pass
 
 def _typecheckingstub__3a84d0d411d439647c27dc7ac7d1d6e760fe129e919aa8a0a8b4194179281b3e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUserPoolUser.AttributeTypeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolUser.AttributeTypeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27310,7 +29219,7 @@ def _typecheckingstub__942108c1e34b7c1e541ffb7d9f565c31400708ae6fa3757029d02956f
     pass
 
 def _typecheckingstub__69a6ee7471fbb46c9acd4942399424982966d6d11c89f8748a188ab7f08e54be(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUserPoolUser.AttributeTypeProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserPoolUser.AttributeTypeProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27325,14 +29234,14 @@ def _typecheckingstub__480fd17b16e7156f8c801d35ad2f0806c252a5a32182194061ca2a956
 
 def _typecheckingstub__382fb58e358860ff3016c5f0203cf6f5b59ab27ba70ef920ce589784afe54f17(
     *,
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
-    client_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
+    client_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     desired_delivery_mediums: typing.Optional[typing.Sequence[builtins.str]] = None,
-    force_alias_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    force_alias_creation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     message_action: typing.Optional[builtins.str] = None,
-    user_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     username: typing.Optional[builtins.str] = None,
-    validation_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    validation_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolUser.AttributeTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27341,9 +29250,9 @@ def _typecheckingstub__a7364d75afc292798863e1183adee778bee531b8ea162e2882fe2861f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    group_name: typing.Union[builtins.str, _IUserPoolGroupRef_89b16d48],
-    username: typing.Union[builtins.str, _IUserPoolUserRef_cbf1b211],
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    group_name: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolGroupRef],
+    username: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolUserRef],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27355,7 +29264,7 @@ def _typecheckingstub__f31d5a90cf5a3519ffc7ff93530071681166eb0e5a27e47db9853d060
     pass
 
 def _typecheckingstub__8646ff491f8e398241578077a82a538b7fc6168609db4df0a8980d20dc662a3a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27386,9 +29295,9 @@ def _typecheckingstub__82177f095c7231924dc4eb6d3e0b1affc9151da04e151d35489d6ee49
 
 def _typecheckingstub__795e0d8c9020bae33ab9db3f6ee92c3fab525494304ae5dab03e978b4cc524b3(
     *,
-    group_name: typing.Union[builtins.str, _IUserPoolGroupRef_89b16d48],
-    username: typing.Union[builtins.str, _IUserPoolUserRef_cbf1b211],
-    user_pool_id: typing.Union[builtins.str, _IUserPoolRef_0b7d02b5],
+    group_name: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolGroupRef],
+    username: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolUserRef],
+    user_pool_id: typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27425,7 +29334,7 @@ def _typecheckingstub__10625133998d7d4e7fac2876192aae9fef70ad558e321a4d1d6e442f4
 
 def _typecheckingstub__3849940c95623161d3f30b88c048744039d927bcb31494b462f19441b4be2cbe(
     *,
-    certificate: _ICertificateRef_1878d79b,
+    certificate: _aws_certificatemanager_7969630d.ICertificateRef,
     domain_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -27450,20 +29359,20 @@ def _typecheckingstub__701ae53f91916b708c28b316d16f169e30e8e66c32936f4c4b3c96edd
 def _typecheckingstub__6eaa0ebaf797c6ac4bac11bd73d9ad61c50892a9450e0ff58809034348d71166(
     id: builtins.str,
     *,
-    access_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    access_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     analytics: typing.Optional[typing.Union[AnalyticsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     auth_flows: typing.Optional[typing.Union[AuthFlow, typing.Dict[builtins.str, typing.Any]]] = None,
-    auth_session_validity: typing.Optional[_Duration_4839e8c3] = None,
+    auth_session_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_o_auth: typing.Optional[builtins.bool] = None,
     enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
     enable_token_revocation: typing.Optional[builtins.bool] = None,
     generate_secret: typing.Optional[builtins.bool] = None,
-    id_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    id_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
-    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    refresh_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
     write_attributes: typing.Optional[ClientAttributes] = None,
@@ -27487,7 +29396,7 @@ def _typecheckingstub__e70d406698753c50dbab4e4d1f9837fc55e7c713f52b3937d20745b5a
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27503,14 +29412,14 @@ def _typecheckingstub__6e7f4643c9bff39b5095e7aa370612aed9ce88bfde927b1cbbd7b3a21
     pass
 
 def _typecheckingstub__d3a4c5e8a4da82b394a07fc77ae4614ba300e995b69a268ebd9c41430ee2f184(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2136c7c5f1f487c9abafff099214714783c966a26ecba5010a34c74ee3f5cb01(
-    provider: _IUserPoolIdentityProviderRef_935eed62,
+    provider: _aws_cognito_aa210b15.IUserPoolIdentityProviderRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27600,7 +29509,7 @@ def _typecheckingstub__e884ae0f43a6b00e4ef287afca45bf6a9a7abbd94b7979efb6efa2a9c
     require_lowercase: typing.Optional[builtins.bool] = None,
     require_symbols: typing.Optional[builtins.bool] = None,
     require_uppercase: typing.Optional[builtins.bool] = None,
-    temp_password_validity: typing.Optional[_Duration_4839e8c3] = None,
+    temp_password_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27735,7 +29644,7 @@ def _typecheckingstub__677a8ec9a3f2a22d2dfde6fd6818121e4a071dc4e942f6bbe219e5a9b
     advanced_security_mode: typing.Optional[AdvancedSecurityMode] = None,
     auto_verify: typing.Optional[typing.Union[AutoVerifiedAttrs, typing.Dict[builtins.str, typing.Any]]] = None,
     custom_attributes: typing.Optional[typing.Mapping[builtins.str, ICustomAttribute]] = None,
-    custom_sender_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    custom_sender_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     custom_threat_protection_mode: typing.Optional[CustomThreatProtectionMode] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     device_tracking: typing.Optional[typing.Union[DeviceTracking, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -27750,12 +29659,12 @@ def _typecheckingstub__677a8ec9a3f2a22d2dfde6fd6818121e4a071dc4e942f6bbe219e5a9b
     passkey_relying_party_id: typing.Optional[builtins.str] = None,
     passkey_user_verification: typing.Optional[PasskeyUserVerification] = None,
     password_policy: typing.Optional[typing.Union[PasswordPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     self_sign_up_enabled: typing.Optional[builtins.bool] = None,
     sign_in_aliases: typing.Optional[typing.Union[SignInAliases, typing.Dict[builtins.str, typing.Any]]] = None,
     sign_in_case_sensitive: typing.Optional[builtins.bool] = None,
     sign_in_policy: typing.Optional[typing.Union[SignInPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    sms_role: typing.Optional[_IRoleRef_8400221f] = None,
+    sms_role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
     sms_role_external_id: typing.Optional[builtins.str] = None,
     sns_region: typing.Optional[builtins.str] = None,
     standard_attributes: typing.Optional[typing.Union[StandardAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -27786,20 +29695,20 @@ def _typecheckingstub__474923b0dab63be92b0f25ba2a7e28ad1ec96465ec0bb1490f4749131
 def _typecheckingstub__b4ce1f762a6eeaca3920ca827a1685cfa2b670f96aa13d8cfdded4055078a3f9(
     id: builtins.str,
     *,
-    access_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    access_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     analytics: typing.Optional[typing.Union[AnalyticsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     auth_flows: typing.Optional[typing.Union[AuthFlow, typing.Dict[builtins.str, typing.Any]]] = None,
-    auth_session_validity: typing.Optional[_Duration_4839e8c3] = None,
+    auth_session_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_o_auth: typing.Optional[builtins.bool] = None,
     enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
     enable_token_revocation: typing.Optional[builtins.bool] = None,
     generate_secret: typing.Optional[builtins.bool] = None,
-    id_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    id_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
-    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    refresh_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
     write_attributes: typing.Optional[ClientAttributes] = None,
@@ -27823,7 +29732,7 @@ def _typecheckingstub__182df28f489c4d9ab970aca99503d45cd2196b431c6ce7b04bb1e3436
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27840,21 +29749,21 @@ def _typecheckingstub__15a655e8061891a027a61815d064f6a0d9d429f80e33f0c0c98213485
 
 def _typecheckingstub__dfd8cf59863da2ffc97b2db24d9948006aacfebdfb5beb2d1ae6fcabb21a90b7(
     operation: UserPoolOperation,
-    fn: _IFunction_6adb0ab8,
+    fn: _aws_lambda_b8f2f472.IFunction,
     lambda_version: typing.Optional[LambdaVersion] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c56e3605a4e5dd37206172217b5910f257caaebfe4e87e39c1137586243f7708(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b7cd7e47ca8ab5f3e133bc16c7dce60dea0ac59f9973766e02d16d28c19ec2b1(
-    provider: _IUserPoolIdentityProviderRef_935eed62,
+    provider: _aws_cognito_aa210b15.IUserPoolIdentityProviderRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27863,21 +29772,21 @@ def _typecheckingstub__e654de9921a676ab8214720f2ab2c7f212d67a62531595c721560e88c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool: _IUserPoolRef_0b7d02b5,
-    access_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
+    access_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     analytics: typing.Optional[typing.Union[AnalyticsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     auth_flows: typing.Optional[typing.Union[AuthFlow, typing.Dict[builtins.str, typing.Any]]] = None,
-    auth_session_validity: typing.Optional[_Duration_4839e8c3] = None,
+    auth_session_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_o_auth: typing.Optional[builtins.bool] = None,
     enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
     enable_token_revocation: typing.Optional[builtins.bool] = None,
     generate_secret: typing.Optional[builtins.bool] = None,
-    id_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    id_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
-    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    refresh_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
     write_attributes: typing.Optional[ClientAttributes] = None,
@@ -27901,20 +29810,20 @@ def _typecheckingstub__14e7f4addf6b16821bea1f99db58ec36907e80587b70ed61044c1372d
 
 def _typecheckingstub__80185296586b917ea24ebc48255c627ce95ec5c85ae2ab4e52736240b27429fc(
     *,
-    access_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    access_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     analytics: typing.Optional[typing.Union[AnalyticsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     auth_flows: typing.Optional[typing.Union[AuthFlow, typing.Dict[builtins.str, typing.Any]]] = None,
-    auth_session_validity: typing.Optional[_Duration_4839e8c3] = None,
+    auth_session_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_o_auth: typing.Optional[builtins.bool] = None,
     enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
     enable_token_revocation: typing.Optional[builtins.bool] = None,
     generate_secret: typing.Optional[builtins.bool] = None,
-    id_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    id_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
-    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    refresh_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
     write_attributes: typing.Optional[ClientAttributes] = None,
@@ -27924,24 +29833,24 @@ def _typecheckingstub__80185296586b917ea24ebc48255c627ce95ec5c85ae2ab4e52736240b
 
 def _typecheckingstub__95c8cad8419f2fd5def82ad39281b322b9ec6b2f7d891de939bf1e9036145948(
     *,
-    access_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    access_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     analytics: typing.Optional[typing.Union[AnalyticsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     auth_flows: typing.Optional[typing.Union[AuthFlow, typing.Dict[builtins.str, typing.Any]]] = None,
-    auth_session_validity: typing.Optional[_Duration_4839e8c3] = None,
+    auth_session_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     disable_o_auth: typing.Optional[builtins.bool] = None,
     enable_propagate_additional_user_context_data: typing.Optional[builtins.bool] = None,
     enable_token_revocation: typing.Optional[builtins.bool] = None,
     generate_secret: typing.Optional[builtins.bool] = None,
-    id_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    id_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     o_auth: typing.Optional[typing.Union[OAuthSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.bool] = None,
     read_attributes: typing.Optional[ClientAttributes] = None,
-    refresh_token_rotation_grace_period: typing.Optional[_Duration_4839e8c3] = None,
-    refresh_token_validity: typing.Optional[_Duration_4839e8c3] = None,
+    refresh_token_rotation_grace_period: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    refresh_token_validity: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[UserPoolClientIdentityProvider]] = None,
     user_pool_client_name: typing.Optional[builtins.str] = None,
     write_attributes: typing.Optional[ClientAttributes] = None,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27950,7 +29859,7 @@ def _typecheckingstub__370554f0c705ae872638d9d90d00b13abf8230d3666aa0d882b882f94
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
     cognito_domain: typing.Optional[typing.Union[CognitoDomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     custom_domain: typing.Optional[typing.Union[CustomDomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     managed_login_version: typing.Optional[ManagedLoginVersion] = None,
@@ -27990,7 +29899,7 @@ def _typecheckingstub__4336d5dce146abd75b1697dd55937affe308b1524f218d9eb3835531c
     cognito_domain: typing.Optional[typing.Union[CognitoDomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     custom_domain: typing.Optional[typing.Union[CustomDomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     managed_login_version: typing.Optional[ManagedLoginVersion] = None,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28016,11 +29925,11 @@ def _typecheckingstub__775ac13db76309a928c26a49c092fd74e83d97ad55358f5e3e7abc39c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28038,7 +29947,7 @@ def _typecheckingstub__a76259212a5e57f1375d5eb2940f0d6cde7a130c86d1a85fc682cc659
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28048,8 +29957,8 @@ def _typecheckingstub__6f5beec5c4d6b11b4325b68ae8691c3f5f2eb75f4aa5ef1c6e333e5df
     description: typing.Optional[builtins.str] = None,
     group_name: typing.Optional[builtins.str] = None,
     precedence: typing.Optional[jsii.Number] = None,
-    role: typing.Optional[_IRoleRef_8400221f] = None,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28083,7 +29992,7 @@ def _typecheckingstub__61dda0b78f30fe868c5e696b0c3d3ee7c446cd2575608fc4036cf6dac
     key_id: builtins.str,
     team_id: builtins.str,
     private_key: typing.Optional[builtins.str] = None,
-    private_key_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    private_key_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     user_pool: IUserPool,
     attribute_mapping: typing.Optional[typing.Union[AttributeMapping, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -28111,7 +30020,7 @@ def _typecheckingstub__c61919ba02521366aa4c11332157ab81975a78a5c2dc31e82b67e1d68
     *,
     client_id: builtins.str,
     client_secret: typing.Optional[builtins.str] = None,
-    client_secret_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    client_secret_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     user_pool: IUserPool,
     attribute_mapping: typing.Optional[typing.Union[AttributeMapping, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -28201,7 +30110,7 @@ def _typecheckingstub__754b1af40b4712720733e130c63a8ec0ca9a35d4cfb25450725d5aa02
     advanced_security_mode: typing.Optional[AdvancedSecurityMode] = None,
     auto_verify: typing.Optional[typing.Union[AutoVerifiedAttrs, typing.Dict[builtins.str, typing.Any]]] = None,
     custom_attributes: typing.Optional[typing.Mapping[builtins.str, ICustomAttribute]] = None,
-    custom_sender_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    custom_sender_kms_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
     custom_threat_protection_mode: typing.Optional[CustomThreatProtectionMode] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     device_tracking: typing.Optional[typing.Union[DeviceTracking, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -28216,12 +30125,12 @@ def _typecheckingstub__754b1af40b4712720733e130c63a8ec0ca9a35d4cfb25450725d5aa02
     passkey_relying_party_id: typing.Optional[builtins.str] = None,
     passkey_user_verification: typing.Optional[PasskeyUserVerification] = None,
     password_policy: typing.Optional[typing.Union[PasswordPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     self_sign_up_enabled: typing.Optional[builtins.bool] = None,
     sign_in_aliases: typing.Optional[typing.Union[SignInAliases, typing.Dict[builtins.str, typing.Any]]] = None,
     sign_in_case_sensitive: typing.Optional[builtins.bool] = None,
     sign_in_policy: typing.Optional[typing.Union[SignInPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
-    sms_role: typing.Optional[_IRoleRef_8400221f] = None,
+    sms_role: typing.Optional[_aws_iam_632e20f6.IRoleRef] = None,
     sms_role_external_id: typing.Optional[builtins.str] = None,
     sns_region: typing.Optional[builtins.str] = None,
     standard_attributes: typing.Optional[typing.Union[StandardAttributes, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -28237,7 +30146,7 @@ def _typecheckingstub__45c6b182ece6db4ca44777c756fb5fb3ba678d72b113c2cec6e080042
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
     identifier: builtins.str,
     scopes: typing.Optional[typing.Sequence[ResourceServerScope]] = None,
     user_pool_resource_server_name: typing.Optional[builtins.str] = None,
@@ -28267,7 +30176,7 @@ def _typecheckingstub__b2a1b213c8033e469b75312545b2cadd55df48a6ef2219112676c0fb3
     identifier: builtins.str,
     scopes: typing.Optional[typing.Sequence[ResourceServerScope]] = None,
     user_pool_resource_server_name: typing.Optional[builtins.str] = None,
-    user_pool: _IUserPoolRef_0b7d02b5,
+    user_pool: _aws_cognito_aa210b15.IUserPoolRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28286,18 +30195,18 @@ def _typecheckingstub__025689115111bd107205d0624d9510a3f43ab5914819156c5dda91078
 
 def _typecheckingstub__d555fa01963e01bc855f3d033dfa093d00d5d3560b8398cde85ac66a7965e67e(
     *,
-    create_auth_challenge: typing.Optional[_IFunction_6adb0ab8] = None,
-    custom_email_sender: typing.Optional[_IFunction_6adb0ab8] = None,
-    custom_message: typing.Optional[_IFunction_6adb0ab8] = None,
-    custom_sms_sender: typing.Optional[_IFunction_6adb0ab8] = None,
-    define_auth_challenge: typing.Optional[_IFunction_6adb0ab8] = None,
-    post_authentication: typing.Optional[_IFunction_6adb0ab8] = None,
-    post_confirmation: typing.Optional[_IFunction_6adb0ab8] = None,
-    pre_authentication: typing.Optional[_IFunction_6adb0ab8] = None,
-    pre_sign_up: typing.Optional[_IFunction_6adb0ab8] = None,
-    pre_token_generation: typing.Optional[_IFunction_6adb0ab8] = None,
-    user_migration: typing.Optional[_IFunction_6adb0ab8] = None,
-    verify_auth_challenge_response: typing.Optional[_IFunction_6adb0ab8] = None,
+    create_auth_challenge: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    custom_email_sender: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    custom_message: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    custom_sms_sender: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    define_auth_challenge: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    post_authentication: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    post_confirmation: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    pre_authentication: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    pre_sign_up: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    pre_token_generation: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    user_migration: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
+    verify_auth_challenge_response: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28331,7 +30240,7 @@ def _typecheckingstub__ca5d3950db19200b5bbdc4fb3e51e3c9b38fc4572683061b8e4485d0f
     key_id: builtins.str,
     team_id: builtins.str,
     private_key: typing.Optional[builtins.str] = None,
-    private_key_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    private_key_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28355,7 +30264,7 @@ def _typecheckingstub__acc5c266cb03bdd7951b7d54a8d65c397f46363e3c4a64e809428c27d
     attribute_mapping: typing.Optional[typing.Union[AttributeMapping, typing.Dict[builtins.str, typing.Any]]] = None,
     client_id: builtins.str,
     client_secret: typing.Optional[builtins.str] = None,
-    client_secret_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    client_secret_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
     scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

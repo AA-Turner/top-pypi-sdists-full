@@ -3412,6 +3412,16 @@ class EnvProvider(BinProvider):
             )
         super().setup_PATH(no_cache=no_cache)
 
+    def _cache_context(self, bin_name: BinName) -> str:
+        provider_config = json.loads(super()._cache_context(bin_name))
+        provider_config["env_projection_version"] = 2
+        return json.dumps(
+            provider_config,
+            default=str,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
     def INSTALLER_BINARY(self, no_cache: bool = False) -> ShallowBinary:
         if not no_cache and self._INSTALLER_BINARY and self._INSTALLER_BINARY.is_valid:
             return self._INSTALLER_BINARY

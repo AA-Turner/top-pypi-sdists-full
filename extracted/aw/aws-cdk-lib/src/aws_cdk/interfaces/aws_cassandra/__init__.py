@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,33 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cassandra.IKeyspaceRef")
 class IKeyspaceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Keyspace.
@@ -57,7 +61,7 @@ class IKeyspaceRef(
 
 class _IKeyspaceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Keyspace.
 
@@ -82,7 +86,7 @@ typing.cast(typing.Any, IKeyspaceRef).__jsii_proxy_class__ = lambda : _IKeyspace
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cassandra.ITableRef")
 class ITableRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Table.
@@ -102,7 +106,7 @@ class ITableRef(
 
 class _ITableRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Table.
 
@@ -127,7 +131,7 @@ typing.cast(typing.Any, ITableRef).__jsii_proxy_class__ = lambda : _ITableRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cassandra.ITypeRef")
 class ITypeRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Type.
@@ -147,7 +151,7 @@ class ITypeRef(
 
 class _ITypeRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Type.
 
@@ -193,7 +197,7 @@ class KeyspaceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc0d753836cd041e1b05ee95877283f6b5b750f64e052cdef38fb1696ddc1f71)
+            type_hints = cached_type_hints(_typecheckingstub__fc0d753836cd041e1b05ee95877283f6b5b750f64e052cdef38fb1696ddc1f71)
             check_type(argname="argument keyspace_name", value=keyspace_name, expected_type=type_hints["keyspace_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "keyspace_name": keyspace_name,
@@ -249,7 +253,7 @@ class TableReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d9110ed91ad7506d3d63c21f49e4f422ab7dfc099f42a7a3ed964067e567abc)
+            type_hints = cached_type_hints(_typecheckingstub__0d9110ed91ad7506d3d63c21f49e4f422ab7dfc099f42a7a3ed964067e567abc)
             check_type(argname="argument keyspace_name", value=keyspace_name, expected_type=type_hints["keyspace_name"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -309,7 +313,7 @@ class TypeReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a94f1d1b9cf43e51c9c314f470a36db3a2060e9c64df91318dd46ed316ba5d0)
+            type_hints = cached_type_hints(_typecheckingstub__6a94f1d1b9cf43e51c9c314f470a36db3a2060e9c64df91318dd46ed316ba5d0)
             check_type(argname="argument keyspace_name", value=keyspace_name, expected_type=type_hints["keyspace_name"])
             check_type(argname="argument type_name", value=type_name, expected_type=type_hints["type_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

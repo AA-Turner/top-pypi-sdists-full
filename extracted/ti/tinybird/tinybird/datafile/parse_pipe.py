@@ -11,7 +11,11 @@ from tinybird.datafile.common import (
     parse,
 )
 from tinybird.datafile.exceptions import IncludeFileNotFoundException, ParseException
-from tinybird.sql_template import get_template_and_variables, render_sql_template
+from tinybird.sql_template import (
+    get_template_and_variables,
+    render_sql_template,
+    validate_template_parameter_names,
+)
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tornado_template import UnClosedIfError
 
@@ -52,20 +56,38 @@ def parse_pipe(
             if "type" in node:
                 node["type"] = node["type"].lower()
             sql = node.get("sql", "")
-            if sql.strip()[0] == "%":
+            source_sql = sql.strip()
+            if not source_sql:
+                raise click.ClickException(
+                    FeedbackManager.error_parsing_node(node=node["name"], pipe=filename, error="Empty query")
+                )
+            if source_sql.startswith("%"):
                 secrets_list: Optional[List[str]] = None
                 if secrets:
                     secrets_list = list(secrets.keys())
+                # Reject parameters declared without a usable name (e.g. a numeric
+                # literal cast like `{{Float32(1682892000.0)}}`) before rendering.
+                validate_template_parameter_names(sql[1:], node_id=node["name"])
                 # Setting test_mode=True to ignore errors on required parameters and
                 # secrets_in_test_mode=False to raise errors on missing secrets
                 sql, _, variable_warnings = render_sql_template(
-                    sql[1:],
+                    source_sql[1:],
                     name=node["name"],
                     secrets=secrets_list,
                     test_mode=True,
                     secrets_in_test_mode=ignore_secrets,
                 )
                 doc.warnings = variable_warnings
+                if not sql.strip():
+                    raise click.ClickException(
+                        FeedbackManager.error_parsing_node(
+                            node=node["name"],
+                            pipe=filename,
+                            error="Template renders to an empty query without parameters",
+                        )
+                    )
+            else:
+                sql = source_sql
             # it'll fail with a ModuleNotFoundError when the toolset is not available but it returns the parsed doc
             from tinybird.sql_toolset import format_sql as toolset_format_sql
 
@@ -79,13 +101,15 @@ def parse_pipe(
             )
         )
     except ValueError as e:
-        t, template_variables, _ = get_template_and_variables(sql, name=node["name"])
+        source_sql = node.get("sql", "")
+        source_sql_stripped = source_sql.strip()
+        t, template_variables, _ = get_template_and_variables(source_sql, name=node["name"])
 
-        if sql.strip()[0] != "%" and len(template_variables) > 0:
+        if not source_sql_stripped.startswith("%") and len(template_variables) > 0:
             raise click.ClickException(FeedbackManager.error_template_start(filename=filename))
         raise click.ClickException(
             FeedbackManager.error_parsing_file(
-                filename=filename, lineno="", error=f"{str(e)} + SQL(value error): {sql}"
+                filename=filename, lineno="", error=f"{str(e)} + SQL(value error): {source_sql}"
             )
         )
     except UnClosedIfError as e:

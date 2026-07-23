@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.5.0
+Version: 11.6.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -262,7 +262,7 @@ Pywikibot provides bot classes to develop your own script easily:
                 options[opt[1:]] = value
         MyBot(generator=gen_factory.getCombinedGenerator(), **options).run()
 
-    if __name == '__main__':
+    if __name__ == '__main__':
         main()
 
 
@@ -272,20 +272,27 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.5
+Release 11.6
 ============
 
-* Dreprecate ``cross_projects`` family.Familysettings (T431178)
-* Deprecate family.Family.post_get_convertand
-  family.Family.pre_put_convertfunctions (T431188)
-* Update families.wikiquote_family
-* Add support for minwikiquote (T429945)
-* Rename ``exceptions.TimeoutError`` exception to exceptions.ApiTimeoutErrorto avoid
-  collision with Python's built-in exception (T431174)
-* Drop config``textfile_encoding`` variable and use 'utf-8' directly instead (T430454)
-* Use pyclean package with make_distscript.
-* Fix redirected link for pagegenerators.PetScanPageGenerator
+* Add support for bolwiki (T429953)
+* The *top_only* parameter of page.User.contributionsand APISite.usercontribs
+  was renamed to *top*. Its behavior has
+  changed, and `False` can now be used as an argument. (T308961)
+* Add a new collection class page.Contributionto hold results from
+  page.User.contribs(T308961)
+* Add a new method page.User.contribsto retrieve user contributions.
+  This method supports all ``prop`` items from Usercontribs(T308961)
+* Add a new exception exceptions.UnexpectedAPIDataError(T308961)
+* Add a new collection class tools.collections.DataRecordand derive
+  page.Revisionfrom it (T432464)
+* Make i18n.altlanga public function (T432543)
+* Use requests.exceptions.JSONDecodeErrorinstead of ValueErrorin
+  data.api.Request._json_loads
+* Provide a backports.sentinelimplementation backported from Python 3.15
 * Update translations (i18n)
+* Fix WikiStats.get()to propagate HTTP fetch exceptions
+  instead of raising `AttributeError`
 
 
 Deprecations
@@ -388,6 +395,9 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.6.0: The *top_only* parameter of APISite.usercontribs
+  has been deprecated; use *top* instead
+  (T308961)
 * 11.5.0: family.Family.post_get_convertand family.Family.pre_put_convertfunctions
   are deprecated and will be removed (T431188)
 * 11.5.0: ``exceptions.TimeoutError`` is deprecated in favour of exceptions.ApiTimeoutError

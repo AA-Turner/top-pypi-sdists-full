@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_kafkaconnect import (
-    ConnectorReference as _ConnectorReference_cba617c0,
-    CustomPluginReference as _CustomPluginReference_944d1765,
-    IConnectorRef as _IConnectorRef_e9a5be01,
-    ICustomPluginRef as _ICustomPluginRef_ddeca45d,
-    IWorkerConfigurationRef as _IWorkerConfigurationRef_7ea18433,
-    WorkerConfigurationReference as _WorkerConfigurationReference_9e60f2c6,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_kafkaconnect as _aws_kafkaconnect_d70626fa
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_kafkaconnect_d70626fa = _LazyImport("aws_cdk.interfaces.aws_kafkaconnect")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectorRef_e9a5be01, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kafkaconnect_d70626fa.IConnectorRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnector(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kafkaconnect.CfnConnector",
 ):
@@ -187,20 +177,20 @@ class CfnConnector(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
-        connector_configuration: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        capacity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
+        connector_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         connector_name: builtins.str,
-        kafka_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
-        kafka_cluster_client_authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
-        kafka_cluster_encryption_in_transit: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterEncryptionInTransitProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster_client_authentication: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster_encryption_in_transit: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterEncryptionInTransitProperty", typing.Dict[builtins.str, typing.Any]]],
         kafka_connect_version: builtins.str,
-        plugins: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.PluginProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        plugins: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.PluginProperty", typing.Dict[builtins.str, typing.Any]]]]],
         service_execution_role_arn: builtins.str,
         connector_description: typing.Optional[builtins.str] = None,
-        log_delivery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_delivery: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        worker_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.WorkerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        worker_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.WorkerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KafkaConnect::Connector``.
 
@@ -222,7 +212,7 @@ class CfnConnector(
         :param worker_configuration: The worker configurations that are in use with the connector.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__300d015169800cb7d305cead5c1382d5e67bfb30617c5f51d4668a050b2ea78d)
+            type_hints = cached_type_hints(_typecheckingstub__300d015169800cb7d305cead5c1382d5e67bfb30617c5f51d4668a050b2ea78d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectorProps(
@@ -246,12 +236,15 @@ class CfnConnector(
 
     @jsii.member(jsii_name="arnForConnector")
     @builtins.classmethod
-    def arn_for_connector(cls, resource: "_IConnectorRef_e9a5be01") -> builtins.str:
+    def arn_for_connector(
+        cls,
+        resource: "_aws_kafkaconnect_d70626fa.IConnectorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f26d95c6319433bd0cbca899efddd898047f9ba311c93aee12630357d63924c8)
+            type_hints = cached_type_hints(_typecheckingstub__f26d95c6319433bd0cbca899efddd898047f9ba311c93aee12630357d63924c8)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnector", [resource]))
 
@@ -263,18 +256,18 @@ class CfnConnector(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__621d7a1bebdd309eeaafc0d9409414dd3451efaa108cc38aee58f26a0cf2a02c)
+            type_hints = cached_type_hints(_typecheckingstub__621d7a1bebdd309eeaafc0d9409414dd3451efaa108cc38aee58f26a0cf2a02c)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnector", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb0c1ffc0dc04852e83fc99bfa9b4c62b202fe4532ee5ffc6e7aa8228f636a2)
+            type_hints = cached_type_hints(_typecheckingstub__0eb0c1ffc0dc04852e83fc99bfa9b4c62b202fe4532ee5ffc6e7aa8228f636a2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -287,7 +280,7 @@ class CfnConnector(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb09bf3c15238ce83b49323b5b92307ae56d22b52e1f4faa4a9efecdf68eab79)
+            type_hints = cached_type_hints(_typecheckingstub__bb09bf3c15238ce83b49323b5b92307ae56d22b52e1f4faa4a9efecdf68eab79)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -308,9 +301,9 @@ class CfnConnector(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -324,25 +317,25 @@ class CfnConnector(
 
     @builtins.property
     @jsii.member(jsii_name="connectorRef")
-    def connector_ref(self) -> "_ConnectorReference_cba617c0":
+    def connector_ref(self) -> "_aws_kafkaconnect_d70626fa.ConnectorReference":
         '''A reference to a Connector resource.'''
-        return typing.cast("_ConnectorReference_cba617c0", jsii.get(self, "connectorRef"))
+        return typing.cast("_aws_kafkaconnect_d70626fa.ConnectorReference", jsii.get(self, "connectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="capacity")
     def capacity(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.CapacityProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CapacityProperty"]:
         '''The connector's compute capacity settings.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.CapacityProperty"], jsii.get(self, "capacity"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CapacityProperty"], jsii.get(self, "capacity"))
 
     @capacity.setter
     def capacity(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnector.CapacityProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CapacityProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93190e39585ede0b426e62964acf4d1946b2270b8cdf90fd760fca16bb13e558)
+            type_hints = cached_type_hints(_typecheckingstub__93190e39585ede0b426e62964acf4d1946b2270b8cdf90fd760fca16bb13e558)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "capacity", value) # pyright: ignore[reportArgumentType]
 
@@ -350,17 +343,17 @@ class CfnConnector(
     @jsii.member(jsii_name="connectorConfiguration")
     def connector_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''The configuration of the connector.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "connectorConfiguration"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "connectorConfiguration"))
 
     @connector_configuration.setter
     def connector_configuration(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__405d7e0ae6f7748331d41486bdc7f8856109d58d35c557e79a28b1b86a730e8d)
+            type_hints = cached_type_hints(_typecheckingstub__405d7e0ae6f7748331d41486bdc7f8856109d58d35c557e79a28b1b86a730e8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -373,7 +366,7 @@ class CfnConnector(
     @connector_name.setter
     def connector_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5542c73b8c63853663f0c9121c83145b07f4ffbb01dcb93d19e627c8684748f4)
+            type_hints = cached_type_hints(_typecheckingstub__5542c73b8c63853663f0c9121c83145b07f4ffbb01dcb93d19e627c8684748f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorName", value) # pyright: ignore[reportArgumentType]
 
@@ -381,17 +374,17 @@ class CfnConnector(
     @jsii.member(jsii_name="kafkaCluster")
     def kafka_cluster(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterProperty"]:
         '''The details of the Apache Kafka cluster to which the connector is connected.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterProperty"], jsii.get(self, "kafkaCluster"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterProperty"], jsii.get(self, "kafkaCluster"))
 
     @kafka_cluster.setter
     def kafka_cluster(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fb859f7d210b463ce7d87e19c928b68134af5a207e21f3d0b913b811695dfad)
+            type_hints = cached_type_hints(_typecheckingstub__3fb859f7d210b463ce7d87e19c928b68134af5a207e21f3d0b913b811695dfad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kafkaCluster", value) # pyright: ignore[reportArgumentType]
 
@@ -399,17 +392,17 @@ class CfnConnector(
     @jsii.member(jsii_name="kafkaClusterClientAuthentication")
     def kafka_cluster_client_authentication(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterClientAuthenticationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterClientAuthenticationProperty"]:
         '''The type of client authentication used to connect to the Apache Kafka cluster.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterClientAuthenticationProperty"], jsii.get(self, "kafkaClusterClientAuthentication"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterClientAuthenticationProperty"], jsii.get(self, "kafkaClusterClientAuthentication"))
 
     @kafka_cluster_client_authentication.setter
     def kafka_cluster_client_authentication(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterClientAuthenticationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterClientAuthenticationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7859bcdf95e20025063609459542a94ce1364b2b031ffa476d5bbd530daa22c)
+            type_hints = cached_type_hints(_typecheckingstub__c7859bcdf95e20025063609459542a94ce1364b2b031ffa476d5bbd530daa22c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kafkaClusterClientAuthentication", value) # pyright: ignore[reportArgumentType]
 
@@ -417,17 +410,17 @@ class CfnConnector(
     @jsii.member(jsii_name="kafkaClusterEncryptionInTransit")
     def kafka_cluster_encryption_in_transit(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterEncryptionInTransitProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterEncryptionInTransitProperty"]:
         '''Details of encryption in transit to the Apache Kafka cluster.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterEncryptionInTransitProperty"], jsii.get(self, "kafkaClusterEncryptionInTransit"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterEncryptionInTransitProperty"], jsii.get(self, "kafkaClusterEncryptionInTransit"))
 
     @kafka_cluster_encryption_in_transit.setter
     def kafka_cluster_encryption_in_transit(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterEncryptionInTransitProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterEncryptionInTransitProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__431b322bcb07c1c51a8b9a735113100e17fffb620cca37b220e3b3aec73425d2)
+            type_hints = cached_type_hints(_typecheckingstub__431b322bcb07c1c51a8b9a735113100e17fffb620cca37b220e3b3aec73425d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kafkaClusterEncryptionInTransit", value) # pyright: ignore[reportArgumentType]
 
@@ -440,7 +433,7 @@ class CfnConnector(
     @kafka_connect_version.setter
     def kafka_connect_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84a647a1aefe3d2975c3f4cbdccb1be43429421c71bd6f2c868cdb7b3aa7dc46)
+            type_hints = cached_type_hints(_typecheckingstub__84a647a1aefe3d2975c3f4cbdccb1be43429421c71bd6f2c868cdb7b3aa7dc46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kafkaConnectVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -448,17 +441,17 @@ class CfnConnector(
     @jsii.member(jsii_name="plugins")
     def plugins(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnector.PluginProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.PluginProperty"]]]:
         '''Specifies which plugin to use for the connector.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnector.PluginProperty"]]], jsii.get(self, "plugins"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.PluginProperty"]]], jsii.get(self, "plugins"))
 
     @plugins.setter
     def plugins(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnector.PluginProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.PluginProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ccf2fe35d5eab3697adb8d50736b2ecb8b794ef8d48f98745b61d6534ad954b6)
+            type_hints = cached_type_hints(_typecheckingstub__ccf2fe35d5eab3697adb8d50736b2ecb8b794ef8d48f98745b61d6534ad954b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "plugins", value) # pyright: ignore[reportArgumentType]
 
@@ -471,7 +464,7 @@ class CfnConnector(
     @service_execution_role_arn.setter
     def service_execution_role_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__440f19fcd0ca16de4301284405228f6ff797ea28c72dd5e6fd26e3f04b170b1f)
+            type_hints = cached_type_hints(_typecheckingstub__440f19fcd0ca16de4301284405228f6ff797ea28c72dd5e6fd26e3f04b170b1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -484,7 +477,7 @@ class CfnConnector(
     @connector_description.setter
     def connector_description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__729e3b6e3d1046550d05c40ab52749c149a4f3f01ce2c03e0daa86cc3ac03d1e)
+            type_hints = cached_type_hints(_typecheckingstub__729e3b6e3d1046550d05c40ab52749c149a4f3f01ce2c03e0daa86cc3ac03d1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorDescription", value) # pyright: ignore[reportArgumentType]
 
@@ -492,17 +485,17 @@ class CfnConnector(
     @jsii.member(jsii_name="logDelivery")
     def log_delivery(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LogDeliveryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LogDeliveryProperty"]]:
         '''The settings for delivering connector logs to Amazon CloudWatch Logs.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LogDeliveryProperty"]], jsii.get(self, "logDelivery"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LogDeliveryProperty"]], jsii.get(self, "logDelivery"))
 
     @log_delivery.setter
     def log_delivery(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LogDeliveryProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LogDeliveryProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49a29da785c6c8f30f5fc4ffcb9320d7a0377e8c1032eb5ff26ba046ae554772)
+            type_hints = cached_type_hints(_typecheckingstub__49a29da785c6c8f30f5fc4ffcb9320d7a0377e8c1032eb5ff26ba046ae554772)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logDelivery", value) # pyright: ignore[reportArgumentType]
 
@@ -515,20 +508,23 @@ class CfnConnector(
     @network_type.setter
     def network_type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb768ba8331b08dd6af43ec679bb63ca311831d677890057ea549e3988aa55f)
+            type_hints = cached_type_hints(_typecheckingstub__ecb768ba8331b08dd6af43ec679bb63ca311831d677890057ea549e3988aa55f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6afece2b4589a6c48de5a35d55d9159549277f37f560c619fd1daf8392fd3534)
+            type_hints = cached_type_hints(_typecheckingstub__6afece2b4589a6c48de5a35d55d9159549277f37f560c619fd1daf8392fd3534)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -536,17 +532,17 @@ class CfnConnector(
     @jsii.member(jsii_name="workerConfiguration")
     def worker_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerConfigurationProperty"]]:
         '''The worker configurations that are in use with the connector.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerConfigurationProperty"]], jsii.get(self, "workerConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerConfigurationProperty"]], jsii.get(self, "workerConfiguration"))
 
     @worker_configuration.setter
     def worker_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17aecc33a40fa4008d52fdd6c617a4bffcf013ba695a96ef9a4694b70b03b576)
+            type_hints = cached_type_hints(_typecheckingstub__17aecc33a40fa4008d52fdd6c617a4bffcf013ba695a96ef9a4694b70b03b576)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workerConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -560,7 +556,7 @@ class CfnConnector(
             self,
             *,
             bootstrap_servers: builtins.str,
-            vpc: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.VpcProperty", typing.Dict[builtins.str, typing.Any]]],
+            vpc: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.VpcProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The details of the Apache Kafka cluster to which the connector is connected.
 
@@ -585,7 +581,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__444403cd6207a1a5de68bc9f8e594e52824efdb9ff844ec369a71f064a2d1dcc)
+                type_hints = cached_type_hints(_typecheckingstub__444403cd6207a1a5de68bc9f8e594e52824efdb9ff844ec369a71f064a2d1dcc)
                 check_type(argname="argument bootstrap_servers", value=bootstrap_servers, expected_type=type_hints["bootstrap_servers"])
                 check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -606,14 +602,14 @@ class CfnConnector(
         @builtins.property
         def vpc(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.VpcProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.VpcProperty"]:
             '''Details of an Amazon VPC which has network connectivity to the Apache Kafka cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-apachekafkacluster.html#cfn-kafkaconnect-connector-apachekafkacluster-vpc
             '''
             result = self._values.get("vpc")
             assert result is not None, "Required property 'vpc' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.VpcProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.VpcProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -645,8 +641,8 @@ class CfnConnector(
             max_worker_count: jsii.Number,
             mcu_count: jsii.Number,
             min_worker_count: jsii.Number,
-            scale_in_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ScaleInPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
-            scale_out_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ScaleOutPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            scale_in_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ScaleInPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            scale_out_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ScaleOutPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
             max_autoscaling_task_count: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Specifies how the connector scales.
@@ -683,7 +679,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a7fa0788a72b5a8759557a835e00eec9afbe34fb926c3c0b410cccf6e8c51c7b)
+                type_hints = cached_type_hints(_typecheckingstub__a7fa0788a72b5a8759557a835e00eec9afbe34fb926c3c0b410cccf6e8c51c7b)
                 check_type(argname="argument max_worker_count", value=max_worker_count, expected_type=type_hints["max_worker_count"])
                 check_type(argname="argument mcu_count", value=mcu_count, expected_type=type_hints["mcu_count"])
                 check_type(argname="argument min_worker_count", value=min_worker_count, expected_type=type_hints["min_worker_count"])
@@ -735,26 +731,26 @@ class CfnConnector(
         @builtins.property
         def scale_in_policy(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.ScaleInPolicyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ScaleInPolicyProperty"]:
             '''The sacle-in policy for the connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-autoscaling.html#cfn-kafkaconnect-connector-autoscaling-scaleinpolicy
             '''
             result = self._values.get("scale_in_policy")
             assert result is not None, "Required property 'scale_in_policy' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ScaleInPolicyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ScaleInPolicyProperty"], result)
 
         @builtins.property
         def scale_out_policy(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.ScaleOutPolicyProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ScaleOutPolicyProperty"]:
             '''The sacle-out policy for the connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-autoscaling.html#cfn-kafkaconnect-connector-autoscaling-scaleoutpolicy
             '''
             result = self._values.get("scale_out_policy")
             assert result is not None, "Required property 'scale_out_policy' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ScaleOutPolicyProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ScaleOutPolicyProperty"], result)
 
         @builtins.property
         def max_autoscaling_task_count(self) -> typing.Optional[jsii.Number]:
@@ -788,8 +784,8 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            auto_scaling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.AutoScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            provisioned_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ProvisionedCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            auto_scaling: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.AutoScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            provisioned_capacity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ProvisionedCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about the capacity of the connector, whether it is auto scaled or provisioned.
 
@@ -827,7 +823,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b215f78afaf806b39553a8a9676f96dddcb2b0c3c6a8d0b8fde6902bf4f381e)
+                type_hints = cached_type_hints(_typecheckingstub__5b215f78afaf806b39553a8a9676f96dddcb2b0c3c6a8d0b8fde6902bf4f381e)
                 check_type(argname="argument auto_scaling", value=auto_scaling, expected_type=type_hints["auto_scaling"])
                 check_type(argname="argument provisioned_capacity", value=provisioned_capacity, expected_type=type_hints["provisioned_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -839,24 +835,24 @@ class CfnConnector(
         @builtins.property
         def auto_scaling(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.AutoScalingProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AutoScalingProperty"]]:
             '''Information about the auto scaling parameters for the connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-capacity.html#cfn-kafkaconnect-connector-capacity-autoscaling
             '''
             result = self._values.get("auto_scaling")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.AutoScalingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AutoScalingProperty"]], result)
 
         @builtins.property
         def provisioned_capacity(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.ProvisionedCapacityProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProvisionedCapacityProperty"]]:
             '''Details about a fixed capacity allocated to a connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-capacity.html#cfn-kafkaconnect-connector-capacity-provisionedcapacity
             '''
             result = self._values.get("provisioned_capacity")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.ProvisionedCapacityProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProvisionedCapacityProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -878,7 +874,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             log_group: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for delivering connector logs to Amazon CloudWatch Logs.
@@ -903,7 +899,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ce12248bee2c36568fe0e7c8306e19879a8018f4d2f68bc94d16564982c8c14f)
+                type_hints = cached_type_hints(_typecheckingstub__ce12248bee2c36568fe0e7c8306e19879a8018f4d2f68bc94d16564982c8c14f)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -913,14 +909,16 @@ class CfnConnector(
                 self._values["log_group"] = log_group
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Whether log delivery to Amazon CloudWatch Logs is enabled.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-cloudwatchlogslogdelivery.html#cfn-kafkaconnect-connector-cloudwatchlogslogdelivery-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def log_group(self) -> typing.Optional[builtins.str]:
@@ -974,7 +972,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__939037365c43c9a72b3c37dadef4cee49c45d340b13988d36aec42da17639cb6)
+                type_hints = cached_type_hints(_typecheckingstub__939037365c43c9a72b3c37dadef4cee49c45d340b13988d36aec42da17639cb6)
                 check_type(argname="argument custom_plugin_arn", value=custom_plugin_arn, expected_type=type_hints["custom_plugin_arn"])
                 check_type(argname="argument revision", value=revision, expected_type=type_hints["revision"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1022,7 +1020,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             delivery_stream: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for delivering logs to Amazon Kinesis Data Firehose.
@@ -1047,7 +1045,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5d7349fb5eb5a9a9ec0860e8dad23b287cb3cd62e184b233fee93c0a26a0d51)
+                type_hints = cached_type_hints(_typecheckingstub__d5d7349fb5eb5a9a9ec0860e8dad23b287cb3cd62e184b233fee93c0a26a0d51)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1057,14 +1055,16 @@ class CfnConnector(
                 self._values["delivery_stream"] = delivery_stream
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether connector logs get delivered to Amazon Kinesis Data Firehose.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-firehoselogdelivery.html#cfn-kafkaconnect-connector-firehoselogdelivery-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def delivery_stream(self) -> typing.Optional[builtins.str]:
@@ -1111,7 +1111,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7108764262b68e3cecbc01f6bb39c0838e2f09c63cf4785609dc2eb2db70f1b2)
+                type_hints = cached_type_hints(_typecheckingstub__7108764262b68e3cecbc01f6bb39c0838e2f09c63cf4785609dc2eb2db70f1b2)
                 check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "authentication_type": authentication_type,
@@ -1165,7 +1165,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0cecc14be0c2fb246e15a4608e4bdd7b9eac2e2126f98c4fff5625c81b616bf9)
+                type_hints = cached_type_hints(_typecheckingstub__0cecc14be0c2fb246e15a4608e4bdd7b9eac2e2126f98c4fff5625c81b616bf9)
                 check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encryption_type": encryption_type,
@@ -1201,7 +1201,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            apache_kafka_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ApacheKafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
+            apache_kafka_cluster: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ApacheKafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The details of the Apache Kafka cluster to which the connector is connected.
 
@@ -1227,7 +1227,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e45630a977bbe5bbdad20f00c55a2b6d7b863f0ebdd96b83af5d59aeeac6fda2)
+                type_hints = cached_type_hints(_typecheckingstub__e45630a977bbe5bbdad20f00c55a2b6d7b863f0ebdd96b83af5d59aeeac6fda2)
                 check_type(argname="argument apache_kafka_cluster", value=apache_kafka_cluster, expected_type=type_hints["apache_kafka_cluster"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "apache_kafka_cluster": apache_kafka_cluster,
@@ -1236,14 +1236,14 @@ class CfnConnector(
         @builtins.property
         def apache_kafka_cluster(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.ApacheKafkaClusterProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ApacheKafkaClusterProperty"]:
             '''The Apache Kafka cluster to which the connector is connected.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-kafkacluster.html#cfn-kafkaconnect-connector-kafkacluster-apachekafkacluster
             '''
             result = self._values.get("apache_kafka_cluster")
             assert result is not None, "Required property 'apache_kafka_cluster' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ApacheKafkaClusterProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ApacheKafkaClusterProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1265,7 +1265,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            worker_log_delivery: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.WorkerLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]],
+            worker_log_delivery: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.WorkerLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Details about log delivery.
 
@@ -1305,7 +1305,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__24fd0806b35f57962768914d0194bea1b40b93b71c0c3dd6d6a8aad5d85e5b3d)
+                type_hints = cached_type_hints(_typecheckingstub__24fd0806b35f57962768914d0194bea1b40b93b71c0c3dd6d6a8aad5d85e5b3d)
                 check_type(argname="argument worker_log_delivery", value=worker_log_delivery, expected_type=type_hints["worker_log_delivery"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "worker_log_delivery": worker_log_delivery,
@@ -1314,7 +1314,7 @@ class CfnConnector(
         @builtins.property
         def worker_log_delivery(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerLogDeliveryProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerLogDeliveryProperty"]:
             '''The workers can send worker logs to different destination types.
 
             This configuration specifies the details of these destinations.
@@ -1323,7 +1323,7 @@ class CfnConnector(
             '''
             result = self._values.get("worker_log_delivery")
             assert result is not None, "Required property 'worker_log_delivery' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerLogDeliveryProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerLogDeliveryProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1345,7 +1345,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            custom_plugin: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CustomPluginProperty", typing.Dict[builtins.str, typing.Any]]],
+            custom_plugin: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.CustomPluginProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A plugin is an AWS resource that contains the code that defines your connector logic.
 
@@ -1368,7 +1368,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__35948a4a66b01f82e5bedaf253946f464f4c86608300c9773f71dce120de9f0d)
+                type_hints = cached_type_hints(_typecheckingstub__35948a4a66b01f82e5bedaf253946f464f4c86608300c9773f71dce120de9f0d)
                 check_type(argname="argument custom_plugin", value=custom_plugin, expected_type=type_hints["custom_plugin"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "custom_plugin": custom_plugin,
@@ -1377,14 +1377,14 @@ class CfnConnector(
         @builtins.property
         def custom_plugin(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.CustomPluginProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CustomPluginProperty"]:
             '''Details about a custom plugin.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-plugin.html#cfn-kafkaconnect-connector-plugin-customplugin
             '''
             result = self._values.get("custom_plugin")
             assert result is not None, "Required property 'custom_plugin' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.CustomPluginProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CustomPluginProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1429,7 +1429,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bf9af2fbdc2eecf97de30bc43ea6a6be8266e58490ff4a55318a2c6b110af1b8)
+                type_hints = cached_type_hints(_typecheckingstub__bf9af2fbdc2eecf97de30bc43ea6a6be8266e58490ff4a55318a2c6b110af1b8)
                 check_type(argname="argument mcu_count", value=mcu_count, expected_type=type_hints["mcu_count"])
                 check_type(argname="argument worker_count", value=worker_count, expected_type=type_hints["worker_count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1479,7 +1479,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
             bucket: typing.Optional[builtins.str] = None,
             prefix: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1507,7 +1507,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__991b0af73117e26499c590fefbda601c1fa27a956d8ed920c29dddf6e3942d9b)
+                type_hints = cached_type_hints(_typecheckingstub__991b0af73117e26499c590fefbda601c1fa27a956d8ed920c29dddf6e3942d9b)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
@@ -1520,14 +1520,16 @@ class CfnConnector(
                 self._values["prefix"] = prefix
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
             '''Specifies whether connector logs get sent to the specified Amazon S3 destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-s3logdelivery.html#cfn-kafkaconnect-connector-s3logdelivery-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
 
         @builtins.property
         def bucket(self) -> typing.Optional[builtins.str]:
@@ -1583,7 +1585,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__12883647368b045af218938a85170c504e2ac16d35c5b7f6abdc33dcfd0b38aa)
+                type_hints = cached_type_hints(_typecheckingstub__12883647368b045af218938a85170c504e2ac16d35c5b7f6abdc33dcfd0b38aa)
                 check_type(argname="argument cpu_utilization_percentage", value=cpu_utilization_percentage, expected_type=type_hints["cpu_utilization_percentage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cpu_utilization_percentage": cpu_utilization_percentage,
@@ -1635,7 +1637,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ab985ea028517aece904c3e9a620409a4917dc5407933921e63629b65eccaf8f)
+                type_hints = cached_type_hints(_typecheckingstub__ab985ea028517aece904c3e9a620409a4917dc5407933921e63629b65eccaf8f)
                 check_type(argname="argument cpu_utilization_percentage", value=cpu_utilization_percentage, expected_type=type_hints["cpu_utilization_percentage"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "cpu_utilization_percentage": cpu_utilization_percentage,
@@ -1694,7 +1696,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4a2e175ee9bba2b6ccb5fe61627e4539b807b2696754acbc03a8c398ebe32a25)
+                type_hints = cached_type_hints(_typecheckingstub__4a2e175ee9bba2b6ccb5fe61627e4539b807b2696754acbc03a8c398ebe32a25)
                 check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
                 check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1768,7 +1770,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__410d90caf1544bb4b43be0646f325702b7ea82434e28ebcb5440055410c0f6bf)
+                type_hints = cached_type_hints(_typecheckingstub__410d90caf1544bb4b43be0646f325702b7ea82434e28ebcb5440055410c0f6bf)
                 check_type(argname="argument revision", value=revision, expected_type=type_hints["revision"])
                 check_type(argname="argument worker_configuration_arn", value=worker_configuration_arn, expected_type=type_hints["worker_configuration_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1820,9 +1822,9 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            cloud_watch_logs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CloudWatchLogsLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            firehose: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.FirehoseLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.S3LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_logs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.CloudWatchLogsLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.FirehoseLogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.S3LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Workers can send worker logs to different destination types.
 
@@ -1864,7 +1866,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bc89e20cb6ae15c383691c63107a6550accceb0bd180b844f01270a6c026e02a)
+                type_hints = cached_type_hints(_typecheckingstub__bc89e20cb6ae15c383691c63107a6550accceb0bd180b844f01270a6c026e02a)
                 check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
                 check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
                 check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
@@ -1879,35 +1881,35 @@ class CfnConnector(
         @builtins.property
         def cloud_watch_logs(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.CloudWatchLogsLogDeliveryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CloudWatchLogsLogDeliveryProperty"]]:
             '''Details about delivering logs to Amazon CloudWatch Logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-workerlogdelivery.html#cfn-kafkaconnect-connector-workerlogdelivery-cloudwatchlogs
             '''
             result = self._values.get("cloud_watch_logs")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.CloudWatchLogsLogDeliveryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CloudWatchLogsLogDeliveryProperty"]], result)
 
         @builtins.property
         def firehose(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.FirehoseLogDeliveryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.FirehoseLogDeliveryProperty"]]:
             '''Details about delivering logs to Amazon Kinesis Data Firehose.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-workerlogdelivery.html#cfn-kafkaconnect-connector-workerlogdelivery-firehose
             '''
             result = self._values.get("firehose")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.FirehoseLogDeliveryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.FirehoseLogDeliveryProperty"]], result)
 
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.S3LogDeliveryProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.S3LogDeliveryProperty"]]:
             '''Details about delivering logs to Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-workerlogdelivery.html#cfn-kafkaconnect-connector-workerlogdelivery-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.S3LogDeliveryProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.S3LogDeliveryProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1945,20 +1947,20 @@ class CfnConnectorProps:
     def __init__(
         self,
         *,
-        capacity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
-        connector_configuration: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+        capacity: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.CapacityProperty", typing.Dict[builtins.str, typing.Any]]],
+        connector_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
         connector_name: builtins.str,
-        kafka_cluster: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
-        kafka_cluster_client_authentication: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
-        kafka_cluster_encryption_in_transit: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.KafkaClusterEncryptionInTransitProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster_client_authentication: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterClientAuthenticationProperty", typing.Dict[builtins.str, typing.Any]]],
+        kafka_cluster_encryption_in_transit: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.KafkaClusterEncryptionInTransitProperty", typing.Dict[builtins.str, typing.Any]]],
         kafka_connect_version: builtins.str,
-        plugins: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.PluginProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        plugins: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.PluginProperty", typing.Dict[builtins.str, typing.Any]]]]],
         service_execution_role_arn: builtins.str,
         connector_description: typing.Optional[builtins.str] = None,
-        log_delivery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_delivery: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.LogDeliveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
-        worker_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.WorkerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        worker_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.WorkerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnector``.
 
@@ -2073,7 +2075,7 @@ class CfnConnectorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12463a17cb9c37949b260894212e085ba134c7ff0644cf3913b56f022b888c0b)
+            type_hints = cached_type_hints(_typecheckingstub__12463a17cb9c37949b260894212e085ba134c7ff0644cf3913b56f022b888c0b)
             check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
             check_type(argname="argument connector_configuration", value=connector_configuration, expected_type=type_hints["connector_configuration"])
             check_type(argname="argument connector_name", value=connector_name, expected_type=type_hints["connector_name"])
@@ -2113,26 +2115,26 @@ class CfnConnectorProps:
     @builtins.property
     def capacity(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.CapacityProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CapacityProperty"]:
         '''The connector's compute capacity settings.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-capacity
         '''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.CapacityProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.CapacityProperty"], result)
 
     @builtins.property
     def connector_configuration(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
         '''The configuration of the connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-connectorconfiguration
         '''
         result = self._values.get("connector_configuration")
         assert result is not None, "Required property 'connector_configuration' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def connector_name(self) -> builtins.str:
@@ -2149,19 +2151,19 @@ class CfnConnectorProps:
     @builtins.property
     def kafka_cluster(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterProperty"]:
         '''The details of the Apache Kafka cluster to which the connector is connected.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-kafkacluster
         '''
         result = self._values.get("kafka_cluster")
         assert result is not None, "Required property 'kafka_cluster' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterProperty"], result)
 
     @builtins.property
     def kafka_cluster_client_authentication(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterClientAuthenticationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterClientAuthenticationProperty"]:
         '''The type of client authentication used to connect to the Apache Kafka cluster.
 
         The value is NONE when no client authentication is used.
@@ -2170,19 +2172,19 @@ class CfnConnectorProps:
         '''
         result = self._values.get("kafka_cluster_client_authentication")
         assert result is not None, "Required property 'kafka_cluster_client_authentication' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterClientAuthenticationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterClientAuthenticationProperty"], result)
 
     @builtins.property
     def kafka_cluster_encryption_in_transit(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterEncryptionInTransitProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterEncryptionInTransitProperty"]:
         '''Details of encryption in transit to the Apache Kafka cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-kafkaclusterencryptionintransit
         '''
         result = self._values.get("kafka_cluster_encryption_in_transit")
         assert result is not None, "Required property 'kafka_cluster_encryption_in_transit' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.KafkaClusterEncryptionInTransitProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.KafkaClusterEncryptionInTransitProperty"], result)
 
     @builtins.property
     def kafka_connect_version(self) -> builtins.str:
@@ -2199,7 +2201,7 @@ class CfnConnectorProps:
     @builtins.property
     def plugins(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnector.PluginProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.PluginProperty"]]]:
         '''Specifies which plugin to use for the connector.
 
         You must specify a single-element list. Amazon MSK Connect does not currently support specifying multiple plugins.
@@ -2208,7 +2210,7 @@ class CfnConnectorProps:
         '''
         result = self._values.get("plugins")
         assert result is not None, "Required property 'plugins' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConnector.PluginProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.PluginProperty"]]], result)
 
     @builtins.property
     def service_execution_role_arn(self) -> builtins.str:
@@ -2232,13 +2234,13 @@ class CfnConnectorProps:
     @builtins.property
     def log_delivery(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LogDeliveryProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LogDeliveryProperty"]]:
         '''The settings for delivering connector logs to Amazon CloudWatch Logs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-logdelivery
         '''
         result = self._values.get("log_delivery")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LogDeliveryProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LogDeliveryProperty"]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
@@ -2252,24 +2254,24 @@ class CfnConnectorProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def worker_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerConfigurationProperty"]]:
         '''The worker configurations that are in use with the connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-connector.html#cfn-kafkaconnect-connector-workerconfiguration
         '''
         result = self._values.get("worker_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.WorkerConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.WorkerConfigurationProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2283,9 +2285,9 @@ class CfnConnectorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ICustomPluginRef_ddeca45d, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kafkaconnect_d70626fa.ICustomPluginRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCustomPlugin(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kafkaconnect.CfnCustomPlugin",
 ):
@@ -2330,10 +2332,10 @@ class CfnCustomPlugin(
         id: builtins.str,
         *,
         content_type: builtins.str,
-        location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomPlugin.CustomPluginLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomPlugin.CustomPluginLocationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KafkaConnect::CustomPlugin``.
 
@@ -2346,7 +2348,7 @@ class CfnCustomPlugin(
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c82cbd22c9261a35dcdabc1becaf63f49b9257f7d5508ee8aa43d6a285cf574)
+            type_hints = cached_type_hints(_typecheckingstub__6c82cbd22c9261a35dcdabc1becaf63f49b9257f7d5508ee8aa43d6a285cf574)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCustomPluginProps(
@@ -2363,13 +2365,13 @@ class CfnCustomPlugin(
     @builtins.classmethod
     def arn_for_custom_plugin(
         cls,
-        resource: "_ICustomPluginRef_ddeca45d",
+        resource: "_aws_kafkaconnect_d70626fa.ICustomPluginRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeeb6c50c961bd89c3629b90ffb13003ce789a5d4572fff826a635317a6840ba)
+            type_hints = cached_type_hints(_typecheckingstub__eeeb6c50c961bd89c3629b90ffb13003ce789a5d4572fff826a635317a6840ba)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomPlugin", [resource]))
 
@@ -2381,18 +2383,18 @@ class CfnCustomPlugin(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9ccf23482916231d027aa555703e81d949ebaefa1483022c7dcd223bd959b1e)
+            type_hints = cached_type_hints(_typecheckingstub__c9ccf23482916231d027aa555703e81d949ebaefa1483022c7dcd223bd959b1e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomPlugin", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2de4a61cefe6c2d25a1cb343ddd4a22e10b259b61229c873a373b2fa9d057114)
+            type_hints = cached_type_hints(_typecheckingstub__2de4a61cefe6c2d25a1cb343ddd4a22e10b259b61229c873a373b2fa9d057114)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2405,7 +2407,7 @@ class CfnCustomPlugin(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f576b3a446b38f6f20978c3517504ba7babed66f64bc5fb21b1c950bc4a6872a)
+            type_hints = cached_type_hints(_typecheckingstub__f576b3a446b38f6f20978c3517504ba7babed66f64bc5fb21b1c950bc4a6872a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2426,12 +2428,12 @@ class CfnCustomPlugin(
 
     @builtins.property
     @jsii.member(jsii_name="attrFileDescription")
-    def attr_file_description(self) -> "_IResolvable_da3f097b":
+    def attr_file_description(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Details about the custom plugin file.
 
         :cloudformationAttribute: FileDescription
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrFileDescription"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFileDescription"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRevision")
@@ -2444,9 +2446,9 @@ class CfnCustomPlugin(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2460,9 +2462,9 @@ class CfnCustomPlugin(
 
     @builtins.property
     @jsii.member(jsii_name="customPluginRef")
-    def custom_plugin_ref(self) -> "_CustomPluginReference_944d1765":
+    def custom_plugin_ref(self) -> "_aws_kafkaconnect_d70626fa.CustomPluginReference":
         '''A reference to a CustomPlugin resource.'''
-        return typing.cast("_CustomPluginReference_944d1765", jsii.get(self, "customPluginRef"))
+        return typing.cast("_aws_kafkaconnect_d70626fa.CustomPluginReference", jsii.get(self, "customPluginRef"))
 
     @builtins.property
     @jsii.member(jsii_name="contentType")
@@ -2473,7 +2475,7 @@ class CfnCustomPlugin(
     @content_type.setter
     def content_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba10e1ed6d2bc46a1ed1d1fe0ea02869794128cfcb6ebd5cadbefe02bc0a548f)
+            type_hints = cached_type_hints(_typecheckingstub__ba10e1ed6d2bc46a1ed1d1fe0ea02869794128cfcb6ebd5cadbefe02bc0a548f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contentType", value) # pyright: ignore[reportArgumentType]
 
@@ -2481,17 +2483,17 @@ class CfnCustomPlugin(
     @jsii.member(jsii_name="location")
     def location(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.CustomPluginLocationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.CustomPluginLocationProperty"]:
         '''Information about the location of the custom plugin.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.CustomPluginLocationProperty"], jsii.get(self, "location"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.CustomPluginLocationProperty"], jsii.get(self, "location"))
 
     @location.setter
     def location(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.CustomPluginLocationProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.CustomPluginLocationProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dc28b9198145db094f79802e21f70587ba9ea39d8bf86eecd4baa600f164d5b)
+            type_hints = cached_type_hints(_typecheckingstub__7dc28b9198145db094f79802e21f70587ba9ea39d8bf86eecd4baa600f164d5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
 
@@ -2504,7 +2506,7 @@ class CfnCustomPlugin(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22b7cdbcdbf1c6aca15574793b79bc5bcd1b238c5d20012e24075b2de3c3e1f5)
+            type_hints = cached_type_hints(_typecheckingstub__22b7cdbcdbf1c6aca15574793b79bc5bcd1b238c5d20012e24075b2de3c3e1f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -2517,20 +2519,23 @@ class CfnCustomPlugin(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48e19fd5c93da0b6a93cdfdf44392a652cad52a2c961aef8c3e0a76eff5052e0)
+            type_hints = cached_type_hints(_typecheckingstub__48e19fd5c93da0b6a93cdfdf44392a652cad52a2c961aef8c3e0a76eff5052e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11b359e6a300e42bfcb9aa594841d75ad92accb911de61cc64790b7fc061f9fd)
+            type_hints = cached_type_hints(_typecheckingstub__11b359e6a300e42bfcb9aa594841d75ad92accb911de61cc64790b7fc061f9fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -2566,7 +2571,7 @@ class CfnCustomPlugin(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e3f77f7d7b096911e70040b0039d61af28b26c9bc89fb1faf76b0717d7c9e18b)
+                type_hints = cached_type_hints(_typecheckingstub__e3f77f7d7b096911e70040b0039d61af28b26c9bc89fb1faf76b0717d7c9e18b)
                 check_type(argname="argument file_md5", value=file_md5, expected_type=type_hints["file_md5"])
                 check_type(argname="argument file_size", value=file_size, expected_type=type_hints["file_size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2617,7 +2622,7 @@ class CfnCustomPlugin(
         def __init__(
             self,
             *,
-            s3_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomPlugin.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomPlugin.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Information about the location of a custom plugin.
 
@@ -2643,7 +2648,7 @@ class CfnCustomPlugin(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__63bbd79857b9bcc2770666f84b8116fcd6735c81fd0e1e465634b4002d175383)
+                type_hints = cached_type_hints(_typecheckingstub__63bbd79857b9bcc2770666f84b8116fcd6735c81fd0e1e465634b4002d175383)
                 check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "s3_location": s3_location,
@@ -2652,14 +2657,14 @@ class CfnCustomPlugin(
         @builtins.property
         def s3_location(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.S3LocationProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.S3LocationProperty"]:
             '''The S3 bucket Amazon Resource Name (ARN), file key, and object version of the plugin file stored in Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-customplugin-custompluginlocation.html#cfn-kafkaconnect-customplugin-custompluginlocation-s3location
             '''
             result = self._values.get("s3_location")
             assert result is not None, "Required property 's3_location' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.S3LocationProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.S3LocationProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2713,7 +2718,7 @@ class CfnCustomPlugin(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__781a268ba9bfa781e533379ca4a5047660328871695af7ae3feb962865170db2)
+                type_hints = cached_type_hints(_typecheckingstub__781a268ba9bfa781e533379ca4a5047660328871695af7ae3feb962865170db2)
                 check_type(argname="argument bucket_arn", value=bucket_arn, expected_type=type_hints["bucket_arn"])
                 check_type(argname="argument file_key", value=file_key, expected_type=type_hints["file_key"])
                 check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
@@ -2781,10 +2786,10 @@ class CfnCustomPluginProps:
         self,
         *,
         content_type: builtins.str,
-        location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCustomPlugin.CustomPluginLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCustomPlugin.CustomPluginLocationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCustomPlugin``.
 
@@ -2826,7 +2831,7 @@ class CfnCustomPluginProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff983745d275d6d3a1389c6b1984a735ff1815dde7d1308c56b56268157c0bac)
+            type_hints = cached_type_hints(_typecheckingstub__ff983745d275d6d3a1389c6b1984a735ff1815dde7d1308c56b56268157c0bac)
             check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2855,14 +2860,14 @@ class CfnCustomPluginProps:
     @builtins.property
     def location(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.CustomPluginLocationProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.CustomPluginLocationProperty"]:
         '''Information about the location of the custom plugin.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-customplugin.html#cfn-kafkaconnect-customplugin-location
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCustomPlugin.CustomPluginLocationProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCustomPlugin.CustomPluginLocationProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -2884,13 +2889,13 @@ class CfnCustomPluginProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-customplugin.html#cfn-kafkaconnect-customplugin-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2904,9 +2909,9 @@ class CfnCustomPluginProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IWorkerConfigurationRef_7ea18433, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_kafkaconnect_d70626fa.IWorkerConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkerConfiguration(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kafkaconnect.CfnWorkerConfiguration",
 ):
@@ -2944,7 +2949,7 @@ class CfnWorkerConfiguration(
         name: builtins.str,
         properties_file_content: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::KafkaConnect::WorkerConfiguration``.
 
@@ -2956,7 +2961,7 @@ class CfnWorkerConfiguration(
         :param tags: A collection of tags associated with a resource.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b9b69a356034dd45c5e800dbc80d6a39a12c1880a5d436867eade4d8465fab4)
+            type_hints = cached_type_hints(_typecheckingstub__5b9b69a356034dd45c5e800dbc80d6a39a12c1880a5d436867eade4d8465fab4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnWorkerConfigurationProps(
@@ -2972,13 +2977,13 @@ class CfnWorkerConfiguration(
     @builtins.classmethod
     def arn_for_worker_configuration(
         cls,
-        resource: "_IWorkerConfigurationRef_7ea18433",
+        resource: "_aws_kafkaconnect_d70626fa.IWorkerConfigurationRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60f0ad67ba01edfeecae2a3d978cc4e44bdf071856117a4a3bc2d1e1355d0521)
+            type_hints = cached_type_hints(_typecheckingstub__60f0ad67ba01edfeecae2a3d978cc4e44bdf071856117a4a3bc2d1e1355d0521)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkerConfiguration", [resource]))
 
@@ -2990,18 +2995,18 @@ class CfnWorkerConfiguration(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cff24f3f5b168939a606fea6f19dc4fde9ef680f901591094e2c305ef620ec)
+            type_hints = cached_type_hints(_typecheckingstub__c8cff24f3f5b168939a606fea6f19dc4fde9ef680f901591094e2c305ef620ec)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkerConfiguration", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e9312db5b66d689fcbfe5175a48113463e0ed07e92a59d8aa13bf6e7cc2e5ba)
+            type_hints = cached_type_hints(_typecheckingstub__0e9312db5b66d689fcbfe5175a48113463e0ed07e92a59d8aa13bf6e7cc2e5ba)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -3014,7 +3019,7 @@ class CfnWorkerConfiguration(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a145561100ff01cc7ff59a55ef33e73905f7091cbb20b0211c8b6706473d8db)
+            type_hints = cached_type_hints(_typecheckingstub__8a145561100ff01cc7ff59a55ef33e73905f7091cbb20b0211c8b6706473d8db)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -3044,9 +3049,9 @@ class CfnWorkerConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3060,9 +3065,11 @@ class CfnWorkerConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="workerConfigurationRef")
-    def worker_configuration_ref(self) -> "_WorkerConfigurationReference_9e60f2c6":
+    def worker_configuration_ref(
+        self,
+    ) -> "_aws_kafkaconnect_d70626fa.WorkerConfigurationReference":
         '''A reference to a WorkerConfiguration resource.'''
-        return typing.cast("_WorkerConfigurationReference_9e60f2c6", jsii.get(self, "workerConfigurationRef"))
+        return typing.cast("_aws_kafkaconnect_d70626fa.WorkerConfigurationReference", jsii.get(self, "workerConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3073,7 +3080,7 @@ class CfnWorkerConfiguration(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc71d30a2d2b5a6b21933eb20d227cc7424b5194fb7804fa4cb3d77dd657dbb8)
+            type_hints = cached_type_hints(_typecheckingstub__dc71d30a2d2b5a6b21933eb20d227cc7424b5194fb7804fa4cb3d77dd657dbb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -3086,7 +3093,7 @@ class CfnWorkerConfiguration(
     @properties_file_content.setter
     def properties_file_content(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdac93459bf92083dd5049beb4d514f22fddfa0bd9d388dc1ef3385ce63b1af0)
+            type_hints = cached_type_hints(_typecheckingstub__cdac93459bf92083dd5049beb4d514f22fddfa0bd9d388dc1ef3385ce63b1af0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "propertiesFileContent", value) # pyright: ignore[reportArgumentType]
 
@@ -3099,20 +3106,23 @@ class CfnWorkerConfiguration(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30511563247fe50c21e1853ef081844489c75d4646bdd82b0b64165734629e02)
+            type_hints = cached_type_hints(_typecheckingstub__30511563247fe50c21e1853ef081844489c75d4646bdd82b0b64165734629e02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a36569b41baa16c75dbfb344c8382fd94b5dc82a3a87fd538c07957efff63b2)
+            type_hints = cached_type_hints(_typecheckingstub__9a36569b41baa16c75dbfb344c8382fd94b5dc82a3a87fd538c07957efff63b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -3134,7 +3144,7 @@ class CfnWorkerConfigurationProps:
         name: builtins.str,
         properties_file_content: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkerConfiguration``.
 
@@ -3166,7 +3176,7 @@ class CfnWorkerConfigurationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b5e8a900e9ebee6da2f64fb77eb98c44d23ed30e4b800a7e67486fadb71f6ae)
+            type_hints = cached_type_hints(_typecheckingstub__2b5e8a900e9ebee6da2f64fb77eb98c44d23ed30e4b800a7e67486fadb71f6ae)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument properties_file_content", value=properties_file_content, expected_type=type_hints["properties_file_content"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3210,13 +3220,13 @@ class CfnWorkerConfigurationProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A collection of tags associated with a resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kafkaconnect-workerconfiguration.html#cfn-kafkaconnect-workerconfiguration-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3245,26 +3255,26 @@ def _typecheckingstub__300d015169800cb7d305cead5c1382d5e67bfb30617c5f51d4668a050
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
-    connector_configuration: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    capacity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
+    connector_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     connector_name: builtins.str,
-    kafka_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
-    kafka_cluster_client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-    kafka_cluster_encryption_in_transit: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster_client_authentication: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster_encryption_in_transit: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]],
     kafka_connect_version: builtins.str,
-    plugins: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.PluginProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    plugins: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.PluginProperty, typing.Dict[builtins.str, typing.Any]]]]],
     service_execution_role_arn: builtins.str,
     connector_description: typing.Optional[builtins.str] = None,
-    log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_delivery: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    worker_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.WorkerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    worker_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.WorkerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f26d95c6319433bd0cbca899efddd898047f9ba311c93aee12630357d63924c8(
-    resource: _IConnectorRef_e9a5be01,
+    resource: _aws_kafkaconnect_d70626fa.IConnectorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3276,7 +3286,7 @@ def _typecheckingstub__621d7a1bebdd309eeaafc0d9409414dd3451efaa108cc38aee58f26a0
     pass
 
 def _typecheckingstub__0eb0c1ffc0dc04852e83fc99bfa9b4c62b202fe4532ee5ffc6e7aa8228f636a2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3288,13 +3298,13 @@ def _typecheckingstub__bb09bf3c15238ce83b49323b5b92307ae56d22b52e1f4faa4a9efecdf
     pass
 
 def _typecheckingstub__93190e39585ede0b426e62964acf4d1946b2270b8cdf90fd760fca16bb13e558(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnector.CapacityProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.CapacityProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__405d7e0ae6f7748331d41486bdc7f8856109d58d35c557e79a28b1b86a730e8d(
-    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3306,19 +3316,19 @@ def _typecheckingstub__5542c73b8c63853663f0c9121c83145b07f4ffbb01dcb93d19e627c86
     pass
 
 def _typecheckingstub__3fb859f7d210b463ce7d87e19c928b68134af5a207e21f3d0b913b811695dfad(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnector.KafkaClusterProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.KafkaClusterProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7859bcdf95e20025063609459542a94ce1364b2b031ffa476d5bbd530daa22c(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnector.KafkaClusterClientAuthenticationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.KafkaClusterClientAuthenticationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__431b322bcb07c1c51a8b9a735113100e17fffb620cca37b220e3b3aec73425d2(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnector.KafkaClusterEncryptionInTransitProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.KafkaClusterEncryptionInTransitProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3330,7 +3340,7 @@ def _typecheckingstub__84a647a1aefe3d2975c3f4cbdccb1be43429421c71bd6f2c868cdb7b3
     pass
 
 def _typecheckingstub__ccf2fe35d5eab3697adb8d50736b2ecb8b794ef8d48f98745b61d6534ad954b6(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConnector.PluginProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.PluginProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3348,7 +3358,7 @@ def _typecheckingstub__729e3b6e3d1046550d05c40ab52749c149a4f3f01ce2c03e0daa86cc3
     pass
 
 def _typecheckingstub__49a29da785c6c8f30f5fc4ffcb9320d7a0377e8c1032eb5ff26ba046ae554772(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnector.LogDeliveryProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.LogDeliveryProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3360,13 +3370,13 @@ def _typecheckingstub__ecb768ba8331b08dd6af43ec679bb63ca311831d677890057ea549e39
     pass
 
 def _typecheckingstub__6afece2b4589a6c48de5a35d55d9159549277f37f560c619fd1daf8392fd3534(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__17aecc33a40fa4008d52fdd6c617a4bffcf013ba695a96ef9a4694b70b03b576(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnector.WorkerConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.WorkerConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3374,7 +3384,7 @@ def _typecheckingstub__17aecc33a40fa4008d52fdd6c617a4bffcf013ba695a96ef9a4694b70
 def _typecheckingstub__444403cd6207a1a5de68bc9f8e594e52824efdb9ff844ec369a71f064a2d1dcc(
     *,
     bootstrap_servers: builtins.str,
-    vpc: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.VpcProperty, typing.Dict[builtins.str, typing.Any]]],
+    vpc: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.VpcProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3384,8 +3394,8 @@ def _typecheckingstub__a7fa0788a72b5a8759557a835e00eec9afbe34fb926c3c0b410cccf6e
     max_worker_count: jsii.Number,
     mcu_count: jsii.Number,
     min_worker_count: jsii.Number,
-    scale_in_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ScaleInPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
-    scale_out_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ScaleOutPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    scale_in_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ScaleInPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    scale_out_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ScaleOutPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     max_autoscaling_task_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3393,15 +3403,15 @@ def _typecheckingstub__a7fa0788a72b5a8759557a835e00eec9afbe34fb926c3c0b410cccf6e
 
 def _typecheckingstub__5b215f78afaf806b39553a8a9676f96dddcb2b0c3c6a8d0b8fde6902bf4f381e(
     *,
-    auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.AutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    provisioned_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ProvisionedCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_scaling: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.AutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    provisioned_capacity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ProvisionedCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ce12248bee2c36568fe0e7c8306e19879a8018f4d2f68bc94d16564982c8c14f(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     log_group: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3417,7 +3427,7 @@ def _typecheckingstub__939037365c43c9a72b3c37dadef4cee49c45d340b13988d36aec42da1
 
 def _typecheckingstub__d5d7349fb5eb5a9a9ec0860e8dad23b287cb3cd62e184b233fee93c0a26a0d51(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     delivery_stream: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3439,21 +3449,21 @@ def _typecheckingstub__0cecc14be0c2fb246e15a4608e4bdd7b9eac2e2126f98c4fff5625c81
 
 def _typecheckingstub__e45630a977bbe5bbdad20f00c55a2b6d7b863f0ebdd96b83af5d59aeeac6fda2(
     *,
-    apache_kafka_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ApacheKafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
+    apache_kafka_cluster: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ApacheKafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__24fd0806b35f57962768914d0194bea1b40b93b71c0c3dd6d6a8aad5d85e5b3d(
     *,
-    worker_log_delivery: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.WorkerLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]],
+    worker_log_delivery: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.WorkerLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__35948a4a66b01f82e5bedaf253946f464f4c86608300c9773f71dce120de9f0d(
     *,
-    custom_plugin: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CustomPluginProperty, typing.Dict[builtins.str, typing.Any]]],
+    custom_plugin: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.CustomPluginProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3468,7 +3478,7 @@ def _typecheckingstub__bf9af2fbdc2eecf97de30bc43ea6a6be8266e58490ff4a55318a2c6b1
 
 def _typecheckingstub__991b0af73117e26499c590fefbda601c1fa27a956d8ed920c29dddf6e3942d9b(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
     bucket: typing.Optional[builtins.str] = None,
     prefix: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3507,29 +3517,29 @@ def _typecheckingstub__410d90caf1544bb4b43be0646f325702b7ea82434e28ebcb544005541
 
 def _typecheckingstub__bc89e20cb6ae15c383691c63107a6550accceb0bd180b844f01270a6c026e02a(
     *,
-    cloud_watch_logs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CloudWatchLogsLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    firehose: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.FirehoseLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.S3LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cloud_watch_logs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.CloudWatchLogsLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.FirehoseLogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.S3LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__12463a17cb9c37949b260894212e085ba134c7ff0644cf3913b56f022b888c0b(
     *,
-    capacity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
-    connector_configuration: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    capacity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.CapacityProperty, typing.Dict[builtins.str, typing.Any]]],
+    connector_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
     connector_name: builtins.str,
-    kafka_cluster: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
-    kafka_cluster_client_authentication: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
-    kafka_cluster_encryption_in_transit: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster_client_authentication: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterClientAuthenticationProperty, typing.Dict[builtins.str, typing.Any]]],
+    kafka_cluster_encryption_in_transit: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.KafkaClusterEncryptionInTransitProperty, typing.Dict[builtins.str, typing.Any]]],
     kafka_connect_version: builtins.str,
-    plugins: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.PluginProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    plugins: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.PluginProperty, typing.Dict[builtins.str, typing.Any]]]]],
     service_execution_role_arn: builtins.str,
     connector_description: typing.Optional[builtins.str] = None,
-    log_delivery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_delivery: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.LogDeliveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     network_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    worker_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.WorkerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    worker_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.WorkerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3539,16 +3549,16 @@ def _typecheckingstub__6c82cbd22c9261a35dcdabc1becaf63f49b9257f7d5508ee8aa43d6a2
     id: builtins.str,
     *,
     content_type: builtins.str,
-    location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomPlugin.CustomPluginLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomPlugin.CustomPluginLocationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eeeb6c50c961bd89c3629b90ffb13003ce789a5d4572fff826a635317a6840ba(
-    resource: _ICustomPluginRef_ddeca45d,
+    resource: _aws_kafkaconnect_d70626fa.ICustomPluginRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3560,7 +3570,7 @@ def _typecheckingstub__c9ccf23482916231d027aa555703e81d949ebaefa1483022c7dcd223b
     pass
 
 def _typecheckingstub__2de4a61cefe6c2d25a1cb343ddd4a22e10b259b61229c873a373b2fa9d057114(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3578,7 +3588,7 @@ def _typecheckingstub__ba10e1ed6d2bc46a1ed1d1fe0ea02869794128cfcb6ebd5cadbefe02b
     pass
 
 def _typecheckingstub__7dc28b9198145db094f79802e21f70587ba9ea39d8bf86eecd4baa600f164d5b(
-    value: typing.Union[_IResolvable_da3f097b, CfnCustomPlugin.CustomPluginLocationProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCustomPlugin.CustomPluginLocationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3596,7 +3606,7 @@ def _typecheckingstub__48e19fd5c93da0b6a93cdfdf44392a652cad52a2c961aef8c3e0a76ef
     pass
 
 def _typecheckingstub__11b359e6a300e42bfcb9aa594841d75ad92accb911de61cc64790b7fc061f9fd(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3611,7 +3621,7 @@ def _typecheckingstub__e3f77f7d7b096911e70040b0039d61af28b26c9bc89fb1faf76b0717d
 
 def _typecheckingstub__63bbd79857b9bcc2770666f84b8116fcd6735c81fd0e1e465634b4002d175383(
     *,
-    s3_location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomPlugin.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomPlugin.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3628,10 +3638,10 @@ def _typecheckingstub__781a268ba9bfa781e533379ca4a5047660328871695af7ae3feb96286
 def _typecheckingstub__ff983745d275d6d3a1389c6b1984a735ff1815dde7d1308c56b56268157c0bac(
     *,
     content_type: builtins.str,
-    location: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCustomPlugin.CustomPluginLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCustomPlugin.CustomPluginLocationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3643,13 +3653,13 @@ def _typecheckingstub__5b9b69a356034dd45c5e800dbc80d6a39a12c1880a5d436867eade4d8
     name: builtins.str,
     properties_file_content: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__60f0ad67ba01edfeecae2a3d978cc4e44bdf071856117a4a3bc2d1e1355d0521(
-    resource: _IWorkerConfigurationRef_7ea18433,
+    resource: _aws_kafkaconnect_d70626fa.IWorkerConfigurationRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3661,7 +3671,7 @@ def _typecheckingstub__c8cff24f3f5b168939a606fea6f19dc4fde9ef680f901591094e2c305
     pass
 
 def _typecheckingstub__0e9312db5b66d689fcbfe5175a48113463e0ed07e92a59d8aa13bf6e7cc2e5ba(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3691,7 +3701,7 @@ def _typecheckingstub__30511563247fe50c21e1853ef081844489c75d4646bdd82b0b6416573
     pass
 
 def _typecheckingstub__9a36569b41baa16c75dbfb344c8382fd94b5dc82a3a87fd538c07957efff63b2(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3701,7 +3711,7 @@ def _typecheckingstub__2b5e8a900e9ebee6da2f64fb77eb98c44d23ed30e4b800a7e67486fad
     name: builtins.str,
     properties_file_content: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

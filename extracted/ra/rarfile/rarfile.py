@@ -92,7 +92,7 @@ class AES_CBC_Decrypt:
             self.decrypt = ciph.decryptor().update
 
 
-__version__ = "4.3"
+__version__ = "4.4"
 
 # export only interesting items
 __all__ = ["get_rar_version", "is_rarfile", "is_rarfile_sfx", "RarInfo", "RarFile", "RarExtFile"]
@@ -193,6 +193,14 @@ RAR_ENDARC_VOLNR = 0x0008
 # flags common to all blocks
 RAR_SKIP_IF_UNKNOWN = 0x4000
 RAR_LONG_BLOCK = 0x8000
+
+# Subtypes for RAR_BLOCK_OLD_SUB
+RAR_OLD_SUB_OS2 = 0x100
+RAR_OLD_SUB_UNIX = 0x101
+RAR_OLD_SUB_MAC = 0x102
+RAR_OLD_SUB_BEOS = 0x103
+RAR_OLD_SUB_NT = 0x104
+RAR_OLD_SUB_STREAM = 0x105
 
 # Host OS types
 RAR_OS_MSDOS = 0    #: MSDOS (only in RAR3)
@@ -337,6 +345,7 @@ def _find_sfx_header(xfile):
                 if curdata[pos:pos + len(RAR5_ID)] == RAR5_ID:
                     return RAR_V5, pos
                 findpos = pos + len(sig)
+        fd.restore_pos()
     return 0, 0
 
 
@@ -350,6 +359,7 @@ def get_rar_version(xfile):
     """
     with XFile(xfile) as fd:
         buf = fd.read(len(RAR5_ID))
+        fd.restore_pos()
     if buf.startswith(RAR_ID):
         return RAR_V3
     elif buf.startswith(RAR5_ID):
@@ -1413,6 +1423,8 @@ class Rar3Info(RarInfo):
     endarc_datacrc = None
     endarc_volnr = None
 
+    old_sub_type = None
+
     def _must_disable_hack(self):
         if self.type == RAR_BLOCK_FILE:
             if self.flags & RAR_FILE_PASSWORD:
@@ -1523,6 +1535,16 @@ class RAR3Parser(CommonParser):
         elif h.type == RAR_BLOCK_OLD_EXTRA:
             pos += 7
             crc_pos = pos
+        elif h.type == RAR_BLOCK_OLD_SUB:
+            pos = self._parse_old_subblock(h, hdata, pos)
+
+            # these types do not have their own data CRC,
+            # so data was included in header CRC.
+            if h.old_sub_type in (RAR_OLD_SUB_UNIX, RAR_OLD_SUB_MAC):
+                # skip CRC check, it requires to read data part
+                return h
+
+            crc_pos = h.header_size
         elif h.type == RAR_BLOCK_ENDARC:
             if h.flags & RAR_ENDARC_DATACRC:
                 h.endarc_datacrc, pos = load_le32(hdata, pos)
@@ -1533,12 +1555,8 @@ class RAR3Parser(CommonParser):
         else:
             crc_pos = h.header_size
 
-        # check crc
-        if h.type == RAR_BLOCK_OLD_SUB:
-            crcdat = hdata[2:] + fd.read(h.add_size)
-        else:
-            crcdat = hdata[2:crc_pos]
-
+        # calculate crc
+        crcdat = hdata[2:crc_pos]
         calc_crc = crc32(crcdat) & 0xFFFF
 
         # return good header
@@ -1615,6 +1633,12 @@ class RAR3Parser(CommonParser):
         else:
             h.mtime = h.atime = h.ctime = h.arctime = None
 
+        return pos
+
+    def _parse_old_subblock(self, h, hdata, pos):
+        """Parse RAR2 subblock
+        """
+        h.old_sub_type, _reserved = S_OLD_SUBBLOCK_HDR.unpack_from(hdata, pos)
         return pos
 
     def _parse_subblocks(self, h, hdata, pos):
@@ -2047,6 +2071,8 @@ class RAR5Parser(CommonParser):
             raise RarWrongPassword()
 
     def _parse_encryption_block(self, h, hdata, pos):
+        self._hdrenc_main = h
+        self._needs_password = True
         h.encryption_algo, pos = load_vint(hdata, pos)
         h.encryption_flags, pos = load_vint(hdata, pos)
         h.encryption_kdf_count, pos = load_byte(hdata, pos)
@@ -2057,7 +2083,6 @@ class RAR5Parser(CommonParser):
             raise BadRarFile("Unsupported header encryption cipher")
         if h.encryption_check_value and self._password:
             self._check_password(h.encryption_check_value, h.encryption_kdf_count, h.encryption_salt)
-        self._hdrenc_main = h
         return h
 
     def _process_file_extra(self, h, xdata):
@@ -2716,16 +2741,26 @@ class HeaderDecrypt:
 class XFile:
     """Input may be filename or file object.
     """
-    __slots__ = ("_fd", "_need_close")
+    __slots__ = ("_fd", "_need_close", "_initial_pos")
 
     def __init__(self, xfile, bufsize=1024):
         if is_filelike(xfile):
+            self._initial_pos = xfile.tell()
             self._need_close = False
             self._fd = xfile
             self._fd.seek(0)
         else:
+            self._initial_pos = None
             self._need_close = True
             self._fd = open(xfile, "rb", bufsize)
+
+    def restore_pos(self):
+        if self._initial_pos is None:
+            return
+        try:
+            self._fd.seek(self._initial_pos)
+        except:
+            pass
 
     def read(self, n=None):
         """Read from file."""
@@ -2910,7 +2945,7 @@ S_BYTE = Struct("<B")
 S_BLK_HDR = Struct("<HBHH")
 S_FILE_HDR = Struct("<LLBLLBBHL")
 S_COMMENT_HDR = Struct("<HBBH")
-
+S_OLD_SUBBLOCK_HDR = Struct("<HB")
 
 def load_vint(buf, pos):
     """Load RAR5 variable-size int."""

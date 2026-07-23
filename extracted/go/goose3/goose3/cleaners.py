@@ -211,7 +211,7 @@ class DocumentCleaner:
                         nodes_to_remove.append(next_sibling_node)
                         self.parser.set_attribute(next_sibling_node, attr="grv-usedalready", value="yes")
                         next_sib = self.parser.next_sibling(next_sibling_node)
-                        previous_sibling_node = next_sib if next_sib is not None else None
+                        next_sibling_node = next_sib if next_sib is not None else None
 
             # otherwise
             else:

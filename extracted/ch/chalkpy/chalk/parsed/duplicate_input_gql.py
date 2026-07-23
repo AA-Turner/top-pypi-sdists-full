@@ -323,6 +323,7 @@ class UpsertNamedQueryGQL:
     sourceLineStart: Optional[int] = None
     sourceLineEnd: Optional[int] = None
     validPlanNotRequired: Optional[bool] = True
+    resourceGroups: Optional[Dict[str, List[str]]] = None
 
 
 @dataclasses_json.dataclass_json

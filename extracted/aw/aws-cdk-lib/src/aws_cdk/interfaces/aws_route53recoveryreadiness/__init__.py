@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class CellReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e358b8991d80ff68622d3a3d32622a01159eebcb8a6c0f34ffa360e940931bce)
+            type_hints = cached_type_hints(_typecheckingstub__e358b8991d80ff68622d3a3d32622a01159eebcb8a6c0f34ffa360e940931bce)
             check_type(argname="argument cell_arn", value=cell_arn, expected_type=type_hints["cell_arn"])
             check_type(argname="argument cell_name", value=cell_name, expected_type=type_hints["cell_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -99,7 +103,7 @@ class CellReference:
 )
 class ICellRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cell.
@@ -119,7 +123,7 @@ class ICellRef(
 
 class _ICellRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cell.
 
@@ -146,7 +150,7 @@ typing.cast(typing.Any, ICellRef).__jsii_proxy_class__ = lambda : _ICellRefProxy
 )
 class IReadinessCheckRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReadinessCheck.
@@ -166,7 +170,7 @@ class IReadinessCheckRef(
 
 class _IReadinessCheckRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReadinessCheck.
 
@@ -193,7 +197,7 @@ typing.cast(typing.Any, IReadinessCheckRef).__jsii_proxy_class__ = lambda : _IRe
 )
 class IRecoveryGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecoveryGroup.
@@ -213,7 +217,7 @@ class IRecoveryGroupRef(
 
 class _IRecoveryGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecoveryGroup.
 
@@ -240,7 +244,7 @@ typing.cast(typing.Any, IRecoveryGroupRef).__jsii_proxy_class__ = lambda : _IRec
 )
 class IResourceSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceSet.
@@ -260,7 +264,7 @@ class IResourceSetRef(
 
 class _IResourceSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceSet.
 
@@ -316,7 +320,7 @@ class ReadinessCheckReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bececdbdce22a5416f98f7c557e0fa4672dfae0f84db728756dacc691f3616b2)
+            type_hints = cached_type_hints(_typecheckingstub__bececdbdce22a5416f98f7c557e0fa4672dfae0f84db728756dacc691f3616b2)
             check_type(argname="argument readiness_check_arn", value=readiness_check_arn, expected_type=type_hints["readiness_check_arn"])
             check_type(argname="argument readiness_check_name", value=readiness_check_name, expected_type=type_hints["readiness_check_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -384,7 +388,7 @@ class RecoveryGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae4f9cd7795ce2da436403dc23261ff1b1339f52c7afd8110fd87e2194ebcc8b)
+            type_hints = cached_type_hints(_typecheckingstub__ae4f9cd7795ce2da436403dc23261ff1b1339f52c7afd8110fd87e2194ebcc8b)
             check_type(argname="argument recovery_group_arn", value=recovery_group_arn, expected_type=type_hints["recovery_group_arn"])
             check_type(argname="argument recovery_group_name", value=recovery_group_name, expected_type=type_hints["recovery_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -452,7 +456,7 @@ class ResourceSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__901ceac13d97a7fd218012e01dbcce75535cff01938b14ed8d55fab25c745760)
+            type_hints = cached_type_hints(_typecheckingstub__901ceac13d97a7fd218012e01dbcce75535cff01938b14ed8d55fab25c745760)
             check_type(argname="argument resource_set_arn", value=resource_set_arn, expected_type=type_hints["resource_set_arn"])
             check_type(argname="argument resource_set_name", value=resource_set_name, expected_type=type_hints["resource_set_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

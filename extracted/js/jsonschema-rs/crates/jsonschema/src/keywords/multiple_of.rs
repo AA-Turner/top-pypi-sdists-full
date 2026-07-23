@@ -6,8 +6,10 @@ use crate::{
     paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
     validator::{Validate, ValidationContext},
+    Json, JsonNode,
 };
 use serde_json::{Map, Value};
+use std::borrow::Cow;
 
 pub(crate) struct MultipleOfFloatValidator {
     multiple_of: f64,
@@ -18,11 +20,11 @@ pub(crate) struct MultipleOfFloatValidator {
 
 impl MultipleOfFloatValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
+    pub(crate) fn compile<'a, F: Json>(
         multiple_of: f64,
         #[cfg(feature = "arbitrary-precision")] original_value: &serde_json::Number,
         location: Location,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(MultipleOfFloatValidator {
             multiple_of,
             #[cfg(feature = "arbitrary-precision")]
@@ -32,10 +34,10 @@ impl MultipleOfFloatValidator {
     }
 }
 
-impl Validate for MultipleOfFloatValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Number(item) = instance {
-            numeric::is_multiple_of_float(item, self.multiple_of)
+impl<F: Json> Validate<F> for MultipleOfFloatValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_number() {
+            numeric::is_multiple_of_float(&item, self.multiple_of)
         } else {
             true
         }
@@ -43,19 +45,19 @@ impl Validate for MultipleOfFloatValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if !self.is_valid(instance, ctx) {
+        if !Validate::<F>::is_valid(self, instance, ctx) {
             #[cfg(feature = "arbitrary-precision")]
             {
                 return Err(ValidationError::multiple_of(
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     Value::Number(self.original_value.clone()),
                 ));
             }
@@ -65,7 +67,7 @@ impl Validate for MultipleOfFloatValidator {
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     self.multiple_of,
                 ));
             }
@@ -83,11 +85,11 @@ pub(crate) struct MultipleOfIntegerValidator {
 
 impl MultipleOfIntegerValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
+    pub(crate) fn compile<'a, F: Json>(
         multiple_of: f64,
         #[cfg(feature = "arbitrary-precision")] original_value: &serde_json::Number,
         location: Location,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(MultipleOfIntegerValidator {
             multiple_of,
             #[cfg(feature = "arbitrary-precision")]
@@ -97,10 +99,10 @@ impl MultipleOfIntegerValidator {
     }
 }
 
-impl Validate for MultipleOfIntegerValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
-        if let Value::Number(item) = instance {
-            numeric::is_multiple_of_integer(item, self.multiple_of)
+impl<F: Json> Validate<F> for MultipleOfIntegerValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
+        if let Some(item) = instance.as_number() {
+            numeric::is_multiple_of_integer(&item, self.multiple_of)
         } else {
             true
         }
@@ -108,19 +110,19 @@ impl Validate for MultipleOfIntegerValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if !self.is_valid(instance, ctx) {
+        if !Validate::<F>::is_valid(self, instance, ctx) {
             #[cfg(feature = "arbitrary-precision")]
             {
                 return Err(ValidationError::multiple_of(
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     Value::Number(self.original_value.clone()),
                 ));
             }
@@ -130,7 +132,7 @@ impl Validate for MultipleOfIntegerValidator {
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance,
+                    instance.to_value(),
                     self.multiple_of,
                 ));
             }
@@ -149,11 +151,11 @@ pub(crate) struct MultipleOfBigIntValidator {
 #[cfg(feature = "arbitrary-precision")]
 impl MultipleOfBigIntValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
+    pub(crate) fn compile<'a, F: Json>(
         multiple_of: num_bigint::BigInt,
         original_value: &serde_json::Number,
         location: Location,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(MultipleOfBigIntValidator {
             multiple_of,
             original_value: original_value.clone(),
@@ -163,12 +165,12 @@ impl MultipleOfBigIntValidator {
 }
 
 #[cfg(feature = "arbitrary-precision")]
-impl Validate for MultipleOfBigIntValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for MultipleOfBigIntValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         use num_bigint::BigInt;
         use num_traits::One;
-        if let Value::Number(item) = instance {
-            if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(item) {
+        if let Some(item) = instance.as_number() {
+            if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(&item) {
                 numeric::bignum::is_multiple_of_bigint(&instance_bigint, &self.multiple_of)
             } else if let Some(v) = item.as_u64() {
                 let v_bigint = BigInt::from(v);
@@ -198,7 +200,7 @@ impl Validate for MultipleOfBigIntValidator {
                 // written in plain decimal form with more precision than f64 can carry. We attempt to
                 // parse it as an exact BigFraction and only accept it when the denominator is 1 so we
                 // can safely convert it to BigInt before running the modulo check below.
-                if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(item) {
+                if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(&item) {
                     if instance_bigfrac.denom().is_none_or(One::is_one) {
                         if let Some(numer) = instance_bigfrac.numer() {
                             let instance_bigint = BigInt::from(numer.clone());
@@ -220,17 +222,17 @@ impl Validate for MultipleOfBigIntValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if !self.is_valid(instance, ctx) {
+        if !Validate::<F>::is_valid(self, instance, ctx) {
             return Err(ValidationError::multiple_of(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 Value::Number(self.original_value.clone()),
             ));
         }
@@ -248,11 +250,11 @@ pub(crate) struct MultipleOfBigFracValidator {
 #[cfg(feature = "arbitrary-precision")]
 impl MultipleOfBigFracValidator {
     #[inline]
-    pub(crate) fn compile<'a>(
+    pub(crate) fn compile<'a, F: Json>(
         multiple_of: fraction::BigFraction,
         original_value: &serde_json::Number,
         location: Location,
-    ) -> CompilationResult<'a> {
+    ) -> CompilationResult<'a, F> {
         Ok(Box::new(MultipleOfBigFracValidator {
             multiple_of,
             original_value: original_value.clone(),
@@ -262,14 +264,14 @@ impl MultipleOfBigFracValidator {
 }
 
 #[cfg(feature = "arbitrary-precision")]
-impl Validate for MultipleOfBigFracValidator {
-    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
+impl<F: Json> Validate<F> for MultipleOfBigFracValidator {
+    fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
         use num_traits::ToPrimitive;
-        if let Value::Number(item) = instance {
+        if let Some(item) = instance.as_number() {
             // Try to parse instance as BigFraction for exact precision
-            if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(item) {
+            if let Some(instance_bigfrac) = numeric::bignum::try_parse_bigfraction(&item) {
                 numeric::bignum::is_multiple_of_bigfrac(&instance_bigfrac, &self.multiple_of)
-            } else if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(item) {
+            } else if let Some(instance_bigint) = numeric::bignum::try_parse_bigint(&item) {
                 let value_frac = fraction::BigFraction::from(instance_bigint);
                 numeric::bignum::is_multiple_of_bigfrac(&value_frac, &self.multiple_of)
             } else if let Some(v) = item.as_u64() {
@@ -281,7 +283,7 @@ impl Validate for MultipleOfBigFracValidator {
             } else {
                 // Fall back to the regular float-based validation since precision is already lost
                 let multiple_f64 = self.multiple_of.to_f64().unwrap_or(f64::INFINITY);
-                numeric::is_multiple_of_float(item, multiple_f64)
+                numeric::is_multiple_of_float(&item, multiple_f64)
             }
         } else {
             true
@@ -290,17 +292,17 @@ impl Validate for MultipleOfBigFracValidator {
 
     fn validate<'i>(
         &self,
-        instance: &'i Value,
+        instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if !self.is_valid(instance, ctx) {
+        if !Validate::<F>::is_valid(self, instance, ctx) {
             return Err(ValidationError::multiple_of(
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance,
+                instance.to_value(),
                 Value::Number(self.original_value.clone()),
             ));
         }
@@ -309,11 +311,11 @@ impl Validate for MultipleOfBigFracValidator {
 }
 
 #[inline]
-pub(crate) fn compile<'a>(
-    ctx: &compiler::Context,
+pub(crate) fn compile<'a, F: Json>(
+    ctx: &compiler::Context<F>,
     _: &'a Map<String, Value>,
     schema: &'a Value,
-) -> Option<CompilationResult<'a>> {
+) -> Option<CompilationResult<'a, F>> {
     if let Value::Number(multiple_of) = schema {
         let location = ctx.location().join("multipleOf");
 
@@ -375,7 +377,7 @@ pub(crate) fn compile<'a>(
             location.clone(),
             location,
             Location::new(),
-            schema,
+            Cow::Borrowed(schema),
             JsonType::Number,
         )))
     }
@@ -851,6 +853,32 @@ mod tests {
         fn schema_compilation_edge_cases(schema_json: &str) {
             let schema = parse_json(schema_json);
             assert!(crate::validator_for(&schema).is_ok());
+        }
+
+        const HUGE_POSITIVE: &str = "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.5";
+        const HUGE_NEGATIVE: &str = "-99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.5";
+
+        #[test_case(r#"{"minimum": 0}"#, HUGE_POSITIVE, true ; "huge_positive_vs_minimum_0")]
+        #[test_case(r#"{"minimum": 0}"#, HUGE_NEGATIVE, false ; "huge_negative_vs_minimum_0")]
+        #[test_case(r#"{"maximum": 1000}"#, HUGE_POSITIVE, false ; "huge_positive_vs_maximum_1000")]
+        #[test_case(r#"{"maximum": 0}"#, HUGE_NEGATIVE, true ; "huge_negative_vs_maximum_0")]
+        #[test_case(r#"{"exclusiveMinimum": 0}"#, HUGE_POSITIVE, true ; "huge_positive_vs_exclusive_minimum_0")]
+        #[test_case(r#"{"exclusiveMinimum": 0}"#, HUGE_NEGATIVE, false ; "huge_negative_vs_exclusive_minimum_0")]
+        #[test_case(r#"{"exclusiveMaximum": 1000}"#, HUGE_POSITIVE, false ; "huge_positive_vs_exclusive_maximum_1000")]
+        #[test_case(r#"{"exclusiveMaximum": 0}"#, HUGE_NEGATIVE, true ; "huge_negative_vs_exclusive_maximum_0")]
+        #[test_case(r#"{"minimum": -1000, "maximum": 1000}"#, HUGE_POSITIVE, false ; "huge_positive_outside_range")]
+        #[test_case(r#"{"minimum": -1000, "maximum": 1000}"#, HUGE_NEGATIVE, false ; "huge_negative_outside_range")]
+        #[test_case(r#"{"multipleOf": 0.5}"#, HUGE_POSITIVE, true ; "huge_positive_multiple_of_0_5")]
+        #[test_case(r#"{"multipleOf": 0.5}"#, HUGE_NEGATIVE, true ; "huge_negative_multiple_of_0_5")]
+        #[test_case(r#"{"multipleOf": 2}"#, HUGE_POSITIVE, false ; "huge_positive_not_multiple_of_2")]
+        fn huge_decimal_validation(schema_json: &str, instance_value: &str, expected_valid: bool) {
+            let schema = parse_json(schema_json);
+            let instance = parse_json(instance_value);
+            if expected_valid {
+                tests_util::is_valid(&schema, &instance);
+            } else {
+                tests_util::is_not_valid(&schema, &instance);
+            }
         }
     }
 }

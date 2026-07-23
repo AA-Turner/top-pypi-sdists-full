@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class AssetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d16e590cda98c290cd0546b98002ac00b9f570b972f31368b1e34cdf51fd9489)
+            type_hints = cached_type_hints(_typecheckingstub__d16e590cda98c290cd0546b98002ac00b9f570b972f31368b1e34cdf51fd9489)
             check_type(argname="argument asset_arn", value=asset_arn, expected_type=type_hints["asset_arn"])
             check_type(argname="argument asset_id", value=asset_id, expected_type=type_hints["asset_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -120,7 +124,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4efb0079b37a3c8b5a216527c02be37850310ee32dcdaab1eea8bd805bfd63bb)
+            type_hints = cached_type_hints(_typecheckingstub__4efb0079b37a3c8b5a216527c02be37850310ee32dcdaab1eea8bd805bfd63bb)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
             check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -157,7 +161,7 @@ class ChannelReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IAssetRef")
 class IAssetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Asset.
@@ -177,7 +181,7 @@ class IAssetRef(
 
 class _IAssetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Asset.
 
@@ -202,7 +206,7 @@ typing.cast(typing.Any, IAssetRef).__jsii_proxy_class__ = lambda : _IAssetRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -222,7 +226,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -247,7 +251,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IOriginEndpointRef")
 class IOriginEndpointRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginEndpoint.
@@ -267,7 +271,7 @@ class IOriginEndpointRef(
 
 class _IOriginEndpointRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a OriginEndpoint.
 
@@ -294,7 +298,7 @@ typing.cast(typing.Any, IOriginEndpointRef).__jsii_proxy_class__ = lambda : _IOr
 )
 class IPackagingConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PackagingConfiguration.
@@ -314,7 +318,7 @@ class IPackagingConfigurationRef(
 
 class _IPackagingConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PackagingConfiguration.
 
@@ -339,7 +343,7 @@ typing.cast(typing.Any, IPackagingConfigurationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IPackagingGroupRef")
 class IPackagingGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PackagingGroup.
@@ -359,7 +363,7 @@ class IPackagingGroupRef(
 
 class _IPackagingGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PackagingGroup.
 
@@ -415,7 +419,7 @@ class OriginEndpointReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05596b0d26f4975f16a02840836b7495eb684cdb2459f99fc07731a186e740f0)
+            type_hints = cached_type_hints(_typecheckingstub__05596b0d26f4975f16a02840836b7495eb684cdb2459f99fc07731a186e740f0)
             check_type(argname="argument origin_endpoint_arn", value=origin_endpoint_arn, expected_type=type_hints["origin_endpoint_arn"])
             check_type(argname="argument origin_endpoint_id", value=origin_endpoint_id, expected_type=type_hints["origin_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -483,7 +487,7 @@ class PackagingConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b63d44ab2cace3a16defbd479b253699c1c6df5d1a5173bdccafc9f0bcedce0)
+            type_hints = cached_type_hints(_typecheckingstub__5b63d44ab2cace3a16defbd479b253699c1c6df5d1a5173bdccafc9f0bcedce0)
             check_type(argname="argument packaging_configuration_arn", value=packaging_configuration_arn, expected_type=type_hints["packaging_configuration_arn"])
             check_type(argname="argument packaging_configuration_id", value=packaging_configuration_id, expected_type=type_hints["packaging_configuration_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -551,7 +555,7 @@ class PackagingGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db65eb06f9e062a8f448e531b07b218e2f86d3fb83c3032a17aad865fdb1b076)
+            type_hints = cached_type_hints(_typecheckingstub__db65eb06f9e062a8f448e531b07b218e2f86d3fb83c3032a17aad865fdb1b076)
             check_type(argname="argument packaging_group_arn", value=packaging_group_arn, expected_type=type_hints["packaging_group_arn"])
             check_type(argname="argument packaging_group_id", value=packaging_group_id, expected_type=type_hints["packaging_group_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

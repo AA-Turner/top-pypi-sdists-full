@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,39 +13,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_servicecatalog.AcceptedPortfolioShareReference",
     jsii_struct_bases=[],
-    name_mapping={"accepted_portfolio_share_id": "acceptedPortfolioShareId"},
+    name_mapping={"portfolio_id": "portfolioId"},
 )
 class AcceptedPortfolioShareReference:
-    def __init__(self, *, accepted_portfolio_share_id: builtins.str) -> None:
+    def __init__(self, *, portfolio_id: builtins.str) -> None:
         '''A reference to a AcceptedPortfolioShare resource.
 
-        :param accepted_portfolio_share_id: The Id of the AcceptedPortfolioShare resource.
+        :param portfolio_id: The PortfolioId of the AcceptedPortfolioShare resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -54,21 +58,21 @@ class AcceptedPortfolioShareReference:
             from aws_cdk.interfaces import aws_servicecatalog as interfaces_servicecatalog
             
             accepted_portfolio_share_reference = interfaces_servicecatalog.AcceptedPortfolioShareReference(
-                accepted_portfolio_share_id="acceptedPortfolioShareId"
+                portfolio_id="portfolioId"
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6326f3888119e6783b8c2f3210c345520ccc67dd5064e23514085258059f2c2)
-            check_type(argname="argument accepted_portfolio_share_id", value=accepted_portfolio_share_id, expected_type=type_hints["accepted_portfolio_share_id"])
+            type_hints = cached_type_hints(_typecheckingstub__b6326f3888119e6783b8c2f3210c345520ccc67dd5064e23514085258059f2c2)
+            check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "accepted_portfolio_share_id": accepted_portfolio_share_id,
+            "portfolio_id": portfolio_id,
         }
 
     @builtins.property
-    def accepted_portfolio_share_id(self) -> builtins.str:
-        '''The Id of the AcceptedPortfolioShare resource.'''
-        result = self._values.get("accepted_portfolio_share_id")
-        assert result is not None, "Required property 'accepted_portfolio_share_id' is missing"
+    def portfolio_id(self) -> builtins.str:
+        '''The PortfolioId of the AcceptedPortfolioShare resource.'''
+        result = self._values.get("portfolio_id")
+        assert result is not None, "Required property 'portfolio_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -107,7 +111,7 @@ class CloudFormationProductReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62967c3e411db25daf0417852c200a39e2e4dd0f789a69eec9bdab47433f04fc)
+            type_hints = cached_type_hints(_typecheckingstub__62967c3e411db25daf0417852c200a39e2e4dd0f789a69eec9bdab47433f04fc)
             check_type(argname="argument cloud_formation_product_id", value=cloud_formation_product_id, expected_type=type_hints["cloud_formation_product_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cloud_formation_product_id": cloud_formation_product_id,
@@ -156,7 +160,7 @@ class CloudFormationProvisionedProductReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b6367dc67edf9798c223a04eeb171c5fa2b7131fb4c3aa71d7434b4efd2ebdc)
+            type_hints = cached_type_hints(_typecheckingstub__5b6367dc67edf9798c223a04eeb171c5fa2b7131fb4c3aa71d7434b4efd2ebdc)
             check_type(argname="argument provisioned_product_id", value=provisioned_product_id, expected_type=type_hints["provisioned_product_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "provisioned_product_id": provisioned_product_id,
@@ -186,7 +190,7 @@ class CloudFormationProvisionedProductReference:
 )
 class IAcceptedPortfolioShareRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AcceptedPortfolioShare.
@@ -206,7 +210,7 @@ class IAcceptedPortfolioShareRef(
 
 class _IAcceptedPortfolioShareRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AcceptedPortfolioShare.
 
@@ -233,7 +237,7 @@ typing.cast(typing.Any, IAcceptedPortfolioShareRef).__jsii_proxy_class__ = lambd
 )
 class ICloudFormationProductRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFormationProduct.
@@ -253,7 +257,7 @@ class ICloudFormationProductRef(
 
 class _ICloudFormationProductRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFormationProduct.
 
@@ -280,7 +284,7 @@ typing.cast(typing.Any, ICloudFormationProductRef).__jsii_proxy_class__ = lambda
 )
 class ICloudFormationProvisionedProductRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFormationProvisionedProduct.
@@ -302,7 +306,7 @@ class ICloudFormationProvisionedProductRef(
 
 class _ICloudFormationProvisionedProductRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CloudFormationProvisionedProduct.
 
@@ -331,7 +335,7 @@ typing.cast(typing.Any, ICloudFormationProvisionedProductRef).__jsii_proxy_class
 )
 class ILaunchNotificationConstraintRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchNotificationConstraint.
@@ -353,7 +357,7 @@ class ILaunchNotificationConstraintRef(
 
 class _ILaunchNotificationConstraintRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchNotificationConstraint.
 
@@ -382,7 +386,7 @@ typing.cast(typing.Any, ILaunchNotificationConstraintRef).__jsii_proxy_class__ =
 )
 class ILaunchRoleConstraintRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchRoleConstraint.
@@ -402,7 +406,7 @@ class ILaunchRoleConstraintRef(
 
 class _ILaunchRoleConstraintRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchRoleConstraint.
 
@@ -429,7 +433,7 @@ typing.cast(typing.Any, ILaunchRoleConstraintRef).__jsii_proxy_class__ = lambda 
 )
 class ILaunchTemplateConstraintRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchTemplateConstraint.
@@ -449,7 +453,7 @@ class ILaunchTemplateConstraintRef(
 
 class _ILaunchTemplateConstraintRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LaunchTemplateConstraint.
 
@@ -476,7 +480,7 @@ typing.cast(typing.Any, ILaunchTemplateConstraintRef).__jsii_proxy_class__ = lam
 )
 class IPortfolioPrincipalAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioPrincipalAssociation.
@@ -498,7 +502,7 @@ class IPortfolioPrincipalAssociationRef(
 
 class _IPortfolioPrincipalAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioPrincipalAssociation.
 
@@ -527,7 +531,7 @@ typing.cast(typing.Any, IPortfolioPrincipalAssociationRef).__jsii_proxy_class__ 
 )
 class IPortfolioProductAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioProductAssociation.
@@ -549,7 +553,7 @@ class IPortfolioProductAssociationRef(
 
 class _IPortfolioProductAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioProductAssociation.
 
@@ -576,7 +580,7 @@ typing.cast(typing.Any, IPortfolioProductAssociationRef).__jsii_proxy_class__ = 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_servicecatalog.IPortfolioRef")
 class IPortfolioRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portfolio.
@@ -596,7 +600,7 @@ class IPortfolioRef(
 
 class _IPortfolioRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Portfolio.
 
@@ -623,7 +627,7 @@ typing.cast(typing.Any, IPortfolioRef).__jsii_proxy_class__ = lambda : _IPortfol
 )
 class IPortfolioShareRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioShare.
@@ -643,7 +647,7 @@ class IPortfolioShareRef(
 
 class _IPortfolioShareRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PortfolioShare.
 
@@ -670,7 +674,7 @@ typing.cast(typing.Any, IPortfolioShareRef).__jsii_proxy_class__ = lambda : _IPo
 )
 class IResourceUpdateConstraintRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceUpdateConstraint.
@@ -690,7 +694,7 @@ class IResourceUpdateConstraintRef(
 
 class _IResourceUpdateConstraintRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ResourceUpdateConstraint.
 
@@ -717,7 +721,7 @@ typing.cast(typing.Any, IResourceUpdateConstraintRef).__jsii_proxy_class__ = lam
 )
 class IServiceActionAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceActionAssociation.
@@ -737,7 +741,7 @@ class IServiceActionAssociationRef(
 
 class _IServiceActionAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceActionAssociation.
 
@@ -764,7 +768,7 @@ typing.cast(typing.Any, IServiceActionAssociationRef).__jsii_proxy_class__ = lam
 )
 class IServiceActionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceAction.
@@ -784,7 +788,7 @@ class IServiceActionRef(
 
 class _IServiceActionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceAction.
 
@@ -811,7 +815,7 @@ typing.cast(typing.Any, IServiceActionRef).__jsii_proxy_class__ = lambda : _ISer
 )
 class IStackSetConstraintRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackSetConstraint.
@@ -831,7 +835,7 @@ class IStackSetConstraintRef(
 
 class _IStackSetConstraintRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StackSetConstraint.
 
@@ -858,7 +862,7 @@ typing.cast(typing.Any, IStackSetConstraintRef).__jsii_proxy_class__ = lambda : 
 )
 class ITagOptionAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagOptionAssociation.
@@ -878,7 +882,7 @@ class ITagOptionAssociationRef(
 
 class _ITagOptionAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagOptionAssociation.
 
@@ -903,7 +907,7 @@ typing.cast(typing.Any, ITagOptionAssociationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_servicecatalog.ITagOptionRef")
 class ITagOptionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagOption.
@@ -923,7 +927,7 @@ class ITagOptionRef(
 
 class _ITagOptionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TagOption.
 
@@ -971,7 +975,7 @@ class LaunchNotificationConstraintReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d23d73f6bfcf8369dd83ca8779e9cebde80cf4d1b701bbe1a19f27df378d2919)
+            type_hints = cached_type_hints(_typecheckingstub__d23d73f6bfcf8369dd83ca8779e9cebde80cf4d1b701bbe1a19f27df378d2919)
             check_type(argname="argument launch_notification_constraint_id", value=launch_notification_constraint_id, expected_type=type_hints["launch_notification_constraint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_notification_constraint_id": launch_notification_constraint_id,
@@ -1020,7 +1024,7 @@ class LaunchRoleConstraintReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c2c57a260f4b58d42cf5470f1bad68aca6463764ced7236f80e5e204fe9b261)
+            type_hints = cached_type_hints(_typecheckingstub__0c2c57a260f4b58d42cf5470f1bad68aca6463764ced7236f80e5e204fe9b261)
             check_type(argname="argument launch_role_constraint_id", value=launch_role_constraint_id, expected_type=type_hints["launch_role_constraint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_role_constraint_id": launch_role_constraint_id,
@@ -1069,7 +1073,7 @@ class LaunchTemplateConstraintReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1397b1bb181bb13d3d4aaa76f85fb268a9d24ee93f9173cdc449f320d8b0fc40)
+            type_hints = cached_type_hints(_typecheckingstub__1397b1bb181bb13d3d4aaa76f85fb268a9d24ee93f9173cdc449f320d8b0fc40)
             check_type(argname="argument launch_template_constraint_id", value=launch_template_constraint_id, expected_type=type_hints["launch_template_constraint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "launch_template_constraint_id": launch_template_constraint_id,
@@ -1125,7 +1129,7 @@ class PortfolioPrincipalAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6329e48ce6818b8186ead3569a441ee7acab931e0635be0e1b27be1604987726)
+            type_hints = cached_type_hints(_typecheckingstub__6329e48ce6818b8186ead3569a441ee7acab931e0635be0e1b27be1604987726)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument principal_arn", value=principal_arn, expected_type=type_hints["principal_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1185,7 +1189,7 @@ class PortfolioProductAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a73688126d00eb08b21f732051540f4b33a20693c610ec4510cecdf691da400c)
+            type_hints = cached_type_hints(_typecheckingstub__a73688126d00eb08b21f732051540f4b33a20693c610ec4510cecdf691da400c)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1243,7 +1247,7 @@ class PortfolioReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e2a1a05c6f45cbcc6e26bc8e9ba31df37e50441bd062936d3f6d9f121dfba97)
+            type_hints = cached_type_hints(_typecheckingstub__6e2a1a05c6f45cbcc6e26bc8e9ba31df37e50441bd062936d3f6d9f121dfba97)
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "portfolio_id": portfolio_id,
@@ -1294,7 +1298,7 @@ class PortfolioShareReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2c1792d5771696524059cc9a437c824b7a47315a76f5c196151ace03bb43b7c)
+            type_hints = cached_type_hints(_typecheckingstub__e2c1792d5771696524059cc9a437c824b7a47315a76f5c196151ace03bb43b7c)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1352,7 +1356,7 @@ class ResourceUpdateConstraintReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be0eeeb2b4a37db981dfc6b0b6f1a522cc98ae2529b7d6c33cf31933696eeef7)
+            type_hints = cached_type_hints(_typecheckingstub__be0eeeb2b4a37db981dfc6b0b6f1a522cc98ae2529b7d6c33cf31933696eeef7)
             check_type(argname="argument resource_update_constraint_id", value=resource_update_constraint_id, expected_type=type_hints["resource_update_constraint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "resource_update_constraint_id": resource_update_constraint_id,
@@ -1415,7 +1419,7 @@ class ServiceActionAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c7ff9aea497f318ecdfdd96d1694ada3828eefde0f3be173df54639473ceeda)
+            type_hints = cached_type_hints(_typecheckingstub__4c7ff9aea497f318ecdfdd96d1694ada3828eefde0f3be173df54639473ceeda)
             check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
             check_type(argname="argument provisioning_artifact_id", value=provisioning_artifact_id, expected_type=type_hints["provisioning_artifact_id"])
             check_type(argname="argument service_action_id", value=service_action_id, expected_type=type_hints["service_action_id"])
@@ -1482,7 +1486,7 @@ class ServiceActionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fa108cd4bbb228b6de17863a92fe1a38df9682a71cfbcb03f1c9f565bddd10f)
+            type_hints = cached_type_hints(_typecheckingstub__4fa108cd4bbb228b6de17863a92fe1a38df9682a71cfbcb03f1c9f565bddd10f)
             check_type(argname="argument service_action_id", value=service_action_id, expected_type=type_hints["service_action_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_action_id": service_action_id,
@@ -1531,7 +1535,7 @@ class StackSetConstraintReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20539a60ac78bce6dc8f9f7b2cfbd96ee6732b5b4b6cc9f9720d710656231b14)
+            type_hints = cached_type_hints(_typecheckingstub__20539a60ac78bce6dc8f9f7b2cfbd96ee6732b5b4b6cc9f9720d710656231b14)
             check_type(argname="argument stack_set_constraint_id", value=stack_set_constraint_id, expected_type=type_hints["stack_set_constraint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_set_constraint_id": stack_set_constraint_id,
@@ -1587,7 +1591,7 @@ class TagOptionAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce84a4c975f0b55dc777c14f90bce899e703adebfbfe13c4a9c19b71819877df)
+            type_hints = cached_type_hints(_typecheckingstub__ce84a4c975f0b55dc777c14f90bce899e703adebfbfe13c4a9c19b71819877df)
             check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
             check_type(argname="argument tag_option_id", value=tag_option_id, expected_type=type_hints["tag_option_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1645,7 +1649,7 @@ class TagOptionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47d8abc47d9ddd060282a0a556fe7f0fe1923d2e898d128ad587f8b031ce749e)
+            type_hints = cached_type_hints(_typecheckingstub__47d8abc47d9ddd060282a0a556fe7f0fe1923d2e898d128ad587f8b031ce749e)
             check_type(argname="argument tag_option_id", value=tag_option_id, expected_type=type_hints["tag_option_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "tag_option_id": tag_option_id,
@@ -1709,7 +1713,7 @@ publication.publish()
 
 def _typecheckingstub__b6326f3888119e6783b8c2f3210c345520ccc67dd5064e23514085258059f2c2(
     *,
-    accepted_portfolio_share_id: builtins.str,
+    portfolio_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

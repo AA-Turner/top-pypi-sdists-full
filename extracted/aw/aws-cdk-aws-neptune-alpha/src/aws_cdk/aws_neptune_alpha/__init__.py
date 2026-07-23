@@ -238,6 +238,8 @@ cluster = neptune.DatabaseCluster(self, "ServerlessDatabase",
 )
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -251,32 +253,39 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_cloudwatch_ceddda9d = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -332,7 +341,7 @@ class ClusterParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd3a1e35f19395cac137f24cd08733e644b2e29d0c07c3a1b3dfdad2f28f9dfb)
+            type_hints = cached_type_hints(_typecheckingstub__bd3a1e35f19395cac137f24cd08733e644b2e29d0c07c3a1b3dfdad2f28f9dfb)
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -456,7 +465,7 @@ class DatabaseClusterAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec54f2452b37d07450888bb7274299c9bfef8c25b067aad28927b3d9ad2fa5f5)
+            type_hints = cached_type_hints(_typecheckingstub__ec54f2452b37d07450888bb7274299c9bfef8c25b067aad28927b3d9ad2fa5f5)
             check_type(argname="argument cluster_endpoint_address", value=cluster_endpoint_address, expected_type=type_hints["cluster_endpoint_address"])
             check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
             check_type(argname="argument cluster_resource_identifier", value=cluster_resource_identifier, expected_type=type_hints["cluster_resource_identifier"])
@@ -658,7 +667,7 @@ class DatabaseClusterProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63d33cb2d1c6c36d5e1d56bf6c1f72cfb156352d25be7b41fc33242c4c2b0ab5)
+            type_hints = cached_type_hints(_typecheckingstub__63d33cb2d1c6c36d5e1d56bf6c1f72cfb156352d25be7b41fc33242c4c2b0ab5)
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument associated_roles", value=associated_roles, expected_type=type_hints["associated_roles"])
@@ -1133,7 +1142,7 @@ class DatabaseInstanceAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d161d0009bcc37d1687b18dc7e61e593dc91fbf511ca0fb54cb805a22e832a1)
+            type_hints = cached_type_hints(_typecheckingstub__5d161d0009bcc37d1687b18dc7e61e593dc91fbf511ca0fb54cb805a22e832a1)
             check_type(argname="argument instance_endpoint_address", value=instance_endpoint_address, expected_type=type_hints["instance_endpoint_address"])
             check_type(argname="argument instance_identifier", value=instance_identifier, expected_type=type_hints["instance_identifier"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
@@ -1231,7 +1240,7 @@ class DatabaseInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f71e45ed5b08e522fb47a815fd96c853b8f92ec4b5cd433939a449e12f14f06f)
+            type_hints = cached_type_hints(_typecheckingstub__f71e45ed5b08e522fb47a815fd96c853b8f92ec4b5cd433939a449e12f14f06f)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
@@ -1372,7 +1381,7 @@ class Endpoint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7df49d36429edea1f2d75358fc0fabe477a00ad1bf5779f45ec5656c8bb6c1bb)
+            type_hints = cached_type_hints(_typecheckingstub__7df49d36429edea1f2d75358fc0fabe477a00ad1bf5779f45ec5656c8bb6c1bb)
             check_type(argname="argument address", value=address, expected_type=type_hints["address"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
         jsii.create(self.__class__, self, [address, port])
@@ -1431,7 +1440,7 @@ class EngineVersion(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83d7e17ae868b8f809ab7e987f228d4ad3caced3c133131e65626e789020546d)
+            type_hints = cached_type_hints(_typecheckingstub__83d7e17ae868b8f809ab7e987f228d4ad3caced3c133131e65626e789020546d)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         jsii.create(self.__class__, self, [version])
 
@@ -1957,7 +1966,7 @@ class _IDatabaseClusterProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdf4b231f85df4c2f0175f2fd90839306b1776c36b0cf29ddc88b72678e94efa)
+            type_hints = cached_type_hints(_typecheckingstub__fdf4b231f85df4c2f0175f2fd90839306b1776c36b0cf29ddc88b72678e94efa)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -1974,7 +1983,7 @@ class _IDatabaseClusterProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__510689423e6b1c4b3137c3b14488db736932911c72e41846ea788d0fa5ce5db8)
+            type_hints = cached_type_hints(_typecheckingstub__510689423e6b1c4b3137c3b14488db736932911c72e41846ea788d0fa5ce5db8)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantConnect", [grantee]))
 
@@ -2016,7 +2025,7 @@ class _IDatabaseClusterProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20263e38c40937bc920427f10c8d93526ccb6f5525ff0eaf86c072e055830232)
+            type_hints = cached_type_hints(_typecheckingstub__20263e38c40937bc920427f10c8d93526ccb6f5525ff0eaf86c072e055830232)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -2210,7 +2219,7 @@ class _IDatabaseInstanceProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07c7e3f129a4d77432e6b8ebc2c44705698da3c60037e31000c83bb27164871a)
+            type_hints = cached_type_hints(_typecheckingstub__07c7e3f129a4d77432e6b8ebc2c44705698da3c60037e31000c83bb27164871a)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -2346,7 +2355,7 @@ class InstanceType(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01b142f8b1e94a66663eb7f11f8a280f1e43d63381f88601422f6ed3e58cd6e1)
+            type_hints = cached_type_hints(_typecheckingstub__01b142f8b1e94a66663eb7f11f8a280f1e43d63381f88601422f6ed3e58cd6e1)
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
         return typing.cast("InstanceType", jsii.sinvoke(cls, "of", [instance_type]))
 
@@ -2874,7 +2883,7 @@ class LogType(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-neptune-alpha.Log
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__038723282396f1e80bc92b9a65de4f23bbc086218f89964f2fdf21ceeeb9a8da)
+            type_hints = cached_type_hints(_typecheckingstub__038723282396f1e80bc92b9a65de4f23bbc086218f89964f2fdf21ceeeb9a8da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.create(self.__class__, self, [value])
 
@@ -2955,7 +2964,7 @@ class ParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21f609a796909a7f73d8c70bab902496487823a4372698cbccd7c5deb04e8560)
+            type_hints = cached_type_hints(_typecheckingstub__21f609a796909a7f73d8c70bab902496487823a4372698cbccd7c5deb04e8560)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ParameterGroupProps(
@@ -2984,7 +2993,7 @@ class ParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__816f95106b7bf62f2984166193b13fad4d83800366e71771228860b70b4a6017)
+            type_hints = cached_type_hints(_typecheckingstub__816f95106b7bf62f2984166193b13fad4d83800366e71771228860b70b4a6017)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
@@ -3035,7 +3044,7 @@ class ParameterGroupFamily(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f548b19cc054509176cd0095e96a699c1339ef30a021efb7d5503f903c83611b)
+            type_hints = cached_type_hints(_typecheckingstub__f548b19cc054509176cd0095e96a699c1339ef30a021efb7d5503f903c83611b)
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
         jsii.create(self.__class__, self, [family])
 
@@ -3138,7 +3147,7 @@ class ParameterGroupProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43bc49336dd22b67e1047229c9615bde5097efc0b54a5cee1ff4c7f40aac534b)
+            type_hints = cached_type_hints(_typecheckingstub__43bc49336dd22b67e1047229c9615bde5097efc0b54a5cee1ff4c7f40aac534b)
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
@@ -3234,7 +3243,7 @@ class ServerlessScalingConfiguration:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a58c62c9111309dee47f43989d358ecaf6f6e5c43cd1e7fe6d5bc87f77f705b)
+            type_hints = cached_type_hints(_typecheckingstub__5a58c62c9111309dee47f43989d358ecaf6f6e5c43cd1e7fe6d5bc87f77f705b)
             check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
             check_type(argname="argument min_capacity", value=min_capacity, expected_type=type_hints["min_capacity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3339,7 +3348,7 @@ class SubnetGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0af7029773d4945627f492344814114834a9616efcaefbef6dd061092e6bc228)
+            type_hints = cached_type_hints(_typecheckingstub__0af7029773d4945627f492344814114834a9616efcaefbef6dd061092e6bc228)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SubnetGroupProps(
@@ -3369,7 +3378,7 @@ class SubnetGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb165f13651c939561ac1284b2ef8e1eb0f5167dd564ec99bc455259b6358c75)
+            type_hints = cached_type_hints(_typecheckingstub__fb165f13651c939561ac1284b2ef8e1eb0f5167dd564ec99bc455259b6358c75)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
@@ -3458,7 +3467,7 @@ class SubnetGroupProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eefb87cfa16dd9ccfcfb5896ff4f1968b41b9f9ab926f3632267a2f4b0e5ebf)
+            type_hints = cached_type_hints(_typecheckingstub__5eefb87cfa16dd9ccfcfb5896ff4f1968b41b9f9ab926f3632267a2f4b0e5ebf)
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -3601,7 +3610,7 @@ class ClusterParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaa71c4ab7015f3e5f4de36fc0614ddf7f3ce0e6c5c3fdf4910fb0fc1b42ca83)
+            type_hints = cached_type_hints(_typecheckingstub__aaa71c4ab7015f3e5f4de36fc0614ddf7f3ce0e6c5c3fdf4910fb0fc1b42ca83)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterParameterGroupProps(
@@ -3630,7 +3639,7 @@ class ClusterParameterGroup(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfa687eabd4472392e2790a4b9786be307dfcdfb29c91fe96e7bef701911d26d)
+            type_hints = cached_type_hints(_typecheckingstub__bfa687eabd4472392e2790a4b9786be307dfcdfb29c91fe96e7bef701911d26d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument cluster_parameter_group_name", value=cluster_parameter_group_name, expected_type=type_hints["cluster_parameter_group_name"])
@@ -3704,7 +3713,7 @@ class DatabaseClusterBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5054535b672a892c5025581c9b875ddec70c069d2bd2d4955f1a5b273a58f8ab)
+            type_hints = cached_type_hints(_typecheckingstub__5054535b672a892c5025581c9b875ddec70c069d2bd2d4955f1a5b273a58f8ab)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -3744,7 +3753,7 @@ class DatabaseClusterBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b19065534a724180acaf5fa622baec66b2f7d37406a63546ccb56b9b28586e4)
+            type_hints = cached_type_hints(_typecheckingstub__4b19065534a724180acaf5fa622baec66b2f7d37406a63546ccb56b9b28586e4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = DatabaseClusterAttributes(
@@ -3772,7 +3781,7 @@ class DatabaseClusterBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3f12d41e89329ba4ed5c9d41d1b8bd22e682eec8b890d1c6bcd5e84515b9918)
+            type_hints = cached_type_hints(_typecheckingstub__a3f12d41e89329ba4ed5c9d41d1b8bd22e682eec8b890d1c6bcd5e84515b9918)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
@@ -3789,7 +3798,7 @@ class DatabaseClusterBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5509a1395169ab471abffe991e0666327f80fb9d142cb3cffaec1a47abe0de0f)
+            type_hints = cached_type_hints(_typecheckingstub__5509a1395169ab471abffe991e0666327f80fb9d142cb3cffaec1a47abe0de0f)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantConnect", [grantee]))
 
@@ -3830,7 +3839,7 @@ class DatabaseClusterBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cd26d2661aa19d32415432ef760e746d5920892549caead18743c8537e3aa33)
+            type_hints = cached_type_hints(_typecheckingstub__3cd26d2661aa19d32415432ef760e746d5920892549caead18743c8537e3aa33)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -3974,7 +3983,7 @@ class _DatabaseClusterBaseProxy(
     @_enable_iam_authentication.setter
     def _enable_iam_authentication(self, value: typing.Optional[builtins.bool]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__721a33f2ac63870200aa60d71041dcd33751127df12a3b68bf3565830bbd1b57)
+            type_hints = cached_type_hints(_typecheckingstub__721a33f2ac63870200aa60d71041dcd33751127df12a3b68bf3565830bbd1b57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
 
@@ -4025,7 +4034,7 @@ class DatabaseInstanceBase(
         :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__810636a12f4f09a66d3e8e90cf2a5cfb76b17e0de2ec6727442101def60fc37d)
+            type_hints = cached_type_hints(_typecheckingstub__810636a12f4f09a66d3e8e90cf2a5cfb76b17e0de2ec6727442101def60fc37d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = _aws_cdk_ceddda9d.ResourceProps(
@@ -4059,7 +4068,7 @@ class DatabaseInstanceBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc8ac0be33712ff2ce4b5d556f2931728ab5068da20884ad301fbc2a7ba5f0b5)
+            type_hints = cached_type_hints(_typecheckingstub__dc8ac0be33712ff2ce4b5d556f2931728ab5068da20884ad301fbc2a7ba5f0b5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = DatabaseInstanceAttributes(
@@ -4108,7 +4117,7 @@ class DatabaseInstanceBase(
         :inheritdoc: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf246294029954100a4aee55bc98136f96834981dc14a509b3f7402250aa7fd7)
+            type_hints = cached_type_hints(_typecheckingstub__cf246294029954100a4aee55bc98136f96834981dc14a509b3f7402250aa7fd7)
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -4311,7 +4320,7 @@ class DatabaseCluster(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__370e47923dd9feae8a77db6ef8837b69539ec23a3bf085a5df3d680686131b54)
+            type_hints = cached_type_hints(_typecheckingstub__370e47923dd9feae8a77db6ef8837b69539ec23a3bf085a5df3d680686131b54)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseClusterProps(
@@ -4469,7 +4478,7 @@ class DatabaseCluster(
     @_enable_iam_authentication.setter
     def _enable_iam_authentication(self, value: typing.Optional[builtins.bool]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30d9003769fe67f506e5eef4e086e1d675631fe9c2aebbbbd03a81c06c10d5f0)
+            type_hints = cached_type_hints(_typecheckingstub__30d9003769fe67f506e5eef4e086e1d675631fe9c2aebbbbd03a81c06c10d5f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
 
@@ -4521,7 +4530,7 @@ class DatabaseInstance(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85201bd2cebd33a2ccab7355bf6fbc5e7813261a12bca851c426cd28c743f11c)
+            type_hints = cached_type_hints(_typecheckingstub__85201bd2cebd33a2ccab7355bf6fbc5e7813261a12bca851c426cd28c743f11c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseInstanceProps(

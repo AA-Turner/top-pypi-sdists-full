@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 2.0.0b7
+Version: 2.0.0b8
 Summary: Foundation utilities and host framework for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -18,11 +18,14 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: azure-core>=1.37.0
+Requires-Dist: isodate>=0.6.1
 Requires-Dist: starlette>=0.45.0
 Requires-Dist: hypercorn>=0.17.0
-Requires-Dist: opentelemetry-api>=1.40.0
-Requires-Dist: opentelemetry-sdk>=1.40.0
-Requires-Dist: microsoft-opentelemetry>=1.0.0
+Requires-Dist: opentelemetry-api>=1.43.0
+Requires-Dist: opentelemetry-sdk>=1.43.0
+Requires-Dist: microsoft-opentelemetry>=1.3.5
+Requires-Dist: aiohttp<4.0.0a0,>=3.10.0
 Dynamic: license-file
 
 # Azure AI Agent Server Core client library for Python
@@ -152,6 +155,39 @@ async def on_shutdown():
     # Close database connections, flush buffers, etc.
     pass
 ```
+
+### Durable state storage
+
+`FoundryStateStore` is a durable, server-backed key-value store for agent state
+— session memory, per-user preferences, counters, and checkpoints — bound to
+one explicit, caller-named store, with single-item optimistic concurrency,
+tag-filtered key listing, and store-level TTL.
+
+```python
+from azure.ai.agentserver.core.storage import FoundryStateStore
+
+# Endpoint and credential resolve from FOUNDRY_PROJECT_ENDPOINT + DefaultAzureCredential.
+# get_or_create() resolves (or creates, on first use) the store in one call.
+store = await FoundryStateStore.get_or_create("checkpoints/thread-abc", user_isolation=True)
+async with store:
+    await store.set_item("step-1", {"done": False})
+    item = await store.get_item("step-1")
+    print(item.value)  # {"done": False}
+```
+
+> The default credential path uses `DefaultAzureCredential`, which requires the
+> optional `azure-identity` package (`pip install azure-identity`). Alternatively,
+> pass any `azure.core.credentials_async.AsyncTokenCredential` explicitly to
+> `get_or_create()` and `azure-identity` is not needed.
+
+Reads return typed `StateStoreItem` values; writes return typed item metadata and use
+single-item `If-Match` concurrency. Session/conversation scoping is expressed in
+the store name itself, and item expiry is controlled by the store's
+`item_ttl_seconds` setting. See the [Durable State Store Guide](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/agentserver/azure-ai-agentserver-core/docs/state-store-guide.md)
+for the full API, the store lifecycle, and common gotchas, and
+[state_store_sample.py](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/agentserver/azure-ai-agentserver-core/samples/state_store_sample.py)
+for a runnable end-to-end example.
+
 
 ### Configuring tracing
 

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from aiohttp import ClientResponseError
 
 from myPyllant.const import (
+    ALTCHA_CHALLENGE_URL,
     API_URL_BASE,
     AUTHENTICATE_URL,
     BRANDS,
@@ -69,6 +70,7 @@ from myPyllant.utils import (
     generate_code,
     get_realm,
     get_default_holiday_dates,
+    solve_altcha_challenge,
 )
 
 logger = logging.getLogger(__name__)
@@ -206,6 +208,16 @@ class MyPyllantAPI:
                 "password": self.password,
                 "credentialId": "",
             }
+            try:
+                async with self.aiohttp_session.get(ALTCHA_CHALLENGE_URL) as resp:
+                    if resp.status == 200:
+                        challenge = await resp.json()
+                        login_payload["altcha"] = solve_altcha_challenge(challenge)
+            except Exception:
+                logger.debug(
+                    "Could not fetch or solve ALTCHA challenge, continuing without it",
+                    exc_info=True,
+                )
             # Obtaining the code
             async with self.aiohttp_session.post(
                 login_url, data=login_payload, allow_redirects=False

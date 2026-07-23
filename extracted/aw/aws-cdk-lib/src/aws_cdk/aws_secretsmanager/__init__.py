@@ -306,6 +306,8 @@ In this case both the `username` and `database` are not a `Secret` so `SecretVal
 This means that they will be rendered as plain text in the template, but in this case neither of those
 are actual "secrets".
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -319,69 +321,41 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    Duration as _Duration_4839e8c3,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    IResource as _IResource_c80c4260,
-    ITaggable as _ITaggable_36806126,
-    RemovalPolicy as _RemovalPolicy_9f93c814,
-    Resource as _Resource_45bc6135,
-    SecretValue as _SecretValue_3dd0ddae,
-    SecretsManagerSecretOptions as _SecretsManagerSecretOptions_5c3ce656,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..aws_ec2 import (
-    Connections as _Connections_0f31fce8,
-    IConnectable as _IConnectable_10015a05,
-    IInterfaceVpcEndpoint as _IInterfaceVpcEndpoint_7481aea1,
-    ISecurityGroup as _ISecurityGroup_acf8a799,
-    IVpc as _IVpc_f30d5663,
-    SubnetSelection as _SubnetSelection_e57d76df,
-)
-from ..aws_iam import (
-    AddToResourcePolicyResult as _AddToResourcePolicyResult_1d0a53ad,
-    Grant as _Grant_a7ae64f8,
-    IGrantable as _IGrantable_71c4f5de,
-    PolicyDocument as _PolicyDocument_3ac34393,
-    PolicyStatement as _PolicyStatement_0fe33853,
-)
-from ..aws_kms import IKey as _IKey_5f11635f
-from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
-from ..interfaces.aws_secretsmanager import (
-    IResourcePolicyRef as _IResourcePolicyRef_63a717f2,
-    IRotationScheduleRef as _IRotationScheduleRef_39ee30e9,
-    ISecretRef as _ISecretRef_3a7b28a3,
-    ISecretTargetAttachmentRef as _ISecretTargetAttachmentRef_0786fb30,
-    ResourcePolicyReference as _ResourcePolicyReference_55b14df8,
-    RotationScheduleReference as _RotationScheduleReference_430d14ec,
-    SecretReference as _SecretReference_6b31850e,
-    SecretTargetAttachmentReference as _SecretTargetAttachmentReference_5ec6f11b,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.aws_ec2 as _aws_ec2_09840e12
+    import aws_cdk.aws_iam as _aws_iam_1f54b5e8
+    import aws_cdk.aws_kms as _aws_kms_ff87d74a
+    import aws_cdk.aws_lambda as _aws_lambda_b8f2f472
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import aws_cdk.interfaces.aws_secretsmanager as _aws_secretsmanager_e46be21d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
+    _aws_iam_1f54b5e8 = _LazyImport("aws_cdk.aws_iam")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_kms_ff87d74a = _LazyImport("aws_cdk.aws_kms")
+    _aws_lambda_b8f2f472 = _LazyImport("aws_cdk.aws_lambda")
+    _aws_secretsmanager_e46be21d = _LazyImport("aws_cdk.interfaces.aws_secretsmanager")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -410,7 +384,7 @@ class AttachedSecretOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26051fb14253b89a9ad79ff934756849725241c73f7275a29aa71dd25b639497)
+            type_hints = cached_type_hints(_typecheckingstub__26051fb14253b89a9ad79ff934756849725241c73f7275a29aa71dd25b639497)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "target": target,
@@ -453,9 +427,9 @@ class AttachmentTargetType(enum.Enum):
     '''AWS::DocDB::DBCluster.'''
 
 
-@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_63a717f2)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_secretsmanager_e46be21d.IResourcePolicyRef)
 class CfnResourcePolicy(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.CfnResourcePolicy",
 ):
@@ -492,8 +466,8 @@ class CfnResourcePolicy(
         id: builtins.str,
         *,
         resource_policy: typing.Any,
-        secret_id: typing.Union[builtins.str, "_ISecretRef_3a7b28a3"],
-        block_public_policy: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        secret_id: typing.Union[builtins.str, "_aws_secretsmanager_e46be21d.ISecretRef"],
+        block_public_policy: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Create a new ``AWS::SecretsManager::ResourcePolicy``.
 
@@ -504,7 +478,7 @@ class CfnResourcePolicy(
         :param block_public_policy: Specifies whether to block resource-based policies that allow broad access to the secret. By default, Secrets Manager blocks policies that allow broad access, for example those that use a wildcard for the principal.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0)
+            type_hints = cached_type_hints(_typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e32624635ea0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnResourcePolicyProps(
@@ -523,18 +497,18 @@ class CfnResourcePolicy(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35ad28b3c32da531982746c04a0c9646c0e6b2907f9b2a1ae1f68c721c2048f2)
+            type_hints = cached_type_hints(_typecheckingstub__35ad28b3c32da531982746c04a0c9646c0e6b2907f9b2a1ae1f68c721c2048f2)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9)
+            type_hints = cached_type_hints(_typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -547,7 +521,7 @@ class CfnResourcePolicy(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5)
+            type_hints = cached_type_hints(_typecheckingstub__46fa46f8dcfa5bd08c0ee8546be65f4cbdee9186cb10976a8da30a604ed2d8f5)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -578,9 +552,11 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "_ResourcePolicyReference_55b14df8":
+    def resource_policy_ref(
+        self,
+    ) -> "_aws_secretsmanager_e46be21d.ResourcePolicyReference":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast("_ResourcePolicyReference_55b14df8", jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
@@ -591,7 +567,7 @@ class CfnResourcePolicy(
     @resource_policy.setter
     def resource_policy(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350)
+            type_hints = cached_type_hints(_typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -604,7 +580,7 @@ class CfnResourcePolicy(
     @secret_id.setter
     def secret_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd)
+            type_hints = cached_type_hints(_typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
 
@@ -612,17 +588,17 @@ class CfnResourcePolicy(
     @jsii.member(jsii_name="blockPublicPolicy")
     def block_public_policy(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to block resource-based policies that allow broad access to the secret.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "blockPublicPolicy"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "blockPublicPolicy"))
 
     @block_public_policy.setter
     def block_public_policy(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af)
+            type_hints = cached_type_hints(_typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "blockPublicPolicy", value) # pyright: ignore[reportArgumentType]
 
@@ -641,8 +617,8 @@ class CfnResourcePolicyProps:
         self,
         *,
         resource_policy: typing.Any,
-        secret_id: typing.Union[builtins.str, "_ISecretRef_3a7b28a3"],
-        block_public_policy: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        secret_id: typing.Union[builtins.str, "_aws_secretsmanager_e46be21d.ISecretRef"],
+        block_public_policy: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnResourcePolicy``.
 
@@ -670,7 +646,7 @@ class CfnResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__402bf401489ba911958d39c7ca9c4b2e953151c4170a31191e7db45ac77e29b5)
+            type_hints = cached_type_hints(_typecheckingstub__402bf401489ba911958d39c7ca9c4b2e953151c4170a31191e7db45ac77e29b5)
             check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
             check_type(argname="argument block_public_policy", value=block_public_policy, expected_type=type_hints["block_public_policy"])
@@ -694,7 +670,9 @@ class CfnResourcePolicyProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def secret_id(self) -> typing.Union[builtins.str, "_ISecretRef_3a7b28a3"]:
+    def secret_id(
+        self,
+    ) -> typing.Union[builtins.str, "_aws_secretsmanager_e46be21d.ISecretRef"]:
         '''The ARN or name of the secret to attach the resource-based policy.
 
         For an ARN, we recommend that you specify a complete ARN rather than a partial ARN.
@@ -703,12 +681,12 @@ class CfnResourcePolicyProps:
         '''
         result = self._values.get("secret_id")
         assert result is not None, "Required property 'secret_id' is missing"
-        return typing.cast(typing.Union[builtins.str, "_ISecretRef_3a7b28a3"], result)
+        return typing.cast(typing.Union[builtins.str, "_aws_secretsmanager_e46be21d.ISecretRef"], result)
 
     @builtins.property
     def block_public_policy(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies whether to block resource-based policies that allow broad access to the secret.
 
         By default, Secrets Manager blocks policies that allow broad access, for example those that use a wildcard for the principal.
@@ -716,7 +694,7 @@ class CfnResourcePolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-resourcepolicy.html#cfn-secretsmanager-resourcepolicy-blockpublicpolicy
         '''
         result = self._values.get("block_public_policy")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -730,9 +708,9 @@ class CfnResourcePolicyProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IRotationScheduleRef_39ee30e9)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_secretsmanager_e46be21d.IRotationScheduleRef)
 class CfnRotationSchedule(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule",
 ):
@@ -805,12 +783,12 @@ class CfnRotationSchedule(
         id: builtins.str,
         *,
         secret_id: builtins.str,
-        external_secret_rotation_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_secret_rotation_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         external_secret_rotation_role_arn: typing.Optional[builtins.str] = None,
-        hosted_rotation_lambda: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        hosted_rotation_lambda: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         rotation_lambda_arn: typing.Optional[builtins.str] = None,
-        rotation_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotation_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SecretsManager::RotationSchedule``.
 
@@ -825,7 +803,7 @@ class CfnRotationSchedule(
         :param rotation_rules: A structure that defines the rotation configuration for this secret.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938)
+            type_hints = cached_type_hints(_typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a72604b85938)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnRotationScheduleProps(
@@ -848,18 +826,18 @@ class CfnRotationSchedule(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d542680f98c100d6fc40efc3cafa23e5a0eb4a4f1352593f1c9454aa4f237785)
+            type_hints = cached_type_hints(_typecheckingstub__d542680f98c100d6fc40efc3cafa23e5a0eb4a4f1352593f1c9454aa4f237785)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRotationSchedule", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7)
+            type_hints = cached_type_hints(_typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -872,7 +850,7 @@ class CfnRotationSchedule(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d)
+            type_hints = cached_type_hints(_typecheckingstub__d75cacd622b21fb3f19d8b19583b9dc92b7ab058a99945697dcb371722e77d3d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -903,9 +881,11 @@ class CfnRotationSchedule(
 
     @builtins.property
     @jsii.member(jsii_name="rotationScheduleRef")
-    def rotation_schedule_ref(self) -> "_RotationScheduleReference_430d14ec":
+    def rotation_schedule_ref(
+        self,
+    ) -> "_aws_secretsmanager_e46be21d.RotationScheduleReference":
         '''A reference to a RotationSchedule resource.'''
-        return typing.cast("_RotationScheduleReference_430d14ec", jsii.get(self, "rotationScheduleRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.RotationScheduleReference", jsii.get(self, "rotationScheduleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretId")
@@ -919,7 +899,7 @@ class CfnRotationSchedule(
     @secret_id.setter
     def secret_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e)
+            type_hints = cached_type_hints(_typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
 
@@ -927,17 +907,17 @@ class CfnRotationSchedule(
     @jsii.member(jsii_name="externalSecretRotationMetadata")
     def external_secret_rotation_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]]:
         '''The list of metadata needed to successfully rotate a managed external secret.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]], jsii.get(self, "externalSecretRotationMetadata"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]], jsii.get(self, "externalSecretRotationMetadata"))
 
     @external_secret_rotation_metadata.setter
     def external_secret_rotation_metadata(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a137dbdb2b8bf5b81e3be66ca1a95e203ab984fc427ebe6079f0ed9df6c8ebf4)
+            type_hints = cached_type_hints(_typecheckingstub__a137dbdb2b8bf5b81e3be66ca1a95e203ab984fc427ebe6079f0ed9df6c8ebf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "externalSecretRotationMetadata", value) # pyright: ignore[reportArgumentType]
 
@@ -953,7 +933,7 @@ class CfnRotationSchedule(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__826ff8ecec050649dbf462747d667aaa66aac5516b3c8556c860b61ae994491c)
+            type_hints = cached_type_hints(_typecheckingstub__826ff8ecec050649dbf462747d667aaa66aac5516b3c8556c860b61ae994491c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "externalSecretRotationRoleArn", value) # pyright: ignore[reportArgumentType]
 
@@ -961,17 +941,17 @@ class CfnRotationSchedule(
     @jsii.member(jsii_name="hostedRotationLambda")
     def hosted_rotation_lambda(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
         '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.HostedRotationLambdaProperty"]], jsii.get(self, "hostedRotationLambda"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.HostedRotationLambdaProperty"]], jsii.get(self, "hostedRotationLambda"))
 
     @hosted_rotation_lambda.setter
     def hosted_rotation_lambda(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.HostedRotationLambdaProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.HostedRotationLambdaProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e)
+            type_hints = cached_type_hints(_typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostedRotationLambda", value) # pyright: ignore[reportArgumentType]
 
@@ -979,17 +959,17 @@ class CfnRotationSchedule(
     @jsii.member(jsii_name="rotateImmediatelyOnUpdate")
     def rotate_immediately_on_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "rotateImmediatelyOnUpdate"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "rotateImmediatelyOnUpdate"))
 
     @rotate_immediately_on_update.setter
     def rotate_immediately_on_update(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab)
+            type_hints = cached_type_hints(_typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rotateImmediatelyOnUpdate", value) # pyright: ignore[reportArgumentType]
 
@@ -1002,7 +982,7 @@ class CfnRotationSchedule(
     @rotation_lambda_arn.setter
     def rotation_lambda_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a)
+            type_hints = cached_type_hints(_typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rotationLambdaArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1010,17 +990,17 @@ class CfnRotationSchedule(
     @jsii.member(jsii_name="rotationRules")
     def rotation_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.RotationRulesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.RotationRulesProperty"]]:
         '''A structure that defines the rotation configuration for this secret.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.RotationRulesProperty"]], jsii.get(self, "rotationRules"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.RotationRulesProperty"]], jsii.get(self, "rotationRules"))
 
     @rotation_rules.setter
     def rotation_rules(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.RotationRulesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.RotationRulesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51)
+            type_hints = cached_type_hints(_typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "rotationRules", value) # pyright: ignore[reportArgumentType]
 
@@ -1053,7 +1033,7 @@ class CfnRotationSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__67cc7dcfb3eb2c60c4e838750ad1383e5685d6abebe5f340e1fdf0c81ea18e85)
+                type_hints = cached_type_hints(_typecheckingstub__67cc7dcfb3eb2c60c4e838750ad1383e5685d6abebe5f340e1fdf0c81ea18e85)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1171,7 +1151,7 @@ class CfnRotationSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254)
+                type_hints = cached_type_hints(_typecheckingstub__7ff7639807bef0199e139522b2fa91d38b52b3f5908547564db81341e4097254)
                 check_type(argname="argument rotation_type", value=rotation_type, expected_type=type_hints["rotation_type"])
                 check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
                 check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
@@ -1421,7 +1401,7 @@ class CfnRotationSchedule(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736)
+                type_hints = cached_type_hints(_typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd513a1736)
                 check_type(argname="argument automatically_after_days", value=automatically_after_days, expected_type=type_hints["automatically_after_days"])
                 check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
@@ -1502,12 +1482,12 @@ class CfnRotationScheduleProps:
         self,
         *,
         secret_id: builtins.str,
-        external_secret_rotation_metadata: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        external_secret_rotation_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         external_secret_rotation_role_arn: typing.Optional[builtins.str] = None,
-        hosted_rotation_lambda: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        hosted_rotation_lambda: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.HostedRotationLambdaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         rotation_lambda_arn: typing.Optional[builtins.str] = None,
-        rotation_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rotation_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRotationSchedule.RotationRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRotationSchedule``.
 
@@ -1562,7 +1542,7 @@ class CfnRotationScheduleProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ceb941109ded6374b3623fce5a39b1744d18841728c64d4e5f2e3941d295c8f0)
+            type_hints = cached_type_hints(_typecheckingstub__ceb941109ded6374b3623fce5a39b1744d18841728c64d4e5f2e3941d295c8f0)
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
             check_type(argname="argument external_secret_rotation_metadata", value=external_secret_rotation_metadata, expected_type=type_hints["external_secret_rotation_metadata"])
             check_type(argname="argument external_secret_rotation_role_arn", value=external_secret_rotation_role_arn, expected_type=type_hints["external_secret_rotation_role_arn"])
@@ -1601,13 +1581,13 @@ class CfnRotationScheduleProps:
     @builtins.property
     def external_secret_rotation_metadata(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]]:
         '''The list of metadata needed to successfully rotate a managed external secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-externalsecretrotationmetadata
         '''
         result = self._values.get("external_secret_rotation_metadata")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty"]]]], result)
 
     @builtins.property
     def external_secret_rotation_role_arn(self) -> typing.Optional[builtins.str]:
@@ -1621,7 +1601,7 @@ class CfnRotationScheduleProps:
     @builtins.property
     def hosted_rotation_lambda(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.HostedRotationLambdaProperty"]]:
         '''Creates a new Lambda rotation function based on one of the `Secrets Manager rotation function templates <https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_available-rotation-templates.html>`_ . To use a rotation function that already exists, specify ``RotationLambdaARN`` instead.
 
         You must specify ``Transform: AWS::SecretsManager-2024-09-16`` at the beginning of the CloudFormation template. Transforms are macros hosted by AWS CloudFormation that help you create and manage complex infrastructure. The ``Transform: AWS::SecretsManager-2024-09-16`` transform automatically extends the CloudFormation stack to include a nested stack (of type ``AWS::CloudFormation::Stack`` ), which then creates and updates on your behalf during subsequent stack operations, the appropriate rotation Lambda function for your database or service. For general information on transforms, see the `AWS CloudFormation documentation. <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-reference.html>`_
@@ -1633,12 +1613,12 @@ class CfnRotationScheduleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-hostedrotationlambda
         '''
         result = self._values.get("hosted_rotation_lambda")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.HostedRotationLambdaProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.HostedRotationLambdaProperty"]], result)
 
     @builtins.property
     def rotate_immediately_on_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Determines whether to rotate the secret immediately or wait until the next scheduled rotation window when the rotation schedule is updated.
 
         The rotation schedule is defined in ``RotationRules`` .
@@ -1658,7 +1638,7 @@ class CfnRotationScheduleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-rotateimmediatelyonupdate
         '''
         result = self._values.get("rotate_immediately_on_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def rotation_lambda_arn(self) -> typing.Optional[builtins.str]:
@@ -1680,13 +1660,13 @@ class CfnRotationScheduleProps:
     @builtins.property
     def rotation_rules(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.RotationRulesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.RotationRulesProperty"]]:
         '''A structure that defines the rotation configuration for this secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-rotationschedule.html#cfn-secretsmanager-rotationschedule-rotationrules
         '''
         result = self._values.get("rotation_rules")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRotationSchedule.RotationRulesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRotationSchedule.RotationRulesProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1700,9 +1680,9 @@ class CfnRotationScheduleProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISecretRef_3a7b28a3, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_secretsmanager_e46be21d.ISecretRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSecret(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret",
 ):
@@ -1768,12 +1748,12 @@ class CfnSecret(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        generate_secret_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        generate_secret_string: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         name: typing.Optional[builtins.str] = None,
-        replica_regions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replica_regions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         secret_string: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::SecretsManager::Secret``.
@@ -1790,7 +1770,7 @@ class CfnSecret(
         :param type: The exact string that identifies the third-party partner that holds the external secret. For more information, see `Managed external secret partners <https://docs.aws.amazon.com/secretsmanager/latest/userguide/mes-partners.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97)
+            type_hints = cached_type_hints(_typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22642cf97)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSecretProps(
@@ -1808,12 +1788,15 @@ class CfnSecret(
 
     @jsii.member(jsii_name="arnForSecret")
     @builtins.classmethod
-    def arn_for_secret(cls, resource: "_ISecretRef_3a7b28a3") -> builtins.str:
+    def arn_for_secret(
+        cls,
+        resource: "_aws_secretsmanager_e46be21d.ISecretRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e41efea79b7cb0452a7a9a71c9e2529e958a1adcbc9a9dc07d533666d62816)
+            type_hints = cached_type_hints(_typecheckingstub__d1e41efea79b7cb0452a7a9a71c9e2529e958a1adcbc9a9dc07d533666d62816)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSecret", [resource]))
 
@@ -1824,7 +1807,7 @@ class CfnSecret(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         secret_id: builtins.str,
-    ) -> "_ISecretRef_3a7b28a3":
+    ) -> "_aws_secretsmanager_e46be21d.ISecretRef":
         '''Creates a new ISecretRef from a secretId.
 
         :param scope: -
@@ -1832,11 +1815,11 @@ class CfnSecret(
         :param secret_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3c3961c2a9f7641d6de2ed58080b5085d027497e32beb9b7b96c3365420ad89)
+            type_hints = cached_type_hints(_typecheckingstub__e3c3961c2a9f7641d6de2ed58080b5085d027497e32beb9b7b96c3365420ad89)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
-        return typing.cast("_ISecretRef_3a7b28a3", jsii.sinvoke(cls, "fromSecretId", [scope, id, secret_id]))
+        return typing.cast("_aws_secretsmanager_e46be21d.ISecretRef", jsii.sinvoke(cls, "fromSecretId", [scope, id, secret_id]))
 
     @jsii.member(jsii_name="isCfnSecret")
     @builtins.classmethod
@@ -1846,18 +1829,18 @@ class CfnSecret(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24eed6944e52de3e9e8e6547d31e08e5a13e7c3589a98273ec505c3eb25a501b)
+            type_hints = cached_type_hints(_typecheckingstub__24eed6944e52de3e9e8e6547d31e08e5a13e7c3589a98273ec505c3eb25a501b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSecret", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f)
+            type_hints = cached_type_hints(_typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1870,7 +1853,7 @@ class CfnSecret(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d)
+            type_hints = cached_type_hints(_typecheckingstub__9e76ed64430db75be5941a5659d8e3134fad4bd7d710a6924366d3592657698d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1901,15 +1884,15 @@ class CfnSecret(
 
     @builtins.property
     @jsii.member(jsii_name="secretRef")
-    def secret_ref(self) -> "_SecretReference_6b31850e":
+    def secret_ref(self) -> "_aws_secretsmanager_e46be21d.SecretReference":
         '''A reference to a Secret resource.'''
-        return typing.cast("_SecretReference_6b31850e", jsii.get(self, "secretRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.SecretReference", jsii.get(self, "secretRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1920,7 +1903,7 @@ class CfnSecret(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47)
+            type_hints = cached_type_hints(_typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -1928,17 +1911,17 @@ class CfnSecret(
     @jsii.member(jsii_name="generateSecretString")
     def generate_secret_string(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSecret.GenerateSecretStringProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.GenerateSecretStringProperty"]]:
         '''A structure that specifies how to generate a password to encrypt and store in the secret.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSecret.GenerateSecretStringProperty"]], jsii.get(self, "generateSecretString"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.GenerateSecretStringProperty"]], jsii.get(self, "generateSecretString"))
 
     @generate_secret_string.setter
     def generate_secret_string(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSecret.GenerateSecretStringProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.GenerateSecretStringProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec)
+            type_hints = cached_type_hints(_typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "generateSecretString", value) # pyright: ignore[reportArgumentType]
 
@@ -1951,7 +1934,7 @@ class CfnSecret(
     @kms_key_id.setter
     def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633)
+            type_hints = cached_type_hints(_typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
 
@@ -1964,7 +1947,7 @@ class CfnSecret(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd)
+            type_hints = cached_type_hints(_typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -1972,17 +1955,17 @@ class CfnSecret(
     @jsii.member(jsii_name="replicaRegions")
     def replica_regions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecret.ReplicaRegionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.ReplicaRegionProperty"]]]]:
         '''A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecret.ReplicaRegionProperty"]]]], jsii.get(self, "replicaRegions"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.ReplicaRegionProperty"]]]], jsii.get(self, "replicaRegions"))
 
     @replica_regions.setter
     def replica_regions(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecret.ReplicaRegionProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.ReplicaRegionProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9)
+            type_hints = cached_type_hints(_typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicaRegions", value) # pyright: ignore[reportArgumentType]
 
@@ -1995,20 +1978,23 @@ class CfnSecret(
     @secret_string.setter
     def secret_string(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd)
+            type_hints = cached_type_hints(_typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "secretString", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to attach to the secret.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b)
+            type_hints = cached_type_hints(_typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2021,7 +2007,7 @@ class CfnSecret(
     @type.setter
     def type(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac9a6ca47cf74b6a1326cfbcee97733e8514cd3a987237230dc6695b14451b74)
+            type_hints = cached_type_hints(_typecheckingstub__ac9a6ca47cf74b6a1326cfbcee97733e8514cd3a987237230dc6695b14451b74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
@@ -2046,14 +2032,14 @@ class CfnSecret(
             self,
             *,
             exclude_characters: typing.Optional[builtins.str] = None,
-            exclude_lowercase: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            exclude_numbers: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            exclude_punctuation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            exclude_uppercase: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            exclude_lowercase: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            exclude_numbers: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            exclude_punctuation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            exclude_uppercase: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             generate_string_key: typing.Optional[builtins.str] = None,
-            include_space: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_space: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             password_length: typing.Optional[jsii.Number] = None,
-            require_each_included_type: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            require_each_included_type: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             secret_string_template: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Generates a random password.
@@ -2096,7 +2082,7 @@ class CfnSecret(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af)
+                type_hints = cached_type_hints(_typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af)
                 check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
                 check_type(argname="argument exclude_lowercase", value=exclude_lowercase, expected_type=type_hints["exclude_lowercase"])
                 check_type(argname="argument exclude_numbers", value=exclude_numbers, expected_type=type_hints["exclude_numbers"])
@@ -2141,7 +2127,7 @@ class CfnSecret(
         @builtins.property
         def exclude_lowercase(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to exclude lowercase letters from the password.
 
             If you don't include this switch, the password can contain lowercase letters.
@@ -2149,12 +2135,12 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludelowercase
             '''
             result = self._values.get("exclude_lowercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def exclude_numbers(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to exclude numbers from the password.
 
             If you don't include this switch, the password can contain numbers.
@@ -2162,12 +2148,12 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludenumbers
             '''
             result = self._values.get("exclude_numbers")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def exclude_punctuation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to exclude the following punctuation characters from the password: `!
 
             " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \\ ] ^ _ `` { | } ~`` . If you don't include this switch, the password can contain punctuation.
@@ -2175,12 +2161,12 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludepunctuation
             '''
             result = self._values.get("exclude_punctuation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def exclude_uppercase(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to exclude uppercase letters from the password.
 
             If you don't include this switch, the password can contain uppercase letters.
@@ -2188,7 +2174,7 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-excludeuppercase
             '''
             result = self._values.get("exclude_uppercase")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def generate_string_key(self) -> typing.Optional[builtins.str]:
@@ -2204,7 +2190,7 @@ class CfnSecret(
         @builtins.property
         def include_space(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to include the space character.
 
             If you include this switch, the password can contain space characters.
@@ -2212,7 +2198,7 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-includespace
             '''
             result = self._values.get("include_space")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def password_length(self) -> typing.Optional[jsii.Number]:
@@ -2228,7 +2214,7 @@ class CfnSecret(
         @builtins.property
         def require_each_included_type(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies whether to include at least one upper and lowercase letter, one number, and one punctuation.
 
             If you don't include this switch, the password contains at least one of every character type.
@@ -2236,7 +2222,7 @@ class CfnSecret(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-secretsmanager-secret-generatesecretstring.html#cfn-secretsmanager-secret-generatesecretstring-requireeachincludedtype
             '''
             result = self._values.get("require_each_included_type")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def secret_string_template(self) -> typing.Optional[builtins.str]:
@@ -2294,7 +2280,7 @@ class CfnSecret(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156)
+                type_hints = cached_type_hints(_typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1b37b156)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2355,12 +2341,12 @@ class CfnSecretProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        generate_secret_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        generate_secret_string: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecret.GenerateSecretStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
         name: typing.Optional[builtins.str] = None,
-        replica_regions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replica_regions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecret.ReplicaRegionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         secret_string: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnSecret``.
@@ -2415,7 +2401,7 @@ class CfnSecretProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__022fe4500a72a14309ab1a3b32c45d84b045a2044531ddfa942aeb33ff07e3e0)
+            type_hints = cached_type_hints(_typecheckingstub__022fe4500a72a14309ab1a3b32c45d84b045a2044531ddfa942aeb33ff07e3e0)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument generate_secret_string", value=generate_secret_string, expected_type=type_hints["generate_secret_string"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
@@ -2454,7 +2440,7 @@ class CfnSecretProps:
     @builtins.property
     def generate_secret_string(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSecret.GenerateSecretStringProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.GenerateSecretStringProperty"]]:
         '''A structure that specifies how to generate a password to encrypt and store in the secret.
 
         To include a specific string in the secret, use ``SecretString`` instead. If you omit both ``GenerateSecretString`` and ``SecretString`` , you create an empty secret. When you make a change to this property, a new secret version is created.
@@ -2464,12 +2450,12 @@ class CfnSecretProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html#cfn-secretsmanager-secret-generatesecretstring
         '''
         result = self._values.get("generate_secret_string")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSecret.GenerateSecretStringProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.GenerateSecretStringProperty"]], result)
 
     @builtins.property
     def kms_key_id(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The ARN, key ID, or alias of the AWS  key that Secrets Manager uses to encrypt the secret value in the secret.
 
         An alias is always prefixed by ``alias/`` , for example ``alias/aws/secretsmanager`` . For more information, see `About aliases <https://docs.aws.amazon.com/kms/latest/developerguide/alias-about.html>`_ .
@@ -2483,7 +2469,7 @@ class CfnSecretProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html#cfn-secretsmanager-secret-kmskeyid
         '''
         result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -2501,13 +2487,13 @@ class CfnSecretProps:
     @builtins.property
     def replica_regions(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecret.ReplicaRegionProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.ReplicaRegionProperty"]]]]:
         '''A custom type that specifies a ``Region`` and the ``KmsKeyId`` for a replica secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-secretsmanager-secret.html#cfn-secretsmanager-secret-replicaregions
         '''
         result = self._values.get("replica_regions")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecret.ReplicaRegionProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecret.ReplicaRegionProperty"]]]], result)
 
     @builtins.property
     def secret_string(self) -> typing.Optional[builtins.str]:
@@ -2521,7 +2507,7 @@ class CfnSecretProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''A list of tags to attach to the secret.
 
         Each tag is a key and value pair of strings in a JSON text string, for example:
@@ -2549,7 +2535,7 @@ class CfnSecretProps:
         :: .
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
@@ -2574,9 +2560,9 @@ class CfnSecretProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISecretTargetAttachmentRef_0786fb30)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_secretsmanager_e46be21d.ISecretTargetAttachmentRef)
 class CfnSecretTargetAttachment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecretTargetAttachment",
 ):
@@ -2627,7 +2613,7 @@ class CfnSecretTargetAttachment(
         :param target_type: A string that defines the type of service or database associated with the secret. This value instructs Secrets Manager how to update the secret with the details of the service or database. This value must be one of the following: - AWS::RDS::DBInstance - AWS::RDS::DBCluster - AWS::Redshift::Cluster - AWS::RedshiftServerless::Namespace - AWS::DocDB::DBInstance - AWS::DocDB::DBCluster - AWS::DocDBElastic::Cluster
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58)
+            type_hints = cached_type_hints(_typecheckingstub__f27548ced74eb3d06a9cd3710e7d562d307b5a2c264476a3e685fcb94ccdee58)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSecretTargetAttachmentProps(
@@ -2644,18 +2630,18 @@ class CfnSecretTargetAttachment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__741db663c2c651f06b47c370f6e63ddeab1d72de1772539df0d37393eacde946)
+            type_hints = cached_type_hints(_typecheckingstub__741db663c2c651f06b47c370f6e63ddeab1d72de1772539df0d37393eacde946)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSecretTargetAttachment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e)
+            type_hints = cached_type_hints(_typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -2668,7 +2654,7 @@ class CfnSecretTargetAttachment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d)
+            type_hints = cached_type_hints(_typecheckingstub__cc91e90416e2271f4c33dc64cf52c7bb631ecde76dd2bc24ade65c899e2bed5d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -2700,9 +2686,9 @@ class CfnSecretTargetAttachment(
     @jsii.member(jsii_name="secretTargetAttachmentRef")
     def secret_target_attachment_ref(
         self,
-    ) -> "_SecretTargetAttachmentReference_5ec6f11b":
+    ) -> "_aws_secretsmanager_e46be21d.SecretTargetAttachmentReference":
         '''A reference to a SecretTargetAttachment resource.'''
-        return typing.cast("_SecretTargetAttachmentReference_5ec6f11b", jsii.get(self, "secretTargetAttachmentRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.SecretTargetAttachmentReference", jsii.get(self, "secretTargetAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretId")
@@ -2713,7 +2699,7 @@ class CfnSecretTargetAttachment(
     @secret_id.setter
     def secret_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a)
+            type_hints = cached_type_hints(_typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
 
@@ -2726,7 +2712,7 @@ class CfnSecretTargetAttachment(
     @target_id.setter
     def target_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1)
+            type_hints = cached_type_hints(_typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetId", value) # pyright: ignore[reportArgumentType]
 
@@ -2739,7 +2725,7 @@ class CfnSecretTargetAttachment(
     @target_type.setter
     def target_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c)
+            type_hints = cached_type_hints(_typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
@@ -2783,7 +2769,7 @@ class CfnSecretTargetAttachmentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7928320c4ae4f6f389d4321866c9f90c99af239a38a19099053a52906125ff79)
+            type_hints = cached_type_hints(_typecheckingstub__7928320c4ae4f6f389d4321866c9f90c99af239a38a19099053a52906125ff79)
             check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
             check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
@@ -2847,7 +2833,7 @@ class CfnSecretTargetAttachmentProps:
         )
 
 
-@jsii.implements(_IConnectable_10015a05)
+@jsii.implements(_aws_ec2_09840e12.IConnectable)
 class HostedRotation(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.HostedRotation",
@@ -2873,9 +2859,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MariaDB Multi User.
 
@@ -2904,9 +2890,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MariaDB Single User.
 
@@ -2934,9 +2920,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MongoDB Multi User.
 
@@ -2965,9 +2951,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MongoDB Single User.
 
@@ -2995,9 +2981,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MySQL Multi User.
 
@@ -3026,9 +3012,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''MySQL Single User.
 
@@ -3056,9 +3042,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''Oracle Multi User.
 
@@ -3087,9 +3073,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''Oracle Single User.
 
@@ -3117,9 +3103,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''PostgreSQL Multi User.
 
@@ -3148,9 +3134,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''PostgreSQL Single User.
 
@@ -3178,9 +3164,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''Redshift Multi User.
 
@@ -3209,9 +3195,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''Redshift Single User.
 
@@ -3239,9 +3225,9 @@ class HostedRotation(
         master_secret: "ISecret",
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''SQL Server Multi User.
 
@@ -3270,9 +3256,9 @@ class HostedRotation(
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "HostedRotation":
         '''SQL Server Single User.
 
@@ -3304,16 +3290,16 @@ class HostedRotation(
         :param scope: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0296aa9bdf8ce9144e34613aa1c1464127b91b8af87d320a0eb53189b026cf7f)
+            type_hints = cached_type_hints(_typecheckingstub__0296aa9bdf8ce9144e34613aa1c1464127b91b8af87d320a0eb53189b026cf7f)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("CfnRotationSchedule.HostedRotationLambdaProperty", jsii.invoke(self, "bind", [secret, scope]))
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> "_Connections_0f31fce8":
+    def connections(self) -> "_aws_ec2_09840e12.Connections":
         '''Security group connections for this hosted rotation.'''
-        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
+        return typing.cast("_aws_ec2_09840e12.Connections", jsii.get(self, "connections"))
 
 
 class HostedRotationType(
@@ -3431,7 +3417,11 @@ class HostedRotationType(
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecret")
-class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Protocol):
+class ISecret(
+    _aws_cdk_0cae9daa.IResource,
+    _aws_secretsmanager_e46be21d.ISecretRef,
+    typing_extensions.Protocol,
+):
     '''A secret in AWS Secrets Manager.'''
 
     @builtins.property
@@ -3458,7 +3448,7 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
 
     @builtins.property
     @jsii.member(jsii_name="secretValue")
-    def secret_value(self) -> "_SecretValue_3dd0ddae":
+    def secret_value(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Retrieve the value of the stored secret as a ``SecretValue``.
 
         :attribute: true
@@ -3467,7 +3457,7 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key that is used to encrypt this secret, if any.
 
         When not specified, the default
@@ -3489,10 +3479,10 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
         self,
         id: builtins.str,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> "RotationSchedule":
         '''Adds a rotation schedule to the secret.
 
@@ -3507,8 +3497,8 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this secret.
 
         If this secret was created in this stack, a resource policy will be
@@ -3555,9 +3545,9 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants reading the secret value to some role.
 
         :param grantee: the principal being granted permission.
@@ -3566,7 +3556,10 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants writing and updating the secret value to some role.
 
         :param grantee: the principal being granted permission.
@@ -3574,7 +3567,10 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
         ...
 
     @jsii.member(jsii_name="secretValueFromJson")
-    def secret_value_from_json(self, key: builtins.str) -> "_SecretValue_3dd0ddae":
+    def secret_value_from_json(
+        self,
+        key: builtins.str,
+    ) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Interpret the secret as a JSON object and return a field's value from it as a ``SecretValue``.
 
         :param key: -
@@ -3583,8 +3579,8 @@ class ISecret(_IResource_c80c4260, _ISecretRef_3a7b28a3, typing_extensions.Proto
 
 
 class _ISecretProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(_ISecretRef_3a7b28a3), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_0cae9daa.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_secretsmanager_e46be21d.ISecretRef), # type: ignore[misc]
 ):
     '''A secret in AWS Secrets Manager.'''
 
@@ -3614,22 +3610,22 @@ class _ISecretProxy(
 
     @builtins.property
     @jsii.member(jsii_name="secretValue")
-    def secret_value(self) -> "_SecretValue_3dd0ddae":
+    def secret_value(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Retrieve the value of the stored secret as a ``SecretValue``.
 
         :attribute: true
         '''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretValue"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "secretValue"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key that is used to encrypt this secret, if any.
 
         When not specified, the default
         KMS key for the account and region is being used.
         '''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="secretFullArn")
@@ -3645,10 +3641,10 @@ class _ISecretProxy(
         self,
         id: builtins.str,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> "RotationSchedule":
         '''Adds a rotation schedule to the secret.
 
@@ -3659,7 +3655,7 @@ class _ISecretProxy(
         :param rotation_lambda: A Lambda function that can rotate the secret. Default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c29c568a6de9f821fe48f861b8c19d49274f380b696aaf28c288d3de5258b128)
+            type_hints = cached_type_hints(_typecheckingstub__c29c568a6de9f821fe48f861b8c19d49274f380b696aaf28c288d3de5258b128)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RotationScheduleOptions(
             automatically_after=automatically_after,
@@ -3673,8 +3669,8 @@ class _ISecretProxy(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this secret.
 
         If this secret was created in this stack, a resource policy will be
@@ -3684,9 +3680,9 @@ class _ISecretProxy(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ca8a3a04172cc7290ea795d4ed22a2018d69433a152fce410fa5b29236fff0a)
+            type_hints = cached_type_hints(_typecheckingstub__7ca8a3a04172cc7290ea795d4ed22a2018d69433a152fce410fa5b29236fff0a)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="attach")
     def attach(self, target: "ISecretAttachmentTarget") -> "ISecret":
@@ -3697,7 +3693,7 @@ class _ISecretProxy(
         :return: An attached secret
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0800447869be5f35a1e4dbb472254f3a11a06295360c640823fd9ee2418745e0)
+            type_hints = cached_type_hints(_typecheckingstub__0800447869be5f35a1e4dbb472254f3a11a06295360c640823fd9ee2418745e0)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast("ISecret", jsii.invoke(self, "attach", [target]))
 
@@ -3717,7 +3713,7 @@ class _ISecretProxy(
 
         :see: https://docs.aws.amazon.com/secretsmanager/latest/userguide/cfn-example_reference-secret.html
         '''
-        options = _SecretsManagerSecretOptions_5c3ce656(
+        options = _aws_cdk_0cae9daa.SecretsManagerSecretOptions(
             json_field=json_field, version_id=version_id, version_stage=version_stage
         )
 
@@ -3731,41 +3727,47 @@ class _ISecretProxy(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants reading the secret value to some role.
 
         :param grantee: the principal being granted permission.
         :param version_stages: the version stages the grant is limited to. If not specified, no restriction on the version stages is applied.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa9b36ba3358a080c3fdc6f338877e097c1b68d22444b7b4d3530bebfb65bab5)
+            type_hints = cached_type_hints(_typecheckingstub__aa9b36ba3358a080c3fdc6f338877e097c1b68d22444b7b4d3530bebfb65bab5)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument version_stages", value=version_stages, expected_type=type_hints["version_stages"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee, version_stages]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee, version_stages]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''Grants writing and updating the secret value to some role.
 
         :param grantee: the principal being granted permission.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3d8d811bce40c68bb8d8ce3a12b36334b7d98fc6a70a53aef2c5e9aa70aa637)
+            type_hints = cached_type_hints(_typecheckingstub__b3d8d811bce40c68bb8d8ce3a12b36334b7d98fc6a70a53aef2c5e9aa70aa637)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.member(jsii_name="secretValueFromJson")
-    def secret_value_from_json(self, key: builtins.str) -> "_SecretValue_3dd0ddae":
+    def secret_value_from_json(
+        self,
+        key: builtins.str,
+    ) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Interpret the secret as a JSON object and return a field's value from it as a ``SecretValue``.
 
         :param key: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c318161f2dad977a974bfdf1b8617f4afb364dda4cd8be7309aafc7305bcba10)
+            type_hints = cached_type_hints(_typecheckingstub__c318161f2dad977a974bfdf1b8617f4afb364dda4cd8be7309aafc7305bcba10)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-        return typing.cast("_SecretValue_3dd0ddae", jsii.invoke(self, "secretValueFromJson", [key]))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.invoke(self, "secretValueFromJson", [key]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISecret).__jsii_proxy_class__ = lambda : _ISecretProxy
@@ -3798,7 +3800,7 @@ typing.cast(typing.Any, ISecretAttachmentTarget).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.aws_secretsmanager.ISecretTargetAttachment")
 class ISecretTargetAttachment(
     ISecret,
-    _ISecretTargetAttachmentRef_0786fb30,
+    _aws_secretsmanager_e46be21d.ISecretTargetAttachmentRef,
     typing_extensions.Protocol,
 ):
     @builtins.property
@@ -3813,7 +3815,7 @@ class ISecretTargetAttachment(
 
 class _ISecretTargetAttachmentProxy(
     jsii.proxy_for(ISecret), # type: ignore[misc]
-    jsii.proxy_for(_ISecretTargetAttachmentRef_0786fb30), # type: ignore[misc]
+    jsii.proxy_for(_aws_secretsmanager_e46be21d.ISecretTargetAttachmentRef), # type: ignore[misc]
 ):
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_secretsmanager.ISecretTargetAttachment"
 
@@ -3840,7 +3842,7 @@ class ReplicaRegion:
         self,
         *,
         region: builtins.str,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
     ) -> None:
         '''Secret replica region.
 
@@ -3866,7 +3868,7 @@ class ReplicaRegion:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84993e1918b2dbbf0536ad339507c609afbe762f115a1dba58f5340204ab6eeb)
+            type_hints = cached_type_hints(_typecheckingstub__84993e1918b2dbbf0536ad339507c609afbe762f115a1dba58f5340204ab6eeb)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3883,13 +3885,13 @@ class ReplicaRegion:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key to use for encrypting the secret value.
 
         :default: - A default KMS key for the account and region is used.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3904,7 +3906,7 @@ class ReplicaRegion:
 
 
 class ResourcePolicy(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.ResourcePolicy",
 ):
@@ -3949,7 +3951,7 @@ class ResourcePolicy(
         :param secret: The secret to attach a resource-based permissions policy.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70df2ad36734857885f7ed88a7659f18f5856280903a55e5db689602fbc7d10a)
+            type_hints = cached_type_hints(_typecheckingstub__70df2ad36734857885f7ed88a7659f18f5856280903a55e5db689602fbc7d10a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ResourcePolicyProps(secret=secret)
@@ -3964,9 +3966,9 @@ class ResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="document")
-    def document(self) -> "_PolicyDocument_3ac34393":
+    def document(self) -> "_aws_iam_1f54b5e8.PolicyDocument":
         '''The IAM policy document for this policy.'''
-        return typing.cast("_PolicyDocument_3ac34393", jsii.get(self, "document"))
+        return typing.cast("_aws_iam_1f54b5e8.PolicyDocument", jsii.get(self, "document"))
 
 
 @jsii.data_type(
@@ -3995,7 +3997,7 @@ class ResourcePolicyProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bb0c2c358f2e7cee0f337102777f2c237bc4b0ecdf9e23f36007f188e125d77)
+            type_hints = cached_type_hints(_typecheckingstub__8bb0c2c358f2e7cee0f337102777f2c237bc4b0ecdf9e23f36007f188e125d77)
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "secret": secret,
@@ -4021,7 +4023,7 @@ class ResourcePolicyProps:
 
 
 class RotationSchedule(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.RotationSchedule",
 ):
@@ -4058,10 +4060,10 @@ class RotationSchedule(
         id: builtins.str,
         *,
         secret: "ISecret",
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4073,7 +4075,7 @@ class RotationSchedule(
         :param rotation_lambda: A Lambda function that can rotate the secret. Default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7be996bb7c10a7caab6bbe40f3016c01a597eb3d6518b283a1aa9ef653a1166)
+            type_hints = cached_type_hints(_typecheckingstub__e7be996bb7c10a7caab6bbe40f3016c01a597eb3d6518b283a1aa9ef653a1166)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RotationScheduleProps(
@@ -4107,10 +4109,10 @@ class RotationScheduleOptions:
     def __init__(
         self,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> None:
         '''Options to add a rotation schedule to a secret.
 
@@ -4136,7 +4138,7 @@ class RotationScheduleOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea79fd5f194a7970e8126d9f2285512aeba4f3210941bfcbcd4a114c730825e5)
+            type_hints = cached_type_hints(_typecheckingstub__ea79fd5f194a7970e8126d9f2285512aeba4f3210941bfcbcd4a114c730825e5)
             check_type(argname="argument automatically_after", value=automatically_after, expected_type=type_hints["automatically_after"])
             check_type(argname="argument hosted_rotation", value=hosted_rotation, expected_type=type_hints["hosted_rotation"])
             check_type(argname="argument rotate_immediately_on_update", value=rotate_immediately_on_update, expected_type=type_hints["rotate_immediately_on_update"])
@@ -4152,7 +4154,7 @@ class RotationScheduleOptions:
             self._values["rotation_lambda"] = rotation_lambda
 
     @builtins.property
-    def automatically_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def automatically_after(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the number of days after the previous rotation before Secrets Manager triggers the next automatic rotation.
 
         The minimum value is 4 hours.
@@ -4163,7 +4165,7 @@ class RotationScheduleOptions:
         :default: Duration.days(30)
         '''
         result = self._values.get("automatically_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def hosted_rotation(self) -> typing.Optional["HostedRotation"]:
@@ -4184,13 +4186,13 @@ class RotationScheduleOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def rotation_lambda(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def rotation_lambda(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A Lambda function that can rotate the secret.
 
         :default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         result = self._values.get("rotation_lambda")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4219,10 +4221,10 @@ class RotationScheduleProps(RotationScheduleOptions):
     def __init__(
         self,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
         secret: "ISecret",
     ) -> None:
         '''Construction properties for a RotationSchedule.
@@ -4258,7 +4260,7 @@ class RotationScheduleProps(RotationScheduleOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3749bff52738c93b80af6215fc1cedcacfd47f4bbaff3952754198447f10a216)
+            type_hints = cached_type_hints(_typecheckingstub__3749bff52738c93b80af6215fc1cedcacfd47f4bbaff3952754198447f10a216)
             check_type(argname="argument automatically_after", value=automatically_after, expected_type=type_hints["automatically_after"])
             check_type(argname="argument hosted_rotation", value=hosted_rotation, expected_type=type_hints["hosted_rotation"])
             check_type(argname="argument rotate_immediately_on_update", value=rotate_immediately_on_update, expected_type=type_hints["rotate_immediately_on_update"])
@@ -4277,7 +4279,7 @@ class RotationScheduleProps(RotationScheduleOptions):
             self._values["rotation_lambda"] = rotation_lambda
 
     @builtins.property
-    def automatically_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def automatically_after(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the number of days after the previous rotation before Secrets Manager triggers the next automatic rotation.
 
         The minimum value is 4 hours.
@@ -4288,7 +4290,7 @@ class RotationScheduleProps(RotationScheduleOptions):
         :default: Duration.days(30)
         '''
         result = self._values.get("automatically_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
     def hosted_rotation(self) -> typing.Optional["HostedRotation"]:
@@ -4309,13 +4311,13 @@ class RotationScheduleProps(RotationScheduleOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def rotation_lambda(self) -> typing.Optional["_IFunction_6adb0ab8"]:
+    def rotation_lambda(self) -> typing.Optional["_aws_lambda_b8f2f472.IFunction"]:
         '''A Lambda function that can rotate the secret.
 
         :default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         result = self._values.get("rotation_lambda")
-        return typing.cast(typing.Optional["_IFunction_6adb0ab8"], result)
+        return typing.cast(typing.Optional["_aws_lambda_b8f2f472.IFunction"], result)
 
     @builtins.property
     def secret(self) -> "ISecret":
@@ -4354,7 +4356,7 @@ class RotationScheduleProps(RotationScheduleOptions):
 
 @jsii.implements(ISecret)
 class Secret(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.Secret",
 ):
@@ -4383,14 +4385,14 @@ class Secret(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         generate_secret_string: typing.Optional[typing.Union["SecretStringGenerator", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         replica_regions: typing.Optional[typing.Sequence[typing.Union["ReplicaRegion", typing.Dict[builtins.str, typing.Any]]]] = None,
         secret_name: typing.Optional[builtins.str] = None,
-        secret_object_value: typing.Optional[typing.Mapping[builtins.str, "_SecretValue_3dd0ddae"]] = None,
+        secret_object_value: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.SecretValue"]] = None,
         secret_string_beta1: typing.Optional["SecretStringValueBeta1"] = None,
-        secret_string_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        secret_string_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4406,7 +4408,7 @@ class Secret(
         :param secret_string_value: Initial value for the secret. **NOTE:** *It is **highly** encouraged to leave this field undefined and allow SecretsManager to create the secret value. The secret string -- if provided -- will be included in the output of the cdk as part of synthesis, and will appear in the CloudFormation template in the console. This can be secure(-ish) if that value is merely reference to another resource (or one of its attributes), but if the value is a plaintext string, it will be visible to anyone with access to the CloudFormation template (via the AWS Console, SDKs, or CLI). Specifies text data that you want to encrypt and store in this new version of the secret. May be a simple string value. To provide a string representation of JSON structure, use ``SecretProps.secretObjectValue`` instead. Only one of ``secretStringBeta1``, ``secretStringValue``, 'secretObjectValue', and ``generateSecretString`` can be provided. Default: - SecretsManager generates a new secret value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcd454832c08866ab96a005690c4c6f21b24e3e2cbdeeca1446cfba6add010b2)
+            type_hints = cached_type_hints(_typecheckingstub__fcd454832c08866ab96a005690c4c6f21b24e3e2cbdeeca1446cfba6add010b2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SecretProps(
@@ -4430,7 +4432,7 @@ class Secret(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         secret_complete_arn: typing.Optional[builtins.str] = None,
         secret_partial_arn: typing.Optional[builtins.str] = None,
     ) -> "ISecret":
@@ -4443,7 +4445,7 @@ class Secret(
         :param secret_partial_arn: The partial ARN of the secret in SecretsManager. This is the ARN without the Secrets Manager 6-character suffix. Cannot be used with ``secretArn`` or ``secretCompleteArn``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__133924d7b571d67f22ef7926812b807123ae92905013128db76ac97072c2dcfd)
+            type_hints = cached_type_hints(_typecheckingstub__133924d7b571d67f22ef7926812b807123ae92905013128db76ac97072c2dcfd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = SecretAttributes(
@@ -4471,7 +4473,7 @@ class Secret(
         :param secret_complete_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b854bc8bda087f42b8325c54050919aaf2390852fdb4966209912b01d935b237)
+            type_hints = cached_type_hints(_typecheckingstub__b854bc8bda087f42b8325c54050919aaf2390852fdb4966209912b01d935b237)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument secret_complete_arn", value=secret_complete_arn, expected_type=type_hints["secret_complete_arn"])
@@ -4500,7 +4502,7 @@ class Secret(
         :see: https://docs.aws.amazon.com/secretsmanager/latest/userguide/troubleshoot.html#ARN_secretnamehyphen
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1809c7ad1006d4662f6cc323aa1ff06f1fe192501d5eecbf2a4d173833f05f0a)
+            type_hints = cached_type_hints(_typecheckingstub__1809c7ad1006d4662f6cc323aa1ff06f1fe192501d5eecbf2a4d173833f05f0a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument secret_name", value=secret_name, expected_type=type_hints["secret_name"])
@@ -4523,7 +4525,7 @@ class Secret(
         :param secret_partial_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365432368372e38ddc1e62f49db949d2def3a139fcc8a3726a7edba25b6d78f8)
+            type_hints = cached_type_hints(_typecheckingstub__365432368372e38ddc1e62f49db949d2def3a139fcc8a3726a7edba25b6d78f8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument secret_partial_arn", value=secret_partial_arn, expected_type=type_hints["secret_partial_arn"])
@@ -4537,7 +4539,7 @@ class Secret(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cd8e0754be5527a0ad4fee26cf19dad664499b08ffe7c9cc666fc3d289af79)
+            type_hints = cached_type_hints(_typecheckingstub__37cd8e0754be5527a0ad4fee26cf19dad664499b08ffe7c9cc666fc3d289af79)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isSecret", [x]))
 
@@ -4545,7 +4547,7 @@ class Secret(
     def add_replica_region(
         self,
         region: builtins.str,
-        encryption_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
+        encryption_key: typing.Optional["_aws_kms_18db7412.IKeyRef"] = None,
     ) -> None:
         '''Adds a replica region for the secret.
 
@@ -4553,7 +4555,7 @@ class Secret(
         :param encryption_key: The customer-managed encryption key to use for encrypting the secret value.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe1b065328cd9fa87e194c0b7fb09715a9775d0324ba830c43b9528fc26bbeed)
+            type_hints = cached_type_hints(_typecheckingstub__fe1b065328cd9fa87e194c0b7fb09715a9775d0324ba830c43b9528fc26bbeed)
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
         return typing.cast(None, jsii.invoke(self, "addReplicaRegion", [region, encryption_key]))
@@ -4563,10 +4565,10 @@ class Secret(
         self,
         id: builtins.str,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> "RotationSchedule":
         '''Adds a rotation schedule to the secret.
 
@@ -4577,7 +4579,7 @@ class Secret(
         :param rotation_lambda: A Lambda function that can rotate the secret. Default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0cfb33ed93cb41170378725d3a15bef8934cd2352c909c1e33af0a9ca9d5ff6)
+            type_hints = cached_type_hints(_typecheckingstub__a0cfb33ed93cb41170378725d3a15bef8934cd2352c909c1e33af0a9ca9d5ff6)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RotationScheduleOptions(
             automatically_after=automatically_after,
@@ -4591,8 +4593,8 @@ class Secret(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Adds a statement to the IAM resource policy associated with this secret.
 
         If this secret was created in this stack, a resource policy will be
@@ -4602,9 +4604,9 @@ class Secret(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ef7ff6cd3fc707bb99a8ad0234b8a9f63ecf93170c54831da20185d8e9bf092)
+            type_hints = cached_type_hints(_typecheckingstub__0ef7ff6cd3fc707bb99a8ad0234b8a9f63ecf93170c54831da20185d8e9bf092)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="attach")
     def attach(self, target: "ISecretAttachmentTarget") -> "ISecret":
@@ -4615,7 +4617,7 @@ class Secret(
         :return: An attached secret
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8c825de04d07bcd42da640fbe5f103da35051a0e6fcb375c69042725bbd039e)
+            type_hints = cached_type_hints(_typecheckingstub__d8c825de04d07bcd42da640fbe5f103da35051a0e6fcb375c69042725bbd039e)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast("ISecret", jsii.invoke(self, "attach", [target]))
 
@@ -4635,7 +4637,7 @@ class Secret(
 
         :see: https://docs.aws.amazon.com/secretsmanager/latest/userguide/cfn-example_reference-secret.html
         '''
-        options = _SecretsManagerSecretOptions_5c3ce656(
+        options = _aws_cdk_0cae9daa.SecretsManagerSecretOptions(
             json_field=json_field, version_id=version_id, version_stage=version_stage
         )
 
@@ -4649,44 +4651,47 @@ class Secret(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param version_stages: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a48942a92a2250d7cf4bcff79a5204a435c39b97180397cd931a98c02ae3aef2)
+            type_hints = cached_type_hints(_typecheckingstub__a48942a92a2250d7cf4bcff79a5204a435c39b97180397cd931a98c02ae3aef2)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument version_stages", value=version_stages, expected_type=type_hints["version_stages"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee, version_stages]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee, version_stages]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9c207e7bde6262ef902d6d8002da6b7e4c929174a6f4306bab488f55b5a32c7)
+            type_hints = cached_type_hints(_typecheckingstub__f9c207e7bde6262ef902d6d8002da6b7e4c929174a6f4306bab488f55b5a32c7)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.member(jsii_name="secretValueFromJson")
     def secret_value_from_json(
         self,
         json_field: builtins.str,
-    ) -> "_SecretValue_3dd0ddae":
+    ) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Interpret the secret as a JSON object and return a field's value from it as a ``SecretValue``.
 
         :param json_field: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b5506b8e74910c6bcedb58ad6aba08df4f75faf9c12c09a961f9d0300901011)
+            type_hints = cached_type_hints(_typecheckingstub__0b5506b8e74910c6bcedb58ad6aba08df4f75faf9c12c09a961f9d0300901011)
             check_type(argname="argument json_field", value=json_field, expected_type=type_hints["json_field"])
-        return typing.cast("_SecretValue_3dd0ddae", jsii.invoke(self, "secretValueFromJson", [json_field]))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.invoke(self, "secretValueFromJson", [json_field]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -4732,25 +4737,25 @@ class Secret(
 
     @builtins.property
     @jsii.member(jsii_name="secretRef")
-    def secret_ref(self) -> "_SecretReference_6b31850e":
+    def secret_ref(self) -> "_aws_secretsmanager_e46be21d.SecretReference":
         '''A reference to a Secret resource.'''
-        return typing.cast("_SecretReference_6b31850e", jsii.get(self, "secretRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.SecretReference", jsii.get(self, "secretRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretValue")
-    def secret_value(self) -> "_SecretValue_3dd0ddae":
+    def secret_value(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Retrieve the value of the stored secret as a ``SecretValue``.'''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretValue"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "secretValue"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key that is used to encrypt this secret, if any.
 
         When not specified, the default
         KMS key for the account and region is being used.
         '''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="excludeCharacters")
@@ -4799,7 +4804,7 @@ class SecretAttachmentTargetProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9ccd58f0022c69157a3279aa0b5534e5c80cf1eec237971549160381f717327)
+            type_hints = cached_type_hints(_typecheckingstub__e9ccd58f0022c69157a3279aa0b5534e5c80cf1eec237971549160381f717327)
             check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4846,7 +4851,7 @@ class SecretAttributes:
     def __init__(
         self,
         *,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         secret_complete_arn: typing.Optional[builtins.str] = None,
         secret_partial_arn: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -4874,7 +4879,7 @@ class SecretAttributes:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b40b142e2077e6a39eb4babc759498f78f7cf1e0eec74fdf8e9dea336dc550de)
+            type_hints = cached_type_hints(_typecheckingstub__b40b142e2077e6a39eb4babc759498f78f7cf1e0eec74fdf8e9dea336dc550de)
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument secret_complete_arn", value=secret_complete_arn, expected_type=type_hints["secret_complete_arn"])
             check_type(argname="argument secret_partial_arn", value=secret_partial_arn, expected_type=type_hints["secret_partial_arn"])
@@ -4887,10 +4892,10 @@ class SecretAttributes:
             self._values["secret_partial_arn"] = secret_partial_arn
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The encryption key that is used to encrypt the secret, unless the default SecretsManager key is used.'''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def secret_complete_arn(self) -> typing.Optional[builtins.str]:
@@ -4944,14 +4949,14 @@ class SecretProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        encryption_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
         generate_secret_string: typing.Optional[typing.Union["SecretStringGenerator", typing.Dict[builtins.str, typing.Any]]] = None,
-        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         replica_regions: typing.Optional[typing.Sequence[typing.Union["ReplicaRegion", typing.Dict[builtins.str, typing.Any]]]] = None,
         secret_name: typing.Optional[builtins.str] = None,
-        secret_object_value: typing.Optional[typing.Mapping[builtins.str, "_SecretValue_3dd0ddae"]] = None,
+        secret_object_value: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.SecretValue"]] = None,
         secret_string_beta1: typing.Optional["SecretStringValueBeta1"] = None,
-        secret_string_value: typing.Optional["_SecretValue_3dd0ddae"] = None,
+        secret_string_value: typing.Optional["_aws_cdk_0cae9daa.SecretValue"] = None,
     ) -> None:
         '''The properties required to create a new secret in AWS Secrets Manager.
 
@@ -4984,7 +4989,7 @@ class SecretProps:
         if isinstance(generate_secret_string, dict):
             generate_secret_string = SecretStringGenerator(**generate_secret_string)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07a06b9874f5819bbae11a60283c0f89d49d47a411bd8d4d98f22dece2945fb4)
+            type_hints = cached_type_hints(_typecheckingstub__07a06b9874f5819bbae11a60283c0f89d49d47a411bd8d4d98f22dece2945fb4)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
             check_type(argname="argument generate_secret_string", value=generate_secret_string, expected_type=type_hints["generate_secret_string"])
@@ -5024,13 +5029,13 @@ class SecretProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key to use for encrypting the secret value.
 
         :default: - A default KMS key for the account and region is used.
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
     def generate_secret_string(self) -> typing.Optional["SecretStringGenerator"]:
@@ -5047,13 +5052,13 @@ class SecretProps:
         return typing.cast(typing.Optional["SecretStringGenerator"], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"]:
         '''Policy to apply when the secret is removed from this stack.
 
         :default: - Not set.
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"], result)
 
     @builtins.property
     def replica_regions(self) -> typing.Optional[typing.List["ReplicaRegion"]]:
@@ -5079,7 +5084,7 @@ class SecretProps:
     @builtins.property
     def secret_object_value(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "_SecretValue_3dd0ddae"]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.SecretValue"]]:
         '''Initial value for a JSON secret.
 
         **NOTE:** *It is **highly** encouraged to leave this field undefined and allow SecretsManager to create the secret value.
@@ -5110,7 +5115,7 @@ class SecretProps:
             )
         '''
         result = self._values.get("secret_object_value")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_SecretValue_3dd0ddae"]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_0cae9daa.SecretValue"]], result)
 
     @builtins.property
     def secret_string_beta1(self) -> typing.Optional["SecretStringValueBeta1"]:
@@ -5137,7 +5142,7 @@ class SecretProps:
         return typing.cast(typing.Optional["SecretStringValueBeta1"], result)
 
     @builtins.property
-    def secret_string_value(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
+    def secret_string_value(self) -> typing.Optional["_aws_cdk_0cae9daa.SecretValue"]:
         '''Initial value for the secret.
 
         **NOTE:** *It is **highly** encouraged to leave this field undefined and allow SecretsManager to create the secret value.
@@ -5154,7 +5159,7 @@ class SecretProps:
         :default: - SecretsManager generates a new secret value.
         '''
         result = self._values.get("secret_string_value")
-        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.SecretValue"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5201,15 +5206,15 @@ class SecretRotation(
         *,
         application: "SecretRotationApplication",
         secret: "ISecret",
-        target: "_IConnectable_10015a05",
-        vpc: "_IVpc_f30d5663",
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
-        endpoint: typing.Optional["_IInterfaceVpcEndpoint_7481aea1"] = None,
+        target: "_aws_ec2_09840e12.IConnectable",
+        vpc: "_aws_ec2_09840e12.IVpc",
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        endpoint: typing.Optional["_aws_ec2_09840e12.IInterfaceVpcEndpoint"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
         master_secret: typing.Optional["ISecret"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5227,7 +5232,7 @@ class SecretRotation(
         :param vpc_subnets: The type of subnets in the VPC where the Lambda rotation function will run. Default: - the Vpc default strategy if not specified.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__285e1365869712d85cdd4496e40d771d84f2ec9854bb5d06447b27986bfb8259)
+            type_hints = cached_type_hints(_typecheckingstub__285e1365869712d85cdd4496e40d771d84f2ec9854bb5d06447b27986bfb8259)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SecretRotationProps(
@@ -5287,7 +5292,7 @@ class SecretRotationApplication(
         :param is_multi_user: Whether the rotation application uses the multi user scheme. Default: false
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64ee5069d4d76c1a7480c8ab8a2310eb526b91e4ede733275861ab92f09c4d8d)
+            type_hints = cached_type_hints(_typecheckingstub__64ee5069d4d76c1a7480c8ab8a2310eb526b91e4ede733275861ab92f09c4d8d)
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument aws_semantic_version", value=aws_semantic_version, expected_type=type_hints["aws_semantic_version"])
         options = SecretRotationApplicationOptions(
@@ -5306,7 +5311,7 @@ class SecretRotationApplication(
         :param partition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0364f9ab156b6fd1d5b623ef1de900d93117180aae0416368a798d531207f728)
+            type_hints = cached_type_hints(_typecheckingstub__0364f9ab156b6fd1d5b623ef1de900d93117180aae0416368a798d531207f728)
             check_type(argname="argument partition", value=partition, expected_type=type_hints["partition"])
         return typing.cast(builtins.str, jsii.invoke(self, "applicationArnForPartition", [partition]))
 
@@ -5319,7 +5324,7 @@ class SecretRotationApplication(
         :param partition: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34cdc6a16dd1256cd156165681f90e3daccb47bbc9f00f3dee6be718836a144e)
+            type_hints = cached_type_hints(_typecheckingstub__34cdc6a16dd1256cd156165681f90e3daccb47bbc9f00f3dee6be718836a144e)
             check_type(argname="argument partition", value=partition, expected_type=type_hints["partition"])
         return typing.cast(builtins.str, jsii.invoke(self, "semanticVersionForPartition", [partition]))
 
@@ -5462,7 +5467,7 @@ class SecretRotationApplicationOptions:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4031e67669c9d894c4b135c6ba74260eb70dfbf2062b93dfcdaa12661f238f15)
+            type_hints = cached_type_hints(_typecheckingstub__4031e67669c9d894c4b135c6ba74260eb70dfbf2062b93dfcdaa12661f238f15)
             check_type(argname="argument additional_semantic_versions", value=additional_semantic_versions, expected_type=type_hints["additional_semantic_versions"])
             check_type(argname="argument is_multi_user", value=is_multi_user, expected_type=type_hints["is_multi_user"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5528,15 +5533,15 @@ class SecretRotationProps:
         *,
         application: "SecretRotationApplication",
         secret: "ISecret",
-        target: "_IConnectable_10015a05",
-        vpc: "_IVpc_f30d5663",
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
-        endpoint: typing.Optional["_IInterfaceVpcEndpoint_7481aea1"] = None,
+        target: "_aws_ec2_09840e12.IConnectable",
+        vpc: "_aws_ec2_09840e12.IVpc",
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        endpoint: typing.Optional["_aws_ec2_09840e12.IInterfaceVpcEndpoint"] = None,
         exclude_characters: typing.Optional[builtins.str] = None,
         master_secret: typing.Optional["ISecret"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        security_group: typing.Optional["_ISecurityGroup_acf8a799"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Construction properties for a SecretRotation.
 
@@ -5571,9 +5576,9 @@ class SecretRotationProps:
             )
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40469344ee397aebc9cf60ee006734d25f0ec82be8d34c920612bb576bba4904)
+            type_hints = cached_type_hints(_typecheckingstub__40469344ee397aebc9cf60ee006734d25f0ec82be8d34c920612bb576bba4904)
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
@@ -5639,30 +5644,30 @@ class SecretRotationProps:
         return typing.cast("ISecret", result)
 
     @builtins.property
-    def target(self) -> "_IConnectable_10015a05":
+    def target(self) -> "_aws_ec2_09840e12.IConnectable":
         '''The target service or database.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
-        return typing.cast("_IConnectable_10015a05", result)
+        return typing.cast("_aws_ec2_09840e12.IConnectable", result)
 
     @builtins.property
-    def vpc(self) -> "_IVpc_f30d5663":
+    def vpc(self) -> "_aws_ec2_09840e12.IVpc":
         '''The VPC where the Lambda rotation function will run.'''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"
-        return typing.cast("_IVpc_f30d5663", result)
+        return typing.cast("_aws_ec2_09840e12.IVpc", result)
 
     @builtins.property
-    def automatically_after(self) -> typing.Optional["_Duration_4839e8c3"]:
+    def automatically_after(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies the number of days after the previous rotation before Secrets Manager triggers the next automatic rotation.
 
         :default: Duration.days(30)
         '''
         result = self._values.get("automatically_after")
-        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
 
     @builtins.property
-    def endpoint(self) -> typing.Optional["_IInterfaceVpcEndpoint_7481aea1"]:
+    def endpoint(self) -> typing.Optional["_aws_ec2_09840e12.IInterfaceVpcEndpoint"]:
         '''The VPC interface endpoint to use for the Secrets Manager API.
 
         If you enable private DNS hostnames for your VPC private endpoint (the default), you don't
@@ -5673,7 +5678,7 @@ class SecretRotationProps:
         :default: https://secretsmanager..amazonaws.com
         '''
         result = self._values.get("endpoint")
-        return typing.cast(typing.Optional["_IInterfaceVpcEndpoint_7481aea1"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IInterfaceVpcEndpoint"], result)
 
     @builtins.property
     def exclude_characters(self) -> typing.Optional[builtins.str]:
@@ -5703,22 +5708,22 @@ class SecretRotationProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def security_group(self) -> typing.Optional["_ISecurityGroup_acf8a799"]:
+    def security_group(self) -> typing.Optional["_aws_ec2_09840e12.ISecurityGroup"]:
         '''The security group for the Lambda rotation function.
 
         :default: - a new security group is created
         '''
         result = self._values.get("security_group")
-        return typing.cast(typing.Optional["_ISecurityGroup_acf8a799"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.ISecurityGroup"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The type of subnets in the VPC where the Lambda rotation function will run.
 
         :default: - the Vpc default strategy if not specified.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5808,7 +5813,7 @@ class SecretStringGenerator:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49316772ef85e46afa77b6f5953a4348cdbb6edca5f92ee6f06df3a813e61d7a)
+            type_hints = cached_type_hints(_typecheckingstub__49316772ef85e46afa77b6f5953a4348cdbb6edca5f92ee6f06df3a813e61d7a)
             check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
             check_type(argname="argument exclude_lowercase", value=exclude_lowercase, expected_type=type_hints["exclude_lowercase"])
             check_type(argname="argument exclude_numbers", value=exclude_numbers, expected_type=type_hints["exclude_numbers"])
@@ -6015,7 +6020,7 @@ class SecretStringValueBeta1(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__090231df1260f879126a13daf0bec9be4da841f36a7086a61a66e01fa3699475)
+            type_hints = cached_type_hints(_typecheckingstub__090231df1260f879126a13daf0bec9be4da841f36a7086a61a66e01fa3699475)
             check_type(argname="argument secret_value_from_token", value=secret_value_from_token, expected_type=type_hints["secret_value_from_token"])
         return typing.cast("SecretStringValueBeta1", jsii.sinvoke(cls, "fromToken", [secret_value_from_token]))
 
@@ -6036,7 +6041,7 @@ class SecretStringValueBeta1(
         :stability: deprecated
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f64734e004f393b9fed7a9dfbc5625830f56bbd1ef9bad5f31b1ae753daf94c)
+            type_hints = cached_type_hints(_typecheckingstub__7f64734e004f393b9fed7a9dfbc5625830f56bbd1ef9bad5f31b1ae753daf94c)
             check_type(argname="argument secret_value", value=secret_value, expected_type=type_hints["secret_value"])
         return typing.cast("SecretStringValueBeta1", jsii.sinvoke(cls, "fromUnsafePlaintext", [secret_value]))
 
@@ -6051,7 +6056,7 @@ class SecretStringValueBeta1(
 
 @jsii.implements(ISecretTargetAttachment, ISecret)
 class SecretTargetAttachment(
-    _Resource_45bc6135,
+    _aws_cdk_0cae9daa.Resource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_secretsmanager.SecretTargetAttachment",
 ):
@@ -6089,7 +6094,7 @@ class SecretTargetAttachment(
         :param target: The target to attach the secret to.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c846eaa8e26a2327a93e69143642bea90d331f6b1aff0d958883086d4843cfd)
+            type_hints = cached_type_hints(_typecheckingstub__7c846eaa8e26a2327a93e69143642bea90d331f6b1aff0d958883086d4843cfd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SecretTargetAttachmentProps(secret=secret, target=target)
@@ -6110,7 +6115,7 @@ class SecretTargetAttachment(
         :param secret_target_attachment_secret_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f3df0c18548718cc68fc8eef350050bfcce8ac1c6f16b34161d8e8d5d0789ae)
+            type_hints = cached_type_hints(_typecheckingstub__5f3df0c18548718cc68fc8eef350050bfcce8ac1c6f16b34161d8e8d5d0789ae)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument secret_target_attachment_secret_arn", value=secret_target_attachment_secret_arn, expected_type=type_hints["secret_target_attachment_secret_arn"])
@@ -6121,10 +6126,10 @@ class SecretTargetAttachment(
         self,
         id: builtins.str,
         *,
-        automatically_after: typing.Optional["_Duration_4839e8c3"] = None,
+        automatically_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         hosted_rotation: typing.Optional["HostedRotation"] = None,
         rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-        rotation_lambda: typing.Optional["_IFunction_6adb0ab8"] = None,
+        rotation_lambda: typing.Optional["_aws_lambda_b8f2f472.IFunction"] = None,
     ) -> "RotationSchedule":
         '''Adds a rotation schedule to the secret.
 
@@ -6135,7 +6140,7 @@ class SecretTargetAttachment(
         :param rotation_lambda: A Lambda function that can rotate the secret. Default: - either ``rotationLambda`` or ``hostedRotation`` must be specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__120ee351e34fda58945049efc139aae080785008e987fcbf66877142c07ba166)
+            type_hints = cached_type_hints(_typecheckingstub__120ee351e34fda58945049efc139aae080785008e987fcbf66877142c07ba166)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         options = RotationScheduleOptions(
             automatically_after=automatically_after,
@@ -6149,8 +6154,8 @@ class SecretTargetAttachment(
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
-        statement: "_PolicyStatement_0fe33853",
-    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        statement: "_aws_iam_1f54b5e8.PolicyStatement",
+    ) -> "_aws_iam_1f54b5e8.AddToResourcePolicyResult":
         '''Forward any additions to the resource policy to the original secret.
 
         This is required because a secret can only have a single resource policy.
@@ -6160,9 +6165,9 @@ class SecretTargetAttachment(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41342fb8f49c554e1068be9362e679b9cc90d9da4cd9d258c1d635c8e02bdabf)
+            type_hints = cached_type_hints(_typecheckingstub__41342fb8f49c554e1068be9362e679b9cc90d9da4cd9d258c1d635c8e02bdabf)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("_aws_iam_1f54b5e8.AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
     @jsii.member(jsii_name="attach")
     def attach(self, target: "ISecretAttachmentTarget") -> "ISecret":
@@ -6173,7 +6178,7 @@ class SecretTargetAttachment(
         :return: An attached secret
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9029e68cc0f687fd0e9722956c6dc35ac3413cf8205c10d8715ba08a6fd1816)
+            type_hints = cached_type_hints(_typecheckingstub__c9029e68cc0f687fd0e9722956c6dc35ac3413cf8205c10d8715ba08a6fd1816)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast("ISecret", jsii.invoke(self, "attach", [target]))
 
@@ -6193,7 +6198,7 @@ class SecretTargetAttachment(
 
         :see: https://docs.aws.amazon.com/secretsmanager/latest/userguide/cfn-example_reference-secret.html
         '''
-        options = _SecretsManagerSecretOptions_5c3ce656(
+        options = _aws_cdk_0cae9daa.SecretsManagerSecretOptions(
             json_field=json_field, version_id=version_id, version_stage=version_stage
         )
 
@@ -6207,44 +6212,47 @@ class SecretTargetAttachment(
     @jsii.member(jsii_name="grantRead")
     def grant_read(
         self,
-        grantee: "_IGrantable_71c4f5de",
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
         version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> "_Grant_a7ae64f8":
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         :param version_stages: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b26070cb15c32ddaaf51fc49faef5a70e11cbad79c1aab14a543fe3696bf9a78)
+            type_hints = cached_type_hints(_typecheckingstub__b26070cb15c32ddaaf51fc49faef5a70e11cbad79c1aab14a543fe3696bf9a78)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument version_stages", value=version_stages, expected_type=type_hints["version_stages"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee, version_stages]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantRead", [grantee, version_stages]))
 
     @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+    def grant_write(
+        self,
+        grantee: "_aws_iam_1f54b5e8.IGrantable",
+    ) -> "_aws_iam_1f54b5e8.Grant":
         '''[disable-awslint:no-grants].
 
         :param grantee: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9295c8510d053c88c2cd12c14d0fb07dfa1f728cb86cbb209719878cdaa2ecc)
+            type_hints = cached_type_hints(_typecheckingstub__f9295c8510d053c88c2cd12c14d0fb07dfa1f728cb86cbb209719878cdaa2ecc)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+        return typing.cast("_aws_iam_1f54b5e8.Grant", jsii.invoke(self, "grantWrite", [grantee]))
 
     @jsii.member(jsii_name="secretValueFromJson")
     def secret_value_from_json(
         self,
         json_field: builtins.str,
-    ) -> "_SecretValue_3dd0ddae":
+    ) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Interpret the secret as a JSON object and return a field's value from it as a ``SecretValue``.
 
         :param json_field: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8cbc1b2c0b7e4c5034f81f7e19b10a9a5c4f8a1130cae389291c758992793dd)
+            type_hints = cached_type_hints(_typecheckingstub__b8cbc1b2c0b7e4c5034f81f7e19b10a9a5c4f8a1130cae389291c758992793dd)
             check_type(argname="argument json_field", value=json_field, expected_type=type_hints["json_field"])
-        return typing.cast("_SecretValue_3dd0ddae", jsii.invoke(self, "secretValueFromJson", [json_field]))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.invoke(self, "secretValueFromJson", [json_field]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -6290,17 +6298,17 @@ class SecretTargetAttachment(
 
     @builtins.property
     @jsii.member(jsii_name="secretRef")
-    def secret_ref(self) -> "_SecretReference_6b31850e":
+    def secret_ref(self) -> "_aws_secretsmanager_e46be21d.SecretReference":
         '''A reference to a Secret resource.'''
-        return typing.cast("_SecretReference_6b31850e", jsii.get(self, "secretRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.SecretReference", jsii.get(self, "secretRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretTargetAttachmentRef")
     def secret_target_attachment_ref(
         self,
-    ) -> "_SecretTargetAttachmentReference_5ec6f11b":
+    ) -> "_aws_secretsmanager_e46be21d.SecretTargetAttachmentReference":
         '''A reference to a SecretTargetAttachment resource.'''
-        return typing.cast("_SecretTargetAttachmentReference_5ec6f11b", jsii.get(self, "secretTargetAttachmentRef"))
+        return typing.cast("_aws_secretsmanager_e46be21d.SecretTargetAttachmentReference", jsii.get(self, "secretTargetAttachmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="secretTargetAttachmentSecretArn")
@@ -6313,19 +6321,19 @@ class SecretTargetAttachment(
 
     @builtins.property
     @jsii.member(jsii_name="secretValue")
-    def secret_value(self) -> "_SecretValue_3dd0ddae":
+    def secret_value(self) -> "_aws_cdk_0cae9daa.SecretValue":
         '''Retrieve the value of the stored secret as a ``SecretValue``.'''
-        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretValue"))
+        return typing.cast("_aws_cdk_0cae9daa.SecretValue", jsii.get(self, "secretValue"))
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+    def encryption_key(self) -> typing.Optional["_aws_kms_ff87d74a.IKey"]:
         '''The customer-managed encryption key that is used to encrypt this secret, if any.
 
         When not specified, the default
         KMS key for the account and region is being used.
         '''
-        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], jsii.get(self, "encryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="secretFullArn")
@@ -6366,7 +6374,7 @@ class SecretTargetAttachmentProps(AttachedSecretOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1823fc5244355421b669b2e86397d1ce03b7167fd9ae9095651d9429dca4ef7d)
+            type_hints = cached_type_hints(_typecheckingstub__1823fc5244355421b669b2e86397d1ce03b7167fd9ae9095651d9429dca4ef7d)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6417,9 +6425,9 @@ class SingleUserHostedRotationOptions:
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Single user hosted rotation options.
 
@@ -6443,9 +6451,9 @@ class SingleUserHostedRotationOptions:
             db_connections.allow_default_port_from(my_hosted_rotation)
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdc66defbdab3841ae397287a19489348693b83ef245c79f7f3b6ae880d7bfd1)
+            type_hints = cached_type_hints(_typecheckingstub__bdc66defbdab3841ae397287a19489348693b83ef245c79f7f3b6ae880d7bfd1)
             check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
             check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -6487,31 +6495,31 @@ class SingleUserHostedRotationOptions:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''A list of security groups for the Lambda created to rotate the secret.
 
         :default: - a new security group is created
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the Lambda rotation function will run.
 
         :default: - the Lambda is not deployed in a VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The type of subnets in the VPC where the Lambda rotation function will run.
 
         :default: - the Vpc default strategy if not specified.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6543,9 +6551,9 @@ class MultiUserHostedRotationOptions(SingleUserHostedRotationOptions):
         *,
         exclude_characters: typing.Optional[builtins.str] = None,
         function_name: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
-        vpc: typing.Optional["_IVpc_f30d5663"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_ec2_09840e12.ISecurityGroup"]] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_ec2_09840e12.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         master_secret: "ISecret",
     ) -> None:
         '''Multi user hosted rotation options.
@@ -6591,9 +6599,9 @@ class MultiUserHostedRotationOptions(SingleUserHostedRotationOptions):
             )
         '''
         if isinstance(vpc_subnets, dict):
-            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+            vpc_subnets = _aws_ec2_09840e12.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb32efb5952cc114eb89eeb6884dd52a8077263cbe3c8d6c019dee8839ba30c4)
+            type_hints = cached_type_hints(_typecheckingstub__eb32efb5952cc114eb89eeb6884dd52a8077263cbe3c8d6c019dee8839ba30c4)
             check_type(argname="argument exclude_characters", value=exclude_characters, expected_type=type_hints["exclude_characters"])
             check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -6638,31 +6646,31 @@ class MultiUserHostedRotationOptions(SingleUserHostedRotationOptions):
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+    ) -> typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]]:
         '''A list of security groups for the Lambda created to rotate the secret.
 
         :default: - a new security group is created
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_ec2_09840e12.ISecurityGroup"]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
         '''The VPC where the Lambda rotation function will run.
 
         :default: - the Lambda is not deployed in a VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+    def vpc_subnets(self) -> typing.Optional["_aws_ec2_09840e12.SubnetSelection"]:
         '''The type of subnets in the VPC where the Lambda rotation function will run.
 
         :default: - the Vpc default strategy if not specified.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.SubnetSelection"], result)
 
     @builtins.property
     def master_secret(self) -> "ISecret":
@@ -6735,8 +6743,8 @@ def _typecheckingstub__82c9dc2ed30dab76a3a8fb3272dfbaabcd66f53e653bb3065f88e3262
     id: builtins.str,
     *,
     resource_policy: typing.Any,
-    secret_id: typing.Union[builtins.str, _ISecretRef_3a7b28a3],
-    block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    secret_id: typing.Union[builtins.str, _aws_secretsmanager_e46be21d.ISecretRef],
+    block_public_policy: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6748,7 +6756,7 @@ def _typecheckingstub__35ad28b3c32da531982746c04a0c9646c0e6b2907f9b2a1ae1f68c721
     pass
 
 def _typecheckingstub__9c510cb3ab1bd05f0eb24a92d03df29302e7d2fc4d67b0f34fb335485b8e6fa9(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6772,7 +6780,7 @@ def _typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98
     pass
 
 def _typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6780,8 +6788,8 @@ def _typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb26
 def _typecheckingstub__402bf401489ba911958d39c7ca9c4b2e953151c4170a31191e7db45ac77e29b5(
     *,
     resource_policy: typing.Any,
-    secret_id: typing.Union[builtins.str, _ISecretRef_3a7b28a3],
-    block_public_policy: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    secret_id: typing.Union[builtins.str, _aws_secretsmanager_e46be21d.ISecretRef],
+    block_public_policy: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6791,12 +6799,12 @@ def _typecheckingstub__7b6c1ae14c467b88b6b0e8e2da843e829b14564b0df4f6b16f07a7260
     id: builtins.str,
     *,
     secret_id: builtins.str,
-    external_secret_rotation_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    external_secret_rotation_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     external_secret_rotation_role_arn: typing.Optional[builtins.str] = None,
-    hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    hosted_rotation_lambda: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     rotation_lambda_arn: typing.Optional[builtins.str] = None,
-    rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rotation_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6808,7 +6816,7 @@ def _typecheckingstub__d542680f98c100d6fc40efc3cafa23e5a0eb4a4f1352593f1c9454aa4
     pass
 
 def _typecheckingstub__7b7c26312f3e2962d95236de8e29691ebe6005d2b82348881fd176217228dbf7(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6826,7 +6834,7 @@ def _typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6
     pass
 
 def _typecheckingstub__a137dbdb2b8bf5b81e3be66ca1a95e203ab984fc427ebe6079f0ed9df6c8ebf4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6838,13 +6846,13 @@ def _typecheckingstub__826ff8ecec050649dbf462747d667aaa66aac5516b3c8556c860b61ae
     pass
 
 def _typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.HostedRotationLambdaProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRotationSchedule.HostedRotationLambdaProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6856,7 +6864,7 @@ def _typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc
     pass
 
 def _typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRotationSchedule.RotationRulesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRotationSchedule.RotationRulesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6898,12 +6906,12 @@ def _typecheckingstub__6ed8007f583ad38fb1a732d3e293d1e025eeebc01945a63dfb1770dd5
 def _typecheckingstub__ceb941109ded6374b3623fce5a39b1744d18841728c64d4e5f2e3941d295c8f0(
     *,
     secret_id: builtins.str,
-    external_secret_rotation_metadata: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    external_secret_rotation_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     external_secret_rotation_role_arn: typing.Optional[builtins.str] = None,
-    hosted_rotation_lambda: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    hosted_rotation_lambda: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.HostedRotationLambdaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rotate_immediately_on_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     rotation_lambda_arn: typing.Optional[builtins.str] = None,
-    rotation_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rotation_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRotationSchedule.RotationRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6913,19 +6921,19 @@ def _typecheckingstub__85d618e732c6b1f020908289780221a8947553437136d3d13945c0f22
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    generate_secret_string: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     name: typing.Optional[builtins.str] = None,
-    replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    replica_regions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     secret_string: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d1e41efea79b7cb0452a7a9a71c9e2529e958a1adcbc9a9dc07d533666d62816(
-    resource: _ISecretRef_3a7b28a3,
+    resource: _aws_secretsmanager_e46be21d.ISecretRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6945,7 +6953,7 @@ def _typecheckingstub__24eed6944e52de3e9e8e6547d31e08e5a13e7c3589a98273ec505c3eb
     pass
 
 def _typecheckingstub__3e292aeb07dc3753c7a4e07c46e793e9a5c7266734d09d7d045223f304d4275f(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6963,7 +6971,7 @@ def _typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f
     pass
 
 def _typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSecret.GenerateSecretStringProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSecret.GenerateSecretStringProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6981,7 +6989,7 @@ def _typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e
     pass
 
 def _typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecret.ReplicaRegionProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSecret.ReplicaRegionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6993,7 +7001,7 @@ def _typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948f
     pass
 
 def _typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7007,14 +7015,14 @@ def _typecheckingstub__ac9a6ca47cf74b6a1326cfbcee97733e8514cd3a987237230dc6695b1
 def _typecheckingstub__ed19557eb7ab9e470b0fafe554b1c1bca876b49de07ade921587fa31a98ec5af(
     *,
     exclude_characters: typing.Optional[builtins.str] = None,
-    exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_numbers: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    exclude_lowercase: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    exclude_numbers: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    exclude_punctuation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    exclude_uppercase: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     generate_string_key: typing.Optional[builtins.str] = None,
-    include_space: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    include_space: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     password_length: typing.Optional[jsii.Number] = None,
-    require_each_included_type: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    require_each_included_type: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     secret_string_template: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7031,12 +7039,12 @@ def _typecheckingstub__fff7ca70031c00a40b3d2989ab1fe20883a0d338f89b8019f4f5a40e1
 def _typecheckingstub__022fe4500a72a14309ab1a3b32c45d84b045a2044531ddfa942aeb33ff07e3e0(
     *,
     description: typing.Optional[builtins.str] = None,
-    generate_secret_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    generate_secret_string: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecret.GenerateSecretStringProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
     name: typing.Optional[builtins.str] = None,
-    replica_regions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    replica_regions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecret.ReplicaRegionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     secret_string: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7060,7 +7068,7 @@ def _typecheckingstub__741db663c2c651f06b47c370f6e63ddeab1d72de1772539df0d37393e
     pass
 
 def _typecheckingstub__9b32efc929c01dce987007eb6e37d6ce47391a8c2d8dad83831fa66c270b047e(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7108,16 +7116,16 @@ def _typecheckingstub__0296aa9bdf8ce9144e34613aa1c1464127b91b8af87d320a0eb53189b
 def _typecheckingstub__c29c568a6de9f821fe48f861b8c19d49274f380b696aaf28c288d3de5258b128(
     id: builtins.str,
     *,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7ca8a3a04172cc7290ea795d4ed22a2018d69433a152fce410fa5b29236fff0a(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7129,14 +7137,14 @@ def _typecheckingstub__0800447869be5f35a1e4dbb472254f3a11a06295360c640823fd9ee24
     pass
 
 def _typecheckingstub__aa9b36ba3358a080c3fdc6f338877e097c1b68d22444b7b4d3530bebfb65bab5(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__b3d8d811bce40c68bb8d8ce3a12b36334b7d98fc6a70a53aef2c5e9aa70aa637(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7150,7 +7158,7 @@ def _typecheckingstub__c318161f2dad977a974bfdf1b8617f4afb364dda4cd8be7309aafc730
 def _typecheckingstub__84993e1918b2dbbf0536ad339507c609afbe762f115a1dba58f5340204ab6eeb(
     *,
     region: builtins.str,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7176,30 +7184,30 @@ def _typecheckingstub__e7be996bb7c10a7caab6bbe40f3016c01a597eb3d6518b283a1aa9ef6
     id: builtins.str,
     *,
     secret: ISecret,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ea79fd5f194a7970e8126d9f2285512aeba4f3210941bfcbcd4a114c730825e5(
     *,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3749bff52738c93b80af6215fc1cedcacfd47f4bbaff3952754198447f10a216(
     *,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
     secret: ISecret,
 ) -> None:
     """Type checking stubs"""
@@ -7210,14 +7218,14 @@ def _typecheckingstub__fcd454832c08866ab96a005690c4c6f21b24e3e2cbdeeca1446cfba6a
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     generate_secret_string: typing.Optional[typing.Union[SecretStringGenerator, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     replica_regions: typing.Optional[typing.Sequence[typing.Union[ReplicaRegion, typing.Dict[builtins.str, typing.Any]]]] = None,
     secret_name: typing.Optional[builtins.str] = None,
-    secret_object_value: typing.Optional[typing.Mapping[builtins.str, _SecretValue_3dd0ddae]] = None,
+    secret_object_value: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.SecretValue]] = None,
     secret_string_beta1: typing.Optional[SecretStringValueBeta1] = None,
-    secret_string_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    secret_string_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7226,7 +7234,7 @@ def _typecheckingstub__133924d7b571d67f22ef7926812b807123ae92905013128db76ac9707
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     secret_complete_arn: typing.Optional[builtins.str] = None,
     secret_partial_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7265,7 +7273,7 @@ def _typecheckingstub__37cd8e0754be5527a0ad4fee26cf19dad664499b08ffe7c9cc666fc3d
 
 def _typecheckingstub__fe1b065328cd9fa87e194c0b7fb09715a9775d0324ba830c43b9528fc26bbeed(
     region: builtins.str,
-    encryption_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    encryption_key: typing.Optional[_aws_kms_18db7412.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7273,16 +7281,16 @@ def _typecheckingstub__fe1b065328cd9fa87e194c0b7fb09715a9775d0324ba830c43b9528fc
 def _typecheckingstub__a0cfb33ed93cb41170378725d3a15bef8934cd2352c909c1e33af0a9ca9d5ff6(
     id: builtins.str,
     *,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0ef7ff6cd3fc707bb99a8ad0234b8a9f63ecf93170c54831da20185d8e9bf092(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7294,14 +7302,14 @@ def _typecheckingstub__d8c825de04d07bcd42da640fbe5f103da35051a0e6fcb375c69042725
     pass
 
 def _typecheckingstub__a48942a92a2250d7cf4bcff79a5204a435c39b97180397cd931a98c02ae3aef2(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f9c207e7bde6262ef902d6d8002da6b7e4c929174a6f4306bab488f55b5a32c7(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7322,7 +7330,7 @@ def _typecheckingstub__e9ccd58f0022c69157a3279aa0b5534e5c80cf1eec237971549160381
 
 def _typecheckingstub__b40b142e2077e6a39eb4babc759498f78f7cf1e0eec74fdf8e9dea336dc550de(
     *,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     secret_complete_arn: typing.Optional[builtins.str] = None,
     secret_partial_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7332,14 +7340,14 @@ def _typecheckingstub__b40b142e2077e6a39eb4babc759498f78f7cf1e0eec74fdf8e9dea336
 def _typecheckingstub__07a06b9874f5819bbae11a60283c0f89d49d47a411bd8d4d98f22dece2945fb4(
     *,
     description: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    encryption_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
     generate_secret_string: typing.Optional[typing.Union[SecretStringGenerator, typing.Dict[builtins.str, typing.Any]]] = None,
-    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     replica_regions: typing.Optional[typing.Sequence[typing.Union[ReplicaRegion, typing.Dict[builtins.str, typing.Any]]]] = None,
     secret_name: typing.Optional[builtins.str] = None,
-    secret_object_value: typing.Optional[typing.Mapping[builtins.str, _SecretValue_3dd0ddae]] = None,
+    secret_object_value: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_0cae9daa.SecretValue]] = None,
     secret_string_beta1: typing.Optional[SecretStringValueBeta1] = None,
-    secret_string_value: typing.Optional[_SecretValue_3dd0ddae] = None,
+    secret_string_value: typing.Optional[_aws_cdk_0cae9daa.SecretValue] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7350,15 +7358,15 @@ def _typecheckingstub__285e1365869712d85cdd4496e40d771d84f2ec9854bb5d06447b27986
     *,
     application: SecretRotationApplication,
     secret: ISecret,
-    target: _IConnectable_10015a05,
-    vpc: _IVpc_f30d5663,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
-    endpoint: typing.Optional[_IInterfaceVpcEndpoint_7481aea1] = None,
+    target: _aws_ec2_09840e12.IConnectable,
+    vpc: _aws_ec2_09840e12.IVpc,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    endpoint: typing.Optional[_aws_ec2_09840e12.IInterfaceVpcEndpoint] = None,
     exclude_characters: typing.Optional[builtins.str] = None,
     master_secret: typing.Optional[ISecret] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7397,15 +7405,15 @@ def _typecheckingstub__40469344ee397aebc9cf60ee006734d25f0ec82be8d34c920612bb576
     *,
     application: SecretRotationApplication,
     secret: ISecret,
-    target: _IConnectable_10015a05,
-    vpc: _IVpc_f30d5663,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
-    endpoint: typing.Optional[_IInterfaceVpcEndpoint_7481aea1] = None,
+    target: _aws_ec2_09840e12.IConnectable,
+    vpc: _aws_ec2_09840e12.IVpc,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    endpoint: typing.Optional[_aws_ec2_09840e12.IInterfaceVpcEndpoint] = None,
     exclude_characters: typing.Optional[builtins.str] = None,
     master_secret: typing.Optional[ISecret] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    security_group: typing.Optional[_ISecurityGroup_acf8a799] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7459,16 +7467,16 @@ def _typecheckingstub__5f3df0c18548718cc68fc8eef350050bfcce8ac1c6f16b34161d8e8d5
 def _typecheckingstub__120ee351e34fda58945049efc139aae080785008e987fcbf66877142c07ba166(
     id: builtins.str,
     *,
-    automatically_after: typing.Optional[_Duration_4839e8c3] = None,
+    automatically_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     hosted_rotation: typing.Optional[HostedRotation] = None,
     rotate_immediately_on_update: typing.Optional[builtins.bool] = None,
-    rotation_lambda: typing.Optional[_IFunction_6adb0ab8] = None,
+    rotation_lambda: typing.Optional[_aws_lambda_b8f2f472.IFunction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__41342fb8f49c554e1068be9362e679b9cc90d9da4cd9d258c1d635c8e02bdabf(
-    statement: _PolicyStatement_0fe33853,
+    statement: _aws_iam_1f54b5e8.PolicyStatement,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7480,14 +7488,14 @@ def _typecheckingstub__c9029e68cc0f687fd0e9722956c6dc35ac3413cf8205c10d8715ba08a
     pass
 
 def _typecheckingstub__b26070cb15c32ddaaf51fc49faef5a70e11cbad79c1aab14a543fe3696bf9a78(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
     version_stages: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f9295c8510d053c88c2cd12c14d0fb07dfa1f728cb86cbb209719878cdaa2ecc(
-    grantee: _IGrantable_71c4f5de,
+    grantee: _aws_iam_1f54b5e8.IGrantable,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7510,9 +7518,9 @@ def _typecheckingstub__bdc66defbdab3841ae397287a19489348693b83ef245c79f7f3b6ae88
     *,
     exclude_characters: typing.Optional[builtins.str] = None,
     function_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7521,9 +7529,9 @@ def _typecheckingstub__eb32efb5952cc114eb89eeb6884dd52a8077263cbe3c8d6c019dee883
     *,
     exclude_characters: typing.Optional[builtins.str] = None,
     function_name: typing.Optional[builtins.str] = None,
-    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-    vpc: typing.Optional[_IVpc_f30d5663] = None,
-    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_groups: typing.Optional[typing.Sequence[_aws_ec2_09840e12.ISecurityGroup]] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_ec2_09840e12.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     master_secret: ISecret,
 ) -> None:
     """Type checking stubs"""

@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,45 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_greengrassv2 import (
-    ComponentVersionReference as _ComponentVersionReference_bcf75086,
-    DeploymentReference as _DeploymentReference_f170fd96,
-    IComponentVersionRef as _IComponentVersionRef_0bf9ff8c,
-    IDeploymentRef as _IDeploymentRef_59e837ab,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_greengrassv2 as _aws_greengrassv2_0aaaac65
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_greengrassv2_0aaaac65 = _LazyImport("aws_cdk.interfaces.aws_greengrassv2")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IComponentVersionRef_0bf9ff8c, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrassv2_0aaaac65.IComponentVersionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnComponentVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrassv2.CfnComponentVersion",
 ):
@@ -176,7 +169,7 @@ class CfnComponentVersion(
         id: builtins.str,
         *,
         inline_recipe: typing.Optional[builtins.str] = None,
-        lambda_function: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaFunctionRecipeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_function: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaFunctionRecipeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::GreengrassV2::ComponentVersion``.
@@ -188,7 +181,7 @@ class CfnComponentVersion(
         :param tags: Application-specific metadata to attach to the component version. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5d46224f527e073fe7f6fbe54ccaca3f0045fcc0ade3462681ae8b0575c59e0)
+            type_hints = cached_type_hints(_typecheckingstub__f5d46224f527e073fe7f6fbe54ccaca3f0045fcc0ade3462681ae8b0575c59e0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnComponentVersionProps(
@@ -201,13 +194,13 @@ class CfnComponentVersion(
     @builtins.classmethod
     def arn_for_component_version(
         cls,
-        resource: "_IComponentVersionRef_0bf9ff8c",
+        resource: "_aws_greengrassv2_0aaaac65.IComponentVersionRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a1d635cca1071594073026b07b7c8160d1f7d954abea7929a8c9f7a135393fd2)
+            type_hints = cached_type_hints(_typecheckingstub__a1d635cca1071594073026b07b7c8160d1f7d954abea7929a8c9f7a135393fd2)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForComponentVersion", [resource]))
 
@@ -219,18 +212,18 @@ class CfnComponentVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__165669b33b7a11dda4bac065f6b72e6b1ff4811da807511e35ac43a76559c418)
+            type_hints = cached_type_hints(_typecheckingstub__165669b33b7a11dda4bac065f6b72e6b1ff4811da807511e35ac43a76559c418)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnComponentVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41b4437bb59606a2a9dbc98b6d542a546264b4ce6dc5594c04c8503a477b837c)
+            type_hints = cached_type_hints(_typecheckingstub__41b4437bb59606a2a9dbc98b6d542a546264b4ce6dc5594c04c8503a477b837c)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -243,7 +236,7 @@ class CfnComponentVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddcadfc186b2781e90bf0c28ccaed5edc30f8c0c7447e9310fac34a6349fcda8)
+            type_hints = cached_type_hints(_typecheckingstub__ddcadfc186b2781e90bf0c28ccaed5edc30f8c0c7447e9310fac34a6349fcda8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -292,15 +285,17 @@ class CfnComponentVersion(
 
     @builtins.property
     @jsii.member(jsii_name="componentVersionRef")
-    def component_version_ref(self) -> "_ComponentVersionReference_bcf75086":
+    def component_version_ref(
+        self,
+    ) -> "_aws_greengrassv2_0aaaac65.ComponentVersionReference":
         '''A reference to a ComponentVersion resource.'''
-        return typing.cast("_ComponentVersionReference_bcf75086", jsii.get(self, "componentVersionRef"))
+        return typing.cast("_aws_greengrassv2_0aaaac65.ComponentVersionReference", jsii.get(self, "componentVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="inlineRecipe")
@@ -311,7 +306,7 @@ class CfnComponentVersion(
     @inline_recipe.setter
     def inline_recipe(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72eb28bfc29eebefc2ec5d2aace9f7b9a334fa75c8691abf39303421830fabd7)
+            type_hints = cached_type_hints(_typecheckingstub__72eb28bfc29eebefc2ec5d2aace9f7b9a334fa75c8691abf39303421830fabd7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "inlineRecipe", value) # pyright: ignore[reportArgumentType]
 
@@ -319,17 +314,17 @@ class CfnComponentVersion(
     @jsii.member(jsii_name="lambdaFunction")
     def lambda_function(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]]:
         '''The parameters to create a component from a Lambda function.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]], jsii.get(self, "lambdaFunction"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]], jsii.get(self, "lambdaFunction"))
 
     @lambda_function.setter
     def lambda_function(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ccfa77f00c9c04773ae0643b7f2f0b369127a28b9747cbe78bfe426dc32f46)
+            type_hints = cached_type_hints(_typecheckingstub__d0ccfa77f00c9c04773ae0643b7f2f0b369127a28b9747cbe78bfe426dc32f46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lambdaFunction", value) # pyright: ignore[reportArgumentType]
 
@@ -345,7 +340,7 @@ class CfnComponentVersion(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0267e3a5b2b19b25e52f0bee8bba8f4880b864731b0138cdd45e5b72ec1bc7a)
+            type_hints = cached_type_hints(_typecheckingstub__f0267e3a5b2b19b25e52f0bee8bba8f4880b864731b0138cdd45e5b72ec1bc7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -384,7 +379,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8c678ca853046a4f9a77f7c2dd92c2ab09d84c106fa6e8f450dca99e2f6edbf9)
+                type_hints = cached_type_hints(_typecheckingstub__8c678ca853046a4f9a77f7c2dd92c2ab09d84c106fa6e8f450dca99e2f6edbf9)
                 check_type(argname="argument dependency_type", value=dependency_type, expected_type=type_hints["dependency_type"])
                 check_type(argname="argument version_requirement", value=version_requirement, expected_type=type_hints["version_requirement"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -438,7 +433,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information about a platform that a component supports.
@@ -463,7 +458,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__868d55cb9cd63d9081a8bb6f44c49ad0558ce766d47dc9e602b30fa6d7823104)
+                type_hints = cached_type_hints(_typecheckingstub__868d55cb9cd63d9081a8bb6f44c49ad0558ce766d47dc9e602b30fa6d7823104)
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -475,7 +470,7 @@ class CfnComponentVersion(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''A dictionary of attributes for the platform.
 
             The AWS IoT Greengrass Core software defines the ``os`` and ``platform`` by default. You can specify additional platform attributes for a core device when you deploy the AWS IoT Greengrass nucleus component. For more information, see the `AWS IoT Greengrass nucleus component <https://docs.aws.amazon.com/greengrass/v2/developerguide/greengrass-nucleus-component.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
@@ -483,7 +478,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-componentplatform.html#cfn-greengrassv2-componentversion-componentplatform-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
@@ -521,10 +516,10 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            devices: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaDeviceMountProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            devices: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaDeviceMountProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             memory_size_in_kb: typing.Optional[jsii.Number] = None,
-            mount_ro_sysfs: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            volumes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaVolumeMountProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            mount_ro_sysfs: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            volumes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaVolumeMountProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains information about a container in which AWS Lambda functions run on AWS IoT Greengrass core devices.
 
@@ -559,7 +554,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__faa404e4c8d222fafce82a4df5f456d4c0ca9f1f90cc0610f63526bc52a42562)
+                type_hints = cached_type_hints(_typecheckingstub__faa404e4c8d222fafce82a4df5f456d4c0ca9f1f90cc0610f63526bc52a42562)
                 check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
                 check_type(argname="argument memory_size_in_kb", value=memory_size_in_kb, expected_type=type_hints["memory_size_in_kb"])
                 check_type(argname="argument mount_ro_sysfs", value=mount_ro_sysfs, expected_type=type_hints["mount_ro_sysfs"])
@@ -577,13 +572,13 @@ class CfnComponentVersion(
         @builtins.property
         def devices(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaDeviceMountProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaDeviceMountProperty"]]]]:
             '''The list of system devices that the container can access.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdacontainerparams.html#cfn-greengrassv2-componentversion-lambdacontainerparams-devices
             '''
             result = self._values.get("devices")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaDeviceMountProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaDeviceMountProperty"]]]], result)
 
         @builtins.property
         def memory_size_in_kb(self) -> typing.Optional[jsii.Number]:
@@ -599,7 +594,7 @@ class CfnComponentVersion(
         @builtins.property
         def mount_ro_sysfs(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not the container can read information from the device's ``/sys`` folder.
 
             Default: ``false``
@@ -607,18 +602,18 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdacontainerparams.html#cfn-greengrassv2-componentversion-lambdacontainerparams-mountrosysfs
             '''
             result = self._values.get("mount_ro_sysfs")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def volumes(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaVolumeMountProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaVolumeMountProperty"]]]]:
             '''The list of volumes that the container can access.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdacontainerparams.html#cfn-greengrassv2-componentversion-lambdacontainerparams-volumes
             '''
             result = self._values.get("volumes")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaVolumeMountProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaVolumeMountProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -644,7 +639,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            add_group_owner: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            add_group_owner: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             path: typing.Optional[builtins.str] = None,
             permission: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -670,7 +665,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2ff1c88d4c72688121e8d02d23f54e807be84dc41e8cc06f915402a59c07ab80)
+                type_hints = cached_type_hints(_typecheckingstub__2ff1c88d4c72688121e8d02d23f54e807be84dc41e8cc06f915402a59c07ab80)
                 check_type(argname="argument add_group_owner", value=add_group_owner, expected_type=type_hints["add_group_owner"])
                 check_type(argname="argument path", value=path, expected_type=type_hints["path"])
                 check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
@@ -685,7 +680,7 @@ class CfnComponentVersion(
         @builtins.property
         def add_group_owner(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not to add the component's system user as an owner of the device.
 
             Default: ``false``
@@ -693,7 +688,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdadevicemount.html#cfn-greengrassv2-componentversion-lambdadevicemount-addgroupowner
             '''
             result = self._values.get("add_group_owner")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def path(self) -> typing.Optional[builtins.str]:
@@ -760,7 +755,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d2bdb1aa21a11fead4d3211e8427d3370a925fda227540a812604c8717631e5b)
+                type_hints = cached_type_hints(_typecheckingstub__d2bdb1aa21a11fead4d3211e8427d3370a925fda227540a812604c8717631e5b)
                 check_type(argname="argument topic", value=topic, expected_type=type_hints["topic"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -822,15 +817,15 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            event_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaEventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            event_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaEventSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
             input_payload_encoding_type: typing.Optional[builtins.str] = None,
-            linux_process_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaLinuxProcessParamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            linux_process_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaLinuxProcessParamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             max_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
             max_instances_count: typing.Optional[jsii.Number] = None,
             max_queue_size: typing.Optional[jsii.Number] = None,
-            pinned: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            pinned: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             status_timeout_in_seconds: typing.Optional[jsii.Number] = None,
             timeout_in_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -894,7 +889,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__000b16ea913d1bbaf1c4a8d0fc0503b8b2497e7799ae2cf1cbbf4d109ec5d229)
+                type_hints = cached_type_hints(_typecheckingstub__000b16ea913d1bbaf1c4a8d0fc0503b8b2497e7799ae2cf1cbbf4d109ec5d229)
                 check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
                 check_type(argname="argument event_sources", value=event_sources, expected_type=type_hints["event_sources"])
                 check_type(argname="argument exec_args", value=exec_args, expected_type=type_hints["exec_args"])
@@ -933,18 +928,18 @@ class CfnComponentVersion(
         @builtins.property
         def environment_variables(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The map of environment variables that are available to the Lambda function when it runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdaexecutionparameters.html#cfn-greengrassv2-componentversion-lambdaexecutionparameters-environmentvariables
             '''
             result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def event_sources(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaEventSourceProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaEventSourceProperty"]]]]:
             '''The list of event sources to which to subscribe to receive work messages.
 
             The Lambda function runs when it receives a message from an event source. You can subscribe this function to local publish/subscribe messages and AWS IoT Core MQTT messages.
@@ -952,7 +947,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdaexecutionparameters.html#cfn-greengrassv2-componentversion-lambdaexecutionparameters-eventsources
             '''
             result = self._values.get("event_sources")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaEventSourceProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaEventSourceProperty"]]]], result)
 
         @builtins.property
         def exec_args(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -977,13 +972,13 @@ class CfnComponentVersion(
         @builtins.property
         def linux_process_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaLinuxProcessParamsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaLinuxProcessParamsProperty"]]:
             '''The parameters for the Linux process that contains the Lambda function.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdaexecutionparameters.html#cfn-greengrassv2-componentversion-lambdaexecutionparameters-linuxprocessparams
             '''
             result = self._values.get("linux_process_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaLinuxProcessParamsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaLinuxProcessParamsProperty"]], result)
 
         @builtins.property
         def max_idle_time_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -1017,7 +1012,7 @@ class CfnComponentVersion(
         @builtins.property
         def pinned(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not the Lambda function is pinned, or long-lived.
 
             - A pinned Lambda function starts when the AWS IoT Greengrass Core starts and keeps running in its own container.
@@ -1028,7 +1023,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdaexecutionparameters.html#cfn-greengrassv2-componentversion-lambdaexecutionparameters-pinned
             '''
             result = self._values.get("pinned")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def status_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
@@ -1075,10 +1070,10 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            component_dependencies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.ComponentDependencyRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            component_lambda_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaExecutionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            component_dependencies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.ComponentDependencyRequirementProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            component_lambda_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaExecutionParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             component_name: typing.Optional[builtins.str] = None,
-            component_platforms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.ComponentPlatformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            component_platforms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.ComponentPlatformProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             component_version: typing.Optional[builtins.str] = None,
             lambda_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -1154,7 +1149,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c65d39b535672032cfb004ee7b6c48a4d582a473117af5905209bcaa7d8a97c)
+                type_hints = cached_type_hints(_typecheckingstub__2c65d39b535672032cfb004ee7b6c48a4d582a473117af5905209bcaa7d8a97c)
                 check_type(argname="argument component_dependencies", value=component_dependencies, expected_type=type_hints["component_dependencies"])
                 check_type(argname="argument component_lambda_parameters", value=component_lambda_parameters, expected_type=type_hints["component_lambda_parameters"])
                 check_type(argname="argument component_name", value=component_name, expected_type=type_hints["component_name"])
@@ -1178,24 +1173,24 @@ class CfnComponentVersion(
         @builtins.property
         def component_dependencies(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.ComponentDependencyRequirementProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.ComponentDependencyRequirementProperty"]]]]:
             '''The component versions on which this Lambda function component depends.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdafunctionrecipesource.html#cfn-greengrassv2-componentversion-lambdafunctionrecipesource-componentdependencies
             '''
             result = self._values.get("component_dependencies")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.ComponentDependencyRequirementProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.ComponentDependencyRequirementProperty"]]]], result)
 
         @builtins.property
         def component_lambda_parameters(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaExecutionParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaExecutionParametersProperty"]]:
             '''The system and runtime parameters for the Lambda function as it runs on the AWS IoT Greengrass core device.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdafunctionrecipesource.html#cfn-greengrassv2-componentversion-lambdafunctionrecipesource-componentlambdaparameters
             '''
             result = self._values.get("component_lambda_parameters")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaExecutionParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaExecutionParametersProperty"]], result)
 
         @builtins.property
         def component_name(self) -> typing.Optional[builtins.str]:
@@ -1211,13 +1206,13 @@ class CfnComponentVersion(
         @builtins.property
         def component_platforms(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.ComponentPlatformProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.ComponentPlatformProperty"]]]]:
             '''The platforms that the component version supports.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdafunctionrecipesource.html#cfn-greengrassv2-componentversion-lambdafunctionrecipesource-componentplatforms
             '''
             result = self._values.get("component_platforms")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.ComponentPlatformProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.ComponentPlatformProperty"]]]], result)
 
         @builtins.property
         def component_version(self) -> typing.Optional[builtins.str]:
@@ -1264,7 +1259,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            container_params: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaContainerParamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_params: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaContainerParamsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             isolation_mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains parameters for a Linux process that contains an AWS Lambda function.
@@ -1301,7 +1296,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__756fcd867eac20b9fe5f8b006e060eeede11829ac7bf7e6785ed2fe382e6e614)
+                type_hints = cached_type_hints(_typecheckingstub__756fcd867eac20b9fe5f8b006e060eeede11829ac7bf7e6785ed2fe382e6e614)
                 check_type(argname="argument container_params", value=container_params, expected_type=type_hints["container_params"])
                 check_type(argname="argument isolation_mode", value=isolation_mode, expected_type=type_hints["isolation_mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1313,13 +1308,13 @@ class CfnComponentVersion(
         @builtins.property
         def container_params(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaContainerParamsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaContainerParamsProperty"]]:
             '''The parameters for the container in which the Lambda function runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdalinuxprocessparams.html#cfn-greengrassv2-componentversion-lambdalinuxprocessparams-containerparams
             '''
             result = self._values.get("container_params")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaContainerParamsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaContainerParamsProperty"]], result)
 
         @builtins.property
         def isolation_mode(self) -> typing.Optional[builtins.str]:
@@ -1359,7 +1354,7 @@ class CfnComponentVersion(
         def __init__(
             self,
             *,
-            add_group_owner: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            add_group_owner: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             destination_path: typing.Optional[builtins.str] = None,
             permission: typing.Optional[builtins.str] = None,
             source_path: typing.Optional[builtins.str] = None,
@@ -1390,7 +1385,7 @@ class CfnComponentVersion(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2bbd7759f413868e7d380d01e235f94a2424b3a59ed198c9bb3e2b55af65a835)
+                type_hints = cached_type_hints(_typecheckingstub__2bbd7759f413868e7d380d01e235f94a2424b3a59ed198c9bb3e2b55af65a835)
                 check_type(argname="argument add_group_owner", value=add_group_owner, expected_type=type_hints["add_group_owner"])
                 check_type(argname="argument destination_path", value=destination_path, expected_type=type_hints["destination_path"])
                 check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
@@ -1408,7 +1403,7 @@ class CfnComponentVersion(
         @builtins.property
         def add_group_owner(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Whether or not to add the AWS IoT Greengrass user group as an owner of the volume.
 
             Default: ``false``
@@ -1416,7 +1411,7 @@ class CfnComponentVersion(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-componentversion-lambdavolumemount.html#cfn-greengrassv2-componentversion-lambdavolumemount-addgroupowner
             '''
             result = self._values.get("add_group_owner")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def destination_path(self) -> typing.Optional[builtins.str]:
@@ -1473,7 +1468,7 @@ class CfnComponentVersionProps:
         self,
         *,
         inline_recipe: typing.Optional[builtins.str] = None,
-        lambda_function: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComponentVersion.LambdaFunctionRecipeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        lambda_function: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComponentVersion.LambdaFunctionRecipeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnComponentVersion``.
@@ -1551,7 +1546,7 @@ class CfnComponentVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4)
+            type_hints = cached_type_hints(_typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4)
             check_type(argname="argument inline_recipe", value=inline_recipe, expected_type=type_hints["inline_recipe"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1579,7 +1574,7 @@ class CfnComponentVersionProps:
     @builtins.property
     def lambda_function(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]]:
         '''The parameters to create a component from a Lambda function.
 
         You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
@@ -1587,7 +1582,7 @@ class CfnComponentVersionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-lambdafunction
         '''
         result = self._values.get("lambda_function")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1617,9 +1612,9 @@ class CfnComponentVersionProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeploymentRef_59e837ab, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_greengrassv2_0aaaac65.IDeploymentRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnDeployment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_greengrassv2.CfnDeployment",
 ):
@@ -1718,10 +1713,10 @@ class CfnDeployment(
         id: builtins.str,
         *,
         target_arn: builtins.str,
-        components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.ComponentDeploymentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        components: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.ComponentDeploymentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         deployment_name: typing.Optional[builtins.str] = None,
-        deployment_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentPoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iot_job_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentIoTJobConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentPoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iot_job_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentIoTJobConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         parent_target_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -1738,7 +1733,7 @@ class CfnDeployment(
         :param tags: Application-specific metadata to attach to the deployment. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0099ed4b9647f1e31fee9e80f3453ed07e5b916846f269d15cb7aa59c5b0f80)
+            type_hints = cached_type_hints(_typecheckingstub__e0099ed4b9647f1e31fee9e80f3453ed07e5b916846f269d15cb7aa59c5b0f80)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeploymentProps(
@@ -1755,12 +1750,15 @@ class CfnDeployment(
 
     @jsii.member(jsii_name="arnForDeployment")
     @builtins.classmethod
-    def arn_for_deployment(cls, resource: "_IDeploymentRef_59e837ab") -> builtins.str:
+    def arn_for_deployment(
+        cls,
+        resource: "_aws_greengrassv2_0aaaac65.IDeploymentRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1572fd5fedc24178f9cfd46325747881043040f5ee5d2786c15b9b3104786e00)
+            type_hints = cached_type_hints(_typecheckingstub__1572fd5fedc24178f9cfd46325747881043040f5ee5d2786c15b9b3104786e00)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeployment", [resource]))
 
@@ -1771,7 +1769,7 @@ class CfnDeployment(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         deployment_id: builtins.str,
-    ) -> "_IDeploymentRef_59e837ab":
+    ) -> "_aws_greengrassv2_0aaaac65.IDeploymentRef":
         '''Creates a new IDeploymentRef from a deploymentId.
 
         :param scope: -
@@ -1779,11 +1777,11 @@ class CfnDeployment(
         :param deployment_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__246faf33f5221b348f2a0ea67e53581cd4ccc87b4011ca763f4a218cbfd4d249)
+            type_hints = cached_type_hints(_typecheckingstub__246faf33f5221b348f2a0ea67e53581cd4ccc87b4011ca763f4a218cbfd4d249)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument deployment_id", value=deployment_id, expected_type=type_hints["deployment_id"])
-        return typing.cast("_IDeploymentRef_59e837ab", jsii.sinvoke(cls, "fromDeploymentId", [scope, id, deployment_id]))
+        return typing.cast("_aws_greengrassv2_0aaaac65.IDeploymentRef", jsii.sinvoke(cls, "fromDeploymentId", [scope, id, deployment_id]))
 
     @jsii.member(jsii_name="isCfnDeployment")
     @builtins.classmethod
@@ -1793,18 +1791,18 @@ class CfnDeployment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9270336675b053a59628f752d53bac0df865ec8bd0de687c35fcbc8baf207b14)
+            type_hints = cached_type_hints(_typecheckingstub__9270336675b053a59628f752d53bac0df865ec8bd0de687c35fcbc8baf207b14)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeployment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__524ad5f78c9f968fbfe224a67e6b8648f6b2153ad09d18d40f9d97b0df1c6779)
+            type_hints = cached_type_hints(_typecheckingstub__524ad5f78c9f968fbfe224a67e6b8648f6b2153ad09d18d40f9d97b0df1c6779)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1817,7 +1815,7 @@ class CfnDeployment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27081f49a96fd9b6be8c82348527e349696fb1b86cd8968bf684a0fc6ea3c51d)
+            type_hints = cached_type_hints(_typecheckingstub__27081f49a96fd9b6be8c82348527e349696fb1b86cd8968bf684a0fc6ea3c51d)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1848,15 +1846,15 @@ class CfnDeployment(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentRef")
-    def deployment_ref(self) -> "_DeploymentReference_f170fd96":
+    def deployment_ref(self) -> "_aws_greengrassv2_0aaaac65.DeploymentReference":
         '''A reference to a Deployment resource.'''
-        return typing.cast("_DeploymentReference_f170fd96", jsii.get(self, "deploymentRef"))
+        return typing.cast("_aws_greengrassv2_0aaaac65.DeploymentReference", jsii.get(self, "deploymentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="targetArn")
@@ -1867,7 +1865,7 @@ class CfnDeployment(
     @target_arn.setter
     def target_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b9aca642a78f9815025a310924e8d40466c2d36e58d9487bf411cd9087d6199)
+            type_hints = cached_type_hints(_typecheckingstub__6b9aca642a78f9815025a310924e8d40466c2d36e58d9487bf411cd9087d6199)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "targetArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1875,17 +1873,17 @@ class CfnDeployment(
     @jsii.member(jsii_name="components")
     def components(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]]:
         '''The components to deploy.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]], jsii.get(self, "components"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]], jsii.get(self, "components"))
 
     @components.setter
     def components(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1eb46eb9aeb60a7ab5ad1127528e8840b937def6fe38be8c8a850d599c3f07d)
+            type_hints = cached_type_hints(_typecheckingstub__e1eb46eb9aeb60a7ab5ad1127528e8840b937def6fe38be8c8a850d599c3f07d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "components", value) # pyright: ignore[reportArgumentType]
 
@@ -1898,7 +1896,7 @@ class CfnDeployment(
     @deployment_name.setter
     def deployment_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8069055a5f48e98559e413f59fb8f8c7f772787bd94ff1febc911991c38db58e)
+            type_hints = cached_type_hints(_typecheckingstub__8069055a5f48e98559e413f59fb8f8c7f772787bd94ff1febc911991c38db58e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentName", value) # pyright: ignore[reportArgumentType]
 
@@ -1906,17 +1904,17 @@ class CfnDeployment(
     @jsii.member(jsii_name="deploymentPolicies")
     def deployment_policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentPoliciesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentPoliciesProperty"]]:
         '''The deployment policies for the deployment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentPoliciesProperty"]], jsii.get(self, "deploymentPolicies"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentPoliciesProperty"]], jsii.get(self, "deploymentPolicies"))
 
     @deployment_policies.setter
     def deployment_policies(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentPoliciesProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentPoliciesProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bef596cb6c3ad06c55fcfb702aa42ec9c1d3b9107e9691ab1154ce9d7b05ae46)
+            type_hints = cached_type_hints(_typecheckingstub__bef596cb6c3ad06c55fcfb702aa42ec9c1d3b9107e9691ab1154ce9d7b05ae46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentPolicies", value) # pyright: ignore[reportArgumentType]
 
@@ -1924,17 +1922,17 @@ class CfnDeployment(
     @jsii.member(jsii_name="iotJobConfiguration")
     def iot_job_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]]:
         '''The job configuration for the deployment configuration.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]], jsii.get(self, "iotJobConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]], jsii.get(self, "iotJobConfiguration"))
 
     @iot_job_configuration.setter
     def iot_job_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__879253a12cc1ff77fae7f0478b8930b3954ee32057720a99435120f7439281a2)
+            type_hints = cached_type_hints(_typecheckingstub__879253a12cc1ff77fae7f0478b8930b3954ee32057720a99435120f7439281a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iotJobConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -1947,7 +1945,7 @@ class CfnDeployment(
     @parent_target_arn.setter
     def parent_target_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4d5673bcfb7eecac8ede7a8e39c18587c0eb66717f03e340c019ebd933adf91)
+            type_hints = cached_type_hints(_typecheckingstub__e4d5673bcfb7eecac8ede7a8e39c18587c0eb66717f03e340c019ebd933adf91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parentTargetArn", value) # pyright: ignore[reportArgumentType]
 
@@ -1963,7 +1961,7 @@ class CfnDeployment(
         value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e79f5864d30fae319b83ae457690221fe12d396b95ce2c98c3d893526c3c60d8)
+            type_hints = cached_type_hints(_typecheckingstub__e79f5864d30fae319b83ae457690221fe12d396b95ce2c98c3d893526c3c60d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -2001,7 +1999,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__387f0b8380336ac206b9c77595b26aa518c606b2c12077c051460b728e9efb34)
+                type_hints = cached_type_hints(_typecheckingstub__387f0b8380336ac206b9c77595b26aa518c606b2c12077c051460b728e9efb34)
                 check_type(argname="argument merge", value=merge, expected_type=type_hints["merge"])
                 check_type(argname="argument reset", value=reset, expected_type=type_hints["reset"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2057,8 +2055,8 @@ class CfnDeployment(
             self,
             *,
             component_version: typing.Optional[builtins.str] = None,
-            configuration_update: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.ComponentConfigurationUpdateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            run_with: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.ComponentRunWithProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            configuration_update: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.ComponentConfigurationUpdateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            run_with: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.ComponentRunWithProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about a component to deploy.
 
@@ -2092,7 +2090,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e2fd4248871e67a3e8bbacfa9fd79ab295c1c5403da8ad0bb4d304b1e8aa29a8)
+                type_hints = cached_type_hints(_typecheckingstub__e2fd4248871e67a3e8bbacfa9fd79ab295c1c5403da8ad0bb4d304b1e8aa29a8)
                 check_type(argname="argument component_version", value=component_version, expected_type=type_hints["component_version"])
                 check_type(argname="argument configuration_update", value=configuration_update, expected_type=type_hints["configuration_update"])
                 check_type(argname="argument run_with", value=run_with, expected_type=type_hints["run_with"])
@@ -2116,7 +2114,7 @@ class CfnDeployment(
         @builtins.property
         def configuration_update(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentConfigurationUpdateProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentConfigurationUpdateProperty"]]:
             '''The configuration updates to deploy for the component.
 
             You can define reset updates and merge updates. A reset updates the keys that you specify to the default configuration for the component. A merge updates the core device's component configuration with the keys and values that you specify. The AWS IoT Greengrass Core software applies reset updates before it applies merge updates. For more information, see `Update component configuration <https://docs.aws.amazon.com/greengrass/v2/developerguide/update-component-configurations.html>`_ .
@@ -2124,12 +2122,12 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-componentdeploymentspecification.html#cfn-greengrassv2-deployment-componentdeploymentspecification-configurationupdate
             '''
             result = self._values.get("configuration_update")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentConfigurationUpdateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentConfigurationUpdateProperty"]], result)
 
         @builtins.property
         def run_with(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentRunWithProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentRunWithProperty"]]:
             '''The system user and group that the  software uses to run component processes on the core device.
 
             If you omit this parameter, the  software uses the system user and group that you configure for the core device. For more information, see `Configure the user and group that run components <https://docs.aws.amazon.com/greengrass/v2/developerguide/configure-greengrass-core-v2.html#configure-component-user>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
@@ -2137,7 +2135,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-componentdeploymentspecification.html#cfn-greengrassv2-deployment-componentdeploymentspecification-runwith
             '''
             result = self._values.get("run_with")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentRunWithProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentRunWithProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2164,7 +2162,7 @@ class CfnDeployment(
             self,
             *,
             posix_user: typing.Optional[builtins.str] = None,
-            system_resource_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.SystemResourceLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            system_resource_limits: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.SystemResourceLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             windows_user: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information system user and group that the AWS IoT Greengrass Core software uses to run component processes on the core device.
@@ -2194,7 +2192,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b36ba95075fd81f7a1b0019f2c8e10a617095cd1d4c5cb46b3b30152cd4cc951)
+                type_hints = cached_type_hints(_typecheckingstub__b36ba95075fd81f7a1b0019f2c8e10a617095cd1d4c5cb46b3b30152cd4cc951)
                 check_type(argname="argument posix_user", value=posix_user, expected_type=type_hints["posix_user"])
                 check_type(argname="argument system_resource_limits", value=system_resource_limits, expected_type=type_hints["system_resource_limits"])
                 check_type(argname="argument windows_user", value=windows_user, expected_type=type_hints["windows_user"])
@@ -2220,7 +2218,7 @@ class CfnDeployment(
         @builtins.property
         def system_resource_limits(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.SystemResourceLimitsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.SystemResourceLimitsProperty"]]:
             '''The system resource limits to apply to this component's process on the core device.
 
             AWS IoT Greengrass supports this feature only on Linux core devices.
@@ -2230,7 +2228,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-componentrunwith.html#cfn-greengrassv2-deployment-componentrunwith-systemresourcelimits
             '''
             result = self._values.get("system_resource_limits")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.SystemResourceLimitsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.SystemResourceLimitsProperty"]], result)
 
         @builtins.property
         def windows_user(self) -> typing.Optional[builtins.str]:
@@ -2290,7 +2288,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5375829a3f60c816195dbae5f8543c8cc49cbb3fcde08447d27deea63f4c6565)
+                type_hints = cached_type_hints(_typecheckingstub__5375829a3f60c816195dbae5f8543c8cc49cbb3fcde08447d27deea63f4c6565)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2370,7 +2368,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__55dea1728923b695ec20c5dee3a959b4cd22fc22ddd90735e6442720f87e24fd)
+                type_hints = cached_type_hints(_typecheckingstub__55dea1728923b695ec20c5dee3a959b4cd22fc22ddd90735e6442720f87e24fd)
                 check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if timeout_in_seconds is not None:
@@ -2413,9 +2411,9 @@ class CfnDeployment(
         def __init__(
             self,
             *,
-            abort_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.IoTJobAbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            job_executions_rollout_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.IoTJobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            timeout_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.IoTJobTimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            abort_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.IoTJobAbortConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            job_executions_rollout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.IoTJobExecutionsRolloutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timeout_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.IoTJobTimeoutConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about an AWS IoT job configuration.
 
@@ -2457,7 +2455,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__539a1a07fe3406166e26105a9b53bdea60ff75a1286fede7d70c48a6d080c3fd)
+                type_hints = cached_type_hints(_typecheckingstub__539a1a07fe3406166e26105a9b53bdea60ff75a1286fede7d70c48a6d080c3fd)
                 check_type(argname="argument abort_config", value=abort_config, expected_type=type_hints["abort_config"])
                 check_type(argname="argument job_executions_rollout_config", value=job_executions_rollout_config, expected_type=type_hints["job_executions_rollout_config"])
                 check_type(argname="argument timeout_config", value=timeout_config, expected_type=type_hints["timeout_config"])
@@ -2472,7 +2470,7 @@ class CfnDeployment(
         @builtins.property
         def abort_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobAbortConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobAbortConfigProperty"]]:
             '''The stop configuration for the job.
 
             This configuration defines when and how to stop a job rollout.
@@ -2480,12 +2478,12 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-deploymentiotjobconfiguration.html#cfn-greengrassv2-deployment-deploymentiotjobconfiguration-abortconfig
             '''
             result = self._values.get("abort_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobAbortConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobAbortConfigProperty"]], result)
 
         @builtins.property
         def job_executions_rollout_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobExecutionsRolloutConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobExecutionsRolloutConfigProperty"]]:
             '''The rollout configuration for the job.
 
             This configuration defines the rate at which the job rolls out to the fleet of target devices.
@@ -2493,12 +2491,12 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-deploymentiotjobconfiguration.html#cfn-greengrassv2-deployment-deploymentiotjobconfiguration-jobexecutionsrolloutconfig
             '''
             result = self._values.get("job_executions_rollout_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobExecutionsRolloutConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobExecutionsRolloutConfigProperty"]], result)
 
         @builtins.property
         def timeout_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobTimeoutConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobTimeoutConfigProperty"]]:
             '''The timeout configuration for the job.
 
             This configuration defines the amount of time each device has to complete the job.
@@ -2506,7 +2504,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-deploymentiotjobconfiguration.html#cfn-greengrassv2-deployment-deploymentiotjobconfiguration-timeoutconfig
             '''
             result = self._values.get("timeout_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobTimeoutConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobTimeoutConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2532,8 +2530,8 @@ class CfnDeployment(
         def __init__(
             self,
             *,
-            component_update_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentComponentUpdatePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            configuration_validation_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentConfigurationValidationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            component_update_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentComponentUpdatePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            configuration_validation_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentConfigurationValidationPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             failure_handling_policy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information about policies that define how a deployment updates components and handles failure.
@@ -2563,7 +2561,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__afb1f8fb8f75b567210990321e7ca700727bdbe3dc3e20ea8d4230f9ea80bd9a)
+                type_hints = cached_type_hints(_typecheckingstub__afb1f8fb8f75b567210990321e7ca700727bdbe3dc3e20ea8d4230f9ea80bd9a)
                 check_type(argname="argument component_update_policy", value=component_update_policy, expected_type=type_hints["component_update_policy"])
                 check_type(argname="argument configuration_validation_policy", value=configuration_validation_policy, expected_type=type_hints["configuration_validation_policy"])
                 check_type(argname="argument failure_handling_policy", value=failure_handling_policy, expected_type=type_hints["failure_handling_policy"])
@@ -2578,7 +2576,7 @@ class CfnDeployment(
         @builtins.property
         def component_update_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentComponentUpdatePolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentComponentUpdatePolicyProperty"]]:
             '''The component update policy for the configuration deployment.
 
             This policy defines when it's safe to deploy the configuration to devices.
@@ -2586,12 +2584,12 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-deploymentpolicies.html#cfn-greengrassv2-deployment-deploymentpolicies-componentupdatepolicy
             '''
             result = self._values.get("component_update_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentComponentUpdatePolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentComponentUpdatePolicyProperty"]], result)
 
         @builtins.property
         def configuration_validation_policy(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentConfigurationValidationPolicyProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentConfigurationValidationPolicyProperty"]]:
             '''The configuration validation policy for the configuration deployment.
 
             This policy defines how long each component has to validate its configure updates.
@@ -2599,7 +2597,7 @@ class CfnDeployment(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-deploymentpolicies.html#cfn-greengrassv2-deployment-deploymentpolicies-configurationvalidationpolicy
             '''
             result = self._values.get("configuration_validation_policy")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentConfigurationValidationPolicyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentConfigurationValidationPolicyProperty"]], result)
 
         @builtins.property
         def failure_handling_policy(self) -> typing.Optional[builtins.str]:
@@ -2632,7 +2630,7 @@ class CfnDeployment(
         def __init__(
             self,
             *,
-            criteria_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.IoTJobAbortCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            criteria_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.IoTJobAbortCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Contains a list of criteria that define when and how to cancel a configuration deployment.
 
@@ -2657,7 +2655,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7041ab4c8598b2ddbad72ff782d211d69555393198787d4084f2f81e445ada8c)
+                type_hints = cached_type_hints(_typecheckingstub__7041ab4c8598b2ddbad72ff782d211d69555393198787d4084f2f81e445ada8c)
                 check_type(argname="argument criteria_list", value=criteria_list, expected_type=type_hints["criteria_list"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "criteria_list": criteria_list,
@@ -2666,14 +2664,14 @@ class CfnDeployment(
         @builtins.property
         def criteria_list(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobAbortCriteriaProperty"]]]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobAbortCriteriaProperty"]]]:
             '''The list of criteria that define when and how to cancel the configuration deployment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-iotjobabortconfig.html#cfn-greengrassv2-deployment-iotjobabortconfig-criterialist
             '''
             result = self._values.get("criteria_list")
             assert result is not None, "Required property 'criteria_list' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobAbortCriteriaProperty"]]], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobAbortCriteriaProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2734,7 +2732,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2b94ef678c8e5360c99d3f5b82cfa25d5d4194ac6954cbc99f51bad9dcf4105d)
+                type_hints = cached_type_hints(_typecheckingstub__2b94ef678c8e5360c99d3f5b82cfa25d5d4194ac6954cbc99f51bad9dcf4105d)
                 check_type(argname="argument action", value=action, expected_type=type_hints["action"])
                 check_type(argname="argument failure_type", value=failure_type, expected_type=type_hints["failure_type"])
                 check_type(argname="argument min_number_of_executed_things", value=min_number_of_executed_things, expected_type=type_hints["min_number_of_executed_things"])
@@ -2811,7 +2809,7 @@ class CfnDeployment(
         def __init__(
             self,
             *,
-            exponential_rate: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.IoTJobExponentialRolloutRateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            exponential_rate: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.IoTJobExponentialRolloutRateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             maximum_per_minute: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Contains information about the rollout configuration for a job.
@@ -2842,7 +2840,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e504bac58eb94dea0e5725c8d1878ceefbb281e8d790e9a2fd4d04ad2f1f4333)
+                type_hints = cached_type_hints(_typecheckingstub__e504bac58eb94dea0e5725c8d1878ceefbb281e8d790e9a2fd4d04ad2f1f4333)
                 check_type(argname="argument exponential_rate", value=exponential_rate, expected_type=type_hints["exponential_rate"])
                 check_type(argname="argument maximum_per_minute", value=maximum_per_minute, expected_type=type_hints["maximum_per_minute"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2854,13 +2852,13 @@ class CfnDeployment(
         @builtins.property
         def exponential_rate(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobExponentialRolloutRateProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobExponentialRolloutRateProperty"]]:
             '''The exponential rate to increase the job rollout rate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-greengrassv2-deployment-iotjobexecutionsrolloutconfig.html#cfn-greengrassv2-deployment-iotjobexecutionsrolloutconfig-exponentialrate
             '''
             result = self._values.get("exponential_rate")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.IoTJobExponentialRolloutRateProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.IoTJobExponentialRolloutRateProperty"]], result)
 
         @builtins.property
         def maximum_per_minute(self) -> typing.Optional[jsii.Number]:
@@ -2923,7 +2921,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__17de80de656c7b766d33e5ad4e918625197a24e1d115aeec47f1e575e37aebb5)
+                type_hints = cached_type_hints(_typecheckingstub__17de80de656c7b766d33e5ad4e918625197a24e1d115aeec47f1e575e37aebb5)
                 check_type(argname="argument base_rate_per_minute", value=base_rate_per_minute, expected_type=type_hints["base_rate_per_minute"])
                 check_type(argname="argument increment_factor", value=increment_factor, expected_type=type_hints["increment_factor"])
                 check_type(argname="argument rate_increase_criteria", value=rate_increase_criteria, expected_type=type_hints["rate_increase_criteria"])
@@ -3007,7 +3005,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__442f9e24b6b2778d2170d5dc2118941eb426c32282df0fc4bfe4b47b81c56940)
+                type_hints = cached_type_hints(_typecheckingstub__442f9e24b6b2778d2170d5dc2118941eb426c32282df0fc4bfe4b47b81c56940)
                 check_type(argname="argument in_progress_timeout_in_minutes", value=in_progress_timeout_in_minutes, expected_type=type_hints["in_progress_timeout_in_minutes"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if in_progress_timeout_in_minutes is not None:
@@ -3069,7 +3067,7 @@ class CfnDeployment(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__beb6642ef9cd43c09502aafc4577b01875cde60d31da577d2abd28f4feba810e)
+                type_hints = cached_type_hints(_typecheckingstub__beb6642ef9cd43c09502aafc4577b01875cde60d31da577d2abd28f4feba810e)
                 check_type(argname="argument cpus", value=cpus, expected_type=type_hints["cpus"])
                 check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3130,10 +3128,10 @@ class CfnDeploymentProps:
         self,
         *,
         target_arn: builtins.str,
-        components: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.ComponentDeploymentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        components: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.ComponentDeploymentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         deployment_name: typing.Optional[builtins.str] = None,
-        deployment_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentPoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        iot_job_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDeployment.DeploymentIoTJobConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_policies: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentPoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iot_job_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDeployment.DeploymentIoTJobConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         parent_target_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -3218,7 +3216,7 @@ class CfnDeploymentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae)
+            type_hints = cached_type_hints(_typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae)
             check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
             check_type(argname="argument components", value=components, expected_type=type_hints["components"])
             check_type(argname="argument deployment_name", value=deployment_name, expected_type=type_hints["deployment_name"])
@@ -3255,7 +3253,7 @@ class CfnDeploymentProps:
     @builtins.property
     def components(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]]:
         '''The components to deploy.
 
         This is a dictionary, where each key is the name of a component, and each key's value is the version and configuration to deploy for that component.
@@ -3263,7 +3261,7 @@ class CfnDeploymentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-components
         '''
         result = self._values.get("components")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]], result)
 
     @builtins.property
     def deployment_name(self) -> typing.Optional[builtins.str]:
@@ -3277,7 +3275,7 @@ class CfnDeploymentProps:
     @builtins.property
     def deployment_policies(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentPoliciesProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentPoliciesProperty"]]:
         '''The deployment policies for the deployment.
 
         These policies define how the deployment updates components and handles failure.
@@ -3285,12 +3283,12 @@ class CfnDeploymentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-deploymentpolicies
         '''
         result = self._values.get("deployment_policies")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentPoliciesProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentPoliciesProperty"]], result)
 
     @builtins.property
     def iot_job_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]]:
         '''The job configuration for the deployment configuration.
 
         The job configuration specifies the rollout, timeout, and stop configurations for the deployment configuration.
@@ -3298,7 +3296,7 @@ class CfnDeploymentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-iotjobconfiguration
         '''
         result = self._values.get("iot_job_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDeployment.DeploymentIoTJobConfigurationProperty"]], result)
 
     @builtins.property
     def parent_target_arn(self) -> typing.Optional[builtins.str]:
@@ -3351,14 +3349,14 @@ def _typecheckingstub__f5d46224f527e073fe7f6fbe54ccaca3f0045fcc0ade3462681ae8b05
     id: builtins.str,
     *,
     inline_recipe: typing.Optional[builtins.str] = None,
-    lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_function: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a1d635cca1071594073026b07b7c8160d1f7d954abea7929a8c9f7a135393fd2(
-    resource: _IComponentVersionRef_0bf9ff8c,
+    resource: _aws_greengrassv2_0aaaac65.IComponentVersionRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3370,7 +3368,7 @@ def _typecheckingstub__165669b33b7a11dda4bac065f6b72e6b1ff4811da807511e35ac43a76
     pass
 
 def _typecheckingstub__41b4437bb59606a2a9dbc98b6d542a546264b4ce6dc5594c04c8503a477b837c(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3388,7 +3386,7 @@ def _typecheckingstub__72eb28bfc29eebefc2ec5d2aace9f7b9a334fa75c8691abf393034218
     pass
 
 def _typecheckingstub__d0ccfa77f00c9c04773ae0643b7f2f0b369127a28b9747cbe78bfe426dc32f46(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComponentVersion.LambdaFunctionRecipeSourceProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComponentVersion.LambdaFunctionRecipeSourceProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3409,7 +3407,7 @@ def _typecheckingstub__8c678ca853046a4f9a77f7c2dd92c2ab09d84c106fa6e8f450dca99e2
 
 def _typecheckingstub__868d55cb9cd63d9081a8bb6f44c49ad0558ce766d47dc9e602b30fa6d7823104(
     *,
-    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3417,17 +3415,17 @@ def _typecheckingstub__868d55cb9cd63d9081a8bb6f44c49ad0558ce766d47dc9e602b30fa6d
 
 def _typecheckingstub__faa404e4c8d222fafce82a4df5f456d4c0ca9f1f90cc0610f63526bc52a42562(
     *,
-    devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaDeviceMountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    devices: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaDeviceMountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     memory_size_in_kb: typing.Optional[jsii.Number] = None,
-    mount_ro_sysfs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    volumes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaVolumeMountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    mount_ro_sysfs: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    volumes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaVolumeMountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__2ff1c88d4c72688121e8d02d23f54e807be84dc41e8cc06f915402a59c07ab80(
     *,
-    add_group_owner: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    add_group_owner: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     path: typing.Optional[builtins.str] = None,
     permission: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3444,15 +3442,15 @@ def _typecheckingstub__d2bdb1aa21a11fead4d3211e8427d3370a925fda227540a812604c871
 
 def _typecheckingstub__000b16ea913d1bbaf1c4a8d0fc0503b8b2497e7799ae2cf1cbbf4d109ec5d229(
     *,
-    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    event_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaEventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    event_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaEventSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     exec_args: typing.Optional[typing.Sequence[builtins.str]] = None,
     input_payload_encoding_type: typing.Optional[builtins.str] = None,
-    linux_process_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaLinuxProcessParamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    linux_process_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaLinuxProcessParamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     max_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
     max_instances_count: typing.Optional[jsii.Number] = None,
     max_queue_size: typing.Optional[jsii.Number] = None,
-    pinned: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pinned: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     status_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     timeout_in_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -3461,10 +3459,10 @@ def _typecheckingstub__000b16ea913d1bbaf1c4a8d0fc0503b8b2497e7799ae2cf1cbbf4d109
 
 def _typecheckingstub__2c65d39b535672032cfb004ee7b6c48a4d582a473117af5905209bcaa7d8a97c(
     *,
-    component_dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.ComponentDependencyRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    component_lambda_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaExecutionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    component_dependencies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.ComponentDependencyRequirementProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    component_lambda_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaExecutionParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     component_name: typing.Optional[builtins.str] = None,
-    component_platforms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.ComponentPlatformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    component_platforms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.ComponentPlatformProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     component_version: typing.Optional[builtins.str] = None,
     lambda_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -3473,7 +3471,7 @@ def _typecheckingstub__2c65d39b535672032cfb004ee7b6c48a4d582a473117af5905209bcaa
 
 def _typecheckingstub__756fcd867eac20b9fe5f8b006e060eeede11829ac7bf7e6785ed2fe382e6e614(
     *,
-    container_params: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaContainerParamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_params: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaContainerParamsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     isolation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3481,7 +3479,7 @@ def _typecheckingstub__756fcd867eac20b9fe5f8b006e060eeede11829ac7bf7e6785ed2fe38
 
 def _typecheckingstub__2bbd7759f413868e7d380d01e235f94a2424b3a59ed198c9bb3e2b55af65a835(
     *,
-    add_group_owner: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    add_group_owner: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     destination_path: typing.Optional[builtins.str] = None,
     permission: typing.Optional[builtins.str] = None,
     source_path: typing.Optional[builtins.str] = None,
@@ -3492,7 +3490,7 @@ def _typecheckingstub__2bbd7759f413868e7d380d01e235f94a2424b3a59ed198c9bb3e2b55a
 def _typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4(
     *,
     inline_recipe: typing.Optional[builtins.str] = None,
-    lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_function: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3503,10 +3501,10 @@ def _typecheckingstub__e0099ed4b9647f1e31fee9e80f3453ed07e5b916846f269d15cb7aa59
     id: builtins.str,
     *,
     target_arn: builtins.str,
-    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    components: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     deployment_name: typing.Optional[builtins.str] = None,
-    deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_job_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parent_target_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -3514,7 +3512,7 @@ def _typecheckingstub__e0099ed4b9647f1e31fee9e80f3453ed07e5b916846f269d15cb7aa59
     pass
 
 def _typecheckingstub__1572fd5fedc24178f9cfd46325747881043040f5ee5d2786c15b9b3104786e00(
-    resource: _IDeploymentRef_59e837ab,
+    resource: _aws_greengrassv2_0aaaac65.IDeploymentRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3534,7 +3532,7 @@ def _typecheckingstub__9270336675b053a59628f752d53bac0df865ec8bd0de687c35fcbc8ba
     pass
 
 def _typecheckingstub__524ad5f78c9f968fbfe224a67e6b8648f6b2153ad09d18d40f9d97b0df1c6779(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3552,7 +3550,7 @@ def _typecheckingstub__6b9aca642a78f9815025a310924e8d40466c2d36e58d9487bf411cd90
     pass
 
 def _typecheckingstub__e1eb46eb9aeb60a7ab5ad1127528e8840b937def6fe38be8c8a850d599c3f07d(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDeployment.ComponentDeploymentSpecificationProperty]]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeployment.ComponentDeploymentSpecificationProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3564,13 +3562,13 @@ def _typecheckingstub__8069055a5f48e98559e413f59fb8f8c7f772787bd94ff1febc911991c
     pass
 
 def _typecheckingstub__bef596cb6c3ad06c55fcfb702aa42ec9c1d3b9107e9691ab1154ce9d7b05ae46(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentPoliciesProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeployment.DeploymentPoliciesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__879253a12cc1ff77fae7f0478b8930b3954ee32057720a99435120f7439281a2(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentIoTJobConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDeployment.DeploymentIoTJobConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3598,8 +3596,8 @@ def _typecheckingstub__387f0b8380336ac206b9c77595b26aa518c606b2c12077c051460b728
 def _typecheckingstub__e2fd4248871e67a3e8bbacfa9fd79ab295c1c5403da8ad0bb4d304b1e8aa29a8(
     *,
     component_version: typing.Optional[builtins.str] = None,
-    configuration_update: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentConfigurationUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    run_with: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentRunWithProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_update: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.ComponentConfigurationUpdateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    run_with: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.ComponentRunWithProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3607,7 +3605,7 @@ def _typecheckingstub__e2fd4248871e67a3e8bbacfa9fd79ab295c1c5403da8ad0bb4d304b1e
 def _typecheckingstub__b36ba95075fd81f7a1b0019f2c8e10a617095cd1d4c5cb46b3b30152cd4cc951(
     *,
     posix_user: typing.Optional[builtins.str] = None,
-    system_resource_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.SystemResourceLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    system_resource_limits: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.SystemResourceLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     windows_user: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3630,17 +3628,17 @@ def _typecheckingstub__55dea1728923b695ec20c5dee3a959b4cd22fc22ddd90735e6442720f
 
 def _typecheckingstub__539a1a07fe3406166e26105a9b53bdea60ff75a1286fede7d70c48a6d080c3fd(
     *,
-    abort_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.IoTJobAbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    job_executions_rollout_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.IoTJobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.IoTJobTimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    abort_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.IoTJobAbortConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    job_executions_rollout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.IoTJobExecutionsRolloutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.IoTJobTimeoutConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__afb1f8fb8f75b567210990321e7ca700727bdbe3dc3e20ea8d4230f9ea80bd9a(
     *,
-    component_update_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentComponentUpdatePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    configuration_validation_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentConfigurationValidationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    component_update_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentComponentUpdatePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    configuration_validation_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentConfigurationValidationPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     failure_handling_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3648,7 +3646,7 @@ def _typecheckingstub__afb1f8fb8f75b567210990321e7ca700727bdbe3dc3e20ea8d4230f9e
 
 def _typecheckingstub__7041ab4c8598b2ddbad72ff782d211d69555393198787d4084f2f81e445ada8c(
     *,
-    criteria_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.IoTJobAbortCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    criteria_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.IoTJobAbortCriteriaProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3665,7 +3663,7 @@ def _typecheckingstub__2b94ef678c8e5360c99d3f5b82cfa25d5d4194ac6954cbc99f51bad9d
 
 def _typecheckingstub__e504bac58eb94dea0e5725c8d1878ceefbb281e8d790e9a2fd4d04ad2f1f4333(
     *,
-    exponential_rate: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.IoTJobExponentialRolloutRateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    exponential_rate: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.IoTJobExponentialRolloutRateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maximum_per_minute: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3698,10 +3696,10 @@ def _typecheckingstub__beb6642ef9cd43c09502aafc4577b01875cde60d31da577d2abd28f4f
 def _typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae(
     *,
     target_arn: builtins.str,
-    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    components: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     deployment_name: typing.Optional[builtins.str] = None,
-    deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_policies: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_job_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parent_target_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:

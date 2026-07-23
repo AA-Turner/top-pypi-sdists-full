@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-tools-visualization-interface
-Version: 0.13.3
+Version: 0.14.0
 Summary: A Python visualization interface for PyAnsys libraries
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -17,11 +17,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: pyvista >= 0.43.0,<1
+Requires-Dist: pyvista[jupyter] >= 0.43.0,<1
 Requires-Dist: websockets >= 12.0,< 17
-Requires-Dist: trame >= 3.6.0,<4
-Requires-Dist: trame-vtk >= 2.8.7,!= 2.8.16,< 2.11.8
-Requires-Dist: trame-vuetify >= 2.4.3,< 4
 Requires-Dist: trame-router >= 2.3.0,<3
 Requires-Dist: pyside6 >= 6.8.0,<7 ; extra == "all"
 Requires-Dist: pyvistaqt >= 0.11.1,<1 ; extra == "all"
@@ -29,27 +26,38 @@ Requires-Dist: plotly >= 6.3.1,<7 ; extra == "all"
 Requires-Dist: kaleido >= 1.1.0,<2 ; extra == "all"
 Requires-Dist: dash >= 3.2.0,< 5 ; extra == "all"
 Requires-Dist: imageio[ffmpeg] >= 2.37.2 ; extra == "all"
+Requires-Dist: ansys-tools-usdviewer >= 0.1.0,< 1 ; extra == "all"
+Requires-Dist: usd-core >= 26.5,< 27 ; extra == "all"
+Requires-Dist: pygltflib >= 1.16.5,< 2 ; extra == "all"
 Requires-Dist: dash >= 3.2.0,< 5 ; extra == "dash"
-Requires-Dist: pyvista==0.47.3 ; extra == "doc"
-Requires-Dist: ansys-sphinx-theme[autoapi]==1.7.2 ; extra == "doc"
+Requires-Dist: pyvista==0.48.4 ; extra == "doc"
+Requires-Dist: ansys-sphinx-theme[autoapi]==1.9.0 ; extra == "doc"
 Requires-Dist: jupyter_sphinx==0.5.3 ; extra == "doc"
-Requires-Dist: jupytext==1.19.1 ; extra == "doc"
+Requires-Dist: jupytext==1.19.4 ; extra == "doc"
 Requires-Dist: nbsphinx==0.9.6 ; extra == "doc"
 Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
-Requires-Dist: sphinx-gallery==0.20.0 ; extra == "doc"
+Requires-Dist: sphinx-gallery==0.21.0 ; extra == "doc"
 Requires-Dist: sphinx-jinja==2.0.2 ; extra == "doc"
-Requires-Dist: ansys-fluent-core==0.38.1 ; extra == "doc"
+Requires-Dist: ansys-fluent-core==0.40.2 ; extra == "doc"
+Requires-Dist: nest-asyncio2==1.7.2 ; extra == "doc"
+Requires-Dist: usd-core==26.5 ; extra == "doc"
+Requires-Dist: pygltflib==1.16.5 ; extra == "doc"
 Requires-Dist: plotly >= 6.3.1,<7 ; extra == "plotly"
 Requires-Dist: kaleido >= 1.1.0,<2 ; extra == "plotly"
 Requires-Dist: pyside6 >= 6.8.0,<7 ; extra == "pyvistaqt"
 Requires-Dist: pyvistaqt >= 0.11.1,<1 ; extra == "pyvistaqt"
-Requires-Dist: pytest==9.0.3 ; extra == "tests"
-Requires-Dist: pyvista==0.47.3 ; extra == "tests"
+Requires-Dist: pytest==9.1.1 ; extra == "tests"
+Requires-Dist: pyvista==0.48.4 ; extra == "tests"
 Requires-Dist: pytest-pyvista==0.3.3 ; extra == "tests"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
-Requires-Dist: pyside6==6.11.0 ; extra == "tests"
-Requires-Dist: ansys-tools-usdviewer >= 0.1.0,< 1 ; extra == "usd"
+Requires-Dist: pyside6==6.11.1 ; extra == "tests"
+Requires-Dist: usd-core==26.5 ; extra == "tests"
+Requires-Dist: pygltflib==1.16.5 ; extra == "tests"
+Requires-Dist: usd-core >= 24.0,< 27 ; extra == "usd"
+Requires-Dist: pygltflib >= 1.16,< 2 ; extra == "usd"
+Requires-Dist: ansys-tools-usdviewer >= 0.1.0,< 1 ; extra == "usd-live-viewer"
+Requires-Dist: usd-core >= 24.0,< 27 ; extra == "usd-live-viewer"
 Project-URL: Discussions, https://github.com/ansys/ansys-tools-visualization-interface/discussions
 Project-URL: Documentation, https://visualization-interface.tools.docs.pyansys.com/
 Project-URL: Issues, https://github.com/ansys/ansys-tools-visualization-interface/issues
@@ -62,6 +70,7 @@ Provides-Extra: plotly
 Provides-Extra: pyvistaqt
 Provides-Extra: tests
 Provides-Extra: usd
+Provides-Extra: usd-live-viewer
 
 Visualization Interface Tool
 ============================

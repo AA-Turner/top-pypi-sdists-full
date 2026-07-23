@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -60,7 +64,7 @@ class EnvironmentAccountConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1f44078276965ae3e1d8d189a402c9dd3fd0304733c78c66b8ab98329803a1c)
+            type_hints = cached_type_hints(_typecheckingstub__f1f44078276965ae3e1d8d189a402c9dd3fd0304733c78c66b8ab98329803a1c)
             check_type(argname="argument environment_account_connection_arn", value=environment_account_connection_arn, expected_type=type_hints["environment_account_connection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "environment_account_connection_arn": environment_account_connection_arn,
@@ -109,7 +113,7 @@ class EnvironmentTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__499f57f059835807064b105e85f93e531d93b728d39c8bc512eb6d78ec398d64)
+            type_hints = cached_type_hints(_typecheckingstub__499f57f059835807064b105e85f93e531d93b728d39c8bc512eb6d78ec398d64)
             check_type(argname="argument environment_template_arn", value=environment_template_arn, expected_type=type_hints["environment_template_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "environment_template_arn": environment_template_arn,
@@ -139,7 +143,7 @@ class EnvironmentTemplateReference:
 )
 class IEnvironmentAccountConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnvironmentAccountConnection.
@@ -161,7 +165,7 @@ class IEnvironmentAccountConnectionRef(
 
 class _IEnvironmentAccountConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnvironmentAccountConnection.
 
@@ -188,7 +192,7 @@ typing.cast(typing.Any, IEnvironmentAccountConnectionRef).__jsii_proxy_class__ =
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_proton.IEnvironmentTemplateRef")
 class IEnvironmentTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnvironmentTemplate.
@@ -208,7 +212,7 @@ class IEnvironmentTemplateRef(
 
 class _IEnvironmentTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EnvironmentTemplate.
 
@@ -233,7 +237,7 @@ typing.cast(typing.Any, IEnvironmentTemplateRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_proton.IServiceTemplateRef")
 class IServiceTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceTemplate.
@@ -253,7 +257,7 @@ class IServiceTemplateRef(
 
 class _IServiceTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServiceTemplate.
 
@@ -299,7 +303,7 @@ class ServiceTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__061482c5b153f4054896b834efe17e8014b87a5780786d3d28b2fb1b9a9d0d5d)
+            type_hints = cached_type_hints(_typecheckingstub__061482c5b153f4054896b834efe17e8014b87a5780786d3d28b2fb1b9a9d0d5d)
             check_type(argname="argument service_template_arn", value=service_template_arn, expected_type=type_hints["service_template_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_template_arn": service_template_arn,

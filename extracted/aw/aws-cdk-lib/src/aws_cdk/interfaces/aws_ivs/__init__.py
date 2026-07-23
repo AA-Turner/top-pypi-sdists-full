@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ChannelReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e339be0e2b8a2e7786775e7d7a073c0d9b1b21d2186633192278591cee6af2e1)
+            type_hints = cached_type_hints(_typecheckingstub__e339be0e2b8a2e7786775e7d7a073c0d9b1b21d2186633192278591cee6af2e1)
             check_type(argname="argument channel_arn", value=channel_arn, expected_type=type_hints["channel_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_arn": channel_arn,
@@ -107,7 +111,7 @@ class EncoderConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__506569603443e93b498d806eec145a27033c1e925e3f127178b87759f2386a54)
+            type_hints = cached_type_hints(_typecheckingstub__506569603443e93b498d806eec145a27033c1e925e3f127178b87759f2386a54)
             check_type(argname="argument encoder_configuration_arn", value=encoder_configuration_arn, expected_type=type_hints["encoder_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "encoder_configuration_arn": encoder_configuration_arn,
@@ -135,7 +139,7 @@ class EncoderConfigurationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IChannelRef")
 class IChannelRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
@@ -155,7 +159,7 @@ class IChannelRef(
 
 class _IChannelRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Channel.
 
@@ -180,7 +184,7 @@ typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IEncoderConfigurationRef")
 class IEncoderConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EncoderConfiguration.
@@ -200,7 +204,7 @@ class IEncoderConfigurationRef(
 
 class _IEncoderConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EncoderConfiguration.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IEncoderConfigurationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IIngestConfigurationRef")
 class IIngestConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IngestConfiguration.
@@ -245,7 +249,7 @@ class IIngestConfigurationRef(
 
 class _IIngestConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IngestConfiguration.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IIngestConfigurationRef).__jsii_proxy_class__ = lambda :
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IPlaybackKeyPairRef")
 class IPlaybackKeyPairRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackKeyPair.
@@ -290,7 +294,7 @@ class IPlaybackKeyPairRef(
 
 class _IPlaybackKeyPairRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackKeyPair.
 
@@ -317,7 +321,7 @@ typing.cast(typing.Any, IPlaybackKeyPairRef).__jsii_proxy_class__ = lambda : _IP
 )
 class IPlaybackRestrictionPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackRestrictionPolicy.
@@ -337,7 +341,7 @@ class IPlaybackRestrictionPolicyRef(
 
 class _IPlaybackRestrictionPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PlaybackRestrictionPolicy.
 
@@ -362,7 +366,7 @@ typing.cast(typing.Any, IPlaybackRestrictionPolicyRef).__jsii_proxy_class__ = la
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IPublicKeyRef")
 class IPublicKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicKey.
@@ -382,7 +386,7 @@ class IPublicKeyRef(
 
 class _IPublicKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicKey.
 
@@ -407,7 +411,7 @@ typing.cast(typing.Any, IPublicKeyRef).__jsii_proxy_class__ = lambda : _IPublicK
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IRecordingConfigurationRef")
 class IRecordingConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordingConfiguration.
@@ -427,7 +431,7 @@ class IRecordingConfigurationRef(
 
 class _IRecordingConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RecordingConfiguration.
 
@@ -452,7 +456,7 @@ typing.cast(typing.Any, IRecordingConfigurationRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IStageRef")
 class IStageRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stage.
@@ -472,7 +476,7 @@ class IStageRef(
 
 class _IStageRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Stage.
 
@@ -497,7 +501,7 @@ typing.cast(typing.Any, IStageRef).__jsii_proxy_class__ = lambda : _IStageRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IStorageConfigurationRef")
 class IStorageConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageConfiguration.
@@ -517,7 +521,7 @@ class IStorageConfigurationRef(
 
 class _IStorageConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StorageConfiguration.
 
@@ -542,7 +546,7 @@ typing.cast(typing.Any, IStorageConfigurationRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IStreamKeyRef")
 class IStreamKeyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a StreamKey.
@@ -562,7 +566,7 @@ class IStreamKeyRef(
 
 class _IStreamKeyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a StreamKey.
 
@@ -608,7 +612,7 @@ class IngestConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8983c9ebd60cc15d50cf31bb43c4c04b6ee8d51e7e2a6f96a61772c154a0dc87)
+            type_hints = cached_type_hints(_typecheckingstub__8983c9ebd60cc15d50cf31bb43c4c04b6ee8d51e7e2a6f96a61772c154a0dc87)
             check_type(argname="argument ingest_configuration_arn", value=ingest_configuration_arn, expected_type=type_hints["ingest_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ingest_configuration_arn": ingest_configuration_arn,
@@ -657,7 +661,7 @@ class PlaybackKeyPairReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c175fee0dca6f668aa85f241c8660a0af4afbee9e4a2a4cb341884c88e42eb4)
+            type_hints = cached_type_hints(_typecheckingstub__4c175fee0dca6f668aa85f241c8660a0af4afbee9e4a2a4cb341884c88e42eb4)
             check_type(argname="argument playback_key_pair_arn", value=playback_key_pair_arn, expected_type=type_hints["playback_key_pair_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "playback_key_pair_arn": playback_key_pair_arn,
@@ -706,7 +710,7 @@ class PlaybackRestrictionPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf7183876fd6b6a73aefd70dc6d8329acf02be1b9b44a458ee1e39a4be78f452)
+            type_hints = cached_type_hints(_typecheckingstub__bf7183876fd6b6a73aefd70dc6d8329acf02be1b9b44a458ee1e39a4be78f452)
             check_type(argname="argument playback_restriction_policy_arn", value=playback_restriction_policy_arn, expected_type=type_hints["playback_restriction_policy_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "playback_restriction_policy_arn": playback_restriction_policy_arn,
@@ -755,7 +759,7 @@ class PublicKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc6fecdb6785320bf110143fe154bc7d01ed9e098e59c4bc5e920c76720b65df)
+            type_hints = cached_type_hints(_typecheckingstub__fc6fecdb6785320bf110143fe154bc7d01ed9e098e59c4bc5e920c76720b65df)
             check_type(argname="argument public_key_arn", value=public_key_arn, expected_type=type_hints["public_key_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "public_key_arn": public_key_arn,
@@ -804,7 +808,7 @@ class RecordingConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bf8be966bd4973856cf96ae0f38521f5f5e7d8e55a6a002137449f95f08102a)
+            type_hints = cached_type_hints(_typecheckingstub__6bf8be966bd4973856cf96ae0f38521f5f5e7d8e55a6a002137449f95f08102a)
             check_type(argname="argument recording_configuration_arn", value=recording_configuration_arn, expected_type=type_hints["recording_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "recording_configuration_arn": recording_configuration_arn,
@@ -853,7 +857,7 @@ class StageReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05830f910c45363d095acbbefde5caaea99d18ba8678a18749bb1659d2a11848)
+            type_hints = cached_type_hints(_typecheckingstub__05830f910c45363d095acbbefde5caaea99d18ba8678a18749bb1659d2a11848)
             check_type(argname="argument stage_arn", value=stage_arn, expected_type=type_hints["stage_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stage_arn": stage_arn,
@@ -902,7 +906,7 @@ class StorageConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35c60ac23b33bfe34d8b206b0ec97c28755476924acb5e245b1f2247a5a5c9a1)
+            type_hints = cached_type_hints(_typecheckingstub__35c60ac23b33bfe34d8b206b0ec97c28755476924acb5e245b1f2247a5a5c9a1)
             check_type(argname="argument storage_configuration_arn", value=storage_configuration_arn, expected_type=type_hints["storage_configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "storage_configuration_arn": storage_configuration_arn,
@@ -951,7 +955,7 @@ class StreamKeyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0bde005d759333868f9b20462c76032aeeb517956f3679f2a954d0b2f4ce9ce)
+            type_hints = cached_type_hints(_typecheckingstub__d0bde005d759333868f9b20462c76032aeeb517956f3679f2a954d0b2f4ce9ce)
             check_type(argname="argument stream_key_arn", value=stream_key_arn, expected_type=type_hints["stream_key_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stream_key_arn": stream_key_arn,

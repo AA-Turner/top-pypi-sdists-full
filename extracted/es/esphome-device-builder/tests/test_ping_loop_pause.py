@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -34,12 +33,14 @@ from esphome_device_builder.controllers._device_state_monitor.ping import PingSo
 from esphome_device_builder.device_builder import DeviceBuilder
 from esphome_device_builder.helpers.subscriber_presence import SubscriberPresence
 
+from .conftest import running_task, wait_until
+
 
 def _build_monitor(presence: SubscriberPresence | None) -> DeviceStateMonitor:
     """Bypass __init__ — ``PingSource.run`` only touches a few attrs."""
     monitor = DeviceStateMonitor.__new__(DeviceStateMonitor)
     monitor.state = MonitorState()
-    monitor._presence = presence
+    monitor.presence = presence
     monitor.ping = PingSource(monitor)
     return monitor
 
@@ -78,16 +79,6 @@ def _instrument_loop(
     return counts
 
 
-async def _drive_until(condition: Callable[[], object], *, timeout: float = 0.5) -> None:
-    """Wait for *condition()* to become truthy or raise on timeout."""
-
-    async def _spin() -> None:
-        while not condition():
-            await asyncio.sleep(0)
-
-    await asyncio.wait_for(_spin(), timeout=timeout)
-
-
 async def test_ping_loop_runs_unconditionally_without_presence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -101,13 +92,8 @@ async def test_ping_loop_runs_unconditionally_without_presence(
     monitor = _build_monitor(presence=None)
     counts = _instrument_loop(monitor, monkeypatch)
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
-        await _drive_until(lambda: counts["sweeps"] >= 2)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    async with running_task(monitor.ping.run()):
+        await wait_until(lambda: counts["sweeps"] >= 2, 0.5, "two sweeps")
 
     assert counts["sweeps"] >= 2
     assert counts["resolves"] >= 2
@@ -125,13 +111,8 @@ async def test_ping_loop_survives_a_raising_resolve_step(
 
     monkeypatch.setattr(shared_module, "resolve_api_mdns_targets", _boom)
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
-        await _drive_until(lambda: counts["sweeps"] >= 2)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    async with running_task(monitor.ping.run()):
+        await wait_until(lambda: counts["sweeps"] >= 2, 0.5, "two sweeps")
 
     assert counts["sweeps"] >= 2
 
@@ -150,13 +131,8 @@ async def test_ping_loop_survives_a_raising_ping_sweep(
 
     monitor.ping._ping_sweep = _flaky_sweep  # type: ignore[method-assign]
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
-        await _drive_until(lambda: counts["sweeps"] >= 2)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    async with running_task(monitor.ping.run()):
+        await wait_until(lambda: counts["sweeps"] >= 2, 0.5, "two sweeps")
 
     assert counts["sweeps"] >= 2
 
@@ -195,8 +171,7 @@ async def test_ping_loop_parks_until_first_subscriber(
     monitor = _build_monitor(presence=presence)
     counts = _instrument_loop(monitor, monkeypatch)
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
+    async with running_task(monitor.ping.run()):
         # Give the loop several scheduling ticks to confirm it
         # actually parks instead of running. Without the gate fix
         # ``_ping_sweep`` would have fired on the first tick.
@@ -206,11 +181,7 @@ async def test_ping_loop_parks_until_first_subscriber(
 
         # 0→1 transition must wake the loop within one scheduling tick.
         with presence.subscriber():
-            await _drive_until(lambda: counts["sweeps"] >= 1)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+            await wait_until(lambda: counts["sweeps"] >= 1, 0.5, "a sweep")
 
     assert counts["sweeps"] >= 1
 
@@ -229,11 +200,10 @@ async def test_ping_loop_pauses_again_after_last_subscriber_leaves(
     monitor = _build_monitor(presence=presence)
     counts = _instrument_loop(monitor, monkeypatch)
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
+    async with running_task(monitor.ping.run()):
         # Cycle one subscriber in, drive at least one sweep, then out.
         with presence.subscriber():
-            await _drive_until(lambda: counts["sweeps"] >= 1)
+            await wait_until(lambda: counts["sweeps"] >= 1, 0.5, "a sweep")
         sweeps_at_disconnect = counts["sweeps"]
 
         # After disconnect, give the loop several ticks. The count
@@ -242,10 +212,6 @@ async def test_ping_loop_pauses_again_after_last_subscriber_leaves(
         # parks at the gate on the next iteration.
         for _ in range(20):
             await asyncio.sleep(0)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
 
     # At most one extra sweep can land — the one already past the
     # gate when the subscriber dropped. Anything more means the gate
@@ -302,17 +268,12 @@ async def test_subscriber_arrival_mid_idle_bails_within_a_tick(
     counts = _instrument_loop(monitor, monkeypatch)
     monkeypatch.setattr(PingSource, "_interval", 60)
 
-    task = asyncio.create_task(monitor.ping.run())
-    try:
+    async with running_task(monitor.ping.run()):
         with presence.subscriber():
-            await _drive_until(lambda: counts["sweeps"] >= 1)
+            await wait_until(lambda: counts["sweeps"] >= 1, 0.5, "a sweep")
         sweeps_after_a = counts["sweeps"]
 
         with presence.subscriber():
-            await _drive_until(lambda: counts["sweeps"] > sweeps_after_a)
-    finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+            await wait_until(lambda: counts["sweeps"] > sweeps_after_a, 0.5, "a fresh sweep")
 
     assert counts["sweeps"] >= sweeps_after_a + 1

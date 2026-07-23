@@ -53,6 +53,9 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
     get_connector_version_info,
     set_version_override,
 )
+from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
+    count_eligible_or_pinned_actors,
+)
 from airbyte_ops_mcp.constants import ServerConfigKey, WorkspaceAliasEnum
 from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
 from airbyte_ops_mcp.github_api import (
@@ -1061,6 +1064,49 @@ def progress_connector_rollout(
             docker_repository=docker_repository,
             docker_image_tag=docker_image_tag,
         )
+
+    # Guard: a percentage-based progression toward a tier with zero eligible
+    # actors will throw `ConnectorRolloutNotEnoughActorsProblem` server-side
+    # and silently wedge the rollout at `workflow_started` (the throw happens
+    # before the `IN_PROGRESS` write and the `@Transactional` rolls back).
+    # Detect this up front and return an actionable error instead. Skipped when
+    # pinning specific `actor_ids` (the caller chose the actors explicitly).
+    if target_percentage is not None and target_percentage > 0 and not actor_ids:
+        try:
+            sync_info = api_client.get_actor_sync_info(
+                rollout_id=rollout_id,
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+        except (PyAirbyteInputError, requests.exceptions.RequestException):
+            # If eligibility can't be fetched (bad input or a network-level
+            # failure), fall through and let the progress call surface the
+            # underlying error rather than crashing the pre-check.
+            sync_info = None
+        if sync_info is not None and count_eligible_or_pinned_actors(sync_info) == 0:
+            return ConnectorRolloutProgressResult(
+                success=False,
+                message=(
+                    "Zero eligible actors: this rollout's tier has no actors to "
+                    "pin, so progressing to "
+                    f"target_percentage={target_percentage}% would throw "
+                    "ConnectorRolloutNotEnoughActorsProblem server-side and "
+                    "silently wedge the rollout at 'workflow_started'. "
+                    "TIER_1/TIER_0 are named strategic accounts; a connector "
+                    "with no customers in this tier can never pin anyone here. "
+                    "Do not progress this tier. If the last non-empty tier is "
+                    "healthy at 100%, cancel this empty rollout "
+                    "(retain_pins_on_cancellation=true) and finalize the healthy "
+                    "rollout as 'succeeded' to promote to GA. See the "
+                    "'Rollout stuck at workflow_started with zero eligible "
+                    "actors' troubleshooting guide in docs/progressive-rollouts.md."
+                ),
+                rollout_id=rollout_id,
+                docker_repository=docker_repository,
+                docker_image_tag=docker_image_tag,
+            )
 
     # Call the API to progress the rollout
     try:

@@ -16,13 +16,18 @@ class FieldDistribution:
         for key, value in dist.items():
             setattr(self, key, value)
 
-    def __getattr__(self, attr: str) -> str:
+    def __getattr__(self, attr: str) -> int:
         if attr in self.__dict.keys():
-            return attr
+            return self.__dict[attr]
         raise AttributeError(f"{self.__class__.__name__} object has no attribute {attr}")
 
     def __iter__(self) -> Iterator:
         return iter(self.__dict__.items())
+
+
+class SizeFormat(str, Enum):
+    RAW = "raw"
+    HUMAN = "human"
 
 
 class IndexStats(CamelBase):
@@ -31,6 +36,7 @@ class IndexStats(CamelBase):
     number_of_documents: int
     is_indexing: bool
     field_distribution: FieldDistribution
+    internal_database_sizes: dict[str, Any] | None = None
 
     @field_validator("field_distribution", mode="before")
     @classmethod

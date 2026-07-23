@@ -441,6 +441,7 @@ class TinyB:
         sql_condition: Optional[str] = None,
         format: str = "csv",
         replace_options: Optional[Set[str]] = None,
+        use_v1: bool = False,
     ):
         params = {"name": datasource_name, "mode": mode, "format": format, "debug": "blocks_block_log"}
 
@@ -452,20 +453,43 @@ class TinyB:
 
         async with aiofiles.open(file, "rb") as content:
             file_content = await content.read()
-            if format == "csv":
-                files = {"csv": ("csv", file_content)}
-            else:
-                files = {"ndjson": ("ndjson", file_content)}
 
-            res = await self._req(
-                f"v0/datasources?{urlencode(params, safe='')}",
-                files=files,
+        if use_v1:
+            v1_params = {"format": format}
+            if sql_condition:
+                v1_params["replace_condition"] = sql_condition
+            if replace_options:
+                for option in list(replace_options):
+                    v1_params[option] = "true"
+            content_types = {
+                "csv": "text/csv",
+                "ndjson": "application/x-ndjson",
+                "parquet": "application/vnd.apache.parquet",
+            }
+            headers = {"Content-Type": content_types[format]}
+            if str(file).endswith(".gz"):
+                headers["Content-Encoding"] = "gzip"
+            return await self._req(
+                f"/v1/datasources/{quote(datasource_name, safe='')}/{mode}?{urlencode(v1_params, safe='')}",
+                data=file_content,
+                headers=headers,
                 method="POST",
             )
-            if status_callback:
-                status_callback(res)
 
-            return res
+        if format == "csv":
+            files = {"csv": ("csv", file_content)}
+        else:
+            files = {"ndjson": ("ndjson", file_content)}
+
+        res = await self._req(
+            f"v0/datasources?{urlencode(params, safe='')}",
+            files=files,
+            method="POST",
+        )
+        if status_callback:
+            status_callback(res)
+
+        return res
 
     async def datasource_truncate(self, datasource_name: str):
         return await self._req(f"/v0/datasources/{datasource_name}/truncate", method="POST", data="")

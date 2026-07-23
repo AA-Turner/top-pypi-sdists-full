@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,39 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    IInspectable as _IInspectable_c2943556,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_sdb import (
-    DomainReference as _DomainReference_5952a7dd, IDomainRef as _IDomainRef_a4c85842
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_sdb as _aws_sdb_ad2d1499
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_sdb_ad2d1499 = _LazyImport("aws_cdk.interfaces.aws_sdb")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDomainRef_a4c85842)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sdb_ad2d1499.IDomainRef)
 class CfnDomain(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_sdb.CfnDomain",
 ):
@@ -110,7 +109,7 @@ class CfnDomain(
         :param description: Information about the SimpleDB domain.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca99937b4ee18835a77edeb59febad8d25a19d38302e7c1f59aeddae7d2ffcbe)
+            type_hints = cached_type_hints(_typecheckingstub__ca99937b4ee18835a77edeb59febad8d25a19d38302e7c1f59aeddae7d2ffcbe)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDomainProps(description=description)
@@ -125,18 +124,18 @@ class CfnDomain(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__034226daad9dd13c33bd192393ebd4d399454c630d2eea75f11a14a97aaae398)
+            type_hints = cached_type_hints(_typecheckingstub__034226daad9dd13c33bd192393ebd4d399454c630d2eea75f11a14a97aaae398)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bce0b77278e319747a7dbe581faec609dd882bcd158ffe266dab53671f09a11)
+            type_hints = cached_type_hints(_typecheckingstub__2bce0b77278e319747a7dbe581faec609dd882bcd158ffe266dab53671f09a11)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -149,7 +148,7 @@ class CfnDomain(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9161435f3b14e2982d20f6f8e6f94519a03f57e26b00ec9d3a9c0ca9bdb6a7cb)
+            type_hints = cached_type_hints(_typecheckingstub__9161435f3b14e2982d20f6f8e6f94519a03f57e26b00ec9d3a9c0ca9bdb6a7cb)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -179,9 +178,9 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> "_DomainReference_5952a7dd":
+    def domain_ref(self) -> "_aws_sdb_ad2d1499.DomainReference":
         '''A reference to a Domain resource.'''
-        return typing.cast("_DomainReference_5952a7dd", jsii.get(self, "domainRef"))
+        return typing.cast("_aws_sdb_ad2d1499.DomainReference", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -192,7 +191,7 @@ class CfnDomain(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd66f099b2d22986830c01de703f022491b0bc3a685ded9b0f2c19bb1d09dcef)
+            type_hints = cached_type_hints(_typecheckingstub__fd66f099b2d22986830c01de703f022491b0bc3a685ded9b0f2c19bb1d09dcef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -222,7 +221,7 @@ class CfnDomainProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc)
+            type_hints = cached_type_hints(_typecheckingstub__a79398401d2da5738a9e989d1f5114a195a6875b1c624a2f6fb4f93eb222ebbc)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
@@ -272,7 +271,7 @@ def _typecheckingstub__034226daad9dd13c33bd192393ebd4d399454c630d2eea75f11a14a97
     pass
 
 def _typecheckingstub__2bce0b77278e319747a7dbe581faec609dd882bcd158ffe266dab53671f09a11(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

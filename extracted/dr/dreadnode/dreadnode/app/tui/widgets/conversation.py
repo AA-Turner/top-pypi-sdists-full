@@ -27,7 +27,15 @@ from textual.message import Message as TextualMessage
 from textual.widget import Widget
 from textual.widgets import Markdown, Static
 
-from dreadnode.app.tui.theme import ACCENT, ERROR, FG, FG_FAINTEST, FG_MUTED, FG_SUBTLE
+from dreadnode.app.tui.theme import (
+    ACCENT,
+    ERROR,
+    FG,
+    FG_FAINTEST,
+    FG_MUTED,
+    FG_SUBTLE,
+    WARNING,
+)
 from dreadnode.app.tui.widgets.tool import ThemedMarkdown, ToolCall
 from dreadnode.generators.message import Message
 
@@ -42,6 +50,8 @@ from dreadnode.generators.message import Message
 #   - ``shell``: bool — user row is a shell command echo ("$ cmd")
 #   - ``error``: bool — row is an error notice (role=system)
 #   - ``error_title``: str — title shown in error rows ("agent", "tool", ...)
+#   - ``notice``: bool — row is a non-error warning (role=system)
+#   - ``notice_title``: str — title shown in warning rows ("model", ...)
 #   - ``compaction``: bool — row is a compaction divider (role=system)
 #   - ``retry``: bool — row is a retry notice (role=system)
 #   - ``tool_name``: str — tool label (role=tool)
@@ -62,6 +72,10 @@ def _is_error(message: Message) -> bool:
     return message.role == "system" and bool(_meta(message, "error"))
 
 
+def _is_notice(message: Message) -> bool:
+    return message.role == "system" and bool(_meta(message, "notice"))
+
+
 def _is_compaction(message: Message) -> bool:
     return message.role == "system" and bool(_meta(message, "compaction"))
 
@@ -77,6 +91,8 @@ def _message_css_class(message: Message) -> str:
         return "thinking-entry"
     if _is_error(message):
         return "error-entry"
+    if _is_notice(message):
+        return "system-entry"
     if _is_compaction(message):
         return "system-entry"
     if message.role == "tool":
@@ -245,6 +261,16 @@ def _render_message(message: Message) -> list[t.Any]:
             text.append(f" — {content}", style=ERROR)
         return [text]
 
+    # Warning rows — a system message flagged with metadata.notice
+    if _is_notice(message):
+        title = _meta(message, "notice_title") or "notice"
+        text = Text()
+        text.append("⚠ ", style=WARNING)
+        text.append(title, style=f"bold {WARNING}")
+        if content:
+            text.append(f" — {content}", style=WARNING)
+        return [text]
+
     # Compaction divider — a system message flagged with metadata.compaction
     if _is_compaction(message):
         text = Text()
@@ -297,6 +323,7 @@ def _render_message(message: Message) -> list[t.Any]:
         summary = _meta(message, "summary")
         error = _meta(message, "error")
         report_url = _meta(message, "report_url") or None
+        url_label = _meta(message, "web_url_label") or None
         expanded_body: str | None = None
         expanded_body_format: str | None = None
         if tool_name == "report":
@@ -311,6 +338,7 @@ def _render_message(message: Message) -> list[t.Any]:
                 meta=summary,
                 error=error,
                 url=report_url,
+                url_label=url_label,
                 expanded_body=expanded_body,
                 expanded_body_format=expanded_body_format,
                 classes="entry tool-entry",
@@ -565,6 +593,15 @@ class ConversationView(VerticalScroll):
             self.mount(widget)
         if not was_at_bottom:
             self.post_message(self.HiddenAppend(widget))
+
+    def action_open_url(self, url: str) -> None:
+        """Handle ``@click=open_url(...)`` on links written into the stream.
+
+        Tool rows carry their own handler; content written via :meth:`write`
+        (e.g. the end-of-turn Agent Output pointer) mounts a plain ``Static``,
+        so the action bubbles up to here. Mirrors ``ToolCall.action_open_url``.
+        """
+        self.app.open_url(url)
 
     def write_system(self, message: str, *, style: str = FG_FAINTEST) -> None:
         """Write an inline system/activity message."""

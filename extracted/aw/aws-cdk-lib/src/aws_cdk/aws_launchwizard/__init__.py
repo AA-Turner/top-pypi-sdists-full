@@ -35,6 +35,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -48,44 +50,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_launchwizard import (
-    DeploymentReference as _DeploymentReference_da9fb3ea,
-    IDeploymentRef as _IDeploymentRef_84f246b4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_launchwizard as _aws_launchwizard_9b12b495
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_launchwizard_9b12b495 = _LazyImport("aws_cdk.interfaces.aws_launchwizard")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IDeploymentRef_84f246b4, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_launchwizard_9b12b495.IDeploymentRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDeployment(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_launchwizard.CfnDeployment",
 ):
@@ -128,8 +122,8 @@ class CfnDeployment(
         deployment_pattern_name: builtins.str,
         name: builtins.str,
         workload_name: builtins.str,
-        specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::LaunchWizard::Deployment``.
 
@@ -142,7 +136,7 @@ class CfnDeployment(
         :param tags: Information about the tags attached to a deployment.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe77ed4e81ab71d948f0b03ed5f8780bcc2f324a23805bc45e7eef5f9137ded1)
+            type_hints = cached_type_hints(_typecheckingstub__fe77ed4e81ab71d948f0b03ed5f8780bcc2f324a23805bc45e7eef5f9137ded1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeploymentProps(
@@ -157,12 +151,15 @@ class CfnDeployment(
 
     @jsii.member(jsii_name="arnForDeployment")
     @builtins.classmethod
-    def arn_for_deployment(cls, resource: "_IDeploymentRef_84f246b4") -> builtins.str:
+    def arn_for_deployment(
+        cls,
+        resource: "_aws_launchwizard_9b12b495.IDeploymentRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__568a48adc369ee7d93157209ab196d4f495c58158a475e203141da4dce6b7146)
+            type_hints = cached_type_hints(_typecheckingstub__568a48adc369ee7d93157209ab196d4f495c58158a475e203141da4dce6b7146)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeployment", [resource]))
 
@@ -174,18 +171,18 @@ class CfnDeployment(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90de14867b6d31f72487da50ba5b54d98d91d9be5ff80c8429f04142ed7fb886)
+            type_hints = cached_type_hints(_typecheckingstub__90de14867b6d31f72487da50ba5b54d98d91d9be5ff80c8429f04142ed7fb886)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeployment", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7f3e6794e1a2bf9096acd5b62e08b5fc91decb983d7f694ca0d44580c781e51)
+            type_hints = cached_type_hints(_typecheckingstub__d7f3e6794e1a2bf9096acd5b62e08b5fc91decb983d7f694ca0d44580c781e51)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -198,7 +195,7 @@ class CfnDeployment(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fcfcdfea35cf6cb8ac79e3e1ec3fcf3c8fe447be5f525eff497dbc69d38de67b)
+            type_hints = cached_type_hints(_typecheckingstub__fcfcdfea35cf6cb8ac79e3e1ec3fcf3c8fe447be5f525eff497dbc69d38de67b)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -264,9 +261,9 @@ class CfnDeployment(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -280,9 +277,9 @@ class CfnDeployment(
 
     @builtins.property
     @jsii.member(jsii_name="deploymentRef")
-    def deployment_ref(self) -> "_DeploymentReference_da9fb3ea":
+    def deployment_ref(self) -> "_aws_launchwizard_9b12b495.DeploymentReference":
         '''A reference to a Deployment resource.'''
-        return typing.cast("_DeploymentReference_da9fb3ea", jsii.get(self, "deploymentRef"))
+        return typing.cast("_aws_launchwizard_9b12b495.DeploymentReference", jsii.get(self, "deploymentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="deploymentPatternName")
@@ -293,7 +290,7 @@ class CfnDeployment(
     @deployment_pattern_name.setter
     def deployment_pattern_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04c6045841669ffb1a4272a23741926c40913ef41f644914958b8ffb8b0820be)
+            type_hints = cached_type_hints(_typecheckingstub__04c6045841669ffb1a4272a23741926c40913ef41f644914958b8ffb8b0820be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deploymentPatternName", value) # pyright: ignore[reportArgumentType]
 
@@ -306,7 +303,7 @@ class CfnDeployment(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0094e37b81e5d8f0b6e42001fe8da7cf6d149317e4ef32b73e5cef5a82aee61)
+            type_hints = cached_type_hints(_typecheckingstub__c0094e37b81e5d8f0b6e42001fe8da7cf6d149317e4ef32b73e5cef5a82aee61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -319,7 +316,7 @@ class CfnDeployment(
     @workload_name.setter
     def workload_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ddbc17d8abf4c6daba412028f139c421c42d9da86f2e5b12d5b5a149a84c309)
+            type_hints = cached_type_hints(_typecheckingstub__4ddbc17d8abf4c6daba412028f139c421c42d9da86f2e5b12d5b5a149a84c309)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "workloadName", value) # pyright: ignore[reportArgumentType]
 
@@ -327,30 +324,33 @@ class CfnDeployment(
     @jsii.member(jsii_name="specifications")
     def specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The settings specified for the deployment.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "specifications"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "specifications"))
 
     @specifications.setter
     def specifications(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6343321573b3c3c84666431fb123811dbd97cb11a86c65d6c6d7d4c669c25d86)
+            type_hints = cached_type_hints(_typecheckingstub__6343321573b3c3c84666431fb123811dbd97cb11a86c65d6c6d7d4c669c25d86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "specifications", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Information about the tags attached to a deployment.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__057665c8ffa5f5cdaedcf0301e727d15ee8b0244807853f59c72aadbb741357d)
+            type_hints = cached_type_hints(_typecheckingstub__057665c8ffa5f5cdaedcf0301e727d15ee8b0244807853f59c72aadbb741357d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -373,8 +373,8 @@ class CfnDeploymentProps:
         deployment_pattern_name: builtins.str,
         name: builtins.str,
         workload_name: builtins.str,
-        specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        specifications: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDeployment``.
 
@@ -410,7 +410,7 @@ class CfnDeploymentProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf)
+            type_hints = cached_type_hints(_typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b15dcdcf)
             check_type(argname="argument deployment_pattern_name", value=deployment_pattern_name, expected_type=type_hints["deployment_pattern_name"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument workload_name", value=workload_name, expected_type=type_hints["workload_name"])
@@ -459,7 +459,7 @@ class CfnDeploymentProps:
     @builtins.property
     def specifications(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''The settings specified for the deployment.
 
         These settings define how to deploy and configure your resources created by the deployment. For more information about the specifications required for creating a deployment for a SAP workload, see `SAP deployment specifications <https://docs.aws.amazon.com/launchwizard/latest/APIReference/launch-wizard-specifications-sap.html>`_ . To retrieve the specifications required to create a deployment for other workloads, use the ```GetWorkloadDeploymentPattern`` <https://docs.aws.amazon.com/launchwizard/latest/APIReference/API_GetWorkloadDeploymentPattern.html>`_ operation.
@@ -467,16 +467,16 @@ class CfnDeploymentProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-specifications
         '''
         result = self._values.get("specifications")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Information about the tags attached to a deployment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-launchwizard-deployment.html#cfn-launchwizard-deployment-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -504,14 +504,14 @@ def _typecheckingstub__fe77ed4e81ab71d948f0b03ed5f8780bcc2f324a23805bc45e7eef5f9
     deployment_pattern_name: builtins.str,
     name: builtins.str,
     workload_name: builtins.str,
-    specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__568a48adc369ee7d93157209ab196d4f495c58158a475e203141da4dce6b7146(
-    resource: _IDeploymentRef_84f246b4,
+    resource: _aws_launchwizard_9b12b495.IDeploymentRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -523,7 +523,7 @@ def _typecheckingstub__90de14867b6d31f72487da50ba5b54d98d91d9be5ff80c8429f04142e
     pass
 
 def _typecheckingstub__d7f3e6794e1a2bf9096acd5b62e08b5fc91decb983d7f694ca0d44580c781e51(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -553,13 +553,13 @@ def _typecheckingstub__4ddbc17d8abf4c6daba412028f139c421c42d9da86f2e5b12d5b5a149
     pass
 
 def _typecheckingstub__6343321573b3c3c84666431fb123811dbd97cb11a86c65d6c6d7d4c669c25d86(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__057665c8ffa5f5cdaedcf0301e727d15ee8b0244807853f59c72aadbb741357d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -569,8 +569,8 @@ def _typecheckingstub__a6e25238aa51033c6bfd52d31380bf8d8789e604e540fcfff33c0df8b
     deployment_pattern_name: builtins.str,
     name: builtins.str,
     workload_name: builtins.str,
-    specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    specifications: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

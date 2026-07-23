@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -68,7 +72,7 @@ class BackupPlanReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a77079e1b20aa3ac92fe146c61c7fbe6e5dbf5c8e182f93cd84530d8527a86c)
+            type_hints = cached_type_hints(_typecheckingstub__6a77079e1b20aa3ac92fe146c61c7fbe6e5dbf5c8e182f93cd84530d8527a86c)
             check_type(argname="argument backup_plan_arn", value=backup_plan_arn, expected_type=type_hints["backup_plan_arn"])
             check_type(argname="argument backup_plan_id", value=backup_plan_id, expected_type=type_hints["backup_plan_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -126,7 +130,7 @@ class BackupSelectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa6e9d1cc32cb328e42920a9a5ef76b40c2def12f8c14e2dbd345a29c78eff8d)
+            type_hints = cached_type_hints(_typecheckingstub__aa6e9d1cc32cb328e42920a9a5ef76b40c2def12f8c14e2dbd345a29c78eff8d)
             check_type(argname="argument backup_selection_id", value=backup_selection_id, expected_type=type_hints["backup_selection_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "backup_selection_id": backup_selection_id,
@@ -185,7 +189,7 @@ class BackupVaultReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5af0184161160d25bde07c18f7ff0302737896654b6080404dee97165575ee6a)
+            type_hints = cached_type_hints(_typecheckingstub__5af0184161160d25bde07c18f7ff0302737896654b6080404dee97165575ee6a)
             check_type(argname="argument backup_vault_arn", value=backup_vault_arn, expected_type=type_hints["backup_vault_arn"])
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -243,7 +247,7 @@ class FrameworkReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9208e01f3f2fa93dada1794b4e883d88008205648db75087779eae32c2fd686)
+            type_hints = cached_type_hints(_typecheckingstub__c9208e01f3f2fa93dada1794b4e883d88008205648db75087779eae32c2fd686)
             check_type(argname="argument framework_arn", value=framework_arn, expected_type=type_hints["framework_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "framework_arn": framework_arn,
@@ -271,7 +275,7 @@ class FrameworkReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IBackupPlanRef")
 class IBackupPlanRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupPlan.
@@ -291,7 +295,7 @@ class IBackupPlanRef(
 
 class _IBackupPlanRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupPlan.
 
@@ -316,7 +320,7 @@ typing.cast(typing.Any, IBackupPlanRef).__jsii_proxy_class__ = lambda : _IBackup
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IBackupSelectionRef")
 class IBackupSelectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupSelection.
@@ -336,7 +340,7 @@ class IBackupSelectionRef(
 
 class _IBackupSelectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupSelection.
 
@@ -361,7 +365,7 @@ typing.cast(typing.Any, IBackupSelectionRef).__jsii_proxy_class__ = lambda : _IB
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IBackupVaultRef")
 class IBackupVaultRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupVault.
@@ -381,7 +385,7 @@ class IBackupVaultRef(
 
 class _IBackupVaultRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BackupVault.
 
@@ -406,7 +410,7 @@ typing.cast(typing.Any, IBackupVaultRef).__jsii_proxy_class__ = lambda : _IBacku
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IFrameworkRef")
 class IFrameworkRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Framework.
@@ -426,7 +430,7 @@ class IFrameworkRef(
 
 class _IFrameworkRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Framework.
 
@@ -453,7 +457,7 @@ typing.cast(typing.Any, IFrameworkRef).__jsii_proxy_class__ = lambda : _IFramewo
 )
 class ILogicallyAirGappedBackupVaultRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogicallyAirGappedBackupVault.
@@ -475,7 +479,7 @@ class ILogicallyAirGappedBackupVaultRef(
 
 class _ILogicallyAirGappedBackupVaultRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LogicallyAirGappedBackupVault.
 
@@ -502,7 +506,7 @@ typing.cast(typing.Any, ILogicallyAirGappedBackupVaultRef).__jsii_proxy_class__ 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IReportPlanRef")
 class IReportPlanRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReportPlan.
@@ -522,7 +526,7 @@ class IReportPlanRef(
 
 class _IReportPlanRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReportPlan.
 
@@ -547,7 +551,7 @@ typing.cast(typing.Any, IReportPlanRef).__jsii_proxy_class__ = lambda : _IReport
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.IRestoreTestingPlanRef")
 class IRestoreTestingPlanRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RestoreTestingPlan.
@@ -567,7 +571,7 @@ class IRestoreTestingPlanRef(
 
 class _IRestoreTestingPlanRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RestoreTestingPlan.
 
@@ -594,7 +598,7 @@ typing.cast(typing.Any, IRestoreTestingPlanRef).__jsii_proxy_class__ = lambda : 
 )
 class IRestoreTestingSelectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RestoreTestingSelection.
@@ -614,7 +618,7 @@ class IRestoreTestingSelectionRef(
 
 class _IRestoreTestingSelectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RestoreTestingSelection.
 
@@ -639,7 +643,7 @@ typing.cast(typing.Any, IRestoreTestingSelectionRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.ITieringConfigurationRef")
 class ITieringConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TieringConfiguration.
@@ -659,7 +663,7 @@ class ITieringConfigurationRef(
 
 class _ITieringConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TieringConfiguration.
 
@@ -705,7 +709,7 @@ class LogicallyAirGappedBackupVaultReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd6d881ce3a7fcd23239f41692330b56b4e404d0f65dba0ecfb5f1e7e2d66e37)
+            type_hints = cached_type_hints(_typecheckingstub__fd6d881ce3a7fcd23239f41692330b56b4e404d0f65dba0ecfb5f1e7e2d66e37)
             check_type(argname="argument backup_vault_name", value=backup_vault_name, expected_type=type_hints["backup_vault_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "backup_vault_name": backup_vault_name,
@@ -754,7 +758,7 @@ class ReportPlanReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e14b1b1589fa26c0b02d2ec6412c42d2edc39d661213cea5340023281023ceb)
+            type_hints = cached_type_hints(_typecheckingstub__8e14b1b1589fa26c0b02d2ec6412c42d2edc39d661213cea5340023281023ceb)
             check_type(argname="argument report_plan_arn", value=report_plan_arn, expected_type=type_hints["report_plan_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "report_plan_arn": report_plan_arn,
@@ -813,7 +817,7 @@ class RestoreTestingPlanReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b57e829b5ee97cfa44e5dee464dcd7972373f8a282a3c8fea7bc76b2ca0726b7)
+            type_hints = cached_type_hints(_typecheckingstub__b57e829b5ee97cfa44e5dee464dcd7972373f8a282a3c8fea7bc76b2ca0726b7)
             check_type(argname="argument restore_testing_plan_arn", value=restore_testing_plan_arn, expected_type=type_hints["restore_testing_plan_arn"])
             check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -881,7 +885,7 @@ class RestoreTestingSelectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6873344f6558099662d6c3ff3f04f56bac4fc761ac9d664357b2e2f936f3a436)
+            type_hints = cached_type_hints(_typecheckingstub__6873344f6558099662d6c3ff3f04f56bac4fc761ac9d664357b2e2f936f3a436)
             check_type(argname="argument restore_testing_plan_name", value=restore_testing_plan_name, expected_type=type_hints["restore_testing_plan_name"])
             check_type(argname="argument restore_testing_selection_name", value=restore_testing_selection_name, expected_type=type_hints["restore_testing_selection_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -949,7 +953,7 @@ class TieringConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c4ffd604d0acac2ed3572f6ad959173a1356f2c2bbb020e85ed859deceecf3e)
+            type_hints = cached_type_hints(_typecheckingstub__1c4ffd604d0acac2ed3572f6ad959173a1356f2c2bbb020e85ed859deceecf3e)
             check_type(argname="argument tiering_configuration_arn", value=tiering_configuration_arn, expected_type=type_hints["tiering_configuration_arn"])
             check_type(argname="argument tiering_configuration_name", value=tiering_configuration_name, expected_type=type_hints["tiering_configuration_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

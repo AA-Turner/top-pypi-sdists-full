@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "4.6.1"
+__version__ = "4.6.3"
 
 
 import asyncio
@@ -83,12 +83,11 @@ __all__ = [
 
 
 BLEAK_EXCEPTIONS = (AttributeError, BleakError)
-BLEAK_RETRY_EXCEPTIONS = (
-    *BLEAK_EXCEPTIONS,
-    EOFError,
-    BrokenPipeError,
-    asyncio.TimeoutError,
-)
+# EOFError and BrokenPipeError happen when the D-Bus socket dies out
+# from under us; asyncio.TimeoutError is deliberately not retried so
+# timeouts set by the caller are not multiplied by the retry attempts.
+RETRYABLE_BLEAK_EXCEPTIONS = (*BLEAK_EXCEPTIONS, EOFError, BrokenPipeError)
+BLEAK_RETRY_EXCEPTIONS = (*RETRYABLE_BLEAK_EXCEPTIONS, asyncio.TimeoutError)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -366,12 +365,6 @@ def calculate_backoff_time(exc: Exception) -> float:
     return BLEAK_BACKOFF_TIME
 
 
-async def _disconnect_devices(devices: list[BLEDevice]) -> None:
-    """Disconnect the devices."""
-    if IS_LINUX:
-        await disconnect_devices(devices)
-
-
 async def close_stale_connections_by_address(
     address: str, only_other_adapters: bool = False
 ) -> None:
@@ -405,7 +398,7 @@ async def close_stale_connections(
 
     if not to_disconnect:
         return
-    await _disconnect_devices(to_disconnect)
+    await disconnect_devices(to_disconnect)
 
 
 AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
@@ -625,7 +618,7 @@ def retry_bluetooth_connection_error(
             for attempt in range(attempts):
                 try:
                     return await func(*args, **kwargs)
-                except BLEAK_EXCEPTIONS as ex:
+                except RETRYABLE_BLEAK_EXCEPTIONS as ex:
                     backoff_time = calculate_backoff_time(ex)
                     if attempt == attempts - 1:
                         raise

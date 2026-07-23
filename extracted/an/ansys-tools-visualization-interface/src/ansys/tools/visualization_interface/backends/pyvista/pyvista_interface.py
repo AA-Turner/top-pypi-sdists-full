@@ -1,4 +1,4 @@
-# Copyright (C) 2024 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2024 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 #
@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 """Provides plotting for various PyAnsys objects."""
 import importlib.util as importlib_util
 import re
@@ -83,11 +84,11 @@ class PyVistaInterface:
         """Initialize the plotter."""
         global _HAS_PYVISTAQT
         # Lazily check for PyVistaQt dependency if Qt backend is requested
-        if _HAS_PYVISTAQT is None and importlib_util.find_spec("pyvistaqt") is not None:
-            _HAS_PYVISTAQT = True
-            import pyvistaqt
-        else:
-            _HAS_PYVISTAQT = False
+        if use_qt:
+            if _HAS_PYVISTAQT is None:
+                _HAS_PYVISTAQT = importlib_util.find_spec("pyvistaqt") is not None
+            if _HAS_PYVISTAQT:
+                import pyvistaqt
 
         import pyvista as pv
 
@@ -465,6 +466,21 @@ class PyVistaInterface:
         # Override Jupyter backend if building docs
         if viz_interface.USE_HTML_BACKEND:
             jupyter_backend = "html"
+        elif jupyter_backend is None:
+            # Auto-detect a Jupyter kernel and fall back to a safe html backend.
+            # Without this, PyVista defaults to "trame" (after installing
+            # pyvista[jupyter]), which spawns a local server and renders blank
+            # in VS Code / Spyder embedded notebooks.
+            try:
+                from IPython import get_ipython
+
+                _ip = get_ipython()
+                if _ip is not None and "IPKernelApp" in _ip.config:
+                    jupyter_backend = "html"
+            except Exception as exc:
+                logger.debug(
+                    "Not in a Jupyter environment: %s", exc
+                )
 
         # Enabling anti-aliasing by default on scene
         self.scene.enable_anti_aliasing("ssaa")

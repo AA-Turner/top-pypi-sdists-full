@@ -29,7 +29,7 @@ import time
 import uuid
 from collections import deque
 from pathlib import Path
-from typing import Optional, Protocol
+from typing import Optional, Protocol, cast
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -323,7 +323,8 @@ def _build_self_signed_ssl_context(bind: str) -> ssl.SSLContext:
     else:
         with contextlib.suppress(OSError):
             for info in socket.getaddrinfo(socket.gethostname(), None):
-                extra.add(info[4][0])
+                # sockaddr[0] is always a str for AF_INET / AF_INET6 results.
+                extra.add(cast(str, info[4][0]))
         # Probe the routable outbound IP via a UDP socket (no packets actually
         # sent -- `connect` on UDP just fills the local address from routing).
         with contextlib.suppress(OSError):
@@ -525,7 +526,8 @@ class _KernelUdp:
         return await self._loop.sock_recv(self._sock, bufsize)
 
     async def sendto(self, data: bytes, ip: str, port: int) -> None:
-        await self._loop.sock_sendto(self._sock, data, (ip, port, 0, 0))
+        # loop.sock_sendto exists since Python 3.11; absent from the 3.9 typeshed baseline.
+        await self._loop.sock_sendto(self._sock, data, (ip, port, 0, 0))  # pyright: ignore[reportAttributeAccessIssue]
 
     def close(self) -> None:
         with contextlib.suppress(Exception):
@@ -568,6 +570,7 @@ def open_media_receiver(
             break
         except OSError:
             continue
+    assert svc.service is not None
     return _KernelUdp(sock), svc.service.local_address[0]
 
 
@@ -2470,8 +2473,7 @@ class ScreenStreamServer:
         # PLI-forced IDR now (no periodic refresh loop to piggyback on),
         # so it should stay rare.
         queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
-        if self._init_sequence is not None:
-            queue.put_nowait(self._init_sequence)
+        queue.put_nowait(self._init_sequence)
         # New subscribers start with needs_key=True so the broadcast
         # loop holds live deltas until the PLI-induced IDR arrives
         # (deltas reference frames this subscriber never saw, otherwise
@@ -2602,7 +2604,12 @@ class ScreenStreamServer:
                 and (now - motion_started_t) >= active_interval
                 and since_refresh >= active_interval
             )
-            settled = quiet_for is not None and quiet_for >= settle_quiet and self._last_refresh_t < quiet_since
+            settled = (
+                quiet_since is not None
+                and quiet_for is not None
+                and quiet_for >= settle_quiet
+                and self._last_refresh_t < quiet_since
+            )
             heartbeat_due = quiet_for is not None and since_refresh >= heartbeat
             if not (active or settled or heartbeat_due):
                 continue
@@ -2939,21 +2946,18 @@ class ScreenStreamServer:
             watchdog.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await watchdog
-            if self._rctl_task is not None:
-                self._rctl_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await self._rctl_task
+            self._rctl_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._rctl_task
             decoder_refresh.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await decoder_refresh
-            if self._reconnect_task is not None:
-                self._reconnect_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await self._reconnect_task
-            if self._keep_awake_task is not None:
-                self._keep_awake_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await self._keep_awake_task
+            self._reconnect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._reconnect_task
+            self._keep_awake_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await self._keep_awake_task
             logger.debug("shutdown: cancelling eager_start")
             eager_start.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -2968,10 +2972,9 @@ class ScreenStreamServer:
             await _bounded(self._stop_hid(), "_stop_hid")
             task = self._hid_worker_task
             self._hid_worker_task = None
-            if task is not None:
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    await task
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
 
             # _stop_active_stream / _stop_audio_stream issue
             # stop_media_stream RPCs to the device daemon -- if the

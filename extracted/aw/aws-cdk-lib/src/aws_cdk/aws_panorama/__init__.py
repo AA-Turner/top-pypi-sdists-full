@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_panorama import (
-    ApplicationInstanceReference as _ApplicationInstanceReference_011533a2,
-    IApplicationInstanceRef as _IApplicationInstanceRef_530e8c33,
-    IPackageRef as _IPackageRef_675e27b7,
-    IPackageVersionRef as _IPackageVersionRef_ace03ee8,
-    PackageReference as _PackageReference_e44c01fe,
-    PackageVersionReference as _PackageVersionReference_83c42bde,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_panorama as _aws_panorama_63573528
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_panorama_63573528 = _LazyImport("aws_cdk.interfaces.aws_panorama")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IApplicationInstanceRef_530e8c33, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_panorama_63573528.IApplicationInstanceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnApplicationInstance(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_panorama.CfnApplicationInstance",
 ):
@@ -132,13 +122,13 @@ class CfnApplicationInstance(
         id: builtins.str,
         *,
         default_runtime_context_device: builtins.str,
-        manifest_payload: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
+        manifest_payload: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
         application_instance_id_to_replace: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        manifest_overrides_payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_overrides_payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         runtime_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Panorama::ApplicationInstance``.
 
@@ -154,7 +144,7 @@ class CfnApplicationInstance(
         :param tags: Tags for the application instance.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efd0ba4cd6c0b4ee9023df6f956444617b610a622dce5eb667859d9d33cce0e1)
+            type_hints = cached_type_hints(_typecheckingstub__efd0ba4cd6c0b4ee9023df6f956444617b610a622dce5eb667859d9d33cce0e1)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnApplicationInstanceProps(
@@ -174,13 +164,13 @@ class CfnApplicationInstance(
     @builtins.classmethod
     def arn_for_application_instance(
         cls,
-        resource: "_IApplicationInstanceRef_530e8c33",
+        resource: "_aws_panorama_63573528.IApplicationInstanceRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf533fb3b1006fba9f44c5f4406218e9ea314ac7fd24c6f3e86b82405f8cd644)
+            type_hints = cached_type_hints(_typecheckingstub__cf533fb3b1006fba9f44c5f4406218e9ea314ac7fd24c6f3e86b82405f8cd644)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplicationInstance", [resource]))
 
@@ -191,7 +181,7 @@ class CfnApplicationInstance(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IApplicationInstanceRef_530e8c33":
+    ) -> "_aws_panorama_63573528.IApplicationInstanceRef":
         '''Creates a new IApplicationInstanceRef from an ARN.
 
         :param scope: -
@@ -199,11 +189,11 @@ class CfnApplicationInstance(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9f4f68f6afad3612ec12bf875c21240c719f76be3cb147ecb5aa8e2041ee7b3)
+            type_hints = cached_type_hints(_typecheckingstub__a9f4f68f6afad3612ec12bf875c21240c719f76be3cb147ecb5aa8e2041ee7b3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IApplicationInstanceRef_530e8c33", jsii.sinvoke(cls, "fromApplicationInstanceArn", [scope, id, arn]))
+        return typing.cast("_aws_panorama_63573528.IApplicationInstanceRef", jsii.sinvoke(cls, "fromApplicationInstanceArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromApplicationInstanceId")
     @builtins.classmethod
@@ -212,7 +202,7 @@ class CfnApplicationInstance(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_instance_id: builtins.str,
-    ) -> "_IApplicationInstanceRef_530e8c33":
+    ) -> "_aws_panorama_63573528.IApplicationInstanceRef":
         '''Creates a new IApplicationInstanceRef from a applicationInstanceId.
 
         :param scope: -
@@ -220,11 +210,11 @@ class CfnApplicationInstance(
         :param application_instance_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf3c71beda280e35f7832b3400f0af821e251042c4f89db4b42f5975db8cb61e)
+            type_hints = cached_type_hints(_typecheckingstub__cf3c71beda280e35f7832b3400f0af821e251042c4f89db4b42f5975db8cb61e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_instance_id", value=application_instance_id, expected_type=type_hints["application_instance_id"])
-        return typing.cast("_IApplicationInstanceRef_530e8c33", jsii.sinvoke(cls, "fromApplicationInstanceId", [scope, id, application_instance_id]))
+        return typing.cast("_aws_panorama_63573528.IApplicationInstanceRef", jsii.sinvoke(cls, "fromApplicationInstanceId", [scope, id, application_instance_id]))
 
     @jsii.member(jsii_name="isCfnApplicationInstance")
     @builtins.classmethod
@@ -234,18 +224,18 @@ class CfnApplicationInstance(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb3ed9d2426f451e3bd6baba6a2f534f717b5076782b9e522b13823c420b592e)
+            type_hints = cached_type_hints(_typecheckingstub__eb3ed9d2426f451e3bd6baba6a2f534f717b5076782b9e522b13823c420b592e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationInstance", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f02c8fd6f1a71465462afea3d559ebb5b8ea0af1bc67afc99474bf782789ec30)
+            type_hints = cached_type_hints(_typecheckingstub__f02c8fd6f1a71465462afea3d559ebb5b8ea0af1bc67afc99474bf782789ec30)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -258,7 +248,7 @@ class CfnApplicationInstance(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d44dcdd2cf32e2db61481304b462fc2d18dd54bdc640c02d315dde2bc1bd73a)
+            type_hints = cached_type_hints(_typecheckingstub__2d44dcdd2cf32e2db61481304b462fc2d18dd54bdc640c02d315dde2bc1bd73a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -270,9 +260,11 @@ class CfnApplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="applicationInstanceRef")
-    def application_instance_ref(self) -> "_ApplicationInstanceReference_011533a2":
+    def application_instance_ref(
+        self,
+    ) -> "_aws_panorama_63573528.ApplicationInstanceReference":
         '''A reference to a ApplicationInstance resource.'''
-        return typing.cast("_ApplicationInstanceReference_011533a2", jsii.get(self, "applicationInstanceRef"))
+        return typing.cast("_aws_panorama_63573528.ApplicationInstanceReference", jsii.get(self, "applicationInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationInstanceId")
@@ -358,9 +350,9 @@ class CfnApplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultRuntimeContextDevice")
@@ -371,7 +363,7 @@ class CfnApplicationInstance(
     @default_runtime_context_device.setter
     def default_runtime_context_device(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14dead437397488d87688e488f5b030e1acddee3c13863a0646a40942ead7dcc)
+            type_hints = cached_type_hints(_typecheckingstub__14dead437397488d87688e488f5b030e1acddee3c13863a0646a40942ead7dcc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultRuntimeContextDevice", value) # pyright: ignore[reportArgumentType]
 
@@ -379,17 +371,17 @@ class CfnApplicationInstance(
     @jsii.member(jsii_name="manifestPayload")
     def manifest_payload(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestPayloadProperty"]:
         '''The application's manifest document.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"], jsii.get(self, "manifestPayload"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestPayloadProperty"], jsii.get(self, "manifestPayload"))
 
     @manifest_payload.setter
     def manifest_payload(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestPayloadProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4633be9adb22fb14ee3ed09114e5a580f0c1d44702407ccc944dc6786365f444)
+            type_hints = cached_type_hints(_typecheckingstub__4633be9adb22fb14ee3ed09114e5a580f0c1d44702407ccc944dc6786365f444)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "manifestPayload", value) # pyright: ignore[reportArgumentType]
 
@@ -405,7 +397,7 @@ class CfnApplicationInstance(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc7fbdde1d1b5abfbac0e504f36299a0ab3fa68bd2515240ccaa5b9aabb83f1e)
+            type_hints = cached_type_hints(_typecheckingstub__bc7fbdde1d1b5abfbac0e504f36299a0ab3fa68bd2515240ccaa5b9aabb83f1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applicationInstanceIdToReplace", value) # pyright: ignore[reportArgumentType]
 
@@ -418,7 +410,7 @@ class CfnApplicationInstance(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdeccdf678155b692097126aa0b03f3329319b06cff4466ea53ac802efde82e3)
+            type_hints = cached_type_hints(_typecheckingstub__cdeccdf678155b692097126aa0b03f3329319b06cff4466ea53ac802efde82e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -426,17 +418,17 @@ class CfnApplicationInstance(
     @jsii.member(jsii_name="manifestOverridesPayload")
     def manifest_overrides_payload(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
         '''Setting overrides for the application manifest.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], jsii.get(self, "manifestOverridesPayload"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], jsii.get(self, "manifestOverridesPayload"))
 
     @manifest_overrides_payload.setter
     def manifest_overrides_payload(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b7471c650c5b47abc295c3f3540f494f924a6e4a67d4808e09a0c61dbfb5a40)
+            type_hints = cached_type_hints(_typecheckingstub__4b7471c650c5b47abc295c3f3540f494f924a6e4a67d4808e09a0c61dbfb5a40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "manifestOverridesPayload", value) # pyright: ignore[reportArgumentType]
 
@@ -449,7 +441,7 @@ class CfnApplicationInstance(
     @name.setter
     def name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1027678dff7d52641b35cc229158e34a793da6439b3b9c3a28f73f152ddba197)
+            type_hints = cached_type_hints(_typecheckingstub__1027678dff7d52641b35cc229158e34a793da6439b3b9c3a28f73f152ddba197)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -462,20 +454,23 @@ class CfnApplicationInstance(
     @runtime_role_arn.setter
     def runtime_role_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4d8d9b27616402bbf99ce9903965d42b5395de944eb23c215804147caba15f7)
+            type_hints = cached_type_hints(_typecheckingstub__f4d8d9b27616402bbf99ce9903965d42b5395de944eb23c215804147caba15f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "runtimeRoleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags for the application instance.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc3bba124186482968d9b6204289729da05b6e7cb68d9a998bbd4aef3a949112)
+            type_hints = cached_type_hints(_typecheckingstub__cc3bba124186482968d9b6204289729da05b6e7cb68d9a998bbd4aef3a949112)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -510,7 +505,7 @@ class CfnApplicationInstance(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__def90730e19f581db1876aa8bbcc31c35d6dedb67b9cf6ad9012b0e71917b4ef)
+                type_hints = cached_type_hints(_typecheckingstub__def90730e19f581db1876aa8bbcc31c35d6dedb67b9cf6ad9012b0e71917b4ef)
                 check_type(argname="argument payload_data", value=payload_data, expected_type=type_hints["payload_data"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if payload_data is not None:
@@ -567,7 +562,7 @@ class CfnApplicationInstance(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a5d7cb2c1d20afe24346d68fd8c261ab008166cc9e17ce83f5e21e6c3e1d3677)
+                type_hints = cached_type_hints(_typecheckingstub__a5d7cb2c1d20afe24346d68fd8c261ab008166cc9e17ce83f5e21e6c3e1d3677)
                 check_type(argname="argument payload_data", value=payload_data, expected_type=type_hints["payload_data"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if payload_data is not None:
@@ -613,13 +608,13 @@ class CfnApplicationInstanceProps:
         self,
         *,
         default_runtime_context_device: builtins.str,
-        manifest_payload: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
+        manifest_payload: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationInstance.ManifestPayloadProperty", typing.Dict[builtins.str, typing.Any]]],
         application_instance_id_to_replace: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        manifest_overrides_payload: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manifest_overrides_payload: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnApplicationInstance.ManifestOverridesPayloadProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         runtime_role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplicationInstance``.
 
@@ -663,7 +658,7 @@ class CfnApplicationInstanceProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807)
+            type_hints = cached_type_hints(_typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807)
             check_type(argname="argument default_runtime_context_device", value=default_runtime_context_device, expected_type=type_hints["default_runtime_context_device"])
             check_type(argname="argument manifest_payload", value=manifest_payload, expected_type=type_hints["manifest_payload"])
             check_type(argname="argument application_instance_id_to_replace", value=application_instance_id_to_replace, expected_type=type_hints["application_instance_id_to_replace"])
@@ -702,14 +697,14 @@ class CfnApplicationInstanceProps:
     @builtins.property
     def manifest_payload(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestPayloadProperty"]:
         '''The application's manifest document.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestpayload
         '''
         result = self._values.get("manifest_payload")
         assert result is not None, "Required property 'manifest_payload' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestPayloadProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestPayloadProperty"], result)
 
     @builtins.property
     def application_instance_id_to_replace(self) -> typing.Optional[builtins.str]:
@@ -732,13 +727,13 @@ class CfnApplicationInstanceProps:
     @builtins.property
     def manifest_overrides_payload(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]]:
         '''Setting overrides for the application manifest.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-manifestoverridespayload
         '''
         result = self._values.get("manifest_overrides_payload")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnApplicationInstance.ManifestOverridesPayloadProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -759,13 +754,13 @@ class CfnApplicationInstanceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags for the application instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-applicationinstance.html#cfn-panorama-applicationinstance-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -779,9 +774,9 @@ class CfnApplicationInstanceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPackageRef_675e27b7, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_panorama_63573528.IPackageRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPackage(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_panorama.CfnPackage",
 ):
@@ -831,8 +826,8 @@ class CfnPackage(
         id: builtins.str,
         *,
         package_name: builtins.str,
-        storage_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Panorama::Package``.
 
@@ -843,7 +838,7 @@ class CfnPackage(
         :param tags: Tags for the package.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__014b23b28acc37a82edebe15e1628f0ee03393a0354f498b25ce8519a95771ba)
+            type_hints = cached_type_hints(_typecheckingstub__014b23b28acc37a82edebe15e1628f0ee03393a0354f498b25ce8519a95771ba)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPackageProps(
@@ -854,12 +849,15 @@ class CfnPackage(
 
     @jsii.member(jsii_name="arnForPackage")
     @builtins.classmethod
-    def arn_for_package(cls, resource: "_IPackageRef_675e27b7") -> builtins.str:
+    def arn_for_package(
+        cls,
+        resource: "_aws_panorama_63573528.IPackageRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b65f7208865d53ecbe99deb9c2940dacb42be95282adae7c79ebac681921bb)
+            type_hints = cached_type_hints(_typecheckingstub__32b65f7208865d53ecbe99deb9c2940dacb42be95282adae7c79ebac681921bb)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPackage", [resource]))
 
@@ -870,7 +868,7 @@ class CfnPackage(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IPackageRef_675e27b7":
+    ) -> "_aws_panorama_63573528.IPackageRef":
         '''Creates a new IPackageRef from an ARN.
 
         :param scope: -
@@ -878,11 +876,11 @@ class CfnPackage(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbb1b4451fa22057cbdadb664b6b5291a345b0219fd29e15b98a5e75bc902dc5)
+            type_hints = cached_type_hints(_typecheckingstub__dbb1b4451fa22057cbdadb664b6b5291a345b0219fd29e15b98a5e75bc902dc5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IPackageRef_675e27b7", jsii.sinvoke(cls, "fromPackageArn", [scope, id, arn]))
+        return typing.cast("_aws_panorama_63573528.IPackageRef", jsii.sinvoke(cls, "fromPackageArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromPackageId")
     @builtins.classmethod
@@ -891,7 +889,7 @@ class CfnPackage(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         package_id: builtins.str,
-    ) -> "_IPackageRef_675e27b7":
+    ) -> "_aws_panorama_63573528.IPackageRef":
         '''Creates a new IPackageRef from a packageId.
 
         :param scope: -
@@ -899,11 +897,11 @@ class CfnPackage(
         :param package_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__036c08570129c334f6bca1d78d3bbd858ea49a86a6495c2d28a66c5f7fdd60a9)
+            type_hints = cached_type_hints(_typecheckingstub__036c08570129c334f6bca1d78d3bbd858ea49a86a6495c2d28a66c5f7fdd60a9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
-        return typing.cast("_IPackageRef_675e27b7", jsii.sinvoke(cls, "fromPackageId", [scope, id, package_id]))
+        return typing.cast("_aws_panorama_63573528.IPackageRef", jsii.sinvoke(cls, "fromPackageId", [scope, id, package_id]))
 
     @jsii.member(jsii_name="isCfnPackage")
     @builtins.classmethod
@@ -913,18 +911,18 @@ class CfnPackage(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26450166c38099b9461762c4c5b68170797ccd2ee0abd48a6a5b776efc7eb89e)
+            type_hints = cached_type_hints(_typecheckingstub__26450166c38099b9461762c4c5b68170797ccd2ee0abd48a6a5b776efc7eb89e)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackage", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d571cb582323b52428cb462f12dd0ba0765010a338ed79ea157b3fc920aa535a)
+            type_hints = cached_type_hints(_typecheckingstub__d571cb582323b52428cb462f12dd0ba0765010a338ed79ea157b3fc920aa535a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -937,7 +935,7 @@ class CfnPackage(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48b633691fd3e7cd1d578298776aa8c23b15613ce9ad1613972a3229dd859eb0)
+            type_hints = cached_type_hints(_typecheckingstub__48b633691fd3e7cd1d578298776aa8c23b15613ce9ad1613972a3229dd859eb0)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1031,15 +1029,15 @@ class CfnPackage(
 
     @builtins.property
     @jsii.member(jsii_name="packageRef")
-    def package_ref(self) -> "_PackageReference_e44c01fe":
+    def package_ref(self) -> "_aws_panorama_63573528.PackageReference":
         '''A reference to a Package resource.'''
-        return typing.cast("_PackageReference_e44c01fe", jsii.get(self, "packageRef"))
+        return typing.cast("_aws_panorama_63573528.PackageReference", jsii.get(self, "packageRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="packageName")
@@ -1050,7 +1048,7 @@ class CfnPackage(
     @package_name.setter
     def package_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a932afc5efe9051f5c2e446dd907c22ad3ee75863d1133e888d379318105226b)
+            type_hints = cached_type_hints(_typecheckingstub__a932afc5efe9051f5c2e446dd907c22ad3ee75863d1133e888d379318105226b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "packageName", value) # pyright: ignore[reportArgumentType]
 
@@ -1058,30 +1056,33 @@ class CfnPackage(
     @jsii.member(jsii_name="storageLocation")
     def storage_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.StorageLocationProperty"]]:
         '''A storage location.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]], jsii.get(self, "storageLocation"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.StorageLocationProperty"]], jsii.get(self, "storageLocation"))
 
     @storage_location.setter
     def storage_location(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.StorageLocationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1eaa635a573937e0a68237889912d86f74cf48c8584d1f51e6c4d9cc116ee909)
+            type_hints = cached_type_hints(_typecheckingstub__1eaa635a573937e0a68237889912d86f74cf48c8584d1f51e6c4d9cc116ee909)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "storageLocation", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags for the package.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d23cf48bb2587552001b9c9c1738689c65ba3fb8070925cb3522000952eddac5)
+            type_hints = cached_type_hints(_typecheckingstub__d23cf48bb2587552001b9c9c1738689c65ba3fb8070925cb3522000952eddac5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -1132,7 +1133,7 @@ class CfnPackage(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2c474d68f6b2f0c2e6021bd9cf93a01c9cb04e35b4b763184a117165d542c60f)
+                type_hints = cached_type_hints(_typecheckingstub__2c474d68f6b2f0c2e6021bd9cf93a01c9cb04e35b4b763184a117165d542c60f)
                 check_type(argname="argument binary_prefix_location", value=binary_prefix_location, expected_type=type_hints["binary_prefix_location"])
                 check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
                 check_type(argname="argument generated_prefix_location", value=generated_prefix_location, expected_type=type_hints["generated_prefix_location"])
@@ -1221,8 +1222,8 @@ class CfnPackageProps:
         self,
         *,
         package_name: builtins.str,
-        storage_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        storage_location: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackage.StorageLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPackage``.
 
@@ -1258,7 +1259,7 @@ class CfnPackageProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8)
+            type_hints = cached_type_hints(_typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8)
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument storage_location", value=storage_location, expected_type=type_hints["storage_location"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1283,22 +1284,22 @@ class CfnPackageProps:
     @builtins.property
     def storage_location(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.StorageLocationProperty"]]:
         '''A storage location.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-storagelocation
         '''
         result = self._values.get("storage_location")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPackage.StorageLocationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.StorageLocationProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Tags for the package.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-package.html#cfn-panorama-package-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1312,9 +1313,9 @@ class CfnPackageProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IPackageVersionRef_ace03ee8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_panorama_63573528.IPackageVersionRef)
 class CfnPackageVersion(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_panorama.CfnPackageVersion",
 ):
@@ -1359,7 +1360,7 @@ class CfnPackageVersion(
         package_id: builtins.str,
         package_version: builtins.str,
         patch_version: builtins.str,
-        mark_latest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        mark_latest: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         owner_account: typing.Optional[builtins.str] = None,
         updated_latest_patch_version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1375,7 +1376,7 @@ class CfnPackageVersion(
         :param updated_latest_patch_version: If the version was marked latest, the new version to maker as latest.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13ea96f0334a230d99017463d74c935661d9ebbe5ba26311c01f75163ae86682)
+            type_hints = cached_type_hints(_typecheckingstub__13ea96f0334a230d99017463d74c935661d9ebbe5ba26311c01f75163ae86682)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnPackageVersionProps(
@@ -1397,18 +1398,18 @@ class CfnPackageVersion(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe822a39893f6b8aa5031935e7bc2ee9e7cb5428991e4f1a93335fe85bf76ca9)
+            type_hints = cached_type_hints(_typecheckingstub__fe822a39893f6b8aa5031935e7bc2ee9e7cb5428991e4f1a93335fe85bf76ca9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackageVersion", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b79fc517c8a77d42c17a94e90d22d67539a81f6b46ac88ee957d355be61e6070)
+            type_hints = cached_type_hints(_typecheckingstub__b79fc517c8a77d42c17a94e90d22d67539a81f6b46ac88ee957d355be61e6070)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -1421,7 +1422,7 @@ class CfnPackageVersion(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__730fbb169a1c450a3e6ac869670128abfd32dd0fcaa827f1a07aba8adf06ab1c)
+            type_hints = cached_type_hints(_typecheckingstub__730fbb169a1c450a3e6ac869670128abfd32dd0fcaa827f1a07aba8adf06ab1c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -1433,12 +1434,12 @@ class CfnPackageVersion(
 
     @builtins.property
     @jsii.member(jsii_name="attrIsLatestPatch")
-    def attr_is_latest_patch(self) -> "_IResolvable_da3f097b":
+    def attr_is_latest_patch(self) -> "_aws_cdk_0cae9daa.IResolvable":
         '''Whether the package version is the latest version.
 
         :cloudformationAttribute: IsLatestPatch
         '''
-        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsLatestPatch"))
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIsLatestPatch"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPackageArn")
@@ -1497,9 +1498,9 @@ class CfnPackageVersion(
 
     @builtins.property
     @jsii.member(jsii_name="packageVersionRef")
-    def package_version_ref(self) -> "_PackageVersionReference_83c42bde":
+    def package_version_ref(self) -> "_aws_panorama_63573528.PackageVersionReference":
         '''A reference to a PackageVersion resource.'''
-        return typing.cast("_PackageVersionReference_83c42bde", jsii.get(self, "packageVersionRef"))
+        return typing.cast("_aws_panorama_63573528.PackageVersionReference", jsii.get(self, "packageVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="packageId")
@@ -1510,7 +1511,7 @@ class CfnPackageVersion(
     @package_id.setter
     def package_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbce3779996f3b0ac4831b659f592ca4a65199309309cb43bc7ddb5f9c16c597)
+            type_hints = cached_type_hints(_typecheckingstub__fbce3779996f3b0ac4831b659f592ca4a65199309309cb43bc7ddb5f9c16c597)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "packageId", value) # pyright: ignore[reportArgumentType]
 
@@ -1523,7 +1524,7 @@ class CfnPackageVersion(
     @package_version.setter
     def package_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee61c5c4023cba8ce285236309a3782afdc1c31e1bc0c75a1b70011d141b5328)
+            type_hints = cached_type_hints(_typecheckingstub__ee61c5c4023cba8ce285236309a3782afdc1c31e1bc0c75a1b70011d141b5328)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "packageVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1536,7 +1537,7 @@ class CfnPackageVersion(
     @patch_version.setter
     def patch_version(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7a55a07b0a31f8dcc3c95902dfb0b4cb99db0159f57f4b31666445a11a50a9a)
+            type_hints = cached_type_hints(_typecheckingstub__a7a55a07b0a31f8dcc3c95902dfb0b4cb99db0159f57f4b31666445a11a50a9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "patchVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1544,17 +1545,17 @@ class CfnPackageVersion(
     @jsii.member(jsii_name="markLatest")
     def mark_latest(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to mark the new version as the latest version.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "markLatest"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "markLatest"))
 
     @mark_latest.setter
     def mark_latest(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feaca7cbbeb3ea13ff355cd5c7ca768921046c2e7bfcbbe8f2380c53bcbe38b7)
+            type_hints = cached_type_hints(_typecheckingstub__feaca7cbbeb3ea13ff355cd5c7ca768921046c2e7bfcbbe8f2380c53bcbe38b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "markLatest", value) # pyright: ignore[reportArgumentType]
 
@@ -1567,7 +1568,7 @@ class CfnPackageVersion(
     @owner_account.setter
     def owner_account(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4a02ccb498f6e627400881f12832f7791d330ce6cf68e4fba78b66beb3b04a0)
+            type_hints = cached_type_hints(_typecheckingstub__a4a02ccb498f6e627400881f12832f7791d330ce6cf68e4fba78b66beb3b04a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ownerAccount", value) # pyright: ignore[reportArgumentType]
 
@@ -1583,7 +1584,7 @@ class CfnPackageVersion(
         value: typing.Optional[builtins.str],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67beb15f93d101823e57a760b1affa4d22f8ec0110bd2f5fe3c329c87f8b56c3)
+            type_hints = cached_type_hints(_typecheckingstub__67beb15f93d101823e57a760b1affa4d22f8ec0110bd2f5fe3c329c87f8b56c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "updatedLatestPatchVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -1607,7 +1608,7 @@ class CfnPackageVersionProps:
         package_id: builtins.str,
         package_version: builtins.str,
         patch_version: builtins.str,
-        mark_latest: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        mark_latest: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         owner_account: typing.Optional[builtins.str] = None,
         updated_latest_patch_version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1641,7 +1642,7 @@ class CfnPackageVersionProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47)
+            type_hints = cached_type_hints(_typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdcc512b47)
             check_type(argname="argument package_id", value=package_id, expected_type=type_hints["package_id"])
             check_type(argname="argument package_version", value=package_version, expected_type=type_hints["package_version"])
             check_type(argname="argument patch_version", value=patch_version, expected_type=type_hints["patch_version"])
@@ -1693,13 +1694,13 @@ class CfnPackageVersionProps:
     @builtins.property
     def mark_latest(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to mark the new version as the latest version.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-panorama-packageversion.html#cfn-panorama-packageversion-marklatest
         '''
         result = self._values.get("mark_latest")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def owner_account(self) -> typing.Optional[builtins.str]:
@@ -1747,19 +1748,19 @@ def _typecheckingstub__efd0ba4cd6c0b4ee9023df6f956444617b610a622dce5eb667859d9d3
     id: builtins.str,
     *,
     default_runtime_context_device: builtins.str,
-    manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
+    manifest_payload: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
     application_instance_id_to_replace: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_overrides_payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     runtime_role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cf533fb3b1006fba9f44c5f4406218e9ea314ac7fd24c6f3e86b82405f8cd644(
-    resource: _IApplicationInstanceRef_530e8c33,
+    resource: _aws_panorama_63573528.IApplicationInstanceRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1787,7 +1788,7 @@ def _typecheckingstub__eb3ed9d2426f451e3bd6baba6a2f534f717b5076782b9e522b13823c4
     pass
 
 def _typecheckingstub__f02c8fd6f1a71465462afea3d559ebb5b8ea0af1bc67afc99474bf782789ec30(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1805,7 +1806,7 @@ def _typecheckingstub__14dead437397488d87688e488f5b030e1acddee3c13863a0646a40942
     pass
 
 def _typecheckingstub__4633be9adb22fb14ee3ed09114e5a580f0c1d44702407ccc944dc6786365f444(
-    value: typing.Union[_IResolvable_da3f097b, CfnApplicationInstance.ManifestPayloadProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationInstance.ManifestPayloadProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1823,7 +1824,7 @@ def _typecheckingstub__cdeccdf678155b692097126aa0b03f3329319b06cff4466ea53ac802e
     pass
 
 def _typecheckingstub__4b7471c650c5b47abc295c3f3540f494f924a6e4a67d4808e09a0c61dbfb5a40(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationInstance.ManifestOverridesPayloadProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnApplicationInstance.ManifestOverridesPayloadProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1841,7 +1842,7 @@ def _typecheckingstub__f4d8d9b27616402bbf99ce9903965d42b5395de944eb23c215804147c
     pass
 
 def _typecheckingstub__cc3bba124186482968d9b6204289729da05b6e7cb68d9a998bbd4aef3a949112(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1863,13 +1864,13 @@ def _typecheckingstub__a5d7cb2c1d20afe24346d68fd8c261ab008166cc9e17ce83f5e21e6c3
 def _typecheckingstub__86e1bdf3f249b2bc0c09d79eca2507b458b360a5856626b251d3b11a03bcb807(
     *,
     default_runtime_context_device: builtins.str,
-    manifest_payload: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
+    manifest_payload: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationInstance.ManifestPayloadProperty, typing.Dict[builtins.str, typing.Any]]],
     application_instance_id_to_replace: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
-    manifest_overrides_payload: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manifest_overrides_payload: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnApplicationInstance.ManifestOverridesPayloadProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     runtime_role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1879,14 +1880,14 @@ def _typecheckingstub__014b23b28acc37a82edebe15e1628f0ee03393a0354f498b25ce8519a
     id: builtins.str,
     *,
     package_name: builtins.str,
-    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__32b65f7208865d53ecbe99deb9c2940dacb42be95282adae7c79ebac681921bb(
-    resource: _IPackageRef_675e27b7,
+    resource: _aws_panorama_63573528.IPackageRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1914,7 +1915,7 @@ def _typecheckingstub__26450166c38099b9461762c4c5b68170797ccd2ee0abd48a6a5b776ef
     pass
 
 def _typecheckingstub__d571cb582323b52428cb462f12dd0ba0765010a338ed79ea157b3fc920aa535a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1932,13 +1933,13 @@ def _typecheckingstub__a932afc5efe9051f5c2e446dd907c22ad3ee75863d1133e888d379318
     pass
 
 def _typecheckingstub__1eaa635a573937e0a68237889912d86f74cf48c8584d1f51e6c4d9cc116ee909(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPackage.StorageLocationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPackage.StorageLocationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__d23cf48bb2587552001b9c9c1738689c65ba3fb8070925cb3522000952eddac5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1957,8 +1958,8 @@ def _typecheckingstub__2c474d68f6b2f0c2e6021bd9cf93a01c9cb04e35b4b763184a117165d
 def _typecheckingstub__f1b52b8a916ab2fd0db4662da21b8aba3f3a0bd1b465b93c901724b70fe754a8(
     *,
     package_name: builtins.str,
-    storage_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_location: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackage.StorageLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1970,7 +1971,7 @@ def _typecheckingstub__13ea96f0334a230d99017463d74c935661d9ebbe5ba26311c01f75163
     package_id: builtins.str,
     package_version: builtins.str,
     patch_version: builtins.str,
-    mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    mark_latest: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     owner_account: typing.Optional[builtins.str] = None,
     updated_latest_patch_version: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1984,7 +1985,7 @@ def _typecheckingstub__fe822a39893f6b8aa5031935e7bc2ee9e7cb5428991e4f1a93335fe85
     pass
 
 def _typecheckingstub__b79fc517c8a77d42c17a94e90d22d67539a81f6b46ac88ee957d355be61e6070(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2014,7 +2015,7 @@ def _typecheckingstub__a7a55a07b0a31f8dcc3c95902dfb0b4cb99db0159f57f4b31666445a1
     pass
 
 def _typecheckingstub__feaca7cbbeb3ea13ff355cd5c7ca768921046c2e7bfcbbe8f2380c53bcbe38b7(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2036,7 +2037,7 @@ def _typecheckingstub__8a64dc269b0bd6d71d3221fbd05486743bcd745dd462213003c3e1bdc
     package_id: builtins.str,
     package_version: builtins.str,
     patch_version: builtins.str,
-    mark_latest: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    mark_latest: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     owner_account: typing.Optional[builtins.str] = None,
     updated_latest_patch_version: typing.Optional[builtins.str] = None,
 ) -> None:

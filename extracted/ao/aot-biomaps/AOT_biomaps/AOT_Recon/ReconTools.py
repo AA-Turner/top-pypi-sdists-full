@@ -16,6 +16,7 @@ import warnings
 from tqdm import trange
 
 from AOT_biomaps.AOT_Recon.ReconEnums import PotentialShapeType, PotentialType, StopCriterionType
+from AOT_biomaps.AOT_Recon.AOT_Preconditioner.PreconditionerEnums import PreconditionerType
 # Optional cupy imports for GPU acceleration
 try:
     import cupy as cp
@@ -70,41 +71,62 @@ def mse(SMatrix, lambda_true, lambda_pred):
 
 def estimate_lipschitz_constant(SMatrix, preconditioner, num_iters=20):
     """
-    Estimate the Lipschitz constant of the gradient.
-    Without preconditioner: L = λmax(AᴴA)
-    With preconditioner: L = λmax(P⁻¹AᴴA)
+    Estimate the Lipschitz constant (spectral radius) of the gradient operator
+    using the Power Iteration method.
+    
+    Mathematical framework:
+    Finds the dominant eigenvalue of the operator M = inv(P) * A^H * A.
+    - Without preconditioner: L = lambda_max(A^H * A)
+    - With preconditioner: L = lambda_max(inv(P) * A^H * A)
+
+    Args:
+        SMatrix: System matrix wrapper instance.
+        preconditioner: Preconditioner instance.
+        num_iters: Number of power iterations.
+
+    Returns:
+        float: Estimated Lipschitz constant (spectral radius).
     """
     xp = get_array_module(SMatrix)
 
+    # Initialize a random vector v_0 on the unit sphere: ||v_0||_2 = 1
     v = xp.random.randn(SMatrix.Z * SMatrix.X).astype(xp.float32)
     v /= xp.linalg.norm(v)
 
     eps = 1e-12
+    L_est = 0.0
 
     for i in range(num_iters):
+        # Forward projection -> u = A * v_k
         Av = forward_projection(SMatrix, v)
         if float(xp.sum(xp.abs(Av))) < eps:
             raise RuntimeError("[AOT-biomaps] Forward projection returned all zeros.")
         
+        # Backward projection -> w = Aᴴ * u = Aᴴ * A * v_k
         w = backward_projection(SMatrix, Av)
+        
+        # Map complex gradients to the real parameter space if necessary
         w = xp.real(w).astype(xp.float32) if SMatrix.isComplexSMatrix else w.astype(xp.float32)
+        
+        # Apply the preconditioner -> w = P⁻¹ * Aᴴ * A * v_k
         w = preconditioner.apply_inverse(w)
-        norm = xp.linalg.norm(w)
+        
+        # Extract the eigenvalue
+        # At convergence, the vector aligns with the dominant eigenvector v_max.
+        # Thus, w = M * v_max = λmax * v_max.
+        # Since ||v_max||_2 = 1, taking the L2 norm yields the spectral radius directly:
+        # ||w||_2 = ||λmax * v_max||_2 = λmax * ||v_max||_2 = λmax
+        norm = float(xp.linalg.norm(w))
         
         if norm < eps:
             raise RuntimeError("[AOT-biomaps] Power iteration collapsed to zero.")
 
+        # Normalize for the next iteration -> v_{k+1} = w / ||w||_2
         v = w / norm
+        L_est = norm 
 
-    # Rayleigh quotient
-    Av = forward_projection(SMatrix, v)
-    w = backward_projection(SMatrix, Av)
+    return max(L_est, 0.0)
 
-    w = xp.real(w).astype(xp.float32) if SMatrix.isComplexSMatrix else w.astype(xp.float32)
-    w = preconditioner.apply_inverse(w)
-    L = float(xp.vdot(v, w).real)
-
-    return max(L, 0.0)
 
 def calculate_step_size_LS(SMatrix, preconditioner, eta, num_iters, show_logs):
     """
@@ -187,36 +209,72 @@ def calculate_step_size_FISTA(SMatrix, preconditioner, eta, potential_type, beta
     
     return alpha
 
-
-def calculate_step_size_PDHG(SMatrix, preconditioner, gamma, num_subsets, num_iters, show_logs):
+def calculate_step_size_PDHG(SMatrix, preconditioner, num_subsets, num_iters, show_logs):
     """
     Calculate the PDHG step sizes (tau, sigma_q, sigma_p).
-    Args:
-        - SMatrix: System matrix.
-        - preconditioner: Preconditioner object.
-        - gamma: Scaling parameter.
-        - num_subsets: Number of subsets (for SPDHG).
-        - num_iters: Number of power iterations.
-        - show_logs: Print estimated constants.
+    If a preconditioner is passed, computes the diagonal vector step sizes 
+    according to Ehrhardt et al. 2019, Theorem 2.
     """
-    # λmax(AᴴA) or λmax(P⁻¹AᴴA)
-    L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+    xp = get_array_module(SMatrix)
+    rho = 0.99 # Safety factor strictly less than 1 
+    
+    # ---------------------------------------------------------
+    # SCALAR STEPS (Standard PDHG without preconditioning)
+    # ---------------------------------------------------------
+    if preconditioner.precondType == PreconditionerType.NONE:
+        # Force NoPreconditioner to evaluate the true Lipschitz constant L = λmax(AᴴA)
+        L_data = estimate_lipschitz_constant(SMatrix, preconditioner=preconditioner, num_iters=num_iters)
+        L_grad = 8.0 # ||∇||² = 8.0 for 2D finite differences
+        L_total = (num_subsets * L_data) + L_grad
 
-    # ||∇||²
-    L_grad = 8.0
+        tau_val = float(rho / np.sqrt(L_total))
+        sigma_q_val = float(rho *  num_subsets / np.sqrt(L_total))
+        sigma_p_val = float(rho / np.sqrt(L_total))
 
-    # ||K||² = ||A||² + ||∇||²
-    L_total = L_data + L_grad
+        if show_logs:
+            print(f"[AOT-biomaps] L_data: {L_data:.2e} | L_total: {L_total:.2e} | scalar tau: {tau_val:.2e} | scalar sigma_q: {sigma_q_val:.2e}")
+            
+        return tau_val, sigma_q_val, sigma_p_val
 
-    tau_val = float(0.99 / (gamma * np.sqrt(L_total)))
-    sigma_q_val = float(0.99 * gamma * num_subsets / np.sqrt(L_total))
-    sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
+    # ---------------------------------------------------------
+    # DIAGONAL PRECONDITIONED STEPS (Theorem 2, Ehrhardt et al. 2019)
+    # ---------------------------------------------------------
+    elif preconditioner.precondType == PreconditionerType.DIAGONAL:
+        if show_logs:
+            print("[AOT-biomaps] Computing diagonal preconditioned step sizes (Ehrhardt 2019)...")
+            
+        # 1. Compute column sums: A^T * 1
+        ones_dual = xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32)
+        col_sums_raw = backward_projection(SMatrix, ones_dual)
+        col_sums = xp.real(col_sums_raw) if SMatrix.isComplexSMatrix else col_sums_raw
+        
+        # 2. Compute row sums: A * 1
+        ones_primal = xp.ones(SMatrix.Z * SMatrix.X, dtype=xp.float32)
+        row_sums_raw = forward_projection(SMatrix, ones_primal)
+        row_sums = xp.real(row_sums_raw) if SMatrix.isComplexSMatrix else row_sums_raw
+        
+        # 3. Add regularization norm to primal sensitivity (||∇||^2 bounded by 8)
+        # In preconditioned PDHG, the primal norm must account for the spatial gradient
+        col_sums += 8.0 
 
-    if show_logs:
-            print(f"[AOT-biomaps] {L_data:.2e} | L_total: {L_total:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
+        # 4. Compute vector step sizes
+        # p_i = 1/num_subsets (probability of selecting a subset)
+        p_i = 1.0 / num_subsets 
+        
+        eps = 1e-12
+        tau_vec = rho * p_i / (col_sums + eps)
+        sigma_q_vec = rho / (row_sums + eps)
+        
+        # Regularization dual step remains scalar as gradient operator is uniform
+        sigma_p_val = float(rho / 8.0) 
 
-    return tau_val, sigma_q_val, sigma_p_val
+        if show_logs:
+            print(f"[AOT-biomaps] Preconditioned steps computed. Median tau: {float(xp.median(tau_vec)):.2e}, Median sigma_q: {float(xp.median(sigma_q_vec)):.2e}")
 
+        return tau_vec, sigma_q_vec, sigma_p_val
+    else:
+        raise ValueError(f"[AOT-biomaps] Unsupported preconditioner type: {preconditioner.precondType}, for PDHG step size calculation, need NoPreconditioner or DiagPreconditioner (Ehrhardt 2019).")
+    
 # =====================================================================
 # GPU KERNELS (CuPy) - Zero Allocation & Gather Paradigm
 # =====================================================================
@@ -246,19 +304,19 @@ if CUPY_AVAILABLE:
                 
                 if (is_huber) {
                     if (abs_diff <= delta) {
-                        // Quadratic Region
-                        g += beta * weight * diff;
-                        h += beta * weight;
-                        e += 0.5f * beta * weight * diff * diff;
+                        // Normalized Quadratic Region (divided by delta)
+                        g += beta * weight * diff / delta;
+                        h += beta * weight / delta;
+                        e += 0.5f * beta * weight * diff * diff / delta;
                     } else {
-                        // Linear Region (Edges)
-                        g += beta * weight * delta * (diff > 0.0f ? 1.0f : -1.0f);
+                        // Normalized Linear Region (Edges)
+                        g += beta * weight * (diff > 0.0f ? 1.0f : -1.0f);
                         if (hessian_mode == 1) {
-                            h += beta * weight * delta / abs_diff; // De Pierro Surrogate (phi'/t)
+                            h += beta * weight / abs_diff; // De Pierro Surrogate
                         } else {
-                            h += 0.0f; // Exact Hessian phi''(t)
+                            h += 0.0f; // Exact Hessian
                         }
-                        e += beta * weight * delta * (abs_diff - 0.5f * delta);
+                        e += beta * weight * (abs_diff - 0.5f * delta);
                     }
                 } else { 
                     // Strictly Quadratic
@@ -325,7 +383,9 @@ if CUPY_AVAILABLE:
 _OFFSET_CACHE = {}
 
 def build_full_neighborhood_offsets(SMatrix, shape=PotentialShapeType.CROSS, radius=1):
-    """Generates the FULL neighborhood (Gather) and caches it."""
+    """
+    Generates the FULL neighborhood (Gather) and caches it.
+    """
     xp = get_array_module(SMatrix)
     if shape not in [PotentialShapeType.CROSS, PotentialShapeType.SQUARE, PotentialShapeType.CIRCLE]:
         raise ValueError(f"Unsupported neighborhood shape: {shape}")
@@ -348,12 +408,14 @@ def build_full_neighborhood_offsets(SMatrix, shape=PotentialShapeType.CROSS, rad
             elif shape == PotentialShapeType.CIRCLE: is_valid = (dist_l2 <= radius + 1e-5)
 
             if is_valid:
+                # Weights are inversely proportional to Euclidean distance: w = 1 / d
                 weight = 1.0 / dist_l2
                 offsets_dz.append(dz)
                 offsets_dx.append(dx)
                 weights.append(weight)
                 total_weight += weight
                 
+    # Normalize weights so that Σ w_ij = 4.0 (ensures stable Lipschitz constant)
     normalization_factor = 4.0 / (total_weight + 1e-10)
     weights = [w * normalization_factor for w in weights]
     
@@ -375,19 +437,6 @@ def get_potential_function(
     """
     Compute the potential function value, gradient, and Hessian for a given image U based on the specified potential type and neighborhood.
     Supports GPU acceleration with zero allocations using custom CUDA kernels when available, and falls back to CPU implementation when not.
-    
-    Args:
-    - potential_type: Type of potential function to compute (e.g., QUADRATIC, HUBER, RELATIVE_DIFFERENCE).
-    - SMatrix: The system matrix, used to determine the array module (NumPy or CuPy) and dimensions.
-    - U: The input image (flattened) for which to compute the potential, gradient and Hessian.
-    - beta: Regularization strength parameter.
-    - shape: The shape of the neighborhood (CROSS, SQUARE, CIRCLE). 
-    - radius: The radius of the neighborhood.
-    - delta: The threshold parameter for Huber and Relative Difference potentials.
-    - compute_grad: Whether to compute and return the gradient.
-    - compute_hess: Whether to compute and return the Hessian.
-    - compute_energy: Whether to compute and return the potential energy value.
-    - use_surrogate_hessian: For Huber potential, whether to use the De Pierro surrogate (phi'/t) for the Hessian in the linear region instead of the exact phi''(t). This can improve convergence speed at the cost of not being the true Hessian.
     """
     
     xp = get_array_module(SMatrix)
@@ -441,8 +490,7 @@ def get_potential_function(
         # This is not optimized for RAM, but it guarantees strictly identical results.
         U_img = U.reshape(Z, X)
         grad_img = xp.zeros_like(U_img, dtype=xp.float32) if compute_grad else None
-        grad_img = xp.zeros_like(U_img) if compute_grad else None
-        hess_img = xp.zeros_like(U_img) if compute_hess else None
+        hess_img = xp.zeros_like(U_img, dtype=xp.float32) if compute_hess else None
         U_value = 0.0
         
         for k in range(len(dz_arr)):
@@ -455,9 +503,13 @@ def get_potential_function(
             
             u_i = U_img[slice_c_z, slice_c_x]
             u_j = U_img[slice_n_z, slice_n_x]
+            
+            # Spatial gradient: Δu = u_i - u_j
             diff = u_i - u_j
             
             if potential_type == PotentialType.QUADRATIC:
+                # Quadratic: U(Δu) = 0.5 * β * w * (Δu)²
+                # ∇U = β * w * Δu  |  ∇²U = β * w
                 g = beta * w * diff
                 h = beta * w
                 e = 0.5 * beta * w * diff**2
@@ -468,22 +520,35 @@ def get_potential_function(
                 mask_lin = ~mask_quad
                 
                 g = xp.zeros_like(diff)
-                g[mask_quad] = beta * w * diff[mask_quad]
-                g[mask_lin] = beta * w * delta * xp.sign(diff[mask_lin])
+                # Quadratic regime (|Δu| ≤ δ) : Normalized by δ
+                # ∇U = β * w * Δu / δ
+                g[mask_quad] = beta * w * diff[mask_quad] / delta
+                
+                # Linear regime (|Δu| > δ) : Acts like TV L1 penalty
+                # ∇U = β * w * sign(Δu)
+                g[mask_lin] = beta * w * xp.sign(diff[mask_lin])
                 
                 h = xp.zeros_like(diff)
-                h[mask_quad] = beta * w
+                # ∇²U = β * w / δ
+                h[mask_quad] = beta * w / delta
                 if hessian_mode == 1:
-                    h[mask_lin] = beta * w * delta / (abs_diff[mask_lin] + 1e-8)
+                    # De Pierro Surrogate Hessian: H = ∇U / Δu
+                    h[mask_lin] = beta * w / (abs_diff[mask_lin] + 1e-8)
                     
+                # Energy computation
                 e = xp.zeros_like(diff)
-                e[mask_quad] = 0.5 * beta * w * diff[mask_quad]**2
-                e[mask_lin] = beta * w * delta * (abs_diff[mask_lin] - 0.5 * delta)
+                e[mask_quad] = 0.5 * beta * w * (diff[mask_quad]**2) / delta
+                e[mask_lin] = beta * w * (abs_diff[mask_lin] - 0.5 * delta)
                 
             elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
+                # RDP: U(Δu) = β * w * (Δu)² / (u_i + u_j + δ|Δu|)
                 denom = u_i + u_j + delta * xp.abs(diff) + 1e-8
                 d_denom = 1.0 + delta * xp.sign(diff)
+                
+                # Quotient rule derivative: (u/v)' = (u'v - uv')/v²
                 g = beta * w * (2.0 * diff * denom - (diff**2) * d_denom) / (denom**2)
+                
+                # Pragmatic strictly convex approximation for Hessian: ∇²U ≈ 2 * β * w / denom
                 h = beta * w * 2.0 / denom
                 e = beta * w * (diff**2) / denom
 
@@ -491,11 +556,12 @@ def get_potential_function(
             if compute_hess: hess_img[slice_c_z, slice_c_x] += h
             if compute_energy: U_value += float(xp.sum(e))
 
+        # Each edge is counted twice (A->B and B->A), so we divide total energy by 2
         if compute_energy: U_value /= 2.0
         return (grad_img.flatten() if compute_grad else None, 
                 hess_img.flatten() if compute_hess else None, 
-                U_value)
-    
+                U_value)   
+
 # =============================================================================
 # STOPPING CRITERIA
 # =============================================================================

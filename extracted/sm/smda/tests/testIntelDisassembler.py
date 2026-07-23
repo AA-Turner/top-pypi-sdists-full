@@ -170,6 +170,19 @@ class TestIntelDisassembler(unittest.TestCase):
     def test_mnemonic_tfidf_empty_counts_returns_zero(self):
         self.assertEqual(MnemonicTfIdf().tfidf({}), 0.0)
 
+    def test_mnemonic_tfidf_tables_are_cached_and_bitness_isolated(self):
+        tfidf32 = MnemonicTfIdf(bitness=32)
+        mov32 = tfidf32.getFrequency("mov")
+
+        tfidf64 = MnemonicTfIdf(bitness=64)
+
+        self.assertEqual(tfidf32.getFrequency("mov"), mov32)
+        self.assertNotEqual(tfidf64.getFrequency("mov"), mov32)
+        self.assertIs(tfidf32.idf, MnemonicTfIdf(bitness=32).idf)
+        self.assertEqual(tfidf32.getFrequency("unknown-mnemonic"), tfidf32._max_idf)
+        with self.assertRaises(TypeError):
+            tfidf32.idf["mov"] = 0
+
     def test_pointer_reference_uses_byte_prefixes(self):
         manager = FunctionCandidateManager(SmdaConfig())
         manager.bitness = 64
@@ -235,6 +248,29 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertIn(0x1028, result.functions)
         self.assertIn(0x1028, result.code_refs_from.get(0x100C, set()))
+
+    def test_language_rescore_uses_real_function_count_after_analysis(self):
+        # LanguageAnalyzer.identify() runs before any function exists (candidate-discovery
+        # time), so its c++ score always divides by max(1, 0) == 1. RecursiveDisassembler
+        # must re-normalize it once real functions are known, so report-visible language
+        # reflects the true function count, not the pre-disassembly zero-function artifact.
+        func = b"\x55\x48\x89\xe5\x5d\xc3"  # push rbp; mov rbp, rsp; pop rbp; ret
+        code = func * 10
+        thiscall_tail = b"\x8b\x4d\x04\xe8\x01\x02\x03\x00"  # one thiscall-shaped pattern hit
+        buf = code + thiscall_tail
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = 0x1000
+        binary_info.bitness = 64
+        binary_info.architecture = "intel"
+        binary_info.code_areas = [[0x1000, 0x1000 + len(code)]]
+
+        result = IntelDisassembler(SmdaConfig()).analyzeBuffer(binary_info, cbAnalysisTimeout=None)
+
+        self.assertGreater(len(result.functions), 1)
+        thiscall_count = result.language["_count_thiscalls"]
+        expected_cpp = min(1, 6.0 * thiscall_count / len(result.functions))
+        self.assertEqual(result.language["c++"], expected_cpp)
+        self.assertLess(result.language["c++"], 1)  # proves it's not the pre-disassembly artifact
 
     def test_direct_import_stub_calls_resolve_at_original_caller(self):
         base = 0x1000
@@ -506,6 +542,92 @@ class TestIntelDisassembler(unittest.TestCase):
         manager.bitness = 64
         self.assertFalse(manager.isHotpatchPrologue(b"\x8b\xff\x55\x8b\xec"))
 
+    def test_jmp_to_resolved_import_as_first_instruction_marks_thunk_call(self):
+        # A single "jmp dword ptr [import_slot]" that is the function's very first
+        # instruction is a textbook single-instruction import-thunk stub: the entire
+        # function body is the jmp, so it must be flagged as a thunk call.
+        disassembler = self._create_disassembler()
+        disassembler._registerLabelProvider(ImportSlotProvider(0x1020, "kernel32.dll", "ExitProcess"))
+        disassembler.disassembly = SimpleNamespace(
+            apis={},
+            addApiReference=lambda *a, **kw: None,
+            dereferenceDword=lambda addr: 0x9999 if addr == 0x1020 else None,
+            isAddrWithinMemoryImage=lambda addr: True,
+        )
+        disassembler.tailcall_analyzer = SimpleNamespace(addJump=lambda *a, **kw: None)
+        backend = X86Backend.__new__(X86Backend)
+
+        state = FunctionAnalysisState(0x1000, disassembler.disassembly)
+        instruction = (0x1000, 6, "jmp", "dword ptr [0x1020]")
+
+        backend._analyzeJmpInstruction(disassembler, instruction, state)
+
+        self.assertTrue(state.is_thunk_call)
+
+    def test_jmp_to_resolved_import_deep_in_function_does_not_mark_thunk_call(self):
+        # The identical jmp-to-resolved-API shape, but reached only after a preceding
+        # instruction inside the same function, is a thunk-shaped tailcall INSIDE a
+        # larger routine, not a whole-function thunk -- it must not be flagged.
+        disassembler = self._create_disassembler()
+        disassembler._registerLabelProvider(ImportSlotProvider(0x1020, "kernel32.dll", "ExitProcess"))
+        disassembler.disassembly = SimpleNamespace(
+            apis={},
+            addApiReference=lambda *a, **kw: None,
+            dereferenceDword=lambda addr: 0x9999 if addr == 0x1020 else None,
+            isAddrWithinMemoryImage=lambda addr: True,
+        )
+        disassembler.tailcall_analyzer = SimpleNamespace(addJump=lambda *a, **kw: None)
+        backend = X86Backend.__new__(X86Backend)
+
+        state = FunctionAnalysisState(0x1010, disassembler.disassembly)
+        state.addInstruction(0x1010, 1, "push", "ebp", b"\x55")
+        instruction = (0x1013, 6, "jmp", "dword ptr [0x1020]")
+
+        backend._analyzeJmpInstruction(disassembler, instruction, state)
+
+        self.assertFalse(state.is_thunk_call)
+
+    def test_direct_jmp_to_resolved_import_as_first_instruction_marks_thunk_call(self):
+        disassembler = self._create_disassembler()
+        disassembler._registerLabelProvider(ImportSlotProvider(0x1020, "kernel32.dll", "ExitProcess"))
+        disassembler.disassembly = SimpleNamespace(
+            apis={},
+            addApiReference=lambda *a, **kw: None,
+            functions={},
+            isAddrWithinMemoryImage=lambda addr: True,
+        )
+        disassembler.fc_manager = SimpleNamespace(getFunctionStartCandidates=lambda: set())
+        disassembler.tailcall_analyzer = SimpleNamespace(addJump=lambda *a, **kw: None)
+        backend = X86Backend.__new__(X86Backend)
+        backend._resolveImportSlot = lambda d, target: 0x1020
+
+        state = FunctionAnalysisState(0x1000, disassembler.disassembly)
+        backend._analyzeJmpInstruction(disassembler, (0x1000, 5, "jmp", "0x1100"), state)
+
+        self.assertTrue(state.is_thunk_call)
+        self.assertTrue(state.is_sanely_ending)
+
+    def test_direct_jmp_to_resolved_import_deep_in_function_does_not_mark_thunk_call(self):
+        disassembler = self._create_disassembler()
+        disassembler._registerLabelProvider(ImportSlotProvider(0x1020, "kernel32.dll", "ExitProcess"))
+        disassembler.disassembly = SimpleNamespace(
+            apis={},
+            addApiReference=lambda *a, **kw: None,
+            functions={},
+            isAddrWithinMemoryImage=lambda addr: True,
+        )
+        disassembler.fc_manager = SimpleNamespace(getFunctionStartCandidates=lambda: set())
+        disassembler.tailcall_analyzer = SimpleNamespace(addJump=lambda *a, **kw: None)
+        backend = X86Backend.__new__(X86Backend)
+        backend._resolveImportSlot = lambda d, target: 0x1020
+
+        state = FunctionAnalysisState(0x1000, disassembler.disassembly)
+        state.addInstruction(0x1000, 1, "push", "rbp", b"\x55")
+        backend._analyzeJmpInstruction(disassembler, (0x1001, 5, "jmp", "0x1100"), state)
+
+        self.assertFalse(state.is_thunk_call)
+        self.assertTrue(state.is_sanely_ending)
+
     def test_function_gaps_cover_head_and_tail_without_code_areas(self):
         # Raw memory dumps are loaded without section info (_code_areas is empty). The gap scan
         # must still cover the head (before the first instruction) and tail (after the last
@@ -626,6 +748,27 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertEqual([[ins[0] for ins in block] for block in state.getBlocks()], [[0x1000, 0x1006, 0x1008]])
 
+    def test_reachable_collision_ends_block_and_removes_code_ref(self):
+        # 0x1000's only outgoing code ref is its own fall-through to 0x1006 (no mismatch,
+        # so the ordinary "jump ref points elsewhere" cut does NOT fire), but 0x1006 has
+        # separately been marked a colliding address (belongs to another function). getBlocks()
+        # must still end the block at 0x1000 and drop the now-invalid code ref to 0x1006.
+        state = FunctionAnalysisState(0x1000, SimpleNamespace())
+        state.instructions = [
+            (0x1000, 6, "mov", "eax, 1", b""),
+            (0x1006, 2, "xor", "eax, eax", b""),
+            (0x1008, 1, "ret", "", b""),
+        ]
+        state.instruction_start_bytes = {0x1000, 0x1006, 0x1008}
+        state.addCodeRef(0x1000, 0x1006, by_jump=False)
+        state.addCollision(0x1006)
+
+        blocks = state.getBlocks()
+
+        self.assertEqual([[ins[0] for ins in block] for block in blocks], [[0x1000]])
+        self.assertNotIn(0x1006, state.code_refs_from.get(0x1000, set()))
+        self.assertNotIn((0x1000, 0x1006), state.code_refs)
+
     def test_alignment_sequence_recognizes_prefixed_ret(self):
         # a bnd-prefixed ret right after a run of alignment padding is still real code, not
         # more padding - isAlignmentSequence() must recognize it like a plain "ret".
@@ -636,6 +779,37 @@ class TestIntelDisassembler(unittest.TestCase):
         ]
 
         self.assertFalse(manager.isAlignmentSequence(instruction_sequence))
+
+    def test_alignment_sequence_accepts_lite_tuples(self):
+        manager = FunctionCandidateManager(SmdaConfig())
+        instruction_bytes = b"\x90\xc3"
+        instruction_sequence = [
+            (0x100F, 1, "nop", ""),
+            (0x1010, 1, "ret", ""),
+        ]
+
+        self.assertFalse(manager.isAlignmentSequence(instruction_sequence, instruction_bytes))
+
+    def test_function_state_tracks_max_instruction_start(self):
+        state = FunctionAnalysisState(0x1000, SimpleNamespace())
+        state.is_next_instruction_reachable = False
+
+        state.addInstruction(0x1005, 1, "nop", "", b"\x90")
+        state.addInstruction(0x1001, 1, "nop", "", b"\x90")
+
+        self.assertEqual(state.max_instruction_start, 0x1005)
+
+    def test_import_stub_ranges_are_cached(self):
+        binary_info = SimpleNamespace(
+            _plt_ranges=[(0x1000, 0x1010)],
+            _macho_stub_ranges=[(0x2000, 0x2010)],
+        )
+
+        first = X86Backend._getImportStubRanges(binary_info)
+        second = X86Backend._getImportStubRanges(binary_info)
+
+        self.assertIs(first, second)
+        self.assertEqual(first, [(0x1000, 0x1010), (0x2000, 0x2010)])
 
     def test_gap_stub_with_prefixed_jmp_is_accepted(self):
         # a single bnd-prefixed jmp stub discovered via gap-scanning (e.g. a misaligned

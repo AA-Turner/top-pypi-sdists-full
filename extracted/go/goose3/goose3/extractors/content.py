@@ -152,11 +152,11 @@ class ContentExtractor(BaseExtractor):
         minimum_stopword_count = 5
         max_stepsaway_from_node = 3
 
-        nodes = self.walk_siblings(node)
-        for current_node in nodes:
-            # p
-            current_node_tag = self.parser.get_tag(current_node)
-            if current_node_tag == para:
+        # Iterate preceding siblings lazily so we bail after `max_stepsaway_from_node`
+        # paragraphs without scanning the entire prior subtree (was O(N) per call,
+        # making `calculate_best_node` O(N^2) for documents with many paragraphs).
+        for current_node in node.itersiblings(preceding=True):
+            if self.parser.get_tag(current_node) == para:
                 if steps_away >= max_stepsaway_from_node:
                     return False
                 para_text = self.parser.get_text(current_node)
@@ -280,10 +280,7 @@ class ContentExtractor(BaseExtractor):
         number_of_links = float(len(links))
         link_divisor = float(number_of_link_words / words_number)
         score = float(link_divisor * number_of_links)
-        if score >= 1.0:
-            return True
-        return False
-        # return True if score > 1.0 else False
+        return score >= 1.0
 
     def get_score(self, node):
         """returns the gravityScore as an integer from this node"""
@@ -313,9 +310,7 @@ class ContentExtractor(BaseExtractor):
                 self.parser.remove(para)
 
         sub_paragraphs2 = self.parser.get_elements_by_tag(elm, tag="p")
-        if not sub_paragraphs2 and elm.tag != "td":
-            return True
-        return False
+        return not sub_paragraphs2 and elm.tag != "td"
 
     def is_nodescore_threshold_met(self, node, elm):
         top_node_score = self.get_score(node)

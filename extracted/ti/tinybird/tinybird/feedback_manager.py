@@ -864,6 +864,9 @@ class FeedbackManager:
     success_total_rows = success_message("** Total rows in {datasource}: {total_rows}")
     success_appended_datasource = success_message("** Data appended to Data Source '{datasource}' successfully!")
     success_replaced_datasource = success_message("** Data replaced in Data Source '{datasource}' successfully!")
+    success_import_job_queued = success_message("** {operation} import job queued: {job_id}")
+    success_import_job_completed = success_message("** {operation} import completed: {job_id}")
+    info_import_job_status = info_message("Check status: tb job details {job_id}")
     success_auth = success_message(
         "** Auth successful! \n** Configuration written to .tinyb file, consider adding it to .gitignore"
     )

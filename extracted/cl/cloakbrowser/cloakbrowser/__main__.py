@@ -18,7 +18,8 @@ import platform
 import subprocess
 import sys
 
-UPGRADE_HINT = "→ Get the latest Pro binary (Chromium 150) + newest patches: https://cloakbrowser.dev"
+UPGRADE_HINT = "For more than one concurrent session → https://cloakbrowser.dev"
+FREE_LATEST_HINT = "Get the latest binary free → run 'cloakbrowser login' or https://cloakbrowser.dev/free"
 
 
 def _setup_logging() -> None:
@@ -342,8 +343,14 @@ def _print_diagnostics(diag: dict) -> None:
 
     lic = diag["license"]
     tier = lic["tier"]
-    if tier == "free":
-        print("License:   Free")
+    if tier == "free" and lic.get("valid"):
+        # Validated free-tier key (GitHub login): the latest binary, 1 session.
+        print("License:   Free (latest binary, 1 concurrent session)")
+        print(f"           {UPGRADE_HINT}")
+    elif tier == "free":
+        # Keyless: running the older free binary — invite the free-latest login.
+        print("License:   Free (no key)")
+        print(f"           {FREE_LATEST_HINT}")
         print(f"           {UPGRADE_HINT}")
     elif "error" in lic:
         print(f"License:   {tier} ({lic['error']})")
@@ -410,6 +417,101 @@ def cmd_clear_cache(args: argparse.Namespace) -> None:
     print("Cache cleared.")
 
 
+FREE_LOGIN_URL = "https://cloakbrowser.dev/api/license/free/github/start"
+
+
+def _save_license_key(key: str) -> None:
+    """Persist a validated key to ~/.cloakbrowser/license.key (0600)."""
+    from .config import get_cache_dir
+
+    cache_dir = get_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    key_file = cache_dir / "license.key"
+    key_file.write_text(key.strip() + "\n")
+    try:
+        key_file.chmod(0o600)
+    except OSError:
+        pass
+
+
+def _prompt_free_github_login() -> str:
+    """Open the GitHub free-key page and read back the emailed key."""
+    import webbrowser
+
+    print(f"Opening GitHub sign-in: {FREE_LOGIN_URL}")
+    try:
+        webbrowser.open(FREE_LOGIN_URL)
+    except Exception:
+        pass
+    print("If your browser did not open, visit the URL above and authorize with GitHub.")
+    print("We'll email your free CloakBrowser key to your GitHub email.")
+    try:
+        return input("Paste the key from that email here: ").strip()
+    except EOFError:
+        return ""
+
+
+def cmd_login(args: argparse.Namespace) -> None:
+    """Activate any key. `login <key>` saves a pasted key; bare `login` prompts
+    to paste a key or press ENTER to get a free key via GitHub."""
+    from .license import validate_license
+
+    key = (getattr(args, "key", None) or "").strip()
+
+    if not key:
+        if not sys.stdin.isatty():
+            print(
+                "Usage: cloakbrowser login <key>  (or run it interactively for a free key).",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        try:
+            entered = input(
+                "Paste your license key, or press ENTER to get a free key via GitHub: "
+            ).strip()
+        except EOFError:
+            entered = ""
+        key = entered or _prompt_free_github_login()
+
+    if not key:
+        print("No key entered. Nothing saved.", file=sys.stderr)
+        sys.exit(1)
+
+    info = validate_license(key)
+    if info is None:
+        print(
+            "Could not reach the license server to verify the key. Check your connection and retry.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not info.valid:
+        print("That license key is invalid or expired. Nothing was saved.", file=sys.stderr)
+        sys.exit(1)
+
+    _save_license_key(key)
+    if info.plan == "free":
+        print("Saved. Free tier active: latest binary, 1 concurrent session (one browser at a time).")
+        print("Need to run more at once? See the plans at https://cloakbrowser.dev")
+    else:
+        print(f"Saved. {info.plan.capitalize()} key active: latest binary, full plan limits.")
+
+
+def cmd_logout(args: argparse.Namespace) -> None:
+    """Remove the saved license key (revert to the free v146 binary)."""
+    from .config import get_cache_dir
+
+    key_file = get_cache_dir() / "license.key"
+    if key_file.exists():
+        try:
+            key_file.unlink()
+        except OSError as e:
+            print(f"Could not remove {key_file}: {e}", file=sys.stderr)
+            sys.exit(1)
+        print("Logged out. Removed the saved key; launches revert to the free binary.")
+    else:
+        print("No saved license key found.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="cloakbrowser",
@@ -434,6 +536,14 @@ def main() -> None:
     sub.add_parser("update", help="Check for and download a newer binary")
     sub.add_parser("clear-cache", help="Remove all cached binaries")
 
+    login_p = sub.add_parser(
+        "login", help="Save a license key (or get a free key via GitHub)"
+    )
+    login_p.add_argument(
+        "key", nargs="?", help="License key to save. Omit to enter it interactively."
+    )
+    sub.add_parser("logout", help="Remove the saved license key (revert to free binary)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -447,6 +557,8 @@ def main() -> None:
         "doctor": cmd_info,
         "update": cmd_update,
         "clear-cache": cmd_clear_cache,
+        "login": cmd_login,
+        "logout": cmd_logout,
     }
 
     try:

@@ -205,6 +205,70 @@ def test__format_anthropic_messages_strips_streaming_fields_on_invalid_tool() ->
     }
 
 
+def test__format_anthropic_messages_signature_only_thinking_block() -> None:
+    ai = AIMessage(
+        content=[
+            {
+                "type": "thinking",
+                "signature": "sig-abc",
+                "index": 0,
+            },
+            {
+                "type": "tool_use",
+                "id": "toolu_1",
+                "name": "get_weather",
+                "input": {"location": "SF"},
+                "index": 1,
+            },
+        ],
+        tool_calls=[
+            {"name": "get_weather", "id": "toolu_1", "args": {"location": "SF"}}
+        ],
+    )
+    _, formatted = _format_anthropic_messages([HumanMessage("go"), ai])
+    thinking_block = next(
+        b for b in formatted[1]["content"] if b.get("type") == "thinking"
+    )
+    assert thinking_block == {
+        "type": "thinking",
+        "signature": "sig-abc",
+        "thinking": "",
+    }
+
+    ai_with_text = AIMessage(
+        content=[
+            {
+                "type": "thinking",
+                "thinking": "step by step...",
+                "signature": "sig-def",
+                "index": 0,
+            },
+            {"type": "text", "text": "Answer."},
+        ]
+    )
+    _, formatted = _format_anthropic_messages([HumanMessage("go"), ai_with_text])
+    thinking_block = next(
+        b for b in formatted[1]["content"] if b.get("type") == "thinking"
+    )
+    assert thinking_block == {
+        "type": "thinking",
+        "thinking": "step by step...",
+        "signature": "sig-def",
+    }
+
+    ai_redacted = AIMessage(
+        content=[
+            {"type": "redacted_thinking", "data": "opaque", "index": 0},
+            {"type": "text", "text": "Answer."},
+        ]
+    )
+    _, formatted = _format_anthropic_messages([HumanMessage("go"), ai_redacted])
+    redacted_block = next(
+        b for b in formatted[1]["content"] if b.get("type") == "redacted_thinking"
+    )
+    assert redacted_block == {"type": "redacted_thinking", "data": "opaque"}
+
+
 def test__format_anthropic_messages_with_str_content_and_tool_calls() -> None:
     system = SystemMessage("fuzz")  # type: ignore[misc]
     human = HumanMessage("foo")  # type: ignore[misc]
@@ -2082,6 +2146,54 @@ def test_system_prompt_string_format() -> None:
 
     body = json.loads(mock_client.invoke_model.call_args[1]["body"])
     assert isinstance(body["system"], str)
+
+
+def test_stream_thinking_on_by_default_returns_block_content() -> None:
+    """Sonnet/Fable 5 streams should not mix string and block content."""
+    mock_client = MagicMock()
+
+    def stream_gen():
+        events = [
+            {"type": "message_start", "message": {}},
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "thinking", "thinking": "", "signature": ""},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "signature_delta", "signature": "sig-abc"},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 1,
+                "delta": {"type": "text_delta", "text": "Hello!"},
+            },
+            {"type": "message_stop"},
+        ]
+        for e in events:
+            yield {"chunk": {"bytes": json.dumps(e).encode()}}
+
+    mock_response = MagicMock()
+    mock_response.get.return_value = stream_gen()
+    mock_client.invoke_model_with_response_stream.return_value = mock_response
+
+    llm = ChatBedrock(
+        client=mock_client,
+        model="us.anthropic.claude-sonnet-5",
+        region="us-west-2",
+    )
+    full = None
+    for chunk in llm.stream([HumanMessage(content="Hello")]):
+        full = chunk if full is None else full + chunk
+
+    assert isinstance(full.content, list)
+    assert not any(isinstance(b, str) for b in full.content), full.content
+    block_types = [b["type"] for b in full.content]
+    assert "text" in block_types
+    text_blocks = [b for b in full.content_blocks if b["type"] == "text"]
+    assert len(text_blocks) == 1
 
 
 def test_stream_system_prompt_cache_control() -> None:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AgentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5fa969d10bd09ef8595e91a48f2e6117fe6648db183d1d917cf0cfdaa229f38)
+            type_hints = cached_type_hints(_typecheckingstub__f5fa969d10bd09ef8595e91a48f2e6117fe6648db183d1d917cf0cfdaa229f38)
             check_type(argname="argument agent_arn", value=agent_arn, expected_type=type_hints["agent_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "agent_arn": agent_arn,
@@ -86,7 +90,7 @@ class AgentReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.IAgentRef")
 class IAgentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Agent.
@@ -106,7 +110,7 @@ class IAgentRef(
 
 class _IAgentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Agent.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IAgentRef).__jsii_proxy_class__ = lambda : _IAgentRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationAzureBlobRef")
 class ILocationAzureBlobRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationAzureBlob.
@@ -151,7 +155,7 @@ class ILocationAzureBlobRef(
 
 class _ILocationAzureBlobRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationAzureBlob.
 
@@ -176,7 +180,7 @@ typing.cast(typing.Any, ILocationAzureBlobRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationEFSRef")
 class ILocationEFSRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationEFS.
@@ -196,7 +200,7 @@ class ILocationEFSRef(
 
 class _ILocationEFSRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationEFS.
 
@@ -221,7 +225,7 @@ typing.cast(typing.Any, ILocationEFSRef).__jsii_proxy_class__ = lambda : _ILocat
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationFSxLustreRef")
 class ILocationFSxLustreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxLustre.
@@ -241,7 +245,7 @@ class ILocationFSxLustreRef(
 
 class _ILocationFSxLustreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxLustre.
 
@@ -266,7 +270,7 @@ typing.cast(typing.Any, ILocationFSxLustreRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationFSxONTAPRef")
 class ILocationFSxONTAPRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxONTAP.
@@ -286,7 +290,7 @@ class ILocationFSxONTAPRef(
 
 class _ILocationFSxONTAPRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxONTAP.
 
@@ -311,7 +315,7 @@ typing.cast(typing.Any, ILocationFSxONTAPRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationFSxOpenZFSRef")
 class ILocationFSxOpenZFSRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxOpenZFS.
@@ -331,7 +335,7 @@ class ILocationFSxOpenZFSRef(
 
 class _ILocationFSxOpenZFSRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxOpenZFS.
 
@@ -356,7 +360,7 @@ typing.cast(typing.Any, ILocationFSxOpenZFSRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationFSxWindowsRef")
 class ILocationFSxWindowsRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxWindows.
@@ -376,7 +380,7 @@ class ILocationFSxWindowsRef(
 
 class _ILocationFSxWindowsRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationFSxWindows.
 
@@ -401,7 +405,7 @@ typing.cast(typing.Any, ILocationFSxWindowsRef).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationHDFSRef")
 class ILocationHDFSRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationHDFS.
@@ -421,7 +425,7 @@ class ILocationHDFSRef(
 
 class _ILocationHDFSRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationHDFS.
 
@@ -446,7 +450,7 @@ typing.cast(typing.Any, ILocationHDFSRef).__jsii_proxy_class__ = lambda : _ILoca
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationNFSRef")
 class ILocationNFSRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationNFS.
@@ -466,7 +470,7 @@ class ILocationNFSRef(
 
 class _ILocationNFSRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationNFS.
 
@@ -493,7 +497,7 @@ typing.cast(typing.Any, ILocationNFSRef).__jsii_proxy_class__ = lambda : _ILocat
 )
 class ILocationObjectStorageRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationObjectStorage.
@@ -513,7 +517,7 @@ class ILocationObjectStorageRef(
 
 class _ILocationObjectStorageRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationObjectStorage.
 
@@ -538,7 +542,7 @@ typing.cast(typing.Any, ILocationObjectStorageRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationS3Ref")
 class ILocationS3Ref(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationS3.
@@ -558,7 +562,7 @@ class ILocationS3Ref(
 
 class _ILocationS3RefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationS3.
 
@@ -583,7 +587,7 @@ typing.cast(typing.Any, ILocationS3Ref).__jsii_proxy_class__ = lambda : _ILocati
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ILocationSMBRef")
 class ILocationSMBRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationSMB.
@@ -603,7 +607,7 @@ class ILocationSMBRef(
 
 class _ILocationSMBRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a LocationSMB.
 
@@ -628,7 +632,7 @@ typing.cast(typing.Any, ILocationSMBRef).__jsii_proxy_class__ = lambda : _ILocat
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_datasync.ITaskRef")
 class ITaskRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Task.
@@ -648,7 +652,7 @@ class ITaskRef(
 
 class _ITaskRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Task.
 
@@ -694,7 +698,7 @@ class LocationAzureBlobReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffac249f62ebc114c4f912db619444bbf040bd9efdeacbb153177f22893d348f)
+            type_hints = cached_type_hints(_typecheckingstub__ffac249f62ebc114c4f912db619444bbf040bd9efdeacbb153177f22893d348f)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -743,7 +747,7 @@ class LocationEFSReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__462aeba30bb567b993af9e6f3044acf172bf05c19984476a0fa00b33f292f728)
+            type_hints = cached_type_hints(_typecheckingstub__462aeba30bb567b993af9e6f3044acf172bf05c19984476a0fa00b33f292f728)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -792,7 +796,7 @@ class LocationFSxLustreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__652bfd868f9d53f316e84811447f071dabfacce3cf493be8bc06c66871251a1a)
+            type_hints = cached_type_hints(_typecheckingstub__652bfd868f9d53f316e84811447f071dabfacce3cf493be8bc06c66871251a1a)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -841,7 +845,7 @@ class LocationFSxONTAPReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abefad40453e6fae4e079c8389d02020533a746fb7cfd51f43ca093529933855)
+            type_hints = cached_type_hints(_typecheckingstub__abefad40453e6fae4e079c8389d02020533a746fb7cfd51f43ca093529933855)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -890,7 +894,7 @@ class LocationFSxOpenZFSReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a73dca9dd8fbef60fcf74d08fe4dd28f76f8177c98e57c4192f8445ae888ca5)
+            type_hints = cached_type_hints(_typecheckingstub__7a73dca9dd8fbef60fcf74d08fe4dd28f76f8177c98e57c4192f8445ae888ca5)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -939,7 +943,7 @@ class LocationFSxWindowsReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ba67bbf99d6b631954a46dc7ddc43687e75ba161e2f1abd76208ac57be0ef2c)
+            type_hints = cached_type_hints(_typecheckingstub__0ba67bbf99d6b631954a46dc7ddc43687e75ba161e2f1abd76208ac57be0ef2c)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -988,7 +992,7 @@ class LocationHDFSReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ff28b0373aa978e9dcc778f341010d6e147987ec60ce53cdf88bd5332b65e7a)
+            type_hints = cached_type_hints(_typecheckingstub__7ff28b0373aa978e9dcc778f341010d6e147987ec60ce53cdf88bd5332b65e7a)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -1037,7 +1041,7 @@ class LocationNFSReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__099a4de669c3bc4ce0315a83a72682c7ebc3256870cc90cb3176e19d317a7267)
+            type_hints = cached_type_hints(_typecheckingstub__099a4de669c3bc4ce0315a83a72682c7ebc3256870cc90cb3176e19d317a7267)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -1086,7 +1090,7 @@ class LocationObjectStorageReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc30dc7d20bef33ce08d021e7377b43e0ff9ab77621b3ec5b5ff38aa83916fda)
+            type_hints = cached_type_hints(_typecheckingstub__fc30dc7d20bef33ce08d021e7377b43e0ff9ab77621b3ec5b5ff38aa83916fda)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -1135,7 +1139,7 @@ class LocationS3Reference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d282cd1893f55554f026c97243ef7dec30e29bda583e5dc92f2ef19ec4c4b52e)
+            type_hints = cached_type_hints(_typecheckingstub__d282cd1893f55554f026c97243ef7dec30e29bda583e5dc92f2ef19ec4c4b52e)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -1184,7 +1188,7 @@ class LocationSMBReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d183e904452d2128ca7cbe0f0d4b81e6fa240d21df23459ea5f6ae6fdc085a3c)
+            type_hints = cached_type_hints(_typecheckingstub__d183e904452d2128ca7cbe0f0d4b81e6fa240d21df23459ea5f6ae6fdc085a3c)
             check_type(argname="argument location_arn", value=location_arn, expected_type=type_hints["location_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location_arn": location_arn,
@@ -1233,7 +1237,7 @@ class TaskReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be5ec9cf6fc52294db8458f3ffb93c8d7084262b91b4c55790907c0ebe7112fa)
+            type_hints = cached_type_hints(_typecheckingstub__be5ec9cf6fc52294db8458f3ffb93c8d7084262b91b4c55790907c0ebe7112fa)
             check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "task_arn": task_arn,

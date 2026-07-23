@@ -340,9 +340,9 @@ class Connection:
                 http_path=http_path,
                 port=kwargs.get("_port", 443),
                 client_context=client_context,
-                user_agent=self.session.useragent_header
-                if hasattr(self, "session")
-                else None,
+                user_agent=(
+                    self.session.useragent_header if hasattr(self, "session") else None
+                ),
                 enable_telemetry=enable_telemetry,
             )
             raise e
@@ -390,9 +390,11 @@ class Connection:
 
         driver_connection_params = DriverConnectionParameters(
             http_path=http_path,
-            mode=DatabricksClientType.SEA
-            if self.session.use_sea
-            else DatabricksClientType.THRIFT,
+            mode=(
+                DatabricksClientType.SEA
+                if self.session.use_sea
+                else DatabricksClientType.THRIFT
+            ),
             host_info=HostDetails(host_url=server_hostname, port=self.session.port),
             auth_mech=TelemetryHelper.get_auth_mechanism(self.session.auth_provider),
             auth_flow=TelemetryHelper.get_auth_flow(self.session.auth_provider),
@@ -874,7 +876,10 @@ class Cursor:
 
         self.connection: Connection = connection
 
-        self.rowcount: int = -1  # Return -1 as this is not supported
+        # -1 until a statement runs. Set to the affected-row count after a DML
+        # statement (INSERT/UPDATE/DELETE/MERGE); stays -1 for SELECT and any
+        # statement the server does not report a modified-row count for.
+        self.rowcount: int = -1
         self.buffer_size_bytes: int = result_buffer_size_bytes
         self.active_result_set: Union[ResultSet, None] = None
         self.arraysize: int = arraysize
@@ -1039,6 +1044,9 @@ class Cursor:
                 self.active_result_set.close()
         finally:
             self.active_result_set = None
+            # Reset rowcount to its -1 default so a prior DML's count never
+            # leaks into a subsequent SELECT (or unreported) statement.
+            self.rowcount = -1
 
     def _check_not_closed(self):
         if not self.open:
@@ -1078,6 +1086,14 @@ class Cursor:
             return self._handle_staging_put_stream(
                 presigned_url=row.presignedUrl,
                 stream=input_stream,
+                headers=headers,
+            )
+
+        # REMOVE deletes a remote resource and never touches the local
+        # filesystem, so it does not require staging_allowed_local_path.
+        if row.operation == "REMOVE":
+            return self._handle_staging_remove(
+                presigned_url=row.presignedUrl,
                 headers=headers,
             )
 
@@ -1133,14 +1149,12 @@ class Cursor:
         )
 
         # TODO: Create a retry loop here to re-attempt if the request times out or fails
+        # REMOVE is handled above, before staging_allowed_local_path validation,
+        # since it does not touch the local filesystem.
         if row.operation == "GET":
             return self._handle_staging_get(**handler_args)
         elif row.operation == "PUT":
             return self._handle_staging_put(**handler_args)
-        elif row.operation == "REMOVE":
-            # Local file isn't needed to remove a remote resource
-            handler_args.pop("local_file")
-            return self._handle_staging_remove(**handler_args)
         else:
             raise ProgrammingError(
                 f"Operation {row.operation} is not supported. "
@@ -1367,6 +1381,14 @@ class Cursor:
             query_tags=query_tags,
         )
 
+        # Surface the affected-row count for DML (INSERT/UPDATE/DELETE/MERGE) as
+        # cursor.rowcount instead of the hardcoded -1. num_modified_rows is None
+        # for SELECT (and statements the server does not report a count for) →
+        # leave rowcount at its -1 default.
+        num_modified_rows = getattr(self.active_result_set, "num_modified_rows", None)
+        if num_modified_rows is not None:
+            self.rowcount = num_modified_rows
+
         if self.active_result_set and self.active_result_set.is_staging_operation:
             self._handle_staging_operation(
                 staging_allowed_local_path=self.connection.staging_allowed_local_path,
@@ -1505,8 +1527,22 @@ class Cursor:
 
         :returns self
         """
+        # Per PEP 249, rowcount after executemany reflects the total rows
+        # affected across all parameter sets (or -1 when undeterminable). Each
+        # execute() resets self.rowcount and sets it from its own statement, so
+        # we accumulate the reported counts here. If no statement reports a
+        # count (e.g. all SELECT, or the server does not report one), rowcount
+        # stays at its -1 default.
+        total_rowcount = -1
         for parameters in seq_of_parameters:
             self.execute(operation, parameters, query_tags=query_tags)
+            if self.rowcount >= 0:
+                total_rowcount = (
+                    self.rowcount
+                    if total_rowcount < 0
+                    else total_rowcount + self.rowcount
+                )
+        self.rowcount = total_rowcount
         return self
 
     @log_latency(StatementType.METADATA)

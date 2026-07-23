@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,48 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_detective import (
-    GraphReference as _GraphReference_ff4b8011,
-    IGraphRef as _IGraphRef_fe0a6bfe,
-    IMemberInvitationRef as _IMemberInvitationRef_83f9fd11,
-    IOrganizationAdminRef as _IOrganizationAdminRef_ff7b12a3,
-    MemberInvitationReference as _MemberInvitationReference_c4afb4a1,
-    OrganizationAdminReference as _OrganizationAdminReference_217a72d9,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_detective as _aws_detective_0704d82f
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_detective_0704d82f = _LazyImport("aws_cdk.interfaces.aws_detective")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IGraphRef_fe0a6bfe, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_detective_0704d82f.IGraphRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnGraph(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_detective.CfnGraph",
 ):
@@ -112,8 +102,8 @@ class CfnGraph(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        auto_enable_members: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_enable_members: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Detective::Graph``.
 
@@ -123,7 +113,7 @@ class CfnGraph(
         :param tags: The tag values to assign to the new behavior graph.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35c13d9bc47be944ae94949da016fdbb9358dcb215abb1da6176d7e3ee53a804)
+            type_hints = cached_type_hints(_typecheckingstub__35c13d9bc47be944ae94949da016fdbb9358dcb215abb1da6176d7e3ee53a804)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGraphProps(auto_enable_members=auto_enable_members, tags=tags)
@@ -132,12 +122,15 @@ class CfnGraph(
 
     @jsii.member(jsii_name="arnForGraph")
     @builtins.classmethod
-    def arn_for_graph(cls, resource: "_IGraphRef_fe0a6bfe") -> builtins.str:
+    def arn_for_graph(
+        cls,
+        resource: "_aws_detective_0704d82f.IGraphRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47d955a178de7e694206be3ee5a37c1d6d623109fa39bca76b64326504463449)
+            type_hints = cached_type_hints(_typecheckingstub__47d955a178de7e694206be3ee5a37c1d6d623109fa39bca76b64326504463449)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGraph", [resource]))
 
@@ -149,18 +142,18 @@ class CfnGraph(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51a6c404916dea97e1c396fd803b5f0059e2315ce570b30e79ad7e6b5421962b)
+            type_hints = cached_type_hints(_typecheckingstub__51a6c404916dea97e1c396fd803b5f0059e2315ce570b30e79ad7e6b5421962b)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGraph", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__759c0a91a60111bc6af09d55e323cbfdd01e2a1beda41d95d78c666e94579275)
+            type_hints = cached_type_hints(_typecheckingstub__759c0a91a60111bc6af09d55e323cbfdd01e2a1beda41d95d78c666e94579275)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -173,7 +166,7 @@ class CfnGraph(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46fde5f95e1a0971beb1da64e90595afb005f925e05b021a1b3b807498818ab8)
+            type_hints = cached_type_hints(_typecheckingstub__46fde5f95e1a0971beb1da64e90595afb005f925e05b021a1b3b807498818ab8)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -204,44 +197,47 @@ class CfnGraph(
 
     @builtins.property
     @jsii.member(jsii_name="graphRef")
-    def graph_ref(self) -> "_GraphReference_ff4b8011":
+    def graph_ref(self) -> "_aws_detective_0704d82f.GraphReference":
         '''A reference to a Graph resource.'''
-        return typing.cast("_GraphReference_ff4b8011", jsii.get(self, "graphRef"))
+        return typing.cast("_aws_detective_0704d82f.GraphReference", jsii.get(self, "graphRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="autoEnableMembers")
     def auto_enable_members(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to automatically enable new organization accounts as member accounts in the organization behavior graph.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoEnableMembers"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoEnableMembers"))
 
     @auto_enable_members.setter
     def auto_enable_members(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__017213db557533db476b11d3395ad002c1c77bc8cc9e28bdee567c8e34fc6ae0)
+            type_hints = cached_type_hints(_typecheckingstub__017213db557533db476b11d3395ad002c1c77bc8cc9e28bdee567c8e34fc6ae0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "autoEnableMembers", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag values to assign to the new behavior graph.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eeb800de7e2138cfe98794158b6d6acc2871d2831f80f41887f5118e20ddcba7)
+            type_hints = cached_type_hints(_typecheckingstub__eeb800de7e2138cfe98794158b6d6acc2871d2831f80f41887f5118e20ddcba7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -255,8 +251,8 @@ class CfnGraphProps:
     def __init__(
         self,
         *,
-        auto_enable_members: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        auto_enable_members: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGraph``.
 
@@ -282,7 +278,7 @@ class CfnGraphProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a226decb0450af1162df8b1540b45da7e7669d305d0e8a36b824b4e85332f93)
+            type_hints = cached_type_hints(_typecheckingstub__1a226decb0450af1162df8b1540b45da7e7669d305d0e8a36b824b4e85332f93)
             check_type(argname="argument auto_enable_members", value=auto_enable_members, expected_type=type_hints["auto_enable_members"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -294,7 +290,7 @@ class CfnGraphProps:
     @builtins.property
     def auto_enable_members(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Indicates whether to automatically enable new organization accounts as member accounts in the organization behavior graph.
 
         By default, this property is set to ``false`` . If you want to change the value of this property, you must be the Detective administrator for the organization. For more information on setting a Detective administrator account, see `AWS::Detective::OrganizationAdmin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-detective-organizationadmin.html>`_ .
@@ -304,16 +300,16 @@ class CfnGraphProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-detective-graph.html#cfn-detective-graph-autoenablemembers
         '''
         result = self._values.get("auto_enable_members")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tag values to assign to the new behavior graph.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-detective-graph.html#cfn-detective-graph-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -327,9 +323,9 @@ class CfnGraphProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IMemberInvitationRef_83f9fd11)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_detective_0704d82f.IMemberInvitationRef)
 class CfnMemberInvitation(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_detective.CfnMemberInvitation",
 ):
@@ -366,7 +362,7 @@ class CfnMemberInvitation(
         graph_arn: builtins.str,
         member_email_address: builtins.str,
         member_id: builtins.str,
-        disable_email_notification: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        disable_email_notification: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Detective::MemberInvitation``.
@@ -380,7 +376,7 @@ class CfnMemberInvitation(
         :param message: Customized text to include in the invitation email message.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e34d274362e0f21d70fec2895986898f3c3ecf0e61cfff18301ece8bbca92937)
+            type_hints = cached_type_hints(_typecheckingstub__e34d274362e0f21d70fec2895986898f3c3ecf0e61cfff18301ece8bbca92937)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMemberInvitationProps(
@@ -401,18 +397,18 @@ class CfnMemberInvitation(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c5b601db949bfc9e1868b1fb9cd55816bae11a85f5a4b181db1a8be360e8fc6)
+            type_hints = cached_type_hints(_typecheckingstub__9c5b601db949bfc9e1868b1fb9cd55816bae11a85f5a4b181db1a8be360e8fc6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMemberInvitation", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a79276f8311d161ad0c97e0224bf67f13caeb3555f9726d01364e5d8c9221a4)
+            type_hints = cached_type_hints(_typecheckingstub__7a79276f8311d161ad0c97e0224bf67f13caeb3555f9726d01364e5d8c9221a4)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -425,7 +421,7 @@ class CfnMemberInvitation(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a41a4a8122f98766d433d9f5e7b7fe3cfd79846b79b03e375826f7f0400376c)
+            type_hints = cached_type_hints(_typecheckingstub__2a41a4a8122f98766d433d9f5e7b7fe3cfd79846b79b03e375826f7f0400376c)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -447,9 +443,11 @@ class CfnMemberInvitation(
 
     @builtins.property
     @jsii.member(jsii_name="memberInvitationRef")
-    def member_invitation_ref(self) -> "_MemberInvitationReference_c4afb4a1":
+    def member_invitation_ref(
+        self,
+    ) -> "_aws_detective_0704d82f.MemberInvitationReference":
         '''A reference to a MemberInvitation resource.'''
-        return typing.cast("_MemberInvitationReference_c4afb4a1", jsii.get(self, "memberInvitationRef"))
+        return typing.cast("_aws_detective_0704d82f.MemberInvitationReference", jsii.get(self, "memberInvitationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="graphArn")
@@ -460,7 +458,7 @@ class CfnMemberInvitation(
     @graph_arn.setter
     def graph_arn(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b12ee371571562da274cbc7b8f9ea5fcd9b0f00711e7457cdaa512b01dd4d9f2)
+            type_hints = cached_type_hints(_typecheckingstub__b12ee371571562da274cbc7b8f9ea5fcd9b0f00711e7457cdaa512b01dd4d9f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "graphArn", value) # pyright: ignore[reportArgumentType]
 
@@ -473,7 +471,7 @@ class CfnMemberInvitation(
     @member_email_address.setter
     def member_email_address(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__effa006ed39255027e20425818f01d5bd8d8799e0f0c9bbaa8605773192cb9e2)
+            type_hints = cached_type_hints(_typecheckingstub__effa006ed39255027e20425818f01d5bd8d8799e0f0c9bbaa8605773192cb9e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memberEmailAddress", value) # pyright: ignore[reportArgumentType]
 
@@ -486,7 +484,7 @@ class CfnMemberInvitation(
     @member_id.setter
     def member_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0493b702981486fe3adacfc3b48927622dac6cb286fac2e11ee81e222b483192)
+            type_hints = cached_type_hints(_typecheckingstub__0493b702981486fe3adacfc3b48927622dac6cb286fac2e11ee81e222b483192)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
 
@@ -494,17 +492,17 @@ class CfnMemberInvitation(
     @jsii.member(jsii_name="disableEmailNotification")
     def disable_email_notification(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to send an invitation email to the member account.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "disableEmailNotification"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "disableEmailNotification"))
 
     @disable_email_notification.setter
     def disable_email_notification(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__660e62f59a214a78dff16da1b8a2a68e2f58419729f3c700cdee6f7697a65eaf)
+            type_hints = cached_type_hints(_typecheckingstub__660e62f59a214a78dff16da1b8a2a68e2f58419729f3c700cdee6f7697a65eaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "disableEmailNotification", value) # pyright: ignore[reportArgumentType]
 
@@ -517,7 +515,7 @@ class CfnMemberInvitation(
     @message.setter
     def message(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31ea094d2aaa558144a048004a5a7542d051737344a0807aac03c8ba0e840fc1)
+            type_hints = cached_type_hints(_typecheckingstub__31ea094d2aaa558144a048004a5a7542d051737344a0807aac03c8ba0e840fc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "message", value) # pyright: ignore[reportArgumentType]
 
@@ -540,7 +538,7 @@ class CfnMemberInvitationProps:
         graph_arn: builtins.str,
         member_email_address: builtins.str,
         member_id: builtins.str,
-        disable_email_notification: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        disable_email_notification: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         message: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMemberInvitation``.
@@ -571,7 +569,7 @@ class CfnMemberInvitationProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6168872a1142480c9838dd35aabe4ddc94fa8bd63cd0e251f53d61f6a9924b3a)
+            type_hints = cached_type_hints(_typecheckingstub__6168872a1142480c9838dd35aabe4ddc94fa8bd63cd0e251f53d61f6a9924b3a)
             check_type(argname="argument graph_arn", value=graph_arn, expected_type=type_hints["graph_arn"])
             check_type(argname="argument member_email_address", value=member_email_address, expected_type=type_hints["member_email_address"])
             check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
@@ -622,7 +620,7 @@ class CfnMemberInvitationProps:
     @builtins.property
     def disable_email_notification(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to send an invitation email to the member account.
 
         If set to true, the member account does not receive an invitation email.
@@ -632,7 +630,7 @@ class CfnMemberInvitationProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-detective-memberinvitation.html#cfn-detective-memberinvitation-disableemailnotification
         '''
         result = self._values.get("disable_email_notification")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def message(self) -> typing.Optional[builtins.str]:
@@ -655,9 +653,9 @@ class CfnMemberInvitationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IOrganizationAdminRef_ff7b12a3)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_detective_0704d82f.IOrganizationAdminRef)
 class CfnOrganizationAdmin(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_detective.CfnOrganizationAdmin",
 ):
@@ -694,7 +692,7 @@ class CfnOrganizationAdmin(
         :param account_id: The AWS account identifier of the account to designate as the Detective administrator account for the organization.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4af46c55b142c272aabfd3b293f9ccf1547910145fb8eb3c1a9a019652cd54fa)
+            type_hints = cached_type_hints(_typecheckingstub__4af46c55b142c272aabfd3b293f9ccf1547910145fb8eb3c1a9a019652cd54fa)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnOrganizationAdminProps(account_id=account_id)
@@ -709,18 +707,18 @@ class CfnOrganizationAdmin(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7be945caa1a2ff33d55eeeb6c0d6e77e1f0ecedce043aed1024bb9502524f939)
+            type_hints = cached_type_hints(_typecheckingstub__7be945caa1a2ff33d55eeeb6c0d6e77e1f0ecedce043aed1024bb9502524f939)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationAdmin", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9afea3e493aa39786d788e14325de3fed57b80257e73fef9fe6672ef74f94c6)
+            type_hints = cached_type_hints(_typecheckingstub__b9afea3e493aa39786d788e14325de3fed57b80257e73fef9fe6672ef74f94c6)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -733,7 +731,7 @@ class CfnOrganizationAdmin(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__257f0f051d1ceb0d963fe00a9089a670e5c90961aee260faa726e53bba38b1f7)
+            type_hints = cached_type_hints(_typecheckingstub__257f0f051d1ceb0d963fe00a9089a670e5c90961aee260faa726e53bba38b1f7)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -764,9 +762,11 @@ class CfnOrganizationAdmin(
 
     @builtins.property
     @jsii.member(jsii_name="organizationAdminRef")
-    def organization_admin_ref(self) -> "_OrganizationAdminReference_217a72d9":
+    def organization_admin_ref(
+        self,
+    ) -> "_aws_detective_0704d82f.OrganizationAdminReference":
         '''A reference to a OrganizationAdmin resource.'''
-        return typing.cast("_OrganizationAdminReference_217a72d9", jsii.get(self, "organizationAdminRef"))
+        return typing.cast("_aws_detective_0704d82f.OrganizationAdminReference", jsii.get(self, "organizationAdminRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accountId")
@@ -777,7 +777,7 @@ class CfnOrganizationAdmin(
     @account_id.setter
     def account_id(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8b3ebd6ff4fb0708cfa2cc5ee080b09356c9175b7e842ebce16ec9cba148b7f)
+            type_hints = cached_type_hints(_typecheckingstub__c8b3ebd6ff4fb0708cfa2cc5ee080b09356c9175b7e842ebce16ec9cba148b7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
 
@@ -807,7 +807,7 @@ class CfnOrganizationAdminProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__164d4fa1c8c00a35586a49186d85259b687131e38684be0bfa265178bc9896dc)
+            type_hints = cached_type_hints(_typecheckingstub__164d4fa1c8c00a35586a49186d85259b687131e38684be0bfa265178bc9896dc)
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_id": account_id,
@@ -850,14 +850,14 @@ def _typecheckingstub__35c13d9bc47be944ae94949da016fdbb9358dcb215abb1da6176d7e3e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    auto_enable_members: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_enable_members: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__47d955a178de7e694206be3ee5a37c1d6d623109fa39bca76b64326504463449(
-    resource: _IGraphRef_fe0a6bfe,
+    resource: _aws_detective_0704d82f.IGraphRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -869,7 +869,7 @@ def _typecheckingstub__51a6c404916dea97e1c396fd803b5f0059e2315ce570b30e79ad7e6b5
     pass
 
 def _typecheckingstub__759c0a91a60111bc6af09d55e323cbfdd01e2a1beda41d95d78c666e94579275(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -881,21 +881,21 @@ def _typecheckingstub__46fde5f95e1a0971beb1da64e90595afb005f925e05b021a1b3b80749
     pass
 
 def _typecheckingstub__017213db557533db476b11d3395ad002c1c77bc8cc9e28bdee567c8e34fc6ae0(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__eeb800de7e2138cfe98794158b6d6acc2871d2831f80f41887f5118e20ddcba7(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__1a226decb0450af1162df8b1540b45da7e7669d305d0e8a36b824b4e85332f93(
     *,
-    auto_enable_members: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    auto_enable_members: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -907,7 +907,7 @@ def _typecheckingstub__e34d274362e0f21d70fec2895986898f3c3ecf0e61cfff18301ece8bb
     graph_arn: builtins.str,
     member_email_address: builtins.str,
     member_id: builtins.str,
-    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -920,7 +920,7 @@ def _typecheckingstub__9c5b601db949bfc9e1868b1fb9cd55816bae11a85f5a4b181db1a8be3
     pass
 
 def _typecheckingstub__7a79276f8311d161ad0c97e0224bf67f13caeb3555f9726d01364e5d8c9221a4(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -950,7 +950,7 @@ def _typecheckingstub__0493b702981486fe3adacfc3b48927622dac6cb286fac2e11ee81e222
     pass
 
 def _typecheckingstub__660e62f59a214a78dff16da1b8a2a68e2f58419729f3c700cdee6f7697a65eaf(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -966,7 +966,7 @@ def _typecheckingstub__6168872a1142480c9838dd35aabe4ddc94fa8bd63cd0e251f53d61f6a
     graph_arn: builtins.str,
     member_email_address: builtins.str,
     member_id: builtins.str,
-    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_email_notification: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -988,7 +988,7 @@ def _typecheckingstub__7be945caa1a2ff33d55eeeb6c0d6e77e1f0ecedce043aed1024bb9502
     pass
 
 def _typecheckingstub__b9afea3e493aa39786d788e14325de3fed57b80257e73fef9fe6672ef74f94c6(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass

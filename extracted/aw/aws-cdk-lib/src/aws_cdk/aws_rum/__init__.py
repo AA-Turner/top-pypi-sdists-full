@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,44 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_rum import (
-    AppMonitorReference as _AppMonitorReference_96ecac0d,
-    IAppMonitorRef as _IAppMonitorRef_653b27a4,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_rum as _aws_rum_f7bf6d89
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_rum_f7bf6d89 = _LazyImport("aws_cdk.interfaces.aws_rum")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IAppMonitorRef_653b27a4, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rum_f7bf6d89.IAppMonitorRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnAppMonitor(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_rum.CfnAppMonitor",
 ):
@@ -164,15 +158,15 @@ class CfnAppMonitor(
         id: builtins.str,
         *,
         name: builtins.str,
-        app_monitor_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        deobfuscation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        app_monitor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        deobfuscation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         platform: typing.Optional[builtins.str] = None,
-        resource_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::RUM::AppMonitor``.
 
@@ -190,7 +184,7 @@ class CfnAppMonitor(
         :param tags: Assigns one or more tags (key-value pairs) to the app monitor. Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values. Tags don't have any semantic meaning to AWS and are interpreted strictly as strings of characters. You can associate as many as 50 tags with an app monitor. For more information, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be8f88e750c0e7122a036d486a439c075fc32835a9e8ecd39a432f9d8a28795b)
+            type_hints = cached_type_hints(_typecheckingstub__be8f88e750c0e7122a036d486a439c075fc32835a9e8ecd39a432f9d8a28795b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAppMonitorProps(
@@ -210,12 +204,15 @@ class CfnAppMonitor(
 
     @jsii.member(jsii_name="arnForAppMonitor")
     @builtins.classmethod
-    def arn_for_app_monitor(cls, resource: "_IAppMonitorRef_653b27a4") -> builtins.str:
+    def arn_for_app_monitor(
+        cls,
+        resource: "_aws_rum_f7bf6d89.IAppMonitorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5ae31e63cb972dc25c0a6d05ce54a700b1cfa59fc5f90ebedd81bc703fbae36)
+            type_hints = cached_type_hints(_typecheckingstub__e5ae31e63cb972dc25c0a6d05ce54a700b1cfa59fc5f90ebedd81bc703fbae36)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAppMonitor", [resource]))
 
@@ -227,18 +224,18 @@ class CfnAppMonitor(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb6df632dcb333f52650990603571ea7d557b7fc901b79a7e09d270aef4089dd)
+            type_hints = cached_type_hints(_typecheckingstub__cb6df632dcb333f52650990603571ea7d557b7fc901b79a7e09d270aef4089dd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAppMonitor", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19b08fc28fc4d338e630fadc16f8db993d351d3af57d146ab61904a9b0379937)
+            type_hints = cached_type_hints(_typecheckingstub__19b08fc28fc4d338e630fadc16f8db993d351d3af57d146ab61904a9b0379937)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -251,7 +248,7 @@ class CfnAppMonitor(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3ff9506c9eec23255dd33f8626dae2e4ac799a56ca2372ad12d3677fbe0a970)
+            type_hints = cached_type_hints(_typecheckingstub__f3ff9506c9eec23255dd33f8626dae2e4ac799a56ca2372ad12d3677fbe0a970)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -263,9 +260,9 @@ class CfnAppMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="appMonitorRef")
-    def app_monitor_ref(self) -> "_AppMonitorReference_96ecac0d":
+    def app_monitor_ref(self) -> "_aws_rum_f7bf6d89.AppMonitorReference":
         '''A reference to a AppMonitor resource.'''
-        return typing.cast("_AppMonitorReference_96ecac0d", jsii.get(self, "appMonitorRef"))
+        return typing.cast("_aws_rum_f7bf6d89.AppMonitorReference", jsii.get(self, "appMonitorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -288,9 +285,9 @@ class CfnAppMonitor(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -301,7 +298,7 @@ class CfnAppMonitor(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28bed8e51b4cd861f00044e721965e61478696f88fa5cf4528fece9faad98be4)
+            type_hints = cached_type_hints(_typecheckingstub__28bed8e51b4cd861f00044e721965e61478696f88fa5cf4528fece9faad98be4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -309,17 +306,17 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="appMonitorConfiguration")
     def app_monitor_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
         '''A structure that contains much of the configuration data for the app monitor.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]], jsii.get(self, "appMonitorConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.AppMonitorConfigurationProperty"]], jsii.get(self, "appMonitorConfiguration"))
 
     @app_monitor_configuration.setter
     def app_monitor_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.AppMonitorConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50034684ba972a040247926397a2abd22cbfe552025aa67e74c062216336d6da)
+            type_hints = cached_type_hints(_typecheckingstub__50034684ba972a040247926397a2abd22cbfe552025aa67e74c062216336d6da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "appMonitorConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -327,17 +324,17 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="customEvents")
     def custom_events(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.CustomEventsProperty"]]:
         '''Specifies whether this app monitor allows the web client to define and send custom events.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]], jsii.get(self, "customEvents"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.CustomEventsProperty"]], jsii.get(self, "customEvents"))
 
     @custom_events.setter
     def custom_events(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.CustomEventsProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65b3a1fb3e18d745fb1b2892e7cae08e9d46eaf221ccd474f3aaf390ec6e0074)
+            type_hints = cached_type_hints(_typecheckingstub__65b3a1fb3e18d745fb1b2892e7cae08e9d46eaf221ccd474f3aaf390ec6e0074)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customEvents", value) # pyright: ignore[reportArgumentType]
 
@@ -345,17 +342,17 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="cwLogEnabled")
     def cw_log_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "cwLogEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "cwLogEnabled"))
 
     @cw_log_enabled.setter
     def cw_log_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd674d3834ab7c9a15c2cc3b7dfc188fd561725f3c30ee84200f63547a955eef)
+            type_hints = cached_type_hints(_typecheckingstub__cd674d3834ab7c9a15c2cc3b7dfc188fd561725f3c30ee84200f63547a955eef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cwLogEnabled", value) # pyright: ignore[reportArgumentType]
 
@@ -363,17 +360,17 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="deobfuscationConfiguration")
     def deobfuscation_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
         '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], jsii.get(self, "deobfuscationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], jsii.get(self, "deobfuscationConfiguration"))
 
     @deobfuscation_configuration.setter
     def deobfuscation_configuration(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.DeobfuscationConfigurationProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f2d704d10058b4d7b134a686b042efc84971acf09b892129589706da314ce17)
+            type_hints = cached_type_hints(_typecheckingstub__9f2d704d10058b4d7b134a686b042efc84971acf09b892129589706da314ce17)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deobfuscationConfiguration", value) # pyright: ignore[reportArgumentType]
 
@@ -386,7 +383,7 @@ class CfnAppMonitor(
     @domain.setter
     def domain(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0456aa4886c478c5fc3157398096bfee936719f2df864f6df5d0d99dfb18c0a6)
+            type_hints = cached_type_hints(_typecheckingstub__0456aa4886c478c5fc3157398096bfee936719f2df864f6df5d0d99dfb18c0a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
@@ -402,7 +399,7 @@ class CfnAppMonitor(
     @domain_list.setter
     def domain_list(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f86b0a9a53fb7afe4df111651fb954ae88b1fcdc7037dc764fa0b071918819c)
+            type_hints = cached_type_hints(_typecheckingstub__0f86b0a9a53fb7afe4df111651fb954ae88b1fcdc7037dc764fa0b071918819c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainList", value) # pyright: ignore[reportArgumentType]
 
@@ -414,7 +411,7 @@ class CfnAppMonitor(
     @platform.setter
     def platform(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065136888b)
+            type_hints = cached_type_hints(_typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065136888b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
 
@@ -422,30 +419,33 @@ class CfnAppMonitor(
     @jsii.member(jsii_name="resourcePolicy")
     def resource_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.ResourcePolicyProperty"]]:
         '''Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.ResourcePolicyProperty"]], jsii.get(self, "resourcePolicy"))
 
     @resource_policy.setter
     def resource_policy(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.ResourcePolicyProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02ad50a0bedc842a57f77840ff242508a77c0b4d3a7db3dabb035464285b86fa)
+            type_hints = cached_type_hints(_typecheckingstub__02ad50a0bedc842a57f77840ff242508a77c0b4d3a7db3dabb035464285b86fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags (key-value pairs) to the app monitor.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd15333478ba004b01e5eeb19cecf4a73325add1db14df013fda84f63d3c4a4d)
+            type_hints = cached_type_hints(_typecheckingstub__fd15333478ba004b01e5eeb19cecf4a73325add1db14df013fda84f63d3c4a4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -469,14 +469,14 @@ class CfnAppMonitor(
         def __init__(
             self,
             *,
-            allow_cookies: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            enable_x_ray: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            allow_cookies: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_x_ray: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             excluded_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
             favorite_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
             guest_role_arn: typing.Optional[builtins.str] = None,
             identity_pool_id: typing.Optional[builtins.str] = None,
             included_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
-            metric_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.MetricDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_destinations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.MetricDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             session_sample_rate: typing.Optional[jsii.Number] = None,
             telemetries: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -534,7 +534,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__558c20264716cc4ca306c616447c47a3581a90f15b373bf7a8a13e10788732d8)
+                type_hints = cached_type_hints(_typecheckingstub__558c20264716cc4ca306c616447c47a3581a90f15b373bf7a8a13e10788732d8)
                 check_type(argname="argument allow_cookies", value=allow_cookies, expected_type=type_hints["allow_cookies"])
                 check_type(argname="argument enable_x_ray", value=enable_x_ray, expected_type=type_hints["enable_x_ray"])
                 check_type(argname="argument excluded_pages", value=excluded_pages, expected_type=type_hints["excluded_pages"])
@@ -570,7 +570,7 @@ class CfnAppMonitor(
         @builtins.property
         def allow_cookies(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If you set this to ``true`` , the CloudWatch RUM web client sets two cookies, a session cookie and a user cookie.
 
             The cookies allow the CloudWatch RUM web client to collect data relating to the number of users an application has and the behavior of the application across a sequence of events. Cookies are stored in the top-level domain of the current page.
@@ -578,12 +578,12 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-allowcookies
             '''
             result = self._values.get("allow_cookies")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def enable_x_ray(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If you set this to ``true`` , CloudWatch RUM sends client-side traces to X-Ray for each sampled session.
 
             You can then see traces and segments from these user sessions in the RUM dashboard and the CloudWatch ServiceLens console. For more information, see `What is AWS X-Ray ? <https://docs.aws.amazon.com/xray/latest/devguide/aws-xray.html>`_
@@ -591,7 +591,7 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-enablexray
             '''
             result = self._values.get("enable_x_ray")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def excluded_pages(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -645,13 +645,13 @@ class CfnAppMonitor(
         @builtins.property
         def metric_destinations(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDestinationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.MetricDestinationProperty"]]]]:
             '''An array of structures that each define a destination that this app monitor will send extended metrics to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-appmonitorconfiguration.html#cfn-rum-appmonitor-appmonitorconfiguration-metricdestinations
             '''
             result = self._values.get("metric_destinations")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDestinationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.MetricDestinationProperty"]]]], result)
 
         @builtins.property
         def session_sample_rate(self) -> typing.Optional[jsii.Number]:
@@ -717,7 +717,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dbddfb5cea796155615c50462c2f74dceb1015bc37ceb1d56a4673eeea98710f)
+                type_hints = cached_type_hints(_typecheckingstub__dbddfb5cea796155615c50462c2f74dceb1015bc37ceb1d56a4673eeea98710f)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if status is not None:
@@ -754,7 +754,7 @@ class CfnAppMonitor(
         def __init__(
             self,
             *,
-            java_script_source_maps: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.JavaScriptSourceMapsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            java_script_source_maps: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.JavaScriptSourceMapsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
 
@@ -779,7 +779,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fdf3e214c72bb6242e27105dcba552227c63b454a171ca355bccf1321a0906ad)
+                type_hints = cached_type_hints(_typecheckingstub__fdf3e214c72bb6242e27105dcba552227c63b454a171ca355bccf1321a0906ad)
                 check_type(argname="argument java_script_source_maps", value=java_script_source_maps, expected_type=type_hints["java_script_source_maps"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if java_script_source_maps is not None:
@@ -788,13 +788,13 @@ class CfnAppMonitor(
         @builtins.property
         def java_script_source_maps(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.JavaScriptSourceMapsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.JavaScriptSourceMapsProperty"]]:
             '''A structure that contains the configuration for how an app monitor can unminify JavaScript error stack traces using source maps.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-deobfuscationconfiguration.html#cfn-rum-appmonitor-deobfuscationconfiguration-javascriptsourcemaps
             '''
             result = self._values.get("java_script_source_maps")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.JavaScriptSourceMapsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.JavaScriptSourceMapsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -841,7 +841,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__78c04a50ef32713cea26d41602085c025ced86700aa160ec7d04d54d4b8e133d)
+                type_hints = cached_type_hints(_typecheckingstub__78c04a50ef32713cea26d41602085c025ced86700aa160ec7d04d54d4b8e133d)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -901,7 +901,7 @@ class CfnAppMonitor(
             self,
             *,
             name: builtins.str,
-            dimension_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            dimension_keys: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             event_pattern: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
             unit_label: typing.Optional[builtins.str] = None,
@@ -958,7 +958,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__001da0942488042bedaa7bac57ce421214804f088803aac4b0f5c16385fb5991)
+                type_hints = cached_type_hints(_typecheckingstub__001da0942488042bedaa7bac57ce421214804f088803aac4b0f5c16385fb5991)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument dimension_keys", value=dimension_keys, expected_type=type_hints["dimension_keys"])
                 check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
@@ -992,7 +992,7 @@ class CfnAppMonitor(
         @builtins.property
         def dimension_keys(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''This field is a map of field paths to dimension names.
 
             It defines the dimensions to associate with this metric in CloudWatch . The value of this field is used only if the metric destination is ``CloudWatch`` . If the metric destination is ``Evidently`` , the value of ``DimensionKeys`` is ignored.
@@ -1000,7 +1000,7 @@ class CfnAppMonitor(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-metricdefinition.html#cfn-rum-appmonitor-metricdefinition-dimensionkeys
             '''
             result = self._values.get("dimension_keys")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def event_pattern(self) -> typing.Optional[builtins.str]:
@@ -1076,7 +1076,7 @@ class CfnAppMonitor(
             destination: builtins.str,
             destination_arn: typing.Optional[builtins.str] = None,
             iam_role_arn: typing.Optional[builtins.str] = None,
-            metric_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.MetricDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_definitions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.MetricDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Creates or updates a destination to receive extended metrics from CloudWatch RUM.
 
@@ -1119,7 +1119,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6bc8896836b392f4778e438dc2fd24dc53c06571d579092660fa957555f6c363)
+                type_hints = cached_type_hints(_typecheckingstub__6bc8896836b392f4778e438dc2fd24dc53c06571d579092660fa957555f6c363)
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
                 check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
                 check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
@@ -1171,13 +1171,13 @@ class CfnAppMonitor(
         @builtins.property
         def metric_definitions(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDefinitionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.MetricDefinitionProperty"]]]]:
             '''An array of structures which define the metrics that you want to send.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rum-appmonitor-metricdestination.html#cfn-rum-appmonitor-metricdestination-metricdefinitions
             '''
             result = self._values.get("metric_definitions")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.MetricDefinitionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.MetricDefinitionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1229,7 +1229,7 @@ class CfnAppMonitor(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__50574a83877817c5c30ff641cfa13fc211766060d3c8591b640545f5594000af)
+                type_hints = cached_type_hints(_typecheckingstub__50574a83877817c5c30ff641cfa13fc211766060d3c8591b640545f5594000af)
                 check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
                 check_type(argname="argument policy_revision_id", value=policy_revision_id, expected_type=type_hints["policy_revision_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1296,15 +1296,15 @@ class CfnAppMonitorProps:
         self,
         *,
         name: builtins.str,
-        app_monitor_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_events: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-        deobfuscation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        app_monitor_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.AppMonitorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.CustomEventsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cw_log_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        deobfuscation_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.DeobfuscationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain: typing.Optional[builtins.str] = None,
         domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         platform: typing.Optional[builtins.str] = None,
-        resource_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAppMonitor.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAppMonitor``.
 
@@ -1391,7 +1391,7 @@ class CfnAppMonitorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5)
+            type_hints = cached_type_hints(_typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument app_monitor_configuration", value=app_monitor_configuration, expected_type=type_hints["app_monitor_configuration"])
             check_type(argname="argument custom_events", value=custom_events, expected_type=type_hints["custom_events"])
@@ -1439,7 +1439,7 @@ class CfnAppMonitorProps:
     @builtins.property
     def app_monitor_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.AppMonitorConfigurationProperty"]]:
         '''A structure that contains much of the configuration data for the app monitor.
 
         If you are using Amazon Cognito for authorization, you must include this structure in your request, and it must include the ID of the Amazon Cognito identity pool to use for authorization. If you don't include ``AppMonitorConfiguration`` , you must set up your own authorization method. For more information, see `Authorize your application to send data to AWS <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-get-started-authorization.html>`_ .
@@ -1449,12 +1449,12 @@ class CfnAppMonitorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-appmonitorconfiguration
         '''
         result = self._values.get("app_monitor_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.AppMonitorConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.AppMonitorConfigurationProperty"]], result)
 
     @builtins.property
     def custom_events(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.CustomEventsProperty"]]:
         '''Specifies whether this app monitor allows the web client to define and send custom events.
 
         If you omit this parameter, custom events are ``DISABLED`` .
@@ -1462,12 +1462,12 @@ class CfnAppMonitorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-customevents
         '''
         result = self._values.get("custom_events")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.CustomEventsProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.CustomEventsProperty"]], result)
 
     @builtins.property
     def cw_log_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Data collected by CloudWatch RUM is kept by RUM for 30 days and then deleted.
 
         This parameter specifies whether CloudWatch RUM sends a copy of this telemetry data to Amazon CloudWatch Logs in your account. This enables you to keep the telemetry data for more than 30 days, but it does incur Amazon CloudWatch Logs charges.
@@ -1477,18 +1477,18 @@ class CfnAppMonitorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-cwlogenabled
         '''
         result = self._values.get("cw_log_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def deobfuscation_configuration(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.DeobfuscationConfigurationProperty"]]:
         '''A structure that contains the configuration for how an app monitor can deobfuscate stack traces.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-deobfuscationconfiguration
         '''
         result = self._values.get("deobfuscation_configuration")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.DeobfuscationConfigurationProperty"]], result)
 
     @builtins.property
     def domain(self) -> typing.Optional[builtins.str]:
@@ -1523,7 +1523,7 @@ class CfnAppMonitorProps:
     @builtins.property
     def resource_policy(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.ResourcePolicyProperty"]]:
         '''Use this structure to assign a resource-based policy to a CloudWatch RUM app monitor to control access to it.
 
         Each app monitor can have one resource-based policy. The maximum size of the policy is 4 KB. To learn more about using resource policies with RUM, see `Using resource-based policies with CloudWatch RUM <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-RUM-resource-policies.html>`_ .
@@ -1531,10 +1531,10 @@ class CfnAppMonitorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-resourcepolicy
         '''
         result = self._values.get("resource_policy")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAppMonitor.ResourcePolicyProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAppMonitor.ResourcePolicyProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Assigns one or more tags (key-value pairs) to the app monitor.
 
         Tags can help you organize and categorize your resources. You can also use them to scope user permissions by granting a user permission to access or change only resources with certain tag values.
@@ -1548,7 +1548,7 @@ class CfnAppMonitorProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rum-appmonitor.html#cfn-rum-appmonitor-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1574,21 +1574,21 @@ def _typecheckingstub__be8f88e750c0e7122a036d486a439c075fc32835a9e8ecd39a432f9d8
     id: builtins.str,
     *,
     name: builtins.str,
-    app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_monitor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    deobfuscation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     platform: typing.Optional[builtins.str] = None,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e5ae31e63cb972dc25c0a6d05ce54a700b1cfa59fc5f90ebedd81bc703fbae36(
-    resource: _IAppMonitorRef_653b27a4,
+    resource: _aws_rum_f7bf6d89.IAppMonitorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1600,7 +1600,7 @@ def _typecheckingstub__cb6df632dcb333f52650990603571ea7d557b7fc901b79a7e09d270ae
     pass
 
 def _typecheckingstub__19b08fc28fc4d338e630fadc16f8db993d351d3af57d146ab61904a9b0379937(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1618,25 +1618,25 @@ def _typecheckingstub__28bed8e51b4cd861f00044e721965e61478696f88fa5cf4528fece9fa
     pass
 
 def _typecheckingstub__50034684ba972a040247926397a2abd22cbfe552025aa67e74c062216336d6da(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppMonitor.AppMonitorConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppMonitor.AppMonitorConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__65b3a1fb3e18d745fb1b2892e7cae08e9d46eaf221ccd474f3aaf390ec6e0074(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppMonitor.CustomEventsProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppMonitor.CustomEventsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cd674d3834ab7c9a15c2cc3b7dfc188fd561725f3c30ee84200f63547a955eef(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9f2d704d10058b4d7b134a686b042efc84971acf09b892129589706da314ce17(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppMonitor.DeobfuscationConfigurationProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppMonitor.DeobfuscationConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1660,27 +1660,27 @@ def _typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065
     pass
 
 def _typecheckingstub__02ad50a0bedc842a57f77840ff242508a77c0b4d3a7db3dabb035464285b86fa(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAppMonitor.ResourcePolicyProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAppMonitor.ResourcePolicyProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fd15333478ba004b01e5eeb19cecf4a73325add1db14df013fda84f63d3c4a4d(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__558c20264716cc4ca306c616447c47a3581a90f15b373bf7a8a13e10788732d8(
     *,
-    allow_cookies: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    enable_x_ray: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    allow_cookies: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_x_ray: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     excluded_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
     favorite_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
     guest_role_arn: typing.Optional[builtins.str] = None,
     identity_pool_id: typing.Optional[builtins.str] = None,
     included_pages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    metric_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.MetricDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.MetricDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     session_sample_rate: typing.Optional[jsii.Number] = None,
     telemetries: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -1696,7 +1696,7 @@ def _typecheckingstub__dbddfb5cea796155615c50462c2f74dceb1015bc37ceb1d56a4673eee
 
 def _typecheckingstub__fdf3e214c72bb6242e27105dcba552227c63b454a171ca355bccf1321a0906ad(
     *,
-    java_script_source_maps: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.JavaScriptSourceMapsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    java_script_source_maps: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.JavaScriptSourceMapsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1712,7 +1712,7 @@ def _typecheckingstub__78c04a50ef32713cea26d41602085c025ced86700aa160ec7d04d54d4
 def _typecheckingstub__001da0942488042bedaa7bac57ce421214804f088803aac4b0f5c16385fb5991(
     *,
     name: builtins.str,
-    dimension_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    dimension_keys: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     event_pattern: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     unit_label: typing.Optional[builtins.str] = None,
@@ -1726,7 +1726,7 @@ def _typecheckingstub__6bc8896836b392f4778e438dc2fd24dc53c06571d579092660fa95755
     destination: builtins.str,
     destination_arn: typing.Optional[builtins.str] = None,
     iam_role_arn: typing.Optional[builtins.str] = None,
-    metric_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.MetricDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_definitions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.MetricDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1742,15 +1742,15 @@ def _typecheckingstub__50574a83877817c5c30ff641cfa13fc211766060d3c8591b640545f55
 def _typecheckingstub__2caf0433822b63bd4f9fca8828d4497f8e2d6471cd21d40d16fd3657ddb662f5(
     *,
     name: builtins.str,
-    app_monitor_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_events: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    deobfuscation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_monitor_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.AppMonitorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.CustomEventsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cw_log_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    deobfuscation_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.DeobfuscationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain: typing.Optional[builtins.str] = None,
     domain_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     platform: typing.Optional[builtins.str] = None,
-    resource_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAppMonitor.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

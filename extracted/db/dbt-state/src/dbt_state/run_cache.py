@@ -8,6 +8,7 @@ import json
 import uuid
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from time import perf_counter
@@ -99,6 +100,12 @@ if t.TYPE_CHECKING:
 
 RequestId = str
 FailedToClone = bool
+
+# Semantic-extras keys used to fold a microbatch model run's whole resolved event-time
+# window into the model-level cache key, so the run's outcome is keyed to the window it
+# was computed for.
+MICROBATCH_EVENT_TIME_START_KEY = "__microbatch_event_time_start"
+MICROBATCH_EVENT_TIME_END_KEY = "__microbatch_event_time_end"
 
 
 # Additional model configs that impact data outcomes and should be included in hash calculations
@@ -331,7 +338,10 @@ class RunCache:
         )
 
     def on_execute(
-        self, node: t.Union[ModelOrSnapshotNode, SeedNode]
+        self,
+        node: t.Union[ModelOrSnapshotNode, SeedNode],
+        *,
+        microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
     ) -> RunResult | NoRunResult | None:
         """Invoked before executing a model node.
 
@@ -340,6 +350,9 @@ class RunCache:
 
         Args:
             node: The model node being executed.
+            microbatch_window: The resolved (start, end) event-time window for a microbatch
+                model's whole run, if any. Folded into the request's semantic extras so
+                the model-level cache key reflects the window being processed.
 
         Returns:
             One of the following:
@@ -356,7 +369,9 @@ class RunCache:
                 is_table(node) or (is_view(node) and self._adapter_ext.supports_view_last_modified)
             )
         ):
-            query_cache_response = self._submit_sql_request(node)
+            query_cache_response = self._submit_sql_request(
+                node, microbatch_window=microbatch_window
+            )
         else:
             return None
         return self._process_query_cache_response(node, query_cache_response)
@@ -589,7 +604,7 @@ class RunCache:
 
         self._publish_write_only_execution(bypass_response=bypass_response, outcome=outcome)
 
-    def _on_state_request_failed(self, node: ModelOrSnapshotOrTestOrSeedNode) -> None:
+    def on_state_request_failed(self, node: ModelOrSnapshotOrTestOrSeedNode) -> None:
         """Invalidates cached metadata for a node's target table after an execution whose
         state request failed or was never made.
 
@@ -943,6 +958,7 @@ class RunCache:
         node: ModelOrSnapshotOrTestNode,
         sql: t.Optional[str] = None,
         execution_type: t.Optional[shared_models.ModelExecutionType] = None,
+        microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
     ) -> t.Union[
         sql_service_models.ReadyToExecuteResponse,
         sql_service_models.SkipExecutionResponse,
@@ -953,7 +969,9 @@ class RunCache:
         request_id = uuid.uuid4().hex
         request_start_time = perf_counter()
         try:
-            request, timings = self._build_submit_enriched_sql_request(node, sql, execution_type)
+            request, timings = self._build_submit_enriched_sql_request(
+                node, sql, execution_type, microbatch_window=microbatch_window
+            )
             request_end_time = perf_counter()
             duration = request_end_time - request_start_time
 
@@ -1170,6 +1188,7 @@ class RunCache:
         node: ModelOrSnapshotOrTestNode,
         sql: t.Optional[str],
         execution_type: t.Optional[shared_models.ModelExecutionType],
+        microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
     ) -> t.Tuple[sql_service_models.SubmitEnrichedSQLRequest, EnrichmentTimings]:
         sql = sql or node.compiled_code or ""
 
@@ -1292,6 +1311,14 @@ class RunCache:
             for key in SEMANTIC_EXTRAS_CONFIG_KEYS
             if key in node_config
         }
+        if microbatch_window is not None:
+            # microbatch_window is only ever passed for microbatch models (see
+            # microbatch_execute_override), including under --full-refresh, so its
+            # presence already scopes this injection correctly without checking
+            # execution_type.
+            start, end = microbatch_window
+            semantic_extras[MICROBATCH_EVENT_TIME_START_KEY] = start.isoformat()
+            semantic_extras[MICROBATCH_EVENT_TIME_END_KEY] = end.isoformat()
         return sql_service_models.SubmitEnrichedSQLRequest(
             tables=table_infos,
             query_dependencies=query_dependencies,
@@ -1375,6 +1402,7 @@ class RunCache:
             node_contract_hash=node_contract_hash,
             profile_name=self._config.profile_name,
             project_id=self._run_cache_config.dbt_project_id,
+            node_fqn=".".join(node.fqn),
         )
 
     def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:
@@ -1834,7 +1862,7 @@ class _DataTestAdapterProxy:
                     # The CTAS executed without state tracking; invalidate the failures
                     # table's cached metadata so the follow-up count query reports its
                     # actual freshness instead of the pre-CTAS timestamp
-                    self._run_cache._on_state_request_failed(self._node)
+                    self._run_cache.on_state_request_failed(self._node)
                 return result
 
         except SqlglotError as e:

@@ -21,7 +21,7 @@ use crate::{
     DynamicReturnable,
 };
 
-use super::{get_returnable, get_string, LoadedMmapData, MMAP_DATA};
+use super::{get_returnable, get_string, MMAP_DATA};
 use crate::interned_values::interned_store::InternedStore;
 
 lazy_static! {
@@ -99,12 +99,9 @@ pub(super) fn initialize_explicit_parameters() {
 }
 
 fn mmap_explicit_parameters() -> &'static AHashMap<usize, ExplicitParameters> {
-    let LoadedMmapData::V2(data) = MMAP_DATA
+    let data = MMAP_DATA
         .get()
-        .expect("mmap data must be installed before explicit parameters are initialized")
-    else {
-        panic!("mmap v2 data must be installed before explicit parameters are initialized");
-    };
+        .expect("mmap data must be installed before explicit parameters are initialized");
 
     data.explicit_parameters.get_or_init(|| {
         let mut parameters = AHashMap::new();
@@ -269,5 +266,7 @@ fn materialize_spec(spec: &ArchivedMmapSpec) -> Spec {
                 .collect()
         }),
         use_new_layer_eval: spec.use_new_layer_eval.as_ref().copied(),
+        // session_update_mode does not affect evaluation and is only read from owned specs.
+        session_update_mode: None,
     }
 }

@@ -20,22 +20,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
@@ -73,7 +59,7 @@ class Alarms:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abf78afeb9ac8e8462332fca79fe9b5fffea8d7bfa2ff758f5d7a5e7602ad7f6)
+            type_hints = cached_type_hints(_typecheckingstub__abf78afeb9ac8e8462332fca79fe9b5fffea8d7bfa2ff758f5d7a5e7602ad7f6)
             check_type(argname="argument lower_alarm_interval_index", value=lower_alarm_interval_index, expected_type=type_hints["lower_alarm_interval_index"])
             check_type(argname="argument upper_alarm_interval_index", value=upper_alarm_interval_index, expected_type=type_hints["upper_alarm_interval_index"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -140,7 +126,7 @@ class ArbitraryIntervals:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57995ea3409b19529dee8383d66d29b069590c52cb741f0e8ae75b7bc40af361)
+            type_hints = cached_type_hints(_typecheckingstub__57995ea3409b19529dee8383d66d29b069590c52cb741f0e8ae75b7bc40af361)
             check_type(argname="argument absolute", value=absolute, expected_type=type_hints["absolute"])
             check_type(argname="argument intervals", value=intervals, expected_type=type_hints["intervals"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -207,7 +193,7 @@ class CompleteScalingInterval:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dcfdc3d9397619d127fb623a33ade65cb15bfd29863b7d524d449180f466014)
+            type_hints = cached_type_hints(_typecheckingstub__2dcfdc3d9397619d127fb623a33ade65cb15bfd29863b7d524d449180f466014)
             check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
             check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])
             check_type(argname="argument change", value=change, expected_type=type_hints["change"])
@@ -276,7 +262,7 @@ class _IRandomGeneratorProxy:
         :param max: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4f79c181fb4012fc3ec659257628da3b8d1a60516f0b95625926cb8a6b56f8b)
+            type_hints = cached_type_hints(_typecheckingstub__b4f79c181fb4012fc3ec659257628da3b8d1a60516f0b95625926cb8a6b56f8b)
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
         return typing.cast(jsii.Number, jsii.invoke(self, "nextInt", [min, max]))
@@ -321,7 +307,7 @@ class ScalingInterval:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1471419b50dcbf2a2d82cb0eaa8b1a900d152953019294ad8b7a326fdf03f2a)
+            type_hints = cached_type_hints(_typecheckingstub__d1471419b50dcbf2a2d82cb0eaa8b1a900d152953019294ad8b7a326fdf03f2a)
             check_type(argname="argument change", value=change, expected_type=type_hints["change"])
             check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
             check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])

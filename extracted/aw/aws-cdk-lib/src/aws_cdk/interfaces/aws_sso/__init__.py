@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class ApplicationAssignmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44b7073aa1727024938c13e56fb36c80a014de0a50acda93c269840c3360e87c)
+            type_hints = cached_type_hints(_typecheckingstub__44b7073aa1727024938c13e56fb36c80a014de0a50acda93c269840c3360e87c)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
             check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
             check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
@@ -139,7 +143,7 @@ class ApplicationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa77687bcbd6afb697dce243636932845b725aa99f21a8a1b8f51b9999449dfb)
+            type_hints = cached_type_hints(_typecheckingstub__aa77687bcbd6afb697dce243636932845b725aa99f21a8a1b8f51b9999449dfb)
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "application_arn": application_arn,
@@ -214,7 +218,7 @@ class AssignmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b28a75e042845fa476f01bebde42545ce8c82757c5882f6aaebeb3e9ec38fb3)
+            type_hints = cached_type_hints(_typecheckingstub__6b28a75e042845fa476f01bebde42545ce8c82757c5882f6aaebeb3e9ec38fb3)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
             check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
@@ -287,7 +291,7 @@ class AssignmentReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.IApplicationAssignmentRef")
 class IApplicationAssignmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationAssignment.
@@ -307,7 +311,7 @@ class IApplicationAssignmentRef(
 
 class _IApplicationAssignmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ApplicationAssignment.
 
@@ -332,7 +336,7 @@ typing.cast(typing.Any, IApplicationAssignmentRef).__jsii_proxy_class__ = lambda
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.IApplicationRef")
 class IApplicationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
@@ -352,7 +356,7 @@ class IApplicationRef(
 
 class _IApplicationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Application.
 
@@ -377,7 +381,7 @@ typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IAppli
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.IAssignmentRef")
 class IAssignmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Assignment.
@@ -397,7 +401,7 @@ class IAssignmentRef(
 
 class _IAssignmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Assignment.
 
@@ -424,7 +428,7 @@ typing.cast(typing.Any, IAssignmentRef).__jsii_proxy_class__ = lambda : _IAssign
 )
 class IInstanceAccessControlAttributeConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceAccessControlAttributeConfiguration.
@@ -446,7 +450,7 @@ class IInstanceAccessControlAttributeConfigurationRef(
 
 class _IInstanceAccessControlAttributeConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a InstanceAccessControlAttributeConfiguration.
 
@@ -473,7 +477,7 @@ typing.cast(typing.Any, IInstanceAccessControlAttributeConfigurationRef).__jsii_
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.IInstanceRef")
 class IInstanceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
@@ -493,7 +497,7 @@ class IInstanceRef(
 
 class _IInstanceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Instance.
 
@@ -518,7 +522,7 @@ typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstance
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sso.IPermissionSetRef")
 class IPermissionSetRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PermissionSet.
@@ -538,7 +542,7 @@ class IPermissionSetRef(
 
 class _IPermissionSetRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PermissionSet.
 
@@ -584,7 +588,7 @@ class InstanceAccessControlAttributeConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6276a1e0604c92b2ff083e91265b3dd5bec3d37ddcdbba0cf410a1cf862862c9)
+            type_hints = cached_type_hints(_typecheckingstub__6276a1e0604c92b2ff083e91265b3dd5bec3d37ddcdbba0cf410a1cf862862c9)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
@@ -633,7 +637,7 @@ class InstanceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e69c6f97dc3f6d758ffd2c375dd8069b113cfdb4694ded2a38f95ae317f7a280)
+            type_hints = cached_type_hints(_typecheckingstub__e69c6f97dc3f6d758ffd2c375dd8069b113cfdb4694ded2a38f95ae317f7a280)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
@@ -692,7 +696,7 @@ class PermissionSetReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca11e913da510f673bdbcee699e7a609b1b2640eaa35681158c848adc52274ff)
+            type_hints = cached_type_hints(_typecheckingstub__ca11e913da510f673bdbcee699e7a609b1b2640eaa35681158c848adc52274ff)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

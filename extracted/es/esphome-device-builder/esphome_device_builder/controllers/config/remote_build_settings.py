@@ -6,10 +6,14 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from ...helpers.async_ import run_in_executor
 from ...models import RemoteBuildSettings
 from .metadata import _load_metadata, metadata_transaction
+
+if TYPE_CHECKING:
+    from .settings import DashboardSettings
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,18 +84,38 @@ def load_remote_build_settings(config_dir: Path) -> RemoteBuildSettings:
     permissive default — see :func:`_settings_from_raw` for
     the corruption-path rationale.
 
-    HA-addon callers that need to suppress the auto-bind on a
-    fresh install should pair this with
-    :func:`has_remote_build_settings_persisted` and gate
-    accordingly — the load function returns the dataclass
-    semantically; the deployment-mode rule lives at the bind
-    site so the toggle's "operator opted in" signal isn't
-    lost.
+    This is the raw loader; deployment-mode-aware callers (the
+    bind site, the receiver's settings surface) go through
+    :func:`effective_remote_build_settings` so the HA-addon
+    default-off rule lives in one place.
+    """
+    return _settings_from_metadata(_load_metadata(config_dir))
+
+
+def effective_remote_build_settings(config_dir: Path, *, on_ha_addon: bool) -> RemoteBuildSettings:
+    """
+    Load receiver settings with the deployment-mode default applied.
+
+    On the HA addon a fresh install (no persisted ``_remote_build``
+    block) reads as ``enabled=False`` — binding the peer-link
+    listener there is operator opt-in via the Settings toggle —
+    while every other mode keeps the permissive ``enabled=True``
+    default. Keeps the settings surface and the bind site agreeing
+    on the same effective state.
     """
     metadata = _load_metadata(config_dir)
-    if _REMOTE_BUILD_KEY not in metadata:
-        return RemoteBuildSettings()
-    return _settings_from_raw(metadata[_REMOTE_BUILD_KEY])
+    if on_ha_addon and not _has_persisted_block(metadata):
+        return RemoteBuildSettings(enabled=False)
+    return _settings_from_metadata(metadata)
+
+
+async def load_effective_remote_build_settings(settings: DashboardSettings) -> RemoteBuildSettings:
+    """Read the effective receiver settings off *settings*' deployment mode, on the executor."""
+    return await run_in_executor(
+        lambda: effective_remote_build_settings(
+            settings.config_dir, on_ha_addon=settings.on_ha_addon
+        )
+    )
 
 
 def has_remote_build_settings_persisted(config_dir: Path) -> bool:
@@ -102,10 +126,9 @@ def has_remote_build_settings_persisted(config_dir: Path) -> bool:
     (returns ``False``) from "operator deliberately set a value,
     even if that value matches the dataclass default" (returns
     ``True``). The HA-addon default-off rule keys on this so a
-    fresh addon install doesn't bind port 6055 (the container
-    doesn't expose it anyway) but an operator who flips the
-    toggle in Settings still gets the receiver bound regardless
-    of deployment mode.
+    fresh addon install doesn't bind port 6055, but an operator
+    who flips the toggle in Settings still gets the receiver
+    bound regardless of deployment mode.
 
     The block must also have the expected on-disk shape (a
     dict). A malformed ``_remote_build`` value (list, scalar,
@@ -117,7 +140,19 @@ def has_remote_build_settings_persisted(config_dir: Path) -> bool:
     HA-addon gate consistent with the fail-safe shape in
     :func:`_settings_from_raw`.
     """
-    return isinstance(_load_metadata(config_dir).get(_REMOTE_BUILD_KEY), dict)
+    return _has_persisted_block(_load_metadata(config_dir))
+
+
+def _has_persisted_block(metadata: dict[str, Any]) -> bool:
+    """Return ``True`` when ``_remote_build`` was written with the ``set_settings`` shape."""
+    return isinstance(metadata.get(_REMOTE_BUILD_KEY), dict)
+
+
+def _settings_from_metadata(metadata: dict[str, Any]) -> RemoteBuildSettings:
+    """Decode the ``_remote_build`` block from loaded metadata, defaults when absent."""
+    if _REMOTE_BUILD_KEY not in metadata:
+        return RemoteBuildSettings()
+    return _settings_from_raw(metadata[_REMOTE_BUILD_KEY])
 
 
 def _merge_settings_into_block(data: dict[str, Any], settings: RemoteBuildSettings) -> None:

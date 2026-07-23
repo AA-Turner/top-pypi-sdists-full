@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class ConnectorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d1a32b1d6d1ca3be3682baaef3a32efd9fc453025e9878f238308110af1f133)
+            type_hints = cached_type_hints(_typecheckingstub__5d1a32b1d6d1ca3be3682baaef3a32efd9fc453025e9878f238308110af1f133)
             check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "connector_arn": connector_arn,
@@ -107,7 +111,7 @@ class DirectoryRegistrationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c7b6b44d401574eab989f0757e03f54c33723634d2ac1605a8205baf9b6e223)
+            type_hints = cached_type_hints(_typecheckingstub__8c7b6b44d401574eab989f0757e03f54c33723634d2ac1605a8205baf9b6e223)
             check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "directory_registration_arn": directory_registration_arn,
@@ -135,7 +139,7 @@ class DirectoryRegistrationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pcaconnectorad.IConnectorRef")
 class IConnectorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connector.
@@ -155,7 +159,7 @@ class IConnectorRef(
 
 class _IConnectorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Connector.
 
@@ -182,7 +186,7 @@ typing.cast(typing.Any, IConnectorRef).__jsii_proxy_class__ = lambda : _IConnect
 )
 class IDirectoryRegistrationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectoryRegistration.
@@ -202,7 +206,7 @@ class IDirectoryRegistrationRef(
 
 class _IDirectoryRegistrationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a DirectoryRegistration.
 
@@ -229,7 +233,7 @@ typing.cast(typing.Any, IDirectoryRegistrationRef).__jsii_proxy_class__ = lambda
 )
 class IServicePrincipalNameRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServicePrincipalName.
@@ -249,7 +253,7 @@ class IServicePrincipalNameRef(
 
 class _IServicePrincipalNameRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServicePrincipalName.
 
@@ -276,7 +280,7 @@ typing.cast(typing.Any, IServicePrincipalNameRef).__jsii_proxy_class__ = lambda 
 )
 class ITemplateGroupAccessControlEntryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a TemplateGroupAccessControlEntry.
@@ -298,7 +302,7 @@ class ITemplateGroupAccessControlEntryRef(
 
 class _ITemplateGroupAccessControlEntryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a TemplateGroupAccessControlEntry.
 
@@ -325,7 +329,7 @@ typing.cast(typing.Any, ITemplateGroupAccessControlEntryRef).__jsii_proxy_class_
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_pcaconnectorad.ITemplateRef")
 class ITemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
@@ -345,7 +349,7 @@ class ITemplateRef(
 
 class _ITemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Template.
 
@@ -401,7 +405,7 @@ class ServicePrincipalNameReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b75796014a5cba8be51c59129fbfd1def406f346b9f1c49e9376788ecea9dfd)
+            type_hints = cached_type_hints(_typecheckingstub__2b75796014a5cba8be51c59129fbfd1def406f346b9f1c49e9376788ecea9dfd)
             check_type(argname="argument connector_arn", value=connector_arn, expected_type=type_hints["connector_arn"])
             check_type(argname="argument directory_registration_arn", value=directory_registration_arn, expected_type=type_hints["directory_registration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -469,7 +473,7 @@ class TemplateGroupAccessControlEntryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ead2c8d1dea7b8b359918535d23163e7659b4869b50adcb24b1650b4604ee69)
+            type_hints = cached_type_hints(_typecheckingstub__4ead2c8d1dea7b8b359918535d23163e7659b4869b50adcb24b1650b4604ee69)
             check_type(argname="argument group_security_identifier", value=group_security_identifier, expected_type=type_hints["group_security_identifier"])
             check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -527,7 +531,7 @@ class TemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6e1f7be54389e3096835c0181c73c4e969a1a521a907c6689ea0427c0971c67)
+            type_hints = cached_type_hints(_typecheckingstub__e6e1f7be54389e3096835c0181c73c4e969a1a521a907c6689ea0427c0971c67)
             check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "template_arn": template_arn,

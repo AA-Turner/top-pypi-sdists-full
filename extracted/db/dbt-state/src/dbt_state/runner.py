@@ -5,10 +5,11 @@ import typing as t
 import threading
 
 from dataclasses import replace
+from datetime import datetime
 
 from dbt.adapters.factory import get_adapter
 from dbt.config.runtime import RuntimeConfig
-from dbt.contracts.results import RunResult
+from dbt.contracts.results import RunResult, RunStatus
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
@@ -37,6 +38,12 @@ except ImportError:
     # dbt 1.7
     from dbt.exceptions import DbtRuntimeError
 
+try:
+    from dbt.task.run import MicrobatchBatchRunner
+except ImportError:
+    # dbt < 1.9 has no microbatch batch runner
+    MicrobatchBatchRunner = None  # type: ignore[assignment,misc]
+
 from dbt_state import events
 from dbt_state.adapters import ADAPTER_EXTENSION_MAPPING
 from dbt_state.auth import sso_auth
@@ -63,7 +70,7 @@ if t.TYPE_CHECKING:
     from dbt.adapters.sql import SQLAdapter
     from dbt.contracts.graph.nodes import ManifestNode
     from dbt.task.compile import CompileRunner
-    from dbt.task.run import ModelRunner
+    from dbt.task.run import MicrobatchModelRunner, ModelRunner
     from dbt.task.runnable import GraphRunnableTask
     from dbt.task.test import TestRunner
 
@@ -74,6 +81,9 @@ class RunnerOverride:
     def __init__(
         self,
         original_execute: t.Callable[[ModelRunner, ModelOrSnapshotNode, Manifest], RunResult],
+        original_microbatch_execute: t.Optional[
+            t.Callable[[MicrobatchModelRunner, ModelNode, Manifest], RunResult]
+        ],
         original_generate_runtime_model_context: t.Callable[
             [ManifestNode, RuntimeConfig, Manifest], t.Dict[str, t.Any]
         ],
@@ -81,6 +91,7 @@ class RunnerOverride:
         query_cache_client: QueryCacheGrpcClient | None = None,
     ) -> None:
         self._original_execute = original_execute
+        self._original_microbatch_execute = original_microbatch_execute
         self._original_generate_runtime_model_context = original_generate_runtime_model_context
         self._query_cache_client = query_cache_client
         self._run_cache: RunCache | None = None
@@ -132,32 +143,141 @@ class RunnerOverride:
     def execute_override(
         self, runner: ModelRunner, node: ModelOrSnapshotNode, manifest: Manifest
     ) -> RunResult:
+        # Microbatch batch runners inherit ModelRunner.execute but are orchestrated by
+        # microbatch_execute_override, which makes a single per-model cache decision.
+        # Individual batches must never make their own cache calls, so bypass straight
+        # to the original execute.
+        if MicrobatchBatchRunner is not None and isinstance(runner, MicrobatchBatchRunner):
+            return self._original_execute(runner, node, manifest)
+
+        return self._execute_with_cache(
+            runner,
+            node,
+            manifest,
+            original=self._original_execute,
+            submit=lambda run_cache: run_cache.on_execute(node),
+            should_confirm=lambda result: True,
+        )
+
+    def microbatch_execute_override(
+        self, runner: MicrobatchModelRunner, node: ModelNode, manifest: Manifest
+    ) -> RunResult:
+        """Makes a single per-model cache decision for a microbatch model.
+
+        Microbatch models are orchestrated batch-by-batch by dbt, but every batch
+        writes into the same target table and shares the model-level query hash. A
+        per-batch cache decision is therefore unsound. This override consults the
+        cache once for the whole model (with the event-time window folded into the
+        request), and honors whatever the backend returns: a skip/clone result is
+        returned directly (no batches run), otherwise it delegates to the original
+        orchestrator, which runs the batches through the (bypassed) per-batch runner.
+
+        Args:
+            runner: The microbatch model runner (orchestrator).
+            node: The model node being executed.
+            manifest: The dbt manifest.
+
+        Returns:
+            The RunResult for the model: the cache skip/clone result, or the result
+            of running the batches.
+        """
+        if self._original_microbatch_execute is None:
+            raise RuntimeError(
+                "microbatch_execute_override was installed without a captured "
+                "MicrobatchModelRunner.execute; this indicates a plugin wiring bug."
+            )
+
+        if getattr(node, "previous_batch_results", None) is not None:
+            # dbt retry sets previous_batch_results and reruns only the failed
+            # batches. A whole-model cache skip would wrongly abort the retry, so
+            # bypass the per-model cache decision entirely and let dbt orchestrate
+            # the (partial) batch set normally.
+            return self._original_microbatch_execute(runner, node, manifest)
+
+        window = self._resolve_microbatch_window(runner, node)
+        if window is None:
+            # Fail open: without a resolvable window we cannot form a stable
+            # per-model cache key, so let dbt orchestrate the batches normally.
+            events.fire_warn_event_with_cache_bypass(
+                "execute: could not resolve microbatch window for node {}; bypassing dbt State",
+                node.unique_id,
+            )
+            return self._original_microbatch_execute(runner, node, manifest)
+
+        def submit(run_cache: RunCache) -> t.Union[RunResult, NoRunResult, None]:
+            # Compile the model body without batch context so on_execute hashes a
+            # stable, window-independent query. A compile failure surfaces here and
+            # is handled by the shared fail-open path.
+            self._ensure_microbatch_model_compiled(runner, node, manifest)
+            return run_cache.on_execute(node, microbatch_window=window)
+
+        return self._execute_with_cache(
+            runner,
+            node,
+            manifest,
+            original=self._original_microbatch_execute,
+            submit=submit,
+            # Only confirm a fully-successful run: a PartialSuccess/Error status means
+            # some batches failed, and confirming would wrongly record the whole
+            # window as a clean execution.
+            should_confirm=lambda result: result.status == RunStatus.Success,
+        )
+
+    def _execute_with_cache(
+        self,
+        runner: ModelRunner,
+        node: ModelOrSnapshotNode,
+        manifest: Manifest,
+        *,
+        original: t.Callable[..., RunResult],
+        submit: t.Callable[[RunCache], t.Union[RunResult, NoRunResult, None]],
+        should_confirm: t.Callable[[RunResult], bool],
+    ) -> RunResult:
+        """Shared model-execution flow around the run cache.
+
+        Consults the cache via ``submit``; if that yields a ready RunResult (a
+        cache skip/clone) it is returned directly. Otherwise ``original`` runs the
+        node, the outcome is recorded, and the execution is confirmed when
+        ``should_confirm(result)`` holds. Fails open on any cache error (runs
+        ``original`` and marks the state request failed), and always flushes the
+        decision logger for the node.
+
+        Args:
+            runner: The dbt runner executing the node.
+            node: The model/snapshot node being executed.
+            manifest: The dbt manifest.
+            original: The un-overridden execute to run the node normally.
+            submit: Consults the cache (e.g. ``run_cache.on_execute(node)``) and
+                returns its response.
+            should_confirm: Given the execution result, whether to confirm the
+                execution with the cache.
+        """
         try:
             run_cache = self._run_cache_get_or_create(runner.config, runner.adapter, manifest)
             if run_cache is None:
-                return self._original_execute(runner, node, manifest)
+                return original(runner, node, manifest)
 
             try:
-                on_execute_result = run_cache.on_execute(node)
+                on_execute_result = submit(run_cache)
             except Exception as e:
                 events.fire_warn_event_with_cache_bypass(
                     "execute: dbt State failed for node {}:\n{}",
                     node.unique_id,
                     str(e),
                 )
-                result = self._original_execute(runner, node, manifest)
-                run_cache._on_state_request_failed(node)
+                result = original(runner, node, manifest)
+                run_cache.on_state_request_failed(node)
                 return result
 
             if isinstance(on_execute_result, RunResult):
                 return on_execute_result
 
             execute_start_ts = time.perf_counter()
-            result = self._original_execute(runner, node, manifest)
+            result = original(runner, node, manifest)
 
             run_cache.on_run_result(node, result)
 
-            if isinstance(on_execute_result, NoRunResult):
+            if isinstance(on_execute_result, NoRunResult) and should_confirm(result):
                 try:
                     elapsed_ms = int((time.perf_counter() - execute_start_ts) * 1000)
                     run_cache.confirm_execution(
@@ -173,10 +293,26 @@ class RunnerOverride:
                         str(e),
                     )
             else:
-                run_cache._on_state_request_failed(node)
+                run_cache.on_state_request_failed(node)
             return result
         finally:
             self.flush_logger(node.name)
+
+    def _ensure_microbatch_model_compiled(
+        self, runner: MicrobatchModelRunner, node: ModelNode, manifest: Manifest
+    ) -> None:
+        """Populates node.compiled_code with the model body compiled without any
+        batch/event-time context, so the model-level query hash is stable across
+        windows. No-op if the node already carries a compiled body.
+
+        The helper must not set node.batch or the __dbt_internal_microbatch_event_time_*
+        config keys, otherwise the compiled body would carry a batch-specific event-time
+        filter and the cache key would differ per batch.
+        """
+        if getattr(node, "compiled_code", None):
+            return
+        compiler = runner.compiler if hasattr(runner, "compiler") else runner.adapter.get_compiler()
+        compiler.compile_node(node, manifest, {})
 
     def compile_override(self, runner: CompileRunner, manifest: Manifest) -> t.Any:
         run_cache = self._run_cache_get_or_create(runner.config, runner.adapter, manifest)
@@ -409,6 +545,36 @@ class RunnerOverride:
 
     def _favor_state(self, config: RuntimeConfig) -> bool:
         return getattr(config.args, "favor_state", False)
+
+    def _resolve_microbatch_window(
+        self, runner: MicrobatchModelRunner, node: ModelNode
+    ) -> t.Optional[t.Tuple[datetime, datetime]]:
+        """Resolves the effective event-time window for a whole microbatch model run.
+
+        This is the run-level window dbt uses to compute the batch set (from
+        --event-time-start/end or begin/lookback/now); it is folded into the
+        per-model cache key, not keyed per batch.
+
+        Args:
+            runner: The microbatch model runner (orchestrator).
+            node: The model node being executed.
+
+        Returns:
+            A (start, end) tuple for the run's event-time window, or None if it
+            could not be resolved.
+        """
+        try:
+            builder = runner.get_microbatch_builder(node)
+            end = builder.build_end_time()
+            start = builder.build_start_time(end)
+            return start, end
+        except Exception as e:
+            events.fire_debug_event(
+                "Failed to resolve microbatch window for node {}: {}",
+                node.unique_id,
+                str(e),
+            )
+            return None
 
     def _savings_summary_message(self) -> t.Optional[str]:
         if self._run_cache and self._run_cache.total_cache_hits:

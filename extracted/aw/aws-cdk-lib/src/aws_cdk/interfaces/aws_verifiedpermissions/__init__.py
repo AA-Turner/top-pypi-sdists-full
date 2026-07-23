@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(
@@ -39,7 +43,7 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 )
 class IIdentitySourceRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentitySource.
@@ -59,7 +63,7 @@ class IIdentitySourceRef(
 
 class _IIdentitySourceRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentitySource.
 
@@ -84,7 +88,7 @@ typing.cast(typing.Any, IIdentitySourceRef).__jsii_proxy_class__ = lambda : _IId
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_verifiedpermissions.IPolicyRef")
 class IPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
@@ -104,7 +108,7 @@ class IPolicyRef(
 
 class _IPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Policy.
 
@@ -131,7 +135,7 @@ typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefP
 )
 class IPolicyStoreAliasRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyStoreAlias.
@@ -151,7 +155,7 @@ class IPolicyStoreAliasRef(
 
 class _IPolicyStoreAliasRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyStoreAlias.
 
@@ -178,7 +182,7 @@ typing.cast(typing.Any, IPolicyStoreAliasRef).__jsii_proxy_class__ = lambda : _I
 )
 class IPolicyStoreRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyStore.
@@ -198,7 +202,7 @@ class IPolicyStoreRef(
 
 class _IPolicyStoreRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyStore.
 
@@ -225,7 +229,7 @@ typing.cast(typing.Any, IPolicyStoreRef).__jsii_proxy_class__ = lambda : _IPolic
 )
 class IPolicyTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyTemplate.
@@ -245,7 +249,7 @@ class IPolicyTemplateRef(
 
 class _IPolicyTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PolicyTemplate.
 
@@ -301,7 +305,7 @@ class IdentitySourceReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a6a67a3160dab101c31f8f18416473cfed8992943cb03475cec2e7087f8a3c7a)
+            type_hints = cached_type_hints(_typecheckingstub__a6a67a3160dab101c31f8f18416473cfed8992943cb03475cec2e7087f8a3c7a)
             check_type(argname="argument identity_source_id", value=identity_source_id, expected_type=type_hints["identity_source_id"])
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -366,7 +370,7 @@ class PolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd88b46fd9f517ec78a02f82d07146189c4b425becf99cd859c0f39ca4cbd6b5)
+            type_hints = cached_type_hints(_typecheckingstub__dd88b46fd9f517ec78a02f82d07146189c4b425becf99cd859c0f39ca4cbd6b5)
             check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -424,7 +428,7 @@ class PolicyStoreAliasReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74325e60cab5c87135f67433bc07cf33ffdd4d4a112c90537e211c5545af028e)
+            type_hints = cached_type_hints(_typecheckingstub__74325e60cab5c87135f67433bc07cf33ffdd4d4a112c90537e211c5545af028e)
             check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alias_name": alias_name,
@@ -483,7 +487,7 @@ class PolicyStoreReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0ab09d050895f8245a50aa20d70e6b1e44a4969307ed3206e87ef0e591e7142)
+            type_hints = cached_type_hints(_typecheckingstub__b0ab09d050895f8245a50aa20d70e6b1e44a4969307ed3206e87ef0e591e7142)
             check_type(argname="argument policy_store_arn", value=policy_store_arn, expected_type=type_hints["policy_store_arn"])
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -551,7 +555,7 @@ class PolicyTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d203176b01786ac1ce3e258885a0ac0d5e52f4964f225414a30b2099fe0e1797)
+            type_hints = cached_type_hints(_typecheckingstub__d203176b01786ac1ce3e258885a0ac0d5e52f4964f225414a30b2099fe0e1797)
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
             check_type(argname="argument policy_template_id", value=policy_template_id, expected_type=type_hints["policy_template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {

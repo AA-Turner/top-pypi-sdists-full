@@ -78,6 +78,9 @@ class MotherDuckDiagnosticsPageState(OpsPageState):
     query_detail_hash: str = ""
     query_detail_type: str = ""
     query_detail_subtype: str = ""
+    # Owning Sonar source (database + parsed source UUID) for the selected query.
+    query_detail_database_display: str = ""
+    query_detail_source_id_display: str = ""
     query_detail_user: str = ""
     query_detail_start: str = ""
     # The detail modal shows all three timings; the table shows only elapsed+wait.

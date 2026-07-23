@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -65,7 +69,7 @@ class DictionaryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__267126a85f62e9b4cd704d1a0c71b66b7253ae25af05662dcec780cade69a9c1)
+            type_hints = cached_type_hints(_typecheckingstub__267126a85f62e9b4cd704d1a0c71b66b7253ae25af05662dcec780cade69a9c1)
             check_type(argname="argument dictionary_arn", value=dictionary_arn, expected_type=type_hints["dictionary_arn"])
             check_type(argname="argument dictionary_id", value=dictionary_id, expected_type=type_hints["dictionary_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -125,7 +129,7 @@ class FeedReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dce19c0c5001c89e98590ada4569f19f0ff03b61eaa9b881f707c8de291d35ee)
+            type_hints = cached_type_hints(_typecheckingstub__dce19c0c5001c89e98590ada4569f19f0ff03b61eaa9b881f707c8de291d35ee)
             check_type(argname="argument feed_arn", value=feed_arn, expected_type=type_hints["feed_arn"])
             check_type(argname="argument feed_id", value=feed_id, expected_type=type_hints["feed_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -164,7 +168,7 @@ class FeedReference:
 )
 class IDictionaryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dictionary.
@@ -184,7 +188,7 @@ class IDictionaryRef(
 
 class _IDictionaryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Dictionary.
 
@@ -209,7 +213,7 @@ typing.cast(typing.Any, IDictionaryRef).__jsii_proxy_class__ = lambda : _IDictio
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_elementalinference.IFeedRef")
 class IFeedRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Feed.
@@ -229,7 +233,7 @@ class IFeedRef(
 
 class _IFeedRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Feed.
 

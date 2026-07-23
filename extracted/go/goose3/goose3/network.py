@@ -27,7 +27,7 @@ class NetworkError(RuntimeError):
     def __init__(self, status_code, reason):
         self.reason = reason
         self.status_code = status_code
-        self.message = f"NetworkError: status code: {reason}; reason: {status_code}"
+        self.message = f"NetworkError: status code: {status_code}; reason: {reason}"
         super().__init__(self.message)
 
 

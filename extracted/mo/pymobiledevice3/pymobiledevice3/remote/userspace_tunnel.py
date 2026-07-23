@@ -39,7 +39,7 @@ import socket
 import struct
 import sys
 from contextlib import AsyncExitStack, suppress
-from typing import Optional
+from typing import Optional, Protocol, cast
 
 from pmd_net_addr import Ip6Address, Ip6IfAddr, MacAddress
 from pmd_pytcp import stack
@@ -49,7 +49,7 @@ from pmd_pytcp.socket import AF_INET6, SHUT_RDWR, SHUT_WR, SOCK_DGRAM, SOCK_STRE
 from pmd_pytcp.socket import socket as pytcp_socket
 
 import pymobiledevice3.remote.tunnel_service as tunnel_service
-from pymobiledevice3.exceptions import InvalidServiceError, PyMobileDevice3Exception
+from pymobiledevice3.exceptions import InvalidServiceError, PyMobileDevice3Exception, UserspaceTunnelUnavailableError
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -118,7 +118,10 @@ def throughput_sysctls() -> dict[str, int]:
 
     These ride pmd-pytcp's public sysctls: ``tcp.rcv_wnd_max`` raises the advertised receive
     window for fast downloads; ``tcp.delayed_ack.delay_ms`` drops the delayed-ACK timer so
-    interactive request/response services are not stalled by it (:data:`ACK_DELAY_MS`).
+    interactive request/response services are not stalled by it (:data:`ACK_DELAY_MS`);
+    ``net.default.rx_cksum_validate`` turns off the software RX checksum pass (the tunnel is
+    AEAD-authenticated, so the RFC 1071 checksum only re-verifies bytes that cannot have been
+    corrupted) — measured ~+35% bulk-download throughput on an iOS 17+ DSC fetch.
 
     Host->device segment sizing is dynamic: RFC 4821/8899 PLPMTUD (``tcp.mtu_probing`` = 2)
     starts every connection at the proven-safe 1340-byte send MSS (``tcp.base_mss`` =
@@ -136,6 +139,10 @@ def throughput_sysctls() -> dict[str, int]:
         "tcp.default.mtu_probing": 2,
         "tcp.default.base_mss": BASE_MSS_SEED,
         "tcp.plpmtud.default.probe_timer_ms": PROBE_TIMER_MS,
+        # Software RX-checksum offload: every packet reaching the stack came through the
+        # AEAD-authenticated tunnel and an in-memory socketpair, so the RFC 1071 checksum
+        # verifies RAM. TX checksums stay on (the device kernel verifies them).
+        "net.default.rx_cksum_validate": False,
     }
 
 
@@ -147,6 +154,31 @@ _CHUNK = 65536
 
 #: pmd3's per-OS tun loopback header (macOS: b"\x00\x00\x00\x1e" = AF_INET6).
 LOOPBACK_HEADER = get_os_utils().loopback_header
+
+
+class _AsyncPytcpSocket(Protocol):
+    """The async surface pmd-pytcp stack sockets actually expose at runtime.
+
+    pmd-pytcp's public ``socket`` class types ``connect``/``send``/``recv``/``sendto`` as
+    synchronous placeholders (they raise ``NotImplementedError`` on the base and are overridden as
+    coroutines on the concrete stack sockets), so the awaited calls in this module type-check
+    against this protocol rather than the base class."""
+
+    async def connect(self, address: tuple[str, int]) -> None: ...
+
+    async def send(self, data: bytes) -> int: ...
+
+    async def recv(self, bufsize: int = ...) -> bytes: ...
+
+    async def sendto(self, data: bytes, address: tuple[str, int]) -> None: ...
+
+    def bind(self, address: tuple[str, int]) -> None: ...
+
+    def getsockname(self) -> tuple: ...
+
+    def shutdown(self, how: int) -> None: ...
+
+    def close(self) -> None: ...
 
 
 def _mac_to_bytes(mac: str) -> bytes:
@@ -241,7 +273,7 @@ class UserspaceTun:
             ip6_gua_autoconfig=False,
             ip4_support=False,
         )
-        await stack.start()
+        await stack.start()  # pyright: ignore[reportGeneralTypeIssues]  # pmd-pytcp types start() as sync; it is a coroutine at runtime
         # The interface address is installed by the stack's own tasks shortly AFTER start()
         # returns; until it lands, source-address selection finds no local host and a stack
         # connect fails with gaierror. Today the dial plane's localhost-relay hop happens to
@@ -259,6 +291,7 @@ class UserspaceTun:
 
     def set_peer(self, device_addr: str) -> None:
         """Install a static neighbor for the device (point-to-point; skips ND)."""
+        assert self._ifidx is not None
         stack.neighbor.interface(self._ifidx).add(ip=Ip6Address(device_addr), mac=MacAddress(_PEER_MAC))
 
     def write(self, data: bytes) -> None:
@@ -298,9 +331,9 @@ class UserspaceTun:
             except (BlockingIOError, InterruptedError):
                 return packets
 
-    async def connect_tcp(self, addr: str, port: int):
+    async def connect_tcp(self, addr: str, port: int) -> _AsyncPytcpSocket:
         """Open a PyTCP TCP socket connected to (addr, port) over this stack."""
-        s = pytcp_socket(AF_INET6, SOCK_STREAM)
+        s = cast(_AsyncPytcpSocket, pytcp_socket(AF_INET6, SOCK_STREAM))
         await s.connect((addr, port))
         return s
 
@@ -312,7 +345,7 @@ class UserspaceTun:
         # removed, worker tasks cancelled and awaited), then release the socketpair. No
         # thread-wakeup gymnastics remain — the pure-asyncio stack has nothing parked off-loop.
         try:
-            await stack.stop()
+            await stack.stop()  # pyright: ignore[reportGeneralTypeIssues]  # pmd-pytcp types stop() as sync; it is a coroutine at runtime
             stack._pmd3_inited = False  # type: ignore[attr-defined]
         except Exception:
             logger.debug("error stopping pytcp stack", exc_info=True)
@@ -430,6 +463,7 @@ class UserspaceDialPlane:
             # Track the handler task so __aexit__ can cancel any relay still in flight
             # (start_server's own task bookkeeping offers no cross-version cancel API).
             task = asyncio.current_task()
+            assert task is not None
             self._relay_tasks.add(task)
             try:
                 await self._relay_handler(port, creader, cwriter)
@@ -449,6 +483,7 @@ class UserspaceDialPlane:
         Connections to the device's tunnel address are relayed through the userspace stack;
         everything else falls through to the stdlib ``asyncio.open_connection`` unchanged."""
         if host is not None and str(host) == self._device_addr:
+            assert port is not None
             lport = await self._ensure_relay(port)
             return await asyncio.open_connection("127.0.0.1", lport, **kwargs)
         return await asyncio.open_connection(host, port, **kwargs)
@@ -490,7 +525,7 @@ class UserspaceUdp:
         addr = userspace_stack_addr()
         if addr is None:
             raise PyMobileDevice3Exception("userspace tunnel is not active")
-        self._sock = pytcp_socket(AF_INET6, SOCK_DGRAM)
+        self._sock = cast(_AsyncPytcpSocket, pytcp_socket(AF_INET6, SOCK_DGRAM))
         self._sock.bind((addr, 0))
         bound = self._sock.getsockname()
         self._local_ip, self._port = bound[0], bound[1]
@@ -514,7 +549,7 @@ class UserspaceUdp:
             self._sock.close()
 
 
-async def _create_no_root_tunnel_provider(serial: Optional[str], autopair: bool):
+async def _create_no_root_tunnel_provider(serial: Optional[str], autopair: bool, remotepairing_fallback: bool = True):
     """Pick a tunnel provider that needs no root, mirroring ``remote start-tunnel``'s family:
 
     * iOS 17.4+ over USB: :class:`~pymobiledevice3.remote.tunnel_service.CoreDeviceTunnelProxy`
@@ -526,21 +561,32 @@ async def _create_no_root_tunnel_provider(serial: Optional[str], autopair: bool)
     suspends remoted via :func:`stop_remoted`, which needs root on macOS — defeating the no-root
     purpose. Returns ``(provider, lockdown_or_None)``; the lockdown is kept alive for the
     CoreDeviceProxy provider and is ``None`` for the RemotePairing one.
+
+    ``remotepairing_fallback`` controls the pre-17.4 path: when ``True`` (default) a device with no
+    CoreDeviceProxy service falls back to RemotePairing over bonjour; when ``False`` it raises
+    :class:`UserspaceTunnelUnavailableError` immediately (used when the caller prefers to route such
+    devices elsewhere, e.g. a kernel tunnel). Either way, a device that cannot be served no-root
+    raises :class:`UserspaceTunnelUnavailableError`.
     """
     lockdown = await create_using_usbmux(serial=serial, autopair=autopair)
     try:
         return await tunnel_service.CoreDeviceTunnelProxy.create(lockdown), lockdown
     except InvalidServiceError:
-        # iOS < 17.4 has no CoreDeviceProxy lockdown service; fall back to the no-root WiFi path.
-        logger.info("CoreDeviceProxy unavailable (iOS < 17.4); falling back to RemotePairing over bonjour")
+        # iOS < 17.4 has no CoreDeviceProxy lockdown service.
         await lockdown.close()
+        if not remotepairing_fallback:
+            raise UserspaceTunnelUnavailableError(
+                "no-root userspace tunnel unavailable: the device has no CoreDeviceProxy service "
+                "(needs iOS 17.4+) and the RemotePairing fallback was disabled."
+            ) from None
+        logger.info("CoreDeviceProxy unavailable (iOS < 17.4); falling back to RemotePairing over bonjour")
     except BaseException:
         await lockdown.close()
         raise
 
     services = await tunnel_service.get_remote_pairing_tunnel_services(udid=serial)
     if not services:
-        raise PyMobileDevice3Exception(
+        raise UserspaceTunnelUnavailableError(
             "no-root userspace tunnel unavailable: the device exposes no CoreDeviceProxy lockdown "
             "service (needs iOS 17.4+) and no RemotePairing service was found over bonjour. Enable "
             "Wi-Fi for the device and host on the same network, or run a privileged kernel tunnel via "
@@ -592,9 +638,12 @@ class UserspaceRsdTunnel:
     iOS 17.4+, falling back to RemotePairing over bonjour on iOS 17.0-17.3 / Wi-Fi.
     """
 
-    def __init__(self, serial: Optional[str] = None, autopair: bool = True) -> None:
+    def __init__(
+        self, serial: Optional[str] = None, autopair: bool = True, remotepairing_fallback: bool = True
+    ) -> None:
         self.serial = serial
         self.autopair = autopair
+        self.remotepairing_fallback = remotepairing_fallback
         self.rsd: Optional[RemoteServiceDiscoveryService] = None
         self.tun: Optional[UserspaceTun] = None
         self._exit_stack: Optional[AsyncExitStack] = None
@@ -619,12 +668,16 @@ class UserspaceRsdTunnel:
         # order; a failure mid-setup unwinds whatever was already acquired.
         stack = AsyncExitStack()
         try:
-            provider, lockdown = await _create_no_root_tunnel_provider(self.serial, self.autopair)
+            provider, lockdown = await _create_no_root_tunnel_provider(
+                self.serial, self.autopair, self.remotepairing_fallback
+            )
             stack.push_async_callback(provider.close)
             if lockdown is not None:
                 stack.push_async_callback(lockdown.close)
             tunnel_result = await stack.enter_async_context(provider.start_tcp_tunnel())
-            self.tun = tunnel_result.client.tun
+            # In the userspace path create_tun_device() always builds a UserspaceTun (the factory
+            # flag is set above), so the loosely-typed client.tun is narrowed here.
+            self.tun = cast(UserspaceTun, tunnel_result.client.tun)
             self.tun.set_peer(tunnel_result.address)
             dial_plane = await stack.enter_async_context(UserspaceDialPlane(self.tun, tunnel_result.address))
             # Inject the relay dialer into THIS rsd only (no global asyncio.open_connection patch),
@@ -681,16 +734,22 @@ class UserspaceRsdTunnel:
 _cli_tunnel: Optional[UserspaceRsdTunnel] = None
 
 
-async def establish_userspace_rsd(serial: Optional[str] = None, autopair: bool = True) -> RemoteServiceDiscoveryService:
+async def establish_userspace_rsd(
+    serial: Optional[str] = None, autopair: bool = True, remotepairing_fallback: bool = True
+) -> RemoteServiceDiscoveryService:
     """CLI convenience: establish a userspace tunnel, keep it alive, and return its connected RSD.
 
     Embedders should use :class:`UserspaceRsdTunnel` directly — it is a closeable handle / async
     context manager. This wrapper exists for the CLI, which has no teardown hook: it stashes the
     tunnel for the process lifetime and registers :func:`force_exit` at exit so the CLI exits
     promptly without awaiting teardown.
+
+    ``remotepairing_fallback=False`` makes a pre-17.4 device (no CoreDeviceProxy) raise
+    :class:`UserspaceTunnelUnavailableError` instead of attempting RemotePairing, so the caller can
+    route such devices elsewhere (the CLI uses this to fall back to ``tunneld``).
     """
     global _cli_tunnel
-    tunnel = UserspaceRsdTunnel(serial=serial, autopair=autopair)
+    tunnel = UserspaceRsdTunnel(serial=serial, autopair=autopair, remotepairing_fallback=remotepairing_fallback)
     rsd = await tunnel.aopen()
     _cli_tunnel = tunnel
     # The pure-asyncio stack has no threads to park, so process exit cannot hang anymore. The

@@ -52,7 +52,21 @@ class IntegrationsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
-        application: Literal["GITHUB", "GOOGLE_WORKSPACE", "MICROSOFT_INTERNAL", "SALESFORCE", "SLACK"],
+        application: Literal[
+            "ANTHROPIC",
+            "BITBUCKET",
+            "BOX",
+            "CONFLUENCE",
+            "DROPBOX",
+            "GITHUB",
+            "GOOGLE_CLOUD_PLATFORM",
+            "GOOGLE_WORKSPACE",
+            "JIRA",
+            "MICROSOFT_INTERNAL",
+            "OPENAI",
+            "SALESFORCE",
+            "SLACK",
+        ],
         credentials: Dict[str, object],
         name: str,
         auth_method: Optional[str] | Omit = omit,
@@ -66,15 +80,27 @@ class IntegrationsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> IntegrationCreateResponse:
-        """
-        Creates a new integration for the specified application.
+        """Creates a new integration for the specified application.
+
+        Integration creation
+        with OAuth is not supported by API at the moment. For other auth methods, use
+        `GET /v2/applications/{application_id}/credential-guide` to see the required
+        credential structure and example payloads for each vendor.
 
         Args:
           application: Vendor/application slug (e.g., GOOGLE_WORKSPACE).
 
+              - `ANTHROPIC` - ANTHROPIC
+              - `BITBUCKET` - BITBUCKET
+              - `BOX` - BOX
+              - `CONFLUENCE` - CONFLUENCE
+              - `DROPBOX` - DROPBOX
               - `GITHUB` - GITHUB
+              - `GOOGLE_CLOUD_PLATFORM` - GOOGLE_CLOUD_PLATFORM
               - `GOOGLE_WORKSPACE` - GOOGLE_WORKSPACE
+              - `JIRA` - JIRA
               - `MICROSOFT_INTERNAL` - MICROSOFT_INTERNAL
+              - `OPENAI` - OPENAI
               - `SALESFORCE` - SALESFORCE
               - `SLACK` - SLACK
 
@@ -432,7 +458,21 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
-        application: Literal["GITHUB", "GOOGLE_WORKSPACE", "MICROSOFT_INTERNAL", "SALESFORCE", "SLACK"],
+        application: Literal[
+            "ANTHROPIC",
+            "BITBUCKET",
+            "BOX",
+            "CONFLUENCE",
+            "DROPBOX",
+            "GITHUB",
+            "GOOGLE_CLOUD_PLATFORM",
+            "GOOGLE_WORKSPACE",
+            "JIRA",
+            "MICROSOFT_INTERNAL",
+            "OPENAI",
+            "SALESFORCE",
+            "SLACK",
+        ],
         credentials: Dict[str, object],
         name: str,
         auth_method: Optional[str] | Omit = omit,
@@ -446,15 +486,27 @@ class AsyncIntegrationsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> IntegrationCreateResponse:
-        """
-        Creates a new integration for the specified application.
+        """Creates a new integration for the specified application.
+
+        Integration creation
+        with OAuth is not supported by API at the moment. For other auth methods, use
+        `GET /v2/applications/{application_id}/credential-guide` to see the required
+        credential structure and example payloads for each vendor.
 
         Args:
           application: Vendor/application slug (e.g., GOOGLE_WORKSPACE).
 
+              - `ANTHROPIC` - ANTHROPIC
+              - `BITBUCKET` - BITBUCKET
+              - `BOX` - BOX
+              - `CONFLUENCE` - CONFLUENCE
+              - `DROPBOX` - DROPBOX
               - `GITHUB` - GITHUB
+              - `GOOGLE_CLOUD_PLATFORM` - GOOGLE_CLOUD_PLATFORM
               - `GOOGLE_WORKSPACE` - GOOGLE_WORKSPACE
+              - `JIRA` - JIRA
               - `MICROSOFT_INTERNAL` - MICROSOFT_INTERNAL
+              - `OPENAI` - OPENAI
               - `SALESFORCE` - SALESFORCE
               - `SLACK` - SLACK
 

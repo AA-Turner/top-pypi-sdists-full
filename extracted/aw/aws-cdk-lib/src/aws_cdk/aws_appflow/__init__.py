@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,49 +40,38 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggable as _ITaggable_36806126,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_appflow import (
-    ConnectorProfileReference as _ConnectorProfileReference_329038b4,
-    ConnectorReference as _ConnectorReference_0e0f6c8b,
-    FlowReference as _FlowReference_0b81571f,
-    IConnectorProfileRef as _IConnectorProfileRef_b117e5a6,
-    IConnectorRef as _IConnectorRef_e928136a,
-    IFlowRef as _IFlowRef_30332276,
-)
-from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_appflow as _aws_appflow_53c0c847
+    import aws_cdk.interfaces.aws_kms as _aws_kms_18db7412
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_appflow_53c0c847 = _LazyImport("aws_cdk.interfaces.aws_appflow")
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_kms_18db7412 = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectorRef_e928136a)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appflow_53c0c847.IConnectorRef)
 class CfnConnector(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_appflow.CfnConnector",
 ):
@@ -117,7 +108,7 @@ class CfnConnector(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        connector_provisioning_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        connector_provisioning_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         connector_provisioning_type: builtins.str,
         connector_label: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -132,7 +123,7 @@ class CfnConnector(
         :param description: A description about the connector runtime setting.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6bcd4af5099c6e263b309786f40e217a7b9534ca68e65e020a22b581160f7869)
+            type_hints = cached_type_hints(_typecheckingstub__6bcd4af5099c6e263b309786f40e217a7b9534ca68e65e020a22b581160f7869)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectorProps(
@@ -146,12 +137,15 @@ class CfnConnector(
 
     @jsii.member(jsii_name="arnForConnector")
     @builtins.classmethod
-    def arn_for_connector(cls, resource: "_IConnectorRef_e928136a") -> builtins.str:
+    def arn_for_connector(
+        cls,
+        resource: "_aws_appflow_53c0c847.IConnectorRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd37f1b55711c84a51d3dcba7c81632cb2e65659facb11c9ec6dc179cc53aea5)
+            type_hints = cached_type_hints(_typecheckingstub__fd37f1b55711c84a51d3dcba7c81632cb2e65659facb11c9ec6dc179cc53aea5)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnector", [resource]))
 
@@ -162,7 +156,7 @@ class CfnConnector(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IConnectorRef_e928136a":
+    ) -> "_aws_appflow_53c0c847.IConnectorRef":
         '''Creates a new IConnectorRef from an ARN.
 
         :param scope: -
@@ -170,11 +164,11 @@ class CfnConnector(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d2d884f75c85f141464085778c5d7675802d8f402fc248b958fe15971d0a0d)
+            type_hints = cached_type_hints(_typecheckingstub__89d2d884f75c85f141464085778c5d7675802d8f402fc248b958fe15971d0a0d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IConnectorRef_e928136a", jsii.sinvoke(cls, "fromConnectorArn", [scope, id, arn]))
+        return typing.cast("_aws_appflow_53c0c847.IConnectorRef", jsii.sinvoke(cls, "fromConnectorArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromConnectorLabel")
     @builtins.classmethod
@@ -183,7 +177,7 @@ class CfnConnector(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         connector_label: builtins.str,
-    ) -> "_IConnectorRef_e928136a":
+    ) -> "_aws_appflow_53c0c847.IConnectorRef":
         '''Creates a new IConnectorRef from a connectorLabel.
 
         :param scope: -
@@ -191,11 +185,11 @@ class CfnConnector(
         :param connector_label: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2a0d82bf3f1dccb0b1a3a3a16950daab039427f765764531ebb3fe99604fd95)
+            type_hints = cached_type_hints(_typecheckingstub__b2a0d82bf3f1dccb0b1a3a3a16950daab039427f765764531ebb3fe99604fd95)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
-        return typing.cast("_IConnectorRef_e928136a", jsii.sinvoke(cls, "fromConnectorLabel", [scope, id, connector_label]))
+        return typing.cast("_aws_appflow_53c0c847.IConnectorRef", jsii.sinvoke(cls, "fromConnectorLabel", [scope, id, connector_label]))
 
     @jsii.member(jsii_name="isCfnConnector")
     @builtins.classmethod
@@ -205,18 +199,18 @@ class CfnConnector(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40dd576d0a4261a15275ba4c27fe716496f3d87fd25bc1da621d6ea2bd5ff9a9)
+            type_hints = cached_type_hints(_typecheckingstub__40dd576d0a4261a15275ba4c27fe716496f3d87fd25bc1da621d6ea2bd5ff9a9)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnector", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02fe175937a3851291cfe730cc744110fbd6b06062b2f72be6c64c38cb811cc2)
+            type_hints = cached_type_hints(_typecheckingstub__02fe175937a3851291cfe730cc744110fbd6b06062b2f72be6c64c38cb811cc2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -229,7 +223,7 @@ class CfnConnector(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14908eefe331e5d6c90e4d41161c6e2df84fc31fc2c80c358aacd6d72b71fdad)
+            type_hints = cached_type_hints(_typecheckingstub__14908eefe331e5d6c90e4d41161c6e2df84fc31fc2c80c358aacd6d72b71fdad)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -262,25 +256,25 @@ class CfnConnector(
 
     @builtins.property
     @jsii.member(jsii_name="connectorRef")
-    def connector_ref(self) -> "_ConnectorReference_0e0f6c8b":
+    def connector_ref(self) -> "_aws_appflow_53c0c847.ConnectorReference":
         '''A reference to a Connector resource.'''
-        return typing.cast("_ConnectorReference_0e0f6c8b", jsii.get(self, "connectorRef"))
+        return typing.cast("_aws_appflow_53c0c847.ConnectorReference", jsii.get(self, "connectorRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectorProvisioningConfig")
     def connector_provisioning_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorProvisioningConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorProvisioningConfigProperty"]:
         '''The configuration required for registering the connector.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorProvisioningConfigProperty"], jsii.get(self, "connectorProvisioningConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorProvisioningConfigProperty"], jsii.get(self, "connectorProvisioningConfig"))
 
     @connector_provisioning_config.setter
     def connector_provisioning_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorProvisioningConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorProvisioningConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9a08650fe9a17324090179ab56d9509e56252c9865e3f2e1fa676c14b6cc03f)
+            type_hints = cached_type_hints(_typecheckingstub__e9a08650fe9a17324090179ab56d9509e56252c9865e3f2e1fa676c14b6cc03f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorProvisioningConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -293,7 +287,7 @@ class CfnConnector(
     @connector_provisioning_type.setter
     def connector_provisioning_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2220ebaf0220a2885b5b9cf115ec38fe35115066c974f84c1b2c720720335fc)
+            type_hints = cached_type_hints(_typecheckingstub__a2220ebaf0220a2885b5b9cf115ec38fe35115066c974f84c1b2c720720335fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorProvisioningType", value) # pyright: ignore[reportArgumentType]
 
@@ -306,7 +300,7 @@ class CfnConnector(
     @connector_label.setter
     def connector_label(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__223722b79e59f7d76338e4d79ccc19e3b7a392375aa34d0c39efd833af999447)
+            type_hints = cached_type_hints(_typecheckingstub__223722b79e59f7d76338e4d79ccc19e3b7a392375aa34d0c39efd833af999447)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorLabel", value) # pyright: ignore[reportArgumentType]
 
@@ -319,7 +313,7 @@ class CfnConnector(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5201599f188c2814b1848bd455a0576a0e0a2d098b49d428d52355c42d74246a)
+            type_hints = cached_type_hints(_typecheckingstub__5201599f188c2814b1848bd455a0576a0e0a2d098b49d428d52355c42d74246a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -332,7 +326,7 @@ class CfnConnector(
         def __init__(
             self,
             *,
-            lambda_: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.LambdaConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.LambdaConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about the configuration of the connector being registered.
 
@@ -354,7 +348,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f30575b197aa2e677da77a036dc5bfce7d878974062d45e335a7a1ace3bb43fa)
+                type_hints = cached_type_hints(_typecheckingstub__f30575b197aa2e677da77a036dc5bfce7d878974062d45e335a7a1ace3bb43fa)
                 check_type(argname="argument lambda_", value=lambda_, expected_type=type_hints["lambda_"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if lambda_ is not None:
@@ -363,13 +357,13 @@ class CfnConnector(
         @builtins.property
         def lambda_(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LambdaConnectorProvisioningConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LambdaConnectorProvisioningConfigProperty"]]:
             '''Contains information about the configuration of the lambda which is being registered as the connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connector-connectorprovisioningconfig.html#cfn-appflow-connector-connectorprovisioningconfig-lambda
             '''
             result = self._values.get("lambda_")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnector.LambdaConnectorProvisioningConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.LambdaConnectorProvisioningConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -407,7 +401,7 @@ class CfnConnector(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1eac52f23e3de5229c743187d6ff0c48af0c8b82a08a1bfe7aa685c49794c096)
+                type_hints = cached_type_hints(_typecheckingstub__1eac52f23e3de5229c743187d6ff0c48af0c8b82a08a1bfe7aa685c49794c096)
                 check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "lambda_arn": lambda_arn,
@@ -435,9 +429,9 @@ class CfnConnector(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IConnectorProfileRef_b117e5a6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appflow_53c0c847.IConnectorProfileRef)
 class CfnConnectorProfile(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_appflow.CfnConnectorProfile",
 ):
@@ -733,7 +727,7 @@ class CfnConnectorProfile(
         connector_profile_name: builtins.str,
         connector_type: builtins.str,
         connector_label: typing.Optional[builtins.str] = None,
-        connector_profile_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connector_profile_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::AppFlow::ConnectorProfile``.
@@ -748,7 +742,7 @@ class CfnConnectorProfile(
         :param kms_arn: The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption. This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fdda7d6a6b65c327fe887afce3342c78cebf6c60dd8655f2dcd7b8281583efc)
+            type_hints = cached_type_hints(_typecheckingstub__6fdda7d6a6b65c327fe887afce3342c78cebf6c60dd8655f2dcd7b8281583efc)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnConnectorProfileProps(
@@ -766,13 +760,13 @@ class CfnConnectorProfile(
     @builtins.classmethod
     def arn_for_connector_profile(
         cls,
-        resource: "_IConnectorProfileRef_b117e5a6",
+        resource: "_aws_appflow_53c0c847.IConnectorProfileRef",
     ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4203bc76f5c36650272ec66f214076acd51b3c7a25adfc8ccd7790b1b01f33a3)
+            type_hints = cached_type_hints(_typecheckingstub__4203bc76f5c36650272ec66f214076acd51b3c7a25adfc8ccd7790b1b01f33a3)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectorProfile", [resource]))
 
@@ -784,18 +778,18 @@ class CfnConnectorProfile(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10be467b19b6dee9fa3fd1ffd7b580c843d31a18524d0dcc14e28f247cd76352)
+            type_hints = cached_type_hints(_typecheckingstub__10be467b19b6dee9fa3fd1ffd7b580c843d31a18524d0dcc14e28f247cd76352)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnectorProfile", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89b2a22e671284a42946f894ce72068c41b76bb904059c7bed5e45c71d48dc5a)
+            type_hints = cached_type_hints(_typecheckingstub__89b2a22e671284a42946f894ce72068c41b76bb904059c7bed5e45c71d48dc5a)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -808,7 +802,7 @@ class CfnConnectorProfile(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7b41f256b139e247bf8134c2dd0c80d99ca4ee9371e5685482e353a92d8e09a)
+            type_hints = cached_type_hints(_typecheckingstub__b7b41f256b139e247bf8134c2dd0c80d99ca4ee9371e5685482e353a92d8e09a)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -848,9 +842,11 @@ class CfnConnectorProfile(
 
     @builtins.property
     @jsii.member(jsii_name="connectorProfileRef")
-    def connector_profile_ref(self) -> "_ConnectorProfileReference_329038b4":
+    def connector_profile_ref(
+        self,
+    ) -> "_aws_appflow_53c0c847.ConnectorProfileReference":
         '''A reference to a ConnectorProfile resource.'''
-        return typing.cast("_ConnectorProfileReference_329038b4", jsii.get(self, "connectorProfileRef"))
+        return typing.cast("_aws_appflow_53c0c847.ConnectorProfileReference", jsii.get(self, "connectorProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionMode")
@@ -861,7 +857,7 @@ class CfnConnectorProfile(
     @connection_mode.setter
     def connection_mode(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92b6f068ed3430ff60d5cf2405ae08acfe160b8a4162a018961ac832d027d84a)
+            type_hints = cached_type_hints(_typecheckingstub__92b6f068ed3430ff60d5cf2405ae08acfe160b8a4162a018961ac832d027d84a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectionMode", value) # pyright: ignore[reportArgumentType]
 
@@ -874,7 +870,7 @@ class CfnConnectorProfile(
     @connector_profile_name.setter
     def connector_profile_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cb5b0aaad75445c153fba71fd8dbff5d452ea9073e2056f9b9b2deac384c665)
+            type_hints = cached_type_hints(_typecheckingstub__0cb5b0aaad75445c153fba71fd8dbff5d452ea9073e2056f9b9b2deac384c665)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorProfileName", value) # pyright: ignore[reportArgumentType]
 
@@ -887,7 +883,7 @@ class CfnConnectorProfile(
     @connector_type.setter
     def connector_type(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34d4fdd4dbf7a059cab33b55ce7b81ced574f12c8c437ab87f6a2cd0366b8c27)
+            type_hints = cached_type_hints(_typecheckingstub__34d4fdd4dbf7a059cab33b55ce7b81ced574f12c8c437ab87f6a2cd0366b8c27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorType", value) # pyright: ignore[reportArgumentType]
 
@@ -900,7 +896,7 @@ class CfnConnectorProfile(
     @connector_label.setter
     def connector_label(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67b7946ef6d997ddf9c382bd294994647bbe3c0ad1aaaceece977af3d6112719)
+            type_hints = cached_type_hints(_typecheckingstub__67b7946ef6d997ddf9c382bd294994647bbe3c0ad1aaaceece977af3d6112719)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorLabel", value) # pyright: ignore[reportArgumentType]
 
@@ -908,17 +904,17 @@ class CfnConnectorProfile(
     @jsii.member(jsii_name="connectorProfileConfig")
     def connector_profile_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileConfigProperty"]]:
         '''Defines the connector-specific configuration and credentials.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileConfigProperty"]], jsii.get(self, "connectorProfileConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileConfigProperty"]], jsii.get(self, "connectorProfileConfig"))
 
     @connector_profile_config.setter
     def connector_profile_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3377e00c38f6ec97040c9514a9f9cedd23ba70e3a2b918fb7ef76f04aca7d060)
+            type_hints = cached_type_hints(_typecheckingstub__3377e00c38f6ec97040c9514a9f9cedd23ba70e3a2b918fb7ef76f04aca7d060)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connectorProfileConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -931,7 +927,7 @@ class CfnConnectorProfile(
     @kms_arn.setter
     def kms_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__089ca49f64f5b669f9596470a2fc8cf66e307ab5bdaedd126556de9e245a2adf)
+            type_hints = cached_type_hints(_typecheckingstub__089ca49f64f5b669f9596470a2fc8cf66e307ab5bdaedd126556de9e245a2adf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -962,7 +958,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a3d3ee1eed190e3c85bb2fe793fa526d58dcb1362575c8447aba2ded28e20cab)
+                type_hints = cached_type_hints(_typecheckingstub__a3d3ee1eed190e3c85bb2fe793fa526d58dcb1362575c8447aba2ded28e20cab)
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
                 check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1035,7 +1031,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7b690cee600d6640a4563f5c3e115b1108274292cca4da2ac3b8e3f9c054518c)
+                type_hints = cached_type_hints(_typecheckingstub__7b690cee600d6640a4563f5c3e115b1108274292cca4da2ac3b8e3f9c054518c)
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
                 check_type(argname="argument api_secret_key", value=api_secret_key, expected_type=type_hints["api_secret_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1101,7 +1097,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d5d83b73c68f97257e00fd4a472b5060b923b19bf51a85eac98afa02a948b3f4)
+                type_hints = cached_type_hints(_typecheckingstub__d5d83b73c68f97257e00fd4a472b5060b923b19bf51a85eac98afa02a948b3f4)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1172,7 +1168,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__10274e31bef95217811425846919ad5f3013d939461f69d203d5222cb8a6c357)
+                type_hints = cached_type_hints(_typecheckingstub__10274e31bef95217811425846919ad5f3013d939461f69d203d5222cb8a6c357)
                 check_type(argname="argument auth_code", value=auth_code, expected_type=type_hints["auth_code"])
                 check_type(argname="argument redirect_uri", value=redirect_uri, expected_type=type_hints["redirect_uri"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1222,8 +1218,8 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            connector_profile_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            connector_profile_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_profile_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_profile_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines the connector-specific configuration and credentials for the connector profile.
 
@@ -1496,7 +1492,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c79f7beaf2ede6f336bef23f37f62a2315750767926008efbda3f98c15e34f73)
+                type_hints = cached_type_hints(_typecheckingstub__c79f7beaf2ede6f336bef23f37f62a2315750767926008efbda3f98c15e34f73)
                 check_type(argname="argument connector_profile_credentials", value=connector_profile_credentials, expected_type=type_hints["connector_profile_credentials"])
                 check_type(argname="argument connector_profile_properties", value=connector_profile_properties, expected_type=type_hints["connector_profile_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1508,24 +1504,24 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_profile_credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required by each connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileconfig.html#cfn-appflow-connectorprofile-connectorprofileconfig-connectorprofilecredentials
             '''
             result = self._values.get("connector_profile_credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def connector_profile_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties of the profile configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileconfig.html#cfn-appflow-connectorprofile-connectorprofileconfig-connectorprofileproperties
             '''
             result = self._values.get("connector_profile_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfilePropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1566,24 +1562,24 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            amplitude: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_connector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.CustomConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            datadog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            google_analytics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            infor_nexus: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            marketo: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            pardot: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.PardotConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            salesforce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sapo_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            singular: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SingularConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            slack: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SlackConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            snowflake: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            trendmicro: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            veeva: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zendesk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            amplitude: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_connector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.CustomConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            datadog: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynatrace: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            google_analytics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            infor_nexus: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            marketo: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pardot: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.PardotConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sapo_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            singular: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SingularConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slack: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SlackConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snowflake: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            trendmicro: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            veeva: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zendesk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific credentials required by a connector.
 
@@ -1782,7 +1778,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd35c0b739bcd10a467238169b0d80e4d63f0277bdf37e945f3ea0bb11abbe59)
+                type_hints = cached_type_hints(_typecheckingstub__dd35c0b739bcd10a467238169b0d80e4d63f0277bdf37e945f3ea0bb11abbe59)
                 check_type(argname="argument amplitude", value=amplitude, expected_type=type_hints["amplitude"])
                 check_type(argname="argument custom_connector", value=custom_connector, expected_type=type_hints["custom_connector"])
                 check_type(argname="argument datadog", value=datadog, expected_type=type_hints["datadog"])
@@ -1842,200 +1838,200 @@ class CfnConnectorProfile(
         @builtins.property
         def amplitude(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Amplitude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-amplitude
             '''
             result = self._values.get("amplitude")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def custom_connector(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomConnectorProfileCredentialsProperty"]]:
             '''The connector-specific profile credentials that are required when using the custom connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-customconnector
             '''
             result = self._values.get("custom_connector")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def datadog(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Datadog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-datadog
             '''
             result = self._values.get("datadog")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def dynatrace(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Dynatrace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-dynatrace
             '''
             result = self._values.get("dynatrace")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def google_analytics(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Google Analytics.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-googleanalytics
             '''
             result = self._values.get("google_analytics")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def infor_nexus(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Infor Nexus.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-infornexus
             '''
             result = self._values.get("infor_nexus")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def marketo(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Marketo.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-marketo
             '''
             result = self._values.get("marketo")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def pardot(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.PardotConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.PardotConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Salesforce Pardot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-pardot
             '''
             result = self._values.get("pardot")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.PardotConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.PardotConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def redshift(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Amazon Redshift.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-redshift
             '''
             result = self._values.get("redshift")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def salesforce(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Salesforce.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-salesforce
             '''
             result = self._values.get("salesforce")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def sapo_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty"]]:
             '''The connector-specific profile credentials required when using SAPOData.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-sapodata
             '''
             result = self._values.get("sapo_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def service_now(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using ServiceNow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-servicenow
             '''
             result = self._values.get("service_now")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def singular(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SingularConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SingularConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Singular.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-singular
             '''
             result = self._values.get("singular")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SingularConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SingularConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def slack(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SlackConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SlackConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-slack
             '''
             result = self._values.get("slack")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SlackConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SlackConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def snowflake(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Snowflake.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-snowflake
             '''
             result = self._values.get("snowflake")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def trendmicro(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Trend Micro.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-trendmicro
             '''
             result = self._values.get("trendmicro")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def veeva(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Veeva.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-veeva
             '''
             result = self._values.get("veeva")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty"]], result)
 
         @builtins.property
         def zendesk(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty"]]:
             '''The connector-specific credentials required when using Zendesk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofilecredentials.html#cfn-appflow-connectorprofile-connectorprofilecredentials-zendesk
             '''
             result = self._values.get("zendesk")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2072,20 +2068,20 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            custom_connector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.CustomConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            datadog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            infor_nexus: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            marketo: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            pardot: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.PardotConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            salesforce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sapo_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            slack: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SlackConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            snowflake: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            veeva: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zendesk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_connector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.CustomConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            datadog: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynatrace: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            infor_nexus: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            marketo: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pardot: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.PardotConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sapo_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slack: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SlackConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snowflake: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            veeva: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zendesk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile properties required by each connector.
 
@@ -2203,7 +2199,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__65e5865d49e1e2770f8833632ac69e47b3b029c81a4772e3b1c5426bdf879d4b)
+                type_hints = cached_type_hints(_typecheckingstub__65e5865d49e1e2770f8833632ac69e47b3b029c81a4772e3b1c5426bdf879d4b)
                 check_type(argname="argument custom_connector", value=custom_connector, expected_type=type_hints["custom_connector"])
                 check_type(argname="argument datadog", value=datadog, expected_type=type_hints["datadog"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
@@ -2251,156 +2247,156 @@ class CfnConnectorProfile(
         @builtins.property
         def custom_connector(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomConnectorProfilePropertiesProperty"]]:
             '''The properties required by the custom connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-customconnector
             '''
             result = self._values.get("custom_connector")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def datadog(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Datadog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-datadog
             '''
             result = self._values.get("datadog")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def dynatrace(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Dynatrace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-dynatrace
             '''
             result = self._values.get("dynatrace")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def infor_nexus(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Infor Nexus.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-infornexus
             '''
             result = self._values.get("infor_nexus")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def marketo(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Marketo.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-marketo
             '''
             result = self._values.get("marketo")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def pardot(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.PardotConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.PardotConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Salesforce Pardot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-pardot
             '''
             result = self._values.get("pardot")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.PardotConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.PardotConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def redshift(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Amazon Redshift.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-redshift
             '''
             result = self._values.get("redshift")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def salesforce(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Salesforce.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-salesforce
             '''
             result = self._values.get("salesforce")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def sapo_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty"]]:
             '''The connector-specific profile properties required when using SAPOData.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-sapodata
             '''
             result = self._values.get("sapo_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def service_now(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by serviceNow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-servicenow
             '''
             result = self._values.get("service_now")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def slack(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SlackConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SlackConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-slack
             '''
             result = self._values.get("slack")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SlackConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SlackConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def snowflake(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Snowflake.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-snowflake
             '''
             result = self._values.get("snowflake")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def veeva(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Veeva.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-veeva
             '''
             result = self._values.get("veeva")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty"]], result)
 
         @builtins.property
         def zendesk(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty"]]:
             '''The connector-specific properties required by Zendesk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-connectorprofileproperties.html#cfn-appflow-connectorprofile-connectorprofileproperties-zendesk
             '''
             result = self._values.get("zendesk")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2426,7 +2422,7 @@ class CfnConnectorProfile(
             self,
             *,
             custom_authentication_type: builtins.str,
-            credentials_map: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            credentials_map: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The custom credentials required for custom authentication.
 
@@ -2452,7 +2448,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7f1703eb3a58b3e6fd9b4a3833c2dc0fda48f2e43ba626529bc4a347a6d456e2)
+                type_hints = cached_type_hints(_typecheckingstub__7f1703eb3a58b3e6fd9b4a3833c2dc0fda48f2e43ba626529bc4a347a6d456e2)
                 check_type(argname="argument custom_authentication_type", value=custom_authentication_type, expected_type=type_hints["custom_authentication_type"])
                 check_type(argname="argument credentials_map", value=credentials_map, expected_type=type_hints["credentials_map"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2474,13 +2470,13 @@ class CfnConnectorProfile(
         @builtins.property
         def credentials_map(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map that holds custom authentication credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customauthcredentials.html#cfn-appflow-connectorprofile-customauthcredentials-credentialsmap
             '''
             result = self._values.get("credentials_map")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2509,10 +2505,10 @@ class CfnConnectorProfile(
             self,
             *,
             authentication_type: builtins.str,
-            api_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ApiKeyCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            basic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.BasicAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.CustomAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            oauth2: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuth2CredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            api_key: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ApiKeyCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            basic: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.BasicAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.CustomAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            oauth2: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.OAuth2CredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile credentials that are required when using the custom connector.
 
@@ -2566,7 +2562,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__706a9d527abbd20fd254cc98e3158ee9239289a3d14735ef9c32c2c9b41893ee)
+                type_hints = cached_type_hints(_typecheckingstub__706a9d527abbd20fd254cc98e3158ee9239289a3d14735ef9c32c2c9b41893ee)
                 check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
                 check_type(argname="argument basic", value=basic, expected_type=type_hints["basic"])
@@ -2597,46 +2593,46 @@ class CfnConnectorProfile(
         @builtins.property
         def api_key(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ApiKeyCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ApiKeyCredentialsProperty"]]:
             '''The API keys required for the authentication of the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofilecredentials.html#cfn-appflow-connectorprofile-customconnectorprofilecredentials-apikey
             '''
             result = self._values.get("api_key")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ApiKeyCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ApiKeyCredentialsProperty"]], result)
 
         @builtins.property
         def basic(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.BasicAuthCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.BasicAuthCredentialsProperty"]]:
             '''The basic credentials that are required for the authentication of the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofilecredentials.html#cfn-appflow-connectorprofile-customconnectorprofilecredentials-basic
             '''
             result = self._values.get("basic")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.BasicAuthCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.BasicAuthCredentialsProperty"]], result)
 
         @builtins.property
         def custom(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomAuthCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomAuthCredentialsProperty"]]:
             '''If the connector uses the custom authentication mechanism, this holds the required credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofilecredentials.html#cfn-appflow-connectorprofile-customconnectorprofilecredentials-custom
             '''
             result = self._values.get("custom")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.CustomAuthCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.CustomAuthCredentialsProperty"]], result)
 
         @builtins.property
         def oauth2(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2CredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2CredentialsProperty"]]:
             '''The OAuth 2.0 credentials required for the authentication of the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofilecredentials.html#cfn-appflow-connectorprofile-customconnectorprofilecredentials-oauth2
             '''
             result = self._values.get("oauth2")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2CredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2CredentialsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2661,8 +2657,8 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            o_auth2_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuth2PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            profile_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            o_auth2_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.OAuth2PropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            profile_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The profile properties required by the custom connector.
 
@@ -2692,7 +2688,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cdb89c4d5019ae54344a6656863ce47417e2890bffc90e8167ec429bcb73d3b5)
+                type_hints = cached_type_hints(_typecheckingstub__cdb89c4d5019ae54344a6656863ce47417e2890bffc90e8167ec429bcb73d3b5)
                 check_type(argname="argument o_auth2_properties", value=o_auth2_properties, expected_type=type_hints["o_auth2_properties"])
                 check_type(argname="argument profile_properties", value=profile_properties, expected_type=type_hints["profile_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2704,24 +2700,24 @@ class CfnConnectorProfile(
         @builtins.property
         def o_auth2_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2PropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2PropertiesProperty"]]:
             '''The OAuth 2.0 properties required for OAuth 2.0 authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofileproperties.html#cfn-appflow-connectorprofile-customconnectorprofileproperties-oauth2properties
             '''
             result = self._values.get("o_auth2_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2PropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2PropertiesProperty"]], result)
 
         @builtins.property
         def profile_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''A map of properties that are required to create a profile for the custom connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-customconnectorprofileproperties.html#cfn-appflow-connectorprofile-customconnectorprofileproperties-profileproperties
             '''
             result = self._values.get("profile_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2766,7 +2762,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b5405a79a636a3a984fb01f6d21584050057edd8e02c32d2521ce746189892e2)
+                type_hints = cached_type_hints(_typecheckingstub__b5405a79a636a3a984fb01f6d21584050057edd8e02c32d2521ce746189892e2)
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
                 check_type(argname="argument application_key", value=application_key, expected_type=type_hints["application_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2832,7 +2828,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0659a9b67dc2853fedfdb11c94408d52cccb2ed20597bf42f6fb15b29415e87c)
+                type_hints = cached_type_hints(_typecheckingstub__0659a9b67dc2853fedfdb11c94408d52cccb2ed20597bf42f6fb15b29415e87c)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -2884,7 +2880,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__020dbb7eb0377d6f0d6ff989b7f0dca2eac8bc5293fb8b927d656f980b21f044)
+                type_hints = cached_type_hints(_typecheckingstub__020dbb7eb0377d6f0d6ff989b7f0dca2eac8bc5293fb8b927d656f980b21f044)
                 check_type(argname="argument api_token", value=api_token, expected_type=type_hints["api_token"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "api_token": api_token,
@@ -2936,7 +2932,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__29ed8163fe5b7ed49fedb68b059a96f0281b5f5f2c1bc08329d34386502b27b0)
+                type_hints = cached_type_hints(_typecheckingstub__29ed8163fe5b7ed49fedb68b059a96f0281b5f5f2c1bc08329d34386502b27b0)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -2981,7 +2977,7 @@ class CfnConnectorProfile(
             client_id: builtins.str,
             client_secret: builtins.str,
             access_token: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             refresh_token: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The connector-specific profile credentials required by Google Analytics.
@@ -3015,7 +3011,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4f33ae7fdb815fdbe41d4a4e9dc65db0eaa088f28c686524272747ffdfa411dd)
+                type_hints = cached_type_hints(_typecheckingstub__4f33ae7fdb815fdbe41d4a4e9dc65db0eaa088f28c686524272747ffdfa411dd)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
@@ -3064,13 +3060,13 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''Used by select connectors for which the OAuth workflow is supported, such as Salesforce, Google Analytics, Marketo, Zendesk, and Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-googleanalyticsconnectorprofilecredentials.html#cfn-appflow-connectorprofile-googleanalyticsconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         @builtins.property
         def refresh_token(self) -> typing.Optional[builtins.str]:
@@ -3137,7 +3133,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b0896c3f041be47a1346b6586c9961c6fddd408caca37ab78b69e2dbf3947b95)
+                type_hints = cached_type_hints(_typecheckingstub__b0896c3f041be47a1346b6586c9961c6fddd408caca37ab78b69e2dbf3947b95)
                 check_type(argname="argument access_key_id", value=access_key_id, expected_type=type_hints["access_key_id"])
                 check_type(argname="argument datakey", value=datakey, expected_type=type_hints["datakey"])
                 check_type(argname="argument secret_access_key", value=secret_access_key, expected_type=type_hints["secret_access_key"])
@@ -3225,7 +3221,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__121e8f6f0112eff36febf9235f6ad930186b1adfe295e513385c5ba69795c179)
+                type_hints = cached_type_hints(_typecheckingstub__121e8f6f0112eff36febf9235f6ad930186b1adfe295e513385c5ba69795c179)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -3269,7 +3265,7 @@ class CfnConnectorProfile(
             client_id: builtins.str,
             client_secret: builtins.str,
             access_token: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile credentials required by Marketo.
 
@@ -3300,7 +3296,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__319f8014bd5324a2f4dc144886a8f0e7be1951f564c0fbd5badf8555b0d5263d)
+                type_hints = cached_type_hints(_typecheckingstub__319f8014bd5324a2f4dc144886a8f0e7be1951f564c0fbd5badf8555b0d5263d)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
@@ -3346,13 +3342,13 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''Used by select connectors for which the OAuth workflow is supported, such as Salesforce, Google Analytics, Marketo, Zendesk, and Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-marketoconnectorprofilecredentials.html#cfn-appflow-connectorprofile-marketoconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3390,7 +3386,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__79733216203bc37d79a7396313a11957f92d7188cf5cc3a157352ceaa4b6202b)
+                type_hints = cached_type_hints(_typecheckingstub__79733216203bc37d79a7396313a11957f92d7188cf5cc3a157352ceaa4b6202b)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -3435,7 +3431,7 @@ class CfnConnectorProfile(
             access_token: typing.Optional[builtins.str] = None,
             client_id: typing.Optional[builtins.str] = None,
             client_secret: typing.Optional[builtins.str] = None,
-            o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             refresh_token: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The OAuth 2.0 credentials required for OAuth 2.0 authentication.
@@ -3467,7 +3463,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b23a5882bc69b9efde3f028d1f4180011380cc10767444f52981ddf4ad39fa3)
+                type_hints = cached_type_hints(_typecheckingstub__9b23a5882bc69b9efde3f028d1f4180011380cc10767444f52981ddf4ad39fa3)
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
@@ -3515,12 +3511,12 @@ class CfnConnectorProfile(
         @builtins.property
         def o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-oauth2credentials.html#cfn-appflow-connectorprofile-oauth2credentials-oauthrequest
             '''
             result = self._values.get("o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         @builtins.property
         def refresh_token(self) -> typing.Optional[builtins.str]:
@@ -3557,7 +3553,7 @@ class CfnConnectorProfile(
             *,
             o_auth2_grant_type: typing.Optional[builtins.str] = None,
             token_url: typing.Optional[builtins.str] = None,
-            token_url_custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
+            token_url_custom_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         ) -> None:
             '''The OAuth 2.0 properties required for OAuth 2.0 authentication.
 
@@ -3583,7 +3579,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__12b3508701004e181ac97abfefbe0c0e2c32f353cdc4077fc915d1e79059ded1)
+                type_hints = cached_type_hints(_typecheckingstub__12b3508701004e181ac97abfefbe0c0e2c32f353cdc4077fc915d1e79059ded1)
                 check_type(argname="argument o_auth2_grant_type", value=o_auth2_grant_type, expected_type=type_hints["o_auth2_grant_type"])
                 check_type(argname="argument token_url", value=token_url, expected_type=type_hints["token_url"])
                 check_type(argname="argument token_url_custom_properties", value=token_url_custom_properties, expected_type=type_hints["token_url_custom_properties"])
@@ -3616,7 +3612,7 @@ class CfnConnectorProfile(
         @builtins.property
         def token_url_custom_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Associates your token URL with a map of properties that you define.
 
             Use this parameter to provide any additional details that the connector requires to authenticate your request.
@@ -3624,7 +3620,7 @@ class CfnConnectorProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-oauth2properties.html#cfn-appflow-connectorprofile-oauth2properties-tokenurlcustomproperties
             '''
             result = self._values.get("token_url_custom_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3655,7 +3651,7 @@ class CfnConnectorProfile(
             access_token: typing.Optional[builtins.str] = None,
             client_id: typing.Optional[builtins.str] = None,
             client_secret: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             refresh_token: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The OAuth credentials required for OAuth type authentication.
@@ -3687,7 +3683,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7da4be883f6a7b1d3ca824e7af71520a4dc18eb0c5c299a47adef3ced4c33b77)
+                type_hints = cached_type_hints(_typecheckingstub__7da4be883f6a7b1d3ca824e7af71520a4dc18eb0c5c299a47adef3ced4c33b77)
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
@@ -3735,12 +3731,12 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-oauthcredentials.html#cfn-appflow-connectorprofile-oauthcredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         @builtins.property
         def refresh_token(self) -> typing.Optional[builtins.str]:
@@ -3801,7 +3797,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__269c069da81422f6673236a4320be612c0558af7fe900035e4f46e91d169ce84)
+                type_hints = cached_type_hints(_typecheckingstub__269c069da81422f6673236a4320be612c0558af7fe900035e4f46e91d169ce84)
                 check_type(argname="argument auth_code_url", value=auth_code_url, expected_type=type_hints["auth_code_url"])
                 check_type(argname="argument o_auth_scopes", value=o_auth_scopes, expected_type=type_hints["o_auth_scopes"])
                 check_type(argname="argument token_url", value=token_url, expected_type=type_hints["token_url"])
@@ -3867,7 +3863,7 @@ class CfnConnectorProfile(
             *,
             access_token: typing.Optional[builtins.str] = None,
             client_credentials_arn: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             refresh_token: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The connector-specific profile credentials required when using Salesforce Pardot.
@@ -3897,7 +3893,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__39a512cdf635aa9981165b275367a20430c45c0c4a601e102d0cdf5e10430e12)
+                type_hints = cached_type_hints(_typecheckingstub__39a512cdf635aa9981165b275367a20430c45c0c4a601e102d0cdf5e10430e12)
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
                 check_type(argname="argument client_credentials_arn", value=client_credentials_arn, expected_type=type_hints["client_credentials_arn"])
                 check_type(argname="argument connector_o_auth_request", value=connector_o_auth_request, expected_type=type_hints["connector_o_auth_request"])
@@ -3933,12 +3929,12 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-pardotconnectorprofilecredentials.html#cfn-appflow-connectorprofile-pardotconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         @builtins.property
         def refresh_token(self) -> typing.Optional[builtins.str]:
@@ -3975,7 +3971,7 @@ class CfnConnectorProfile(
             *,
             business_unit_id: builtins.str,
             instance_url: typing.Optional[builtins.str] = None,
-            is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The connector-specific profile properties required when using Salesforce Pardot.
 
@@ -4001,7 +3997,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6a3e6a4fb1f0111e07cf857d2ee3ad46142f3b374d08c97bb704c89fa233cd47)
+                type_hints = cached_type_hints(_typecheckingstub__6a3e6a4fb1f0111e07cf857d2ee3ad46142f3b374d08c97bb704c89fa233cd47)
                 check_type(argname="argument business_unit_id", value=business_unit_id, expected_type=type_hints["business_unit_id"])
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
                 check_type(argname="argument is_sandbox_environment", value=is_sandbox_environment, expected_type=type_hints["is_sandbox_environment"])
@@ -4035,13 +4031,13 @@ class CfnConnectorProfile(
         @builtins.property
         def is_sandbox_environment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the connector profile applies to a sandbox or production environment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-pardotconnectorprofileproperties.html#cfn-appflow-connectorprofile-pardotconnectorprofileproperties-issandboxenvironment
             '''
             result = self._values.get("is_sandbox_environment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4086,7 +4082,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1a07d7a6959f8151e74abf74abadc91dd5c9f7a16d911f5db0bc2f66e4f25e24)
+                type_hints = cached_type_hints(_typecheckingstub__1a07d7a6959f8151e74abf74abadc91dd5c9f7a16d911f5db0bc2f66e4f25e24)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4150,7 +4146,7 @@ class CfnConnectorProfile(
             data_api_role_arn: typing.Optional[builtins.str] = None,
             database_name: typing.Optional[builtins.str] = None,
             database_url: typing.Optional[builtins.str] = None,
-            is_redshift_serverless: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_redshift_serverless: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             workgroup_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The connector-specific profile properties when using Amazon Redshift.
@@ -4189,7 +4185,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b095f01640a40304a0331c41ae7ab321ae12f0c106bbb47ef402aac9840f90f7)
+                type_hints = cached_type_hints(_typecheckingstub__b095f01640a40304a0331c41ae7ab321ae12f0c106bbb47ef402aac9840f90f7)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
@@ -4290,13 +4286,13 @@ class CfnConnectorProfile(
         @builtins.property
         def is_redshift_serverless(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the connector profile defines a connection to an Amazon Redshift Serverless data warehouse.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-redshiftconnectorprofileproperties.html#cfn-appflow-connectorprofile-redshiftconnectorprofileproperties-isredshiftserverless
             '''
             result = self._values.get("is_redshift_serverless")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def workgroup_name(self) -> typing.Optional[builtins.str]:
@@ -4330,8 +4326,8 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            basic_auth_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.BasicAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            o_auth_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            basic_auth_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.BasicAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.OAuthCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile credentials required when using SAPOData.
 
@@ -4365,7 +4361,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e721304f58add999e91a5094b626deadf6f42ca2e0e3744b0e313380bc540b00)
+                type_hints = cached_type_hints(_typecheckingstub__e721304f58add999e91a5094b626deadf6f42ca2e0e3744b0e313380bc540b00)
                 check_type(argname="argument basic_auth_credentials", value=basic_auth_credentials, expected_type=type_hints["basic_auth_credentials"])
                 check_type(argname="argument o_auth_credentials", value=o_auth_credentials, expected_type=type_hints["o_auth_credentials"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4377,24 +4373,24 @@ class CfnConnectorProfile(
         @builtins.property
         def basic_auth_credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.BasicAuthCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.BasicAuthCredentialsProperty"]]:
             '''The SAPOData basic authentication credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-sapodataconnectorprofilecredentials.html#cfn-appflow-connectorprofile-sapodataconnectorprofilecredentials-basicauthcredentials
             '''
             result = self._values.get("basic_auth_credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.BasicAuthCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.BasicAuthCredentialsProperty"]], result)
 
         @builtins.property
         def o_auth_credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuthCredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuthCredentialsProperty"]]:
             '''The SAPOData OAuth type authentication credentials.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-sapodataconnectorprofilecredentials.html#cfn-appflow-connectorprofile-sapodataconnectorprofilecredentials-oauthcredentials
             '''
             result = self._values.get("o_auth_credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuthCredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuthCredentialsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4428,9 +4424,9 @@ class CfnConnectorProfile(
             application_host_url: typing.Optional[builtins.str] = None,
             application_service_path: typing.Optional[builtins.str] = None,
             client_number: typing.Optional[builtins.str] = None,
-            disable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            disable_sso: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             logon_language: typing.Optional[builtins.str] = None,
-            o_auth_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuthPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.OAuthPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             port_number: typing.Optional[jsii.Number] = None,
             private_link_service_name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4470,7 +4466,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fa0bde147a80d4f5be2e3a0a92803dcbc8bf7a7949aaf97c980a8be44a261244)
+                type_hints = cached_type_hints(_typecheckingstub__fa0bde147a80d4f5be2e3a0a92803dcbc8bf7a7949aaf97c980a8be44a261244)
                 check_type(argname="argument application_host_url", value=application_host_url, expected_type=type_hints["application_host_url"])
                 check_type(argname="argument application_service_path", value=application_service_path, expected_type=type_hints["application_service_path"])
                 check_type(argname="argument client_number", value=client_number, expected_type=type_hints["client_number"])
@@ -4527,7 +4523,7 @@ class CfnConnectorProfile(
         @builtins.property
         def disable_sso(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If you set this parameter to ``true`` , Amazon AppFlow bypasses the single sign-on (SSO) settings in your SAP account when it accesses your SAP OData instance.
 
             Whether you need this option depends on the types of credentials that you applied to your SAP OData connection profile. If your profile uses basic authentication credentials, SAP SSO can prevent Amazon AppFlow from connecting to your account with your username and password. In this case, bypassing SSO makes it possible for Amazon AppFlow to connect successfully. However, if your profile uses OAuth credentials, this parameter has no affect.
@@ -4535,7 +4531,7 @@ class CfnConnectorProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-sapodataconnectorprofileproperties.html#cfn-appflow-connectorprofile-sapodataconnectorprofileproperties-disablesso
             '''
             result = self._values.get("disable_sso")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def logon_language(self) -> typing.Optional[builtins.str]:
@@ -4549,13 +4545,13 @@ class CfnConnectorProfile(
         @builtins.property
         def o_auth_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuthPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuthPropertiesProperty"]]:
             '''The SAPOData OAuth properties required for OAuth type authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-sapodataconnectorprofileproperties.html#cfn-appflow-connectorprofile-sapodataconnectorprofileproperties-oauthproperties
             '''
             result = self._values.get("o_auth_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuthPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuthPropertiesProperty"]], result)
 
         @builtins.property
         def port_number(self) -> typing.Optional[jsii.Number]:
@@ -4604,7 +4600,7 @@ class CfnConnectorProfile(
             *,
             access_token: typing.Optional[builtins.str] = None,
             client_credentials_arn: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             jwt_token: typing.Optional[builtins.str] = None,
             o_auth2_grant_type: typing.Optional[builtins.str] = None,
             refresh_token: typing.Optional[builtins.str] = None,
@@ -4640,7 +4636,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__96f1396ecd411968fa6dcd8be1e9a9cbc6d0f02f80c0d4e9acc547f44564e4cb)
+                type_hints = cached_type_hints(_typecheckingstub__96f1396ecd411968fa6dcd8be1e9a9cbc6d0f02f80c0d4e9acc547f44564e4cb)
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
                 check_type(argname="argument client_credentials_arn", value=client_credentials_arn, expected_type=type_hints["client_credentials_arn"])
                 check_type(argname="argument connector_o_auth_request", value=connector_o_auth_request, expected_type=type_hints["connector_o_auth_request"])
@@ -4682,13 +4678,13 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''Used by select connectors for which the OAuth workflow is supported, such as Salesforce, Google Analytics, Marketo, Zendesk, and Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-salesforceconnectorprofilecredentials.html#cfn-appflow-connectorprofile-salesforceconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         @builtins.property
         def jwt_token(self) -> typing.Optional[builtins.str]:
@@ -4751,8 +4747,8 @@ class CfnConnectorProfile(
             self,
             *,
             instance_url: typing.Optional[builtins.str] = None,
-            is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            use_private_link_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            use_private_link_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The connector-specific profile properties required when using Salesforce.
 
@@ -4776,7 +4772,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e02155b4dbffca160c7213611f0f005432320f081cac130c77c180517e637a2f)
+                type_hints = cached_type_hints(_typecheckingstub__e02155b4dbffca160c7213611f0f005432320f081cac130c77c180517e637a2f)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
                 check_type(argname="argument is_sandbox_environment", value=is_sandbox_environment, expected_type=type_hints["is_sandbox_environment"])
                 check_type(argname="argument use_private_link_for_metadata_and_authorization", value=use_private_link_for_metadata_and_authorization, expected_type=type_hints["use_private_link_for_metadata_and_authorization"])
@@ -4800,18 +4796,18 @@ class CfnConnectorProfile(
         @builtins.property
         def is_sandbox_environment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether the connector profile applies to a sandbox or production environment.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-salesforceconnectorprofileproperties.html#cfn-appflow-connectorprofile-salesforceconnectorprofileproperties-issandboxenvironment
             '''
             result = self._values.get("is_sandbox_environment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def use_private_link_for_metadata_and_authorization(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If the connection mode for the connector profile is private, this parameter sets whether Amazon AppFlow uses the private network to send metadata and authorization calls to Salesforce.
 
             Amazon AppFlow sends private calls through AWS PrivateLink . These calls travel through AWS infrastructure without being exposed to the public internet.
@@ -4839,7 +4835,7 @@ class CfnConnectorProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-salesforceconnectorprofileproperties.html#cfn-appflow-connectorprofile-salesforceconnectorprofileproperties-useprivatelinkformetadataandauthorization
             '''
             result = self._values.get("use_private_link_for_metadata_and_authorization")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4865,7 +4861,7 @@ class CfnConnectorProfile(
         def __init__(
             self,
             *,
-            o_auth2_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.OAuth2CredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth2_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.OAuth2CredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             password: typing.Optional[builtins.str] = None,
             username: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4900,7 +4896,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9300511337a4bb1851f11ae6d27ff1f49d05843818e90659f8938653677148dc)
+                type_hints = cached_type_hints(_typecheckingstub__9300511337a4bb1851f11ae6d27ff1f49d05843818e90659f8938653677148dc)
                 check_type(argname="argument o_auth2_credentials", value=o_auth2_credentials, expected_type=type_hints["o_auth2_credentials"])
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
@@ -4915,13 +4911,13 @@ class CfnConnectorProfile(
         @builtins.property
         def o_auth2_credentials(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2CredentialsProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2CredentialsProperty"]]:
             '''The OAuth 2.0 credentials required to authenticate the user.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-servicenowconnectorprofilecredentials.html#cfn-appflow-connectorprofile-servicenowconnectorprofilecredentials-oauth2credentials
             '''
             result = self._values.get("o_auth2_credentials")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.OAuth2CredentialsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.OAuth2CredentialsProperty"]], result)
 
         @builtins.property
         def password(self) -> typing.Optional[builtins.str]:
@@ -4977,7 +4973,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__efce9f1c1c228e65efb350a33320672ebf6907ec78b01471e88a2f3115b49969)
+                type_hints = cached_type_hints(_typecheckingstub__efce9f1c1c228e65efb350a33320672ebf6907ec78b01471e88a2f3115b49969)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -5029,7 +5025,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9bc42a25a4870da865c4d31df2ea94435f79afd8cd9830a7292d2927bd728c89)
+                type_hints = cached_type_hints(_typecheckingstub__9bc42a25a4870da865c4d31df2ea94435f79afd8cd9830a7292d2927bd728c89)
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "api_key": api_key,
@@ -5073,7 +5069,7 @@ class CfnConnectorProfile(
             client_id: builtins.str,
             client_secret: builtins.str,
             access_token: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile credentials required when using Slack.
 
@@ -5104,7 +5100,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33f7d201cd92c3241e76eeef7aa8154f9c19884178d71dfffea8c0db939343da)
+                type_hints = cached_type_hints(_typecheckingstub__33f7d201cd92c3241e76eeef7aa8154f9c19884178d71dfffea8c0db939343da)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
@@ -5150,13 +5146,13 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''Used by select connectors for which the OAuth workflow is supported, such as Salesforce, Google Analytics, Marketo, Zendesk, and Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-slackconnectorprofilecredentials.html#cfn-appflow-connectorprofile-slackconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5194,7 +5190,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__7fa78e2f74e28f73bdd0a0a5b4498cd51ac364dea787eb69eca7836013e38578)
+                type_hints = cached_type_hints(_typecheckingstub__7fa78e2f74e28f73bdd0a0a5b4498cd51ac364dea787eb69eca7836013e38578)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -5248,7 +5244,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__78ab8cbf4a57bfd8e44a5e9c1239be3df998e064aa70bc8d688ee7b7448d6b85)
+                type_hints = cached_type_hints(_typecheckingstub__78ab8cbf4a57bfd8e44a5e9c1239be3df998e064aa70bc8d688ee7b7448d6b85)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5344,7 +5340,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b4f80ae6d0ba98546835743a752b0ca92f9ee74d525a2d9048e10cb2e431bef1)
+                type_hints = cached_type_hints(_typecheckingstub__b4f80ae6d0ba98546835743a752b0ca92f9ee74d525a2d9048e10cb2e431bef1)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
                 check_type(argname="argument warehouse", value=warehouse, expected_type=type_hints["warehouse"])
@@ -5470,7 +5466,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0f95a9d334e1f47f62231dbcb8790eabf066eadb9f788be0eade7c40e427fbfd)
+                type_hints = cached_type_hints(_typecheckingstub__0f95a9d334e1f47f62231dbcb8790eabf066eadb9f788be0eade7c40e427fbfd)
                 check_type(argname="argument api_secret_key", value=api_secret_key, expected_type=type_hints["api_secret_key"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "api_secret_key": api_secret_key,
@@ -5524,7 +5520,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8f8ef2a02ea3e3deaf9f4972c986d189157161d79719d8e6cc32bc591af0417d)
+                type_hints = cached_type_hints(_typecheckingstub__8f8ef2a02ea3e3deaf9f4972c986d189157161d79719d8e6cc32bc591af0417d)
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5588,7 +5584,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2bcf7976bdceaf015e653ef6a1d5de1fe1a0bac8d7acc3bacd57ea35f47af45d)
+                type_hints = cached_type_hints(_typecheckingstub__2bcf7976bdceaf015e653ef6a1d5de1fe1a0bac8d7acc3bacd57ea35f47af45d)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -5632,7 +5628,7 @@ class CfnConnectorProfile(
             client_id: builtins.str,
             client_secret: builtins.str,
             access_token: typing.Optional[builtins.str] = None,
-            connector_o_auth_request: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_o_auth_request: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorOAuthRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The connector-specific profile credentials required when using Zendesk.
 
@@ -5663,7 +5659,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__23cdb025a23f9fe29cc4cc49eb6c3c171c1c23d9f0bf22702b88df0eb1e9b477)
+                type_hints = cached_type_hints(_typecheckingstub__23cdb025a23f9fe29cc4cc49eb6c3c171c1c23d9f0bf22702b88df0eb1e9b477)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
@@ -5709,13 +5705,13 @@ class CfnConnectorProfile(
         @builtins.property
         def connector_o_auth_request(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]]:
             '''Used by select connectors for which the OAuth workflow is supported, such as Salesforce, Google Analytics, Marketo, Zendesk, and Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-connectorprofile-zendeskconnectorprofilecredentials.html#cfn-appflow-connectorprofile-zendeskconnectorprofilecredentials-connectoroauthrequest
             '''
             result = self._values.get("connector_o_auth_request")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorOAuthRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5753,7 +5749,7 @@ class CfnConnectorProfile(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__deb62e66d965f0e26ff87d16ee4c48a202e9421055030e74ae433cbf772a681a)
+                type_hints = cached_type_hints(_typecheckingstub__deb62e66d965f0e26ff87d16ee4c48a202e9421055030e74ae433cbf772a681a)
                 check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_url": instance_url,
@@ -5801,7 +5797,7 @@ class CfnConnectorProfileProps:
         connector_profile_name: builtins.str,
         connector_type: builtins.str,
         connector_label: typing.Optional[builtins.str] = None,
-        connector_profile_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnectorProfile.ConnectorProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        connector_profile_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorProfile.ConnectorProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnectorProfile``.
@@ -6088,7 +6084,7 @@ class CfnConnectorProfileProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb)
+            type_hints = cached_type_hints(_typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35fbf104bb)
             check_type(argname="argument connection_mode", value=connection_mode, expected_type=type_hints["connection_mode"])
             check_type(argname="argument connector_profile_name", value=connector_profile_name, expected_type=type_hints["connector_profile_name"])
             check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
@@ -6151,13 +6147,13 @@ class CfnConnectorProfileProps:
     @builtins.property
     def connector_profile_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileConfigProperty"]]:
         '''Defines the connector-specific configuration and credentials.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connectorprofile.html#cfn-appflow-connectorprofile-connectorprofileconfig
         '''
         result = self._values.get("connector_profile_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnectorProfile.ConnectorProfileConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorProfile.ConnectorProfileConfigProperty"]], result)
 
     @builtins.property
     def kms_arn(self) -> typing.Optional[builtins.str]:
@@ -6196,7 +6192,7 @@ class CfnConnectorProps:
     def __init__(
         self,
         *,
-        connector_provisioning_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        connector_provisioning_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ConnectorProvisioningConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         connector_provisioning_type: builtins.str,
         connector_label: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -6231,7 +6227,7 @@ class CfnConnectorProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b)
+            type_hints = cached_type_hints(_typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b)
             check_type(argname="argument connector_provisioning_config", value=connector_provisioning_config, expected_type=type_hints["connector_provisioning_config"])
             check_type(argname="argument connector_provisioning_type", value=connector_provisioning_type, expected_type=type_hints["connector_provisioning_type"])
             check_type(argname="argument connector_label", value=connector_label, expected_type=type_hints["connector_label"])
@@ -6248,14 +6244,14 @@ class CfnConnectorProps:
     @builtins.property
     def connector_provisioning_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorProvisioningConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorProvisioningConfigProperty"]:
         '''The configuration required for registering the connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-connector.html#cfn-appflow-connector-connectorprovisioningconfig
         '''
         result = self._values.get("connector_provisioning_config")
         assert result is not None, "Required property 'connector_provisioning_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ConnectorProvisioningConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ConnectorProvisioningConfigProperty"], result)
 
     @builtins.property
     def connector_provisioning_type(self) -> builtins.str:
@@ -6297,9 +6293,9 @@ class CfnConnectorProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowRef_30332276, _ITaggable_36806126)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appflow_53c0c847.IFlowRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFlow(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_appflow.CfnFlow",
 ):
@@ -6641,16 +6637,16 @@ class CfnFlow(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        destination_flow_config_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DestinationFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        destination_flow_config_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DestinationFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         flow_name: builtins.str,
-        source_flow_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        tasks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        trigger_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_flow_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tasks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        trigger_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         flow_status: typing.Optional[builtins.str] = None,
-        kms_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        metadata_catalog_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MetadataCatalogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        metadata_catalog_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MetadataCatalogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AppFlow::Flow``.
 
@@ -6668,7 +6664,7 @@ class CfnFlow(
         :param tags: The tags used to organize, track, or control access for your flow.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76b6ef95e5f4f4d7b82746abb1435c9e6f43a91ed656c1dd9c1a02064f00a78a)
+            type_hints = cached_type_hints(_typecheckingstub__76b6ef95e5f4f4d7b82746abb1435c9e6f43a91ed656c1dd9c1a02064f00a78a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowProps(
@@ -6688,12 +6684,12 @@ class CfnFlow(
 
     @jsii.member(jsii_name="arnForFlow")
     @builtins.classmethod
-    def arn_for_flow(cls, resource: "_IFlowRef_30332276") -> builtins.str:
+    def arn_for_flow(cls, resource: "_aws_appflow_53c0c847.IFlowRef") -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a850f4e419216149cf2ecdf4451a2fad36294d9b0793614c509dd359a9475deb)
+            type_hints = cached_type_hints(_typecheckingstub__a850f4e419216149cf2ecdf4451a2fad36294d9b0793614c509dd359a9475deb)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFlow", [resource]))
 
@@ -6704,7 +6700,7 @@ class CfnFlow(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         arn: builtins.str,
-    ) -> "_IFlowRef_30332276":
+    ) -> "_aws_appflow_53c0c847.IFlowRef":
         '''Creates a new IFlowRef from an ARN.
 
         :param scope: -
@@ -6712,11 +6708,11 @@ class CfnFlow(
         :param arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbc554537555efcc678f2a70e9afe37fed91d91849925c3480995b2bed939803)
+            type_hints = cached_type_hints(_typecheckingstub__dbc554537555efcc678f2a70e9afe37fed91d91849925c3480995b2bed939803)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IFlowRef_30332276", jsii.sinvoke(cls, "fromFlowArn", [scope, id, arn]))
+        return typing.cast("_aws_appflow_53c0c847.IFlowRef", jsii.sinvoke(cls, "fromFlowArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromFlowName")
     @builtins.classmethod
@@ -6725,7 +6721,7 @@ class CfnFlow(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         flow_name: builtins.str,
-    ) -> "_IFlowRef_30332276":
+    ) -> "_aws_appflow_53c0c847.IFlowRef":
         '''Creates a new IFlowRef from a flowName.
 
         :param scope: -
@@ -6733,11 +6729,11 @@ class CfnFlow(
         :param flow_name: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5e2bf12ef3609a7ef4697ae93b4f27c7df57cdf570994824b72e445f513ba2f)
+            type_hints = cached_type_hints(_typecheckingstub__f5e2bf12ef3609a7ef4697ae93b4f27c7df57cdf570994824b72e445f513ba2f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
-        return typing.cast("_IFlowRef_30332276", jsii.sinvoke(cls, "fromFlowName", [scope, id, flow_name]))
+        return typing.cast("_aws_appflow_53c0c847.IFlowRef", jsii.sinvoke(cls, "fromFlowName", [scope, id, flow_name]))
 
     @jsii.member(jsii_name="isCfnFlow")
     @builtins.classmethod
@@ -6747,18 +6743,18 @@ class CfnFlow(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72f6ea83247c606d83e64eaccbaa822d576ee445a0aaff979c62d7ef5b3984c6)
+            type_hints = cached_type_hints(_typecheckingstub__72f6ea83247c606d83e64eaccbaa822d576ee445a0aaff979c62d7ef5b3984c6)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFlow", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a0903a5b0777541e9478e23854a85d5a2c4808c0983bf165d70ab1b5449fca1)
+            type_hints = cached_type_hints(_typecheckingstub__3a0903a5b0777541e9478e23854a85d5a2c4808c0983bf165d70ab1b5449fca1)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -6771,7 +6767,7 @@ class CfnFlow(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dc3a4aea78f4e89fd86f1b0a95c6b628a20b040c6bc400fdee8c2c4456dbec4)
+            type_hints = cached_type_hints(_typecheckingstub__2dc3a4aea78f4e89fd86f1b0a95c6b628a20b040c6bc400fdee8c2c4456dbec4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -6802,31 +6798,31 @@ class CfnFlow(
 
     @builtins.property
     @jsii.member(jsii_name="flowRef")
-    def flow_ref(self) -> "_FlowReference_0b81571f":
+    def flow_ref(self) -> "_aws_appflow_53c0c847.FlowReference":
         '''A reference to a Flow resource.'''
-        return typing.cast("_FlowReference_0b81571f", jsii.get(self, "flowRef"))
+        return typing.cast("_aws_appflow_53c0c847.FlowReference", jsii.get(self, "flowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> "_TagManager_0a598cb3":
+    def tags(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="destinationFlowConfigList")
     def destination_flow_config_list(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationFlowConfigProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationFlowConfigProperty"]]]:
         '''The configuration that controls how Amazon AppFlow places data in the destination connector.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationFlowConfigProperty"]]], jsii.get(self, "destinationFlowConfigList"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationFlowConfigProperty"]]], jsii.get(self, "destinationFlowConfigList"))
 
     @destination_flow_config_list.setter
     def destination_flow_config_list(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationFlowConfigProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationFlowConfigProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6e790e910559e7c5bdcd3b94ffbcee395c9ebca3506e34c7dc5849e4cc2f22e)
+            type_hints = cached_type_hints(_typecheckingstub__f6e790e910559e7c5bdcd3b94ffbcee395c9ebca3506e34c7dc5849e4cc2f22e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinationFlowConfigList", value) # pyright: ignore[reportArgumentType]
 
@@ -6839,7 +6835,7 @@ class CfnFlow(
     @flow_name.setter
     def flow_name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04271ee51cb938fbf314abcbe8001536684e210ea83443e61da82559f654fcfa)
+            type_hints = cached_type_hints(_typecheckingstub__04271ee51cb938fbf314abcbe8001536684e210ea83443e61da82559f654fcfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowName", value) # pyright: ignore[reportArgumentType]
 
@@ -6847,17 +6843,17 @@ class CfnFlow(
     @jsii.member(jsii_name="sourceFlowConfig")
     def source_flow_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceFlowConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceFlowConfigProperty"]:
         '''Contains information about the configuration of the source connector used in the flow.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceFlowConfigProperty"], jsii.get(self, "sourceFlowConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceFlowConfigProperty"], jsii.get(self, "sourceFlowConfig"))
 
     @source_flow_config.setter
     def source_flow_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceFlowConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceFlowConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af0fe8bf747f64f1d7f670168d2b21f389c54a57af38e982865d5ff46125027c)
+            type_hints = cached_type_hints(_typecheckingstub__af0fe8bf747f64f1d7f670168d2b21f389c54a57af38e982865d5ff46125027c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceFlowConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -6865,17 +6861,17 @@ class CfnFlow(
     @jsii.member(jsii_name="tasks")
     def tasks(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskProperty"]]]:
         '''A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskProperty"]]], jsii.get(self, "tasks"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskProperty"]]], jsii.get(self, "tasks"))
 
     @tasks.setter
     def tasks(
         self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskProperty"]]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskProperty"]]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be845445f663cd529fe7ed672afb9293c81c28e04a68e7cffb28e49f904b1cf)
+            type_hints = cached_type_hints(_typecheckingstub__6be845445f663cd529fe7ed672afb9293c81c28e04a68e7cffb28e49f904b1cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tasks", value) # pyright: ignore[reportArgumentType]
 
@@ -6883,17 +6879,17 @@ class CfnFlow(
     @jsii.member(jsii_name="triggerConfig")
     def trigger_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.TriggerConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TriggerConfigProperty"]:
         '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.TriggerConfigProperty"], jsii.get(self, "triggerConfig"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TriggerConfigProperty"], jsii.get(self, "triggerConfig"))
 
     @trigger_config.setter
     def trigger_config(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnFlow.TriggerConfigProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TriggerConfigProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb7ecca2b731f1a7b7e2f3e1002382bb5d5b42e9ff425b98984717cf715b0473)
+            type_hints = cached_type_hints(_typecheckingstub__fb7ecca2b731f1a7b7e2f3e1002382bb5d5b42e9ff425b98984717cf715b0473)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "triggerConfig", value) # pyright: ignore[reportArgumentType]
 
@@ -6906,7 +6902,7 @@ class CfnFlow(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76ecbc6111b3b15ac62ef5211231c35103879fefecb75334c74f80f8c9df5e0b)
+            type_hints = cached_type_hints(_typecheckingstub__76ecbc6111b3b15ac62ef5211231c35103879fefecb75334c74f80f8c9df5e0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -6922,7 +6918,7 @@ class CfnFlow(
     @flow_status.setter
     def flow_status(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea530c7cd48e3e434bd34b8ab9dabb719427831263b04557da3d03e82acbebce)
+            type_hints = cached_type_hints(_typecheckingstub__ea530c7cd48e3e434bd34b8ab9dabb719427831263b04557da3d03e82acbebce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flowStatus", value) # pyright: ignore[reportArgumentType]
 
@@ -6935,7 +6931,7 @@ class CfnFlow(
     @kms_arn.setter
     def kms_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__587868dddc78d2790162bd179ba67212276001fbdd8c989c9e3b837c1ef2b252)
+            type_hints = cached_type_hints(_typecheckingstub__587868dddc78d2790162bd179ba67212276001fbdd8c989c9e3b837c1ef2b252)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsArn", value) # pyright: ignore[reportArgumentType]
 
@@ -6943,30 +6939,33 @@ class CfnFlow(
     @jsii.member(jsii_name="metadataCatalogConfig")
     def metadata_catalog_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MetadataCatalogConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MetadataCatalogConfigProperty"]]:
         '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data.'''
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MetadataCatalogConfigProperty"]], jsii.get(self, "metadataCatalogConfig"))
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MetadataCatalogConfigProperty"]], jsii.get(self, "metadataCatalogConfig"))
 
     @metadata_catalog_config.setter
     def metadata_catalog_config(
         self,
-        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MetadataCatalogConfigProperty"]],
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MetadataCatalogConfigProperty"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a474740c338d02b5c3e7ece5ad8097d97710078550a9f34157e3e053142f0c9)
+            type_hints = cached_type_hints(_typecheckingstub__7a474740c338d02b5c3e7ece5ad8097d97710078550a9f34157e3e053142f0c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataCatalogConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for your flow.'''
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac44925e55be2d561241744a9491ec33e37633d5ea9a74479066fc80e01dab99)
+            type_hints = cached_type_hints(_typecheckingstub__ac44925e55be2d561241744a9491ec33e37633d5ea9a74479066fc80e01dab99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
@@ -7005,7 +7004,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__328b80ffe3ee9a0256b74806b514d92bc909f03f004bc1072bd9eb46b96579f9)
+                type_hints = cached_type_hints(_typecheckingstub__328b80ffe3ee9a0256b74806b514d92bc909f03f004bc1072bd9eb46b96579f9)
                 check_type(argname="argument aggregation_type", value=aggregation_type, expected_type=type_hints["aggregation_type"])
                 check_type(argname="argument target_file_size", value=target_file_size, expected_type=type_hints["target_file_size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7070,7 +7069,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c79a354a2904c1f043a53640b1e199ce326ebe0583ec664b1b5a5e01b1141585)
+                type_hints = cached_type_hints(_typecheckingstub__c79a354a2904c1f043a53640b1e199ce326ebe0583ec664b1b5a5e01b1141585)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -7192,7 +7191,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d0948b4cb879f7f09a0ff8663e81bf08fbed9c98d8935ce5ea10cae90d1a8030)
+                type_hints = cached_type_hints(_typecheckingstub__d0948b4cb879f7f09a0ff8663e81bf08fbed9c98d8935ce5ea10cae90d1a8030)
                 check_type(argname="argument amplitude", value=amplitude, expected_type=type_hints["amplitude"])
                 check_type(argname="argument custom_connector", value=custom_connector, expected_type=type_hints["custom_connector"])
                 check_type(argname="argument datadog", value=datadog, expected_type=type_hints["datadog"])
@@ -7426,8 +7425,8 @@ class CfnFlow(
             self,
             *,
             entity_name: builtins.str,
-            custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             write_operation_type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -7465,7 +7464,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a55377383a6d)
+                type_hints = cached_type_hints(_typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a55377383a6d)
                 check_type(argname="argument entity_name", value=entity_name, expected_type=type_hints["entity_name"])
                 check_type(argname="argument custom_properties", value=custom_properties, expected_type=type_hints["custom_properties"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
@@ -7496,24 +7495,24 @@ class CfnFlow(
         @builtins.property
         def custom_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The custom properties that are specific to the connector when it's used as a destination in the flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectordestinationproperties.html#cfn-appflow-flow-customconnectordestinationproperties-customproperties
             '''
             result = self._values.get("custom_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the custom connector as destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectordestinationproperties.html#cfn-appflow-flow-customconnectordestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         @builtins.property
         def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7558,8 +7557,8 @@ class CfnFlow(
             self,
             *,
             entity_name: builtins.str,
-            custom_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
-            data_transfer_api: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DataTransferApiProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            data_transfer_api: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DataTransferApiProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when the custom connector is being used as a source.
 
@@ -7590,7 +7589,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dca7f6a437784e099abbe4b67b153f5f8442b7f8bf74f61a2961a5fe146e546b)
+                type_hints = cached_type_hints(_typecheckingstub__dca7f6a437784e099abbe4b67b153f5f8442b7f8bf74f61a2961a5fe146e546b)
                 check_type(argname="argument entity_name", value=entity_name, expected_type=type_hints["entity_name"])
                 check_type(argname="argument custom_properties", value=custom_properties, expected_type=type_hints["custom_properties"])
                 check_type(argname="argument data_transfer_api", value=data_transfer_api, expected_type=type_hints["data_transfer_api"])
@@ -7615,24 +7614,24 @@ class CfnFlow(
         @builtins.property
         def custom_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''Custom properties that are required to use the custom connector as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectorsourceproperties.html#cfn-appflow-flow-customconnectorsourceproperties-customproperties
             '''
             result = self._values.get("custom_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def data_transfer_api(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DataTransferApiProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DataTransferApiProperty"]]:
             '''The API of the connector application that Amazon AppFlow uses to transfer your data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-customconnectorsourceproperties.html#cfn-appflow-flow-customconnectorsourceproperties-datatransferapi
             '''
             result = self._values.get("data_transfer_api")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DataTransferApiProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DataTransferApiProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7672,7 +7671,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fd0d04f9159d73850b9ed3d57b9d06d47be4e67aac70dac24b01272bce3eea51)
+                type_hints = cached_type_hints(_typecheckingstub__fd0d04f9159d73850b9ed3d57b9d06d47be4e67aac70dac24b01272bce3eea51)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7740,7 +7739,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5b267c7bbc073ff7038f9afd92bea1a5aa8e3ce6c87cce7601e1a5c613842541)
+                type_hints = cached_type_hints(_typecheckingstub__5b267c7bbc073ff7038f9afd92bea1a5aa8e3ce6c87cce7601e1a5c613842541)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -7788,17 +7787,17 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            custom_connector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.CustomConnectorDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            event_bridge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EventBridgeDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            lookout_metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.LookoutMetricsDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            marketo: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MarketoDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.RedshiftDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.S3DestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            salesforce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SalesforceDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sapo_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SAPODataDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            snowflake: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SnowflakeDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            upsolver: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.UpsolverDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zendesk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ZendeskDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_connector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.CustomConnectorDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            event_bridge: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.EventBridgeDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lookout_metrics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.LookoutMetricsDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            marketo: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MarketoDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.RedshiftDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.S3DestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SalesforceDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sapo_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SAPODataDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            snowflake: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SnowflakeDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            upsolver: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.UpsolverDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zendesk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ZendeskDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''This stores the information that is required to query a particular connector.
 
@@ -7969,7 +7968,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__61c1007c034c653922497591ce4be08935eae99b8eb4651428db4cd63bfbe836)
+                type_hints = cached_type_hints(_typecheckingstub__61c1007c034c653922497591ce4be08935eae99b8eb4651428db4cd63bfbe836)
                 check_type(argname="argument custom_connector", value=custom_connector, expected_type=type_hints["custom_connector"])
                 check_type(argname="argument event_bridge", value=event_bridge, expected_type=type_hints["event_bridge"])
                 check_type(argname="argument lookout_metrics", value=lookout_metrics, expected_type=type_hints["lookout_metrics"])
@@ -8008,123 +8007,123 @@ class CfnFlow(
         @builtins.property
         def custom_connector(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.CustomConnectorDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.CustomConnectorDestinationPropertiesProperty"]]:
             '''The properties that are required to query the custom Connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-customconnector
             '''
             result = self._values.get("custom_connector")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.CustomConnectorDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.CustomConnectorDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def event_bridge(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EventBridgeDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EventBridgeDestinationPropertiesProperty"]]:
             '''The properties required to query Amazon EventBridge.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-eventbridge
             '''
             result = self._values.get("event_bridge")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EventBridgeDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.EventBridgeDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def lookout_metrics(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.LookoutMetricsDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.LookoutMetricsDestinationPropertiesProperty"]]:
             '''The properties required to query Amazon Lookout for Metrics.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-lookoutmetrics
             '''
             result = self._values.get("lookout_metrics")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.LookoutMetricsDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.LookoutMetricsDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def marketo(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MarketoDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MarketoDestinationPropertiesProperty"]]:
             '''The properties required to query Marketo.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-marketo
             '''
             result = self._values.get("marketo")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MarketoDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MarketoDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def redshift(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.RedshiftDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RedshiftDestinationPropertiesProperty"]]:
             '''The properties required to query Amazon Redshift.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-redshift
             '''
             result = self._values.get("redshift")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.RedshiftDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.RedshiftDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3DestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3DestinationPropertiesProperty"]]:
             '''The properties required to query Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3DestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3DestinationPropertiesProperty"]], result)
 
         @builtins.property
         def salesforce(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SalesforceDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SalesforceDestinationPropertiesProperty"]]:
             '''The properties required to query Salesforce.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-salesforce
             '''
             result = self._values.get("salesforce")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SalesforceDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SalesforceDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def sapo_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataDestinationPropertiesProperty"]]:
             '''The properties required to query SAPOData.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-sapodata
             '''
             result = self._values.get("sapo_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def snowflake(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SnowflakeDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SnowflakeDestinationPropertiesProperty"]]:
             '''The properties required to query Snowflake.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-snowflake
             '''
             result = self._values.get("snowflake")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SnowflakeDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SnowflakeDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def upsolver(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.UpsolverDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.UpsolverDestinationPropertiesProperty"]]:
             '''The properties required to query Upsolver.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-upsolver
             '''
             result = self._values.get("upsolver")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.UpsolverDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.UpsolverDestinationPropertiesProperty"]], result)
 
         @builtins.property
         def zendesk(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ZendeskDestinationPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ZendeskDestinationPropertiesProperty"]]:
             '''The properties required to query Zendesk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationconnectorproperties.html#cfn-appflow-flow-destinationconnectorproperties-zendesk
             '''
             result = self._values.get("zendesk")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ZendeskDestinationPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ZendeskDestinationPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8152,7 +8151,7 @@ class CfnFlow(
             self,
             *,
             connector_type: builtins.str,
-            destination_connector_properties: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DestinationConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            destination_connector_properties: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DestinationConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
             api_version: typing.Optional[builtins.str] = None,
             connector_profile_name: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -8325,7 +8324,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a402951d4f07b94704bb13f3e3d06a8b6b9d77e06e6fc1d84977f9517982e7f1)
+                type_hints = cached_type_hints(_typecheckingstub__a402951d4f07b94704bb13f3e3d06a8b6b9d77e06e6fc1d84977f9517982e7f1)
                 check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
                 check_type(argname="argument destination_connector_properties", value=destination_connector_properties, expected_type=type_hints["destination_connector_properties"])
                 check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
@@ -8352,14 +8351,14 @@ class CfnFlow(
         @builtins.property
         def destination_connector_properties(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationConnectorPropertiesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationConnectorPropertiesProperty"]:
             '''This stores the information that is required to query a particular connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-destinationflowconfig.html#cfn-appflow-flow-destinationflowconfig-destinationconnectorproperties
             '''
             result = self._values.get("destination_connector_properties")
             assert result is not None, "Required property 'destination_connector_properties' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationConnectorPropertiesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationConnectorPropertiesProperty"], result)
 
         @builtins.property
         def api_version(self) -> typing.Optional[builtins.str]:
@@ -8417,7 +8416,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bd31c39eceb7e8f9ff83abe7bdead9c7600418ea846aab5ebf0753342629880b)
+                type_hints = cached_type_hints(_typecheckingstub__bd31c39eceb7e8f9ff83abe7bdead9c7600418ea846aab5ebf0753342629880b)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -8459,7 +8458,7 @@ class CfnFlow(
             *,
             bucket_name: typing.Optional[builtins.str] = None,
             bucket_prefix: typing.Optional[builtins.str] = None,
-            fail_on_first_error: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            fail_on_first_error: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the destination.
 
@@ -8485,7 +8484,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__078888996b9eead8bfd345f5605ec71018981578c357cd612506905b30ac521b)
+                type_hints = cached_type_hints(_typecheckingstub__078888996b9eead8bfd345f5605ec71018981578c357cd612506905b30ac521b)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
                 check_type(argname="argument fail_on_first_error", value=fail_on_first_error, expected_type=type_hints["fail_on_first_error"])
@@ -8518,13 +8517,13 @@ class CfnFlow(
         @builtins.property
         def fail_on_first_error(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Specifies if the flow should fail after the first instance of a failure when attempting to place data in the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-errorhandlingconfig.html#cfn-appflow-flow-errorhandlingconfig-failonfirsterror
             '''
             result = self._values.get("fail_on_first_error")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8550,7 +8549,7 @@ class CfnFlow(
             self,
             *,
             object: builtins.str,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when Amazon EventBridge is being used as a destination.
 
@@ -8578,7 +8577,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8e03b85b4f5295b92ede3385edaa38289164ed2e7ce6906b31d4ed43261f2a5)
+                type_hints = cached_type_hints(_typecheckingstub__c8e03b85b4f5295b92ede3385edaa38289164ed2e7ce6906b31d4ed43261f2a5)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8600,13 +8599,13 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The object specified in the Amplitude flow source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-eventbridgedestinationproperties.html#cfn-appflow-flow-eventbridgedestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8658,7 +8657,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d54128401eb4f1071ae36d8a94740a8609f3a83c599e4ae134e5f639093b263)
+                type_hints = cached_type_hints(_typecheckingstub__8d54128401eb4f1071ae36d8a94740a8609f3a83c599e4ae134e5f639093b263)
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument table_prefix", value=table_prefix, expected_type=type_hints["table_prefix"])
@@ -8734,7 +8733,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d4ed31a66518065602d2b82ead4f74719971927fbbbde987b8775f8e657f0f2f)
+                type_hints = cached_type_hints(_typecheckingstub__d4ed31a66518065602d2b82ead4f74719971927fbbbde987b8775f8e657f0f2f)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -8790,7 +8789,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__759935a3bf8f161ab3b60afdbbe4f58242c6c5bd495d8f4c8769f330422ea6f8)
+                type_hints = cached_type_hints(_typecheckingstub__759935a3bf8f161ab3b60afdbbe4f58242c6c5bd495d8f4c8769f330422ea6f8)
                 check_type(argname="argument datetime_type_field_name", value=datetime_type_field_name, expected_type=type_hints["datetime_type_field_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if datetime_type_field_name is not None:
@@ -8841,7 +8840,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3d7abfd8dee53e8d72b6717b22ce7f7090bff56556455f268445e608bbd34946)
+                type_hints = cached_type_hints(_typecheckingstub__3d7abfd8dee53e8d72b6717b22ce7f7090bff56556455f268445e608bbd34946)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -8893,7 +8892,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__060702aed5019190a6b199aad5e66f61768453c8fbe7c5549752dea9c79a361b)
+                type_hints = cached_type_hints(_typecheckingstub__060702aed5019190a6b199aad5e66f61768453c8fbe7c5549752dea9c79a361b)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if object is not None:
@@ -8932,7 +8931,7 @@ class CfnFlow(
             self,
             *,
             object: builtins.str,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that Amazon AppFlow applies when you use Marketo as a flow destination.
 
@@ -8960,7 +8959,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__0d081ec2d0308a134ab532b76aa1b67bd5dc34d931782456f9384ab6bee329ba)
+                type_hints = cached_type_hints(_typecheckingstub__0d081ec2d0308a134ab532b76aa1b67bd5dc34d931782456f9384ab6bee329ba)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8982,7 +8981,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -8990,7 +8989,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-marketodestinationproperties.html#cfn-appflow-flow-marketodestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9028,7 +9027,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8bd9aa6a3e0dbdbe51c141292970fcab641b368bdfcedea085461c81262a471b)
+                type_hints = cached_type_hints(_typecheckingstub__8bd9aa6a3e0dbdbe51c141292970fcab641b368bdfcedea085461c81262a471b)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -9064,7 +9063,7 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            glue_data_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.GlueDataCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            glue_data_catalog: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.GlueDataCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data.
 
@@ -9090,7 +9089,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4d6c8a679bd51537f9a83827157b0794271255d4346540c24884c78865854859)
+                type_hints = cached_type_hints(_typecheckingstub__4d6c8a679bd51537f9a83827157b0794271255d4346540c24884c78865854859)
                 check_type(argname="argument glue_data_catalog", value=glue_data_catalog, expected_type=type_hints["glue_data_catalog"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if glue_data_catalog is not None:
@@ -9099,13 +9098,13 @@ class CfnFlow(
         @builtins.property
         def glue_data_catalog(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GlueDataCatalogProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GlueDataCatalogProperty"]]:
             '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data with the AWS Glue Data Catalog .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-metadatacatalogconfig.html#cfn-appflow-flow-metadatacatalogconfig-gluedatacatalog
             '''
             result = self._values.get("glue_data_catalog")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GlueDataCatalogProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GlueDataCatalogProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9143,7 +9142,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57187f77b7b8cbe02dd1d2d2689e5d019ac5a329b434d4e64e52142ee8f22c96)
+                type_hints = cached_type_hints(_typecheckingstub__57187f77b7b8cbe02dd1d2d2689e5d019ac5a329b434d4e64e52142ee8f22c96)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -9209,7 +9208,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6ca7d146b99555e5990a83482ad7afa30c6b2871a7c5597b99e2b425052d5572)
+                type_hints = cached_type_hints(_typecheckingstub__6ca7d146b99555e5990a83482ad7afa30c6b2871a7c5597b99e2b425052d5572)
                 check_type(argname="argument path_prefix_hierarchy", value=path_prefix_hierarchy, expected_type=type_hints["path_prefix_hierarchy"])
                 check_type(argname="argument prefix_format", value=prefix_format, expected_type=type_hints["prefix_format"])
                 check_type(argname="argument prefix_type", value=prefix_type, expected_type=type_hints["prefix_type"])
@@ -9282,7 +9281,7 @@ class CfnFlow(
             intermediate_bucket_name: builtins.str,
             object: builtins.str,
             bucket_prefix: typing.Optional[builtins.str] = None,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when Amazon Redshift is being used as a destination.
 
@@ -9314,7 +9313,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f3402bfecb762ab7eeca84836d4541ecb34ac1e9bf357d0aca15d57bfbab3ef9)
+                type_hints = cached_type_hints(_typecheckingstub__f3402bfecb762ab7eeca84836d4541ecb34ac1e9bf357d0aca15d57bfbab3ef9)
                 check_type(argname="argument intermediate_bucket_name", value=intermediate_bucket_name, expected_type=type_hints["intermediate_bucket_name"])
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
@@ -9360,7 +9359,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the Amazon Redshift destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -9368,7 +9367,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-redshiftdestinationproperties.html#cfn-appflow-flow-redshiftdestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9396,7 +9395,7 @@ class CfnFlow(
             *,
             bucket_name: builtins.str,
             bucket_prefix: typing.Optional[builtins.str] = None,
-            s3_output_format_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.S3OutputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_output_format_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.S3OutputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when Amazon S3 is used as a destination.
 
@@ -9434,7 +9433,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__ec0528e9590b2bddf1b9031aadc143a8f3989afde0772669ab454e92b157ce68)
+                type_hints = cached_type_hints(_typecheckingstub__ec0528e9590b2bddf1b9031aadc143a8f3989afde0772669ab454e92b157ce68)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
                 check_type(argname="argument s3_output_format_config", value=s3_output_format_config, expected_type=type_hints["s3_output_format_config"])
@@ -9468,13 +9467,13 @@ class CfnFlow(
         @builtins.property
         def s3_output_format_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3OutputFormatConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3OutputFormatConfigProperty"]]:
             '''The configuration that determines how Amazon AppFlow should format the flow output data when Amazon S3 is used as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-s3destinationproperties.html#cfn-appflow-flow-s3destinationproperties-s3outputformatconfig
             '''
             result = self._values.get("s3_output_format_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3OutputFormatConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3OutputFormatConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9516,7 +9515,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3026ab7181af509228fef339c10aee815ccd500d0b0ab562d0a601451f151fe5)
+                type_hints = cached_type_hints(_typecheckingstub__3026ab7181af509228fef339c10aee815ccd500d0b0ab562d0a601451f151fe5)
                 check_type(argname="argument s3_input_file_type", value=s3_input_file_type, expected_type=type_hints["s3_input_file_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if s3_input_file_type is not None:
@@ -9556,10 +9555,10 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            aggregation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.AggregationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aggregation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.AggregationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             file_type: typing.Optional[builtins.str] = None,
-            prefix_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.PrefixConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            prefix_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.PrefixConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The configuration that determines how Amazon AppFlow should format the flow output data when Amazon S3 is used as the destination.
 
@@ -9592,7 +9591,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__407430b2021e0200bc72876aac4ff684f0d8799c206a3a9414a422d1117ad9e3)
+                type_hints = cached_type_hints(_typecheckingstub__407430b2021e0200bc72876aac4ff684f0d8799c206a3a9414a422d1117ad9e3)
                 check_type(argname="argument aggregation_config", value=aggregation_config, expected_type=type_hints["aggregation_config"])
                 check_type(argname="argument file_type", value=file_type, expected_type=type_hints["file_type"])
                 check_type(argname="argument prefix_config", value=prefix_config, expected_type=type_hints["prefix_config"])
@@ -9610,13 +9609,13 @@ class CfnFlow(
         @builtins.property
         def aggregation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AggregationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AggregationConfigProperty"]]:
             '''The aggregation settings that you can use to customize the output format of your flow data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-s3outputformatconfig.html#cfn-appflow-flow-s3outputformatconfig-aggregationconfig
             '''
             result = self._values.get("aggregation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AggregationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AggregationConfigProperty"]], result)
 
         @builtins.property
         def file_type(self) -> typing.Optional[builtins.str]:
@@ -9630,7 +9629,7 @@ class CfnFlow(
         @builtins.property
         def prefix_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.PrefixConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PrefixConfigProperty"]]:
             '''Determines the prefix that Amazon AppFlow applies to the folder name in the Amazon S3 bucket.
 
             You can name folders according to the flow frequency and date.
@@ -9638,12 +9637,12 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-s3outputformatconfig.html#cfn-appflow-flow-s3outputformatconfig-prefixconfig
             '''
             result = self._values.get("prefix_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.PrefixConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PrefixConfigProperty"]], result)
 
         @builtins.property
         def preserve_source_data_typing(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''If your file output format is Parquet, use this parameter to set whether Amazon AppFlow preserves the data types in your source data when it writes the output to Amazon S3.
 
             - ``true`` : Amazon AppFlow preserves the data types when it writes to Amazon S3. For example, an integer or ``1`` in your source data is still an integer in your output.
@@ -9652,7 +9651,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-s3outputformatconfig.html#cfn-appflow-flow-s3outputformatconfig-preservesourcedatatyping
             '''
             result = self._values.get("preserve_source_data_typing")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9680,7 +9679,7 @@ class CfnFlow(
             *,
             bucket_name: builtins.str,
             bucket_prefix: builtins.str,
-            s3_input_format_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.S3InputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_input_format_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.S3InputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when Amazon S3 is being used as the flow source.
 
@@ -9708,7 +9707,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fceba990c11a1dcac2ffb6444971b0e2f656ef344ffa30a7be490d7934960b27)
+                type_hints = cached_type_hints(_typecheckingstub__fceba990c11a1dcac2ffb6444971b0e2f656ef344ffa30a7be490d7934960b27)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
                 check_type(argname="argument s3_input_format_config", value=s3_input_format_config, expected_type=type_hints["s3_input_format_config"])
@@ -9742,13 +9741,13 @@ class CfnFlow(
         @builtins.property
         def s3_input_format_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3InputFormatConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3InputFormatConfigProperty"]]:
             '''When you use Amazon S3 as the source, the configuration format that you provide the flow input data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-s3sourceproperties.html#cfn-appflow-flow-s3sourceproperties-s3inputformatconfig
             '''
             result = self._values.get("s3_input_format_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3InputFormatConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3InputFormatConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9777,9 +9776,9 @@ class CfnFlow(
             self,
             *,
             object_path: builtins.str,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-            success_response_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SuccessResponseHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            success_response_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SuccessResponseHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             write_operation_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The properties that are applied when using SAPOData as a flow destination.
@@ -9817,7 +9816,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fe430f8a0b8fb0ec38ccedbd370e2c15756d92142c80a33db63467c251bf746f)
+                type_hints = cached_type_hints(_typecheckingstub__fe430f8a0b8fb0ec38ccedbd370e2c15756d92142c80a33db63467c251bf746f)
                 check_type(argname="argument object_path", value=object_path, expected_type=type_hints["object_path"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
                 check_type(argname="argument id_field_names", value=id_field_names, expected_type=type_hints["id_field_names"])
@@ -9848,7 +9847,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -9856,7 +9855,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sapodatadestinationproperties.html#cfn-appflow-flow-sapodatadestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         @builtins.property
         def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9870,7 +9869,7 @@ class CfnFlow(
         @builtins.property
         def success_response_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SuccessResponseHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SuccessResponseHandlingConfigProperty"]]:
             '''Determines how Amazon AppFlow handles the success response that it gets from the connector after placing data.
 
             For example, this setting would determine where to write the response from a destination connector upon a successful insert operation.
@@ -9878,7 +9877,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sapodatadestinationproperties.html#cfn-appflow-flow-sapodatadestinationproperties-successresponsehandlingconfig
             '''
             result = self._values.get("success_response_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SuccessResponseHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SuccessResponseHandlingConfigProperty"]], result)
 
         @builtins.property
         def write_operation_type(self) -> typing.Optional[builtins.str]:
@@ -9929,7 +9928,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__70a1b148320f618d1580608aea44a877c958797e9cc86024259d3c016c8971c1)
+                type_hints = cached_type_hints(_typecheckingstub__70a1b148320f618d1580608aea44a877c958797e9cc86024259d3c016c8971c1)
                 check_type(argname="argument max_page_size", value=max_page_size, expected_type=type_hints["max_page_size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_page_size": max_page_size,
@@ -9985,7 +9984,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__668e98c80d12ecf0f0b6848ebbd4e31684d00592bad96c5d718f04567a36d867)
+                type_hints = cached_type_hints(_typecheckingstub__668e98c80d12ecf0f0b6848ebbd4e31684d00592bad96c5d718f04567a36d867)
                 check_type(argname="argument max_parallelism", value=max_parallelism, expected_type=type_hints["max_parallelism"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_parallelism": max_parallelism,
@@ -10026,8 +10025,8 @@ class CfnFlow(
             self,
             *,
             object_path: builtins.str,
-            pagination_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SAPODataPaginationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            parallelism_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SAPODataParallelismConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pagination_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SAPODataPaginationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parallelism_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SAPODataParallelismConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when using SAPOData as a flow source.
 
@@ -10057,7 +10056,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__1c4e8d48237678f7dc3ac8c9c540e8c8080066daee936538208a6c98c0bd5b8e)
+                type_hints = cached_type_hints(_typecheckingstub__1c4e8d48237678f7dc3ac8c9c540e8c8080066daee936538208a6c98c0bd5b8e)
                 check_type(argname="argument object_path", value=object_path, expected_type=type_hints["object_path"])
                 check_type(argname="argument pagination_config", value=pagination_config, expected_type=type_hints["pagination_config"])
                 check_type(argname="argument parallelism_config", value=parallelism_config, expected_type=type_hints["parallelism_config"])
@@ -10082,24 +10081,24 @@ class CfnFlow(
         @builtins.property
         def pagination_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataPaginationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataPaginationConfigProperty"]]:
             '''Sets the page size for each concurrent process that transfers OData records from your SAP instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sapodatasourceproperties.html#cfn-appflow-flow-sapodatasourceproperties-paginationconfig
             '''
             result = self._values.get("pagination_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataPaginationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataPaginationConfigProperty"]], result)
 
         @builtins.property
         def parallelism_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataParallelismConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataParallelismConfigProperty"]]:
             '''Sets the number of concurrent processes that transfers OData records from your SAP instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sapodatasourceproperties.html#cfn-appflow-flow-sapodatasourceproperties-parallelismconfig
             '''
             result = self._values.get("parallelism_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataParallelismConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataParallelismConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10129,7 +10128,7 @@ class CfnFlow(
             *,
             object: builtins.str,
             data_transfer_api: typing.Optional[builtins.str] = None,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             write_operation_type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -10165,7 +10164,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fb5fca2c002782d42209e79c110151b3808d3c3603d8ea4038a9950700201881)
+                type_hints = cached_type_hints(_typecheckingstub__fb5fca2c002782d42209e79c110151b3808d3c3603d8ea4038a9950700201881)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument data_transfer_api", value=data_transfer_api, expected_type=type_hints["data_transfer_api"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
@@ -10217,7 +10216,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the Salesforce destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -10225,7 +10224,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-salesforcedestinationproperties.html#cfn-appflow-flow-salesforcedestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         @builtins.property
         def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10274,8 +10273,8 @@ class CfnFlow(
             *,
             object: builtins.str,
             data_transfer_api: typing.Optional[builtins.str] = None,
-            enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_deleted_records: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_deleted_records: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The properties that are applied when Salesforce is being used as a source.
 
@@ -10303,7 +10302,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__697f1bdf553e40b76d835a0032b4929b29e8c8e62c21e52cbc4d6e184f47fe5b)
+                type_hints = cached_type_hints(_typecheckingstub__697f1bdf553e40b76d835a0032b4929b29e8c8e62c21e52cbc4d6e184f47fe5b)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument data_transfer_api", value=data_transfer_api, expected_type=type_hints["data_transfer_api"])
                 check_type(argname="argument enable_dynamic_field_update", value=enable_dynamic_field_update, expected_type=type_hints["enable_dynamic_field_update"])
@@ -10352,24 +10351,24 @@ class CfnFlow(
         @builtins.property
         def enable_dynamic_field_update(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''The flag that enables dynamic fetching of new (recently added) fields in the Salesforce objects while running a flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-salesforcesourceproperties.html#cfn-appflow-flow-salesforcesourceproperties-enabledynamicfieldupdate
             '''
             result = self._values.get("enable_dynamic_field_update")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_deleted_records(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Indicates whether Amazon AppFlow includes deleted files in the flow run.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-salesforcesourceproperties.html#cfn-appflow-flow-salesforcesourceproperties-includedeletedrecords
             '''
             result = self._values.get("include_deleted_records")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10445,7 +10444,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__432f0b4ecbd08bb1fea8eaf3541e9eea15562f2a97861fe29276031c796d986b)
+                type_hints = cached_type_hints(_typecheckingstub__432f0b4ecbd08bb1fea8eaf3541e9eea15562f2a97861fe29276031c796d986b)
                 check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
                 check_type(argname="argument data_pull_mode", value=data_pull_mode, expected_type=type_hints["data_pull_mode"])
                 check_type(argname="argument first_execution_from", value=first_execution_from, expected_type=type_hints["first_execution_from"])
@@ -10589,7 +10588,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2f28c53e5a211cf01809013da71c5a7157f26d88b8459970752b72684cd630e2)
+                type_hints = cached_type_hints(_typecheckingstub__2f28c53e5a211cf01809013da71c5a7157f26d88b8459970752b72684cd630e2)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -10641,7 +10640,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__72f1fe6d35e37b171c76f4e32614f4188012e4108d512909e54f1c611343926e)
+                type_hints = cached_type_hints(_typecheckingstub__72f1fe6d35e37b171c76f4e32614f4188012e4108d512909e54f1c611343926e)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -10693,7 +10692,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d3df173883e334f5de644d5ad1d7c83004e6b6ba99b20efe1bf8b36be60a5a6d)
+                type_hints = cached_type_hints(_typecheckingstub__d3df173883e334f5de644d5ad1d7c83004e6b6ba99b20efe1bf8b36be60a5a6d)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -10737,7 +10736,7 @@ class CfnFlow(
             intermediate_bucket_name: builtins.str,
             object: builtins.str,
             bucket_prefix: typing.Optional[builtins.str] = None,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The properties that are applied when Snowflake is being used as a destination.
 
@@ -10769,7 +10768,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__861db013349794673cd44026c51c9186e9b48c189f3d2f897e96326cf9022abd)
+                type_hints = cached_type_hints(_typecheckingstub__861db013349794673cd44026c51c9186e9b48c189f3d2f897e96326cf9022abd)
                 check_type(argname="argument intermediate_bucket_name", value=intermediate_bucket_name, expected_type=type_hints["intermediate_bucket_name"])
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
@@ -10815,7 +10814,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the Snowflake destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -10823,7 +10822,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-snowflakedestinationproperties.html#cfn-appflow-flow-snowflakedestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10863,23 +10862,23 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            amplitude: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.AmplitudeSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            custom_connector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.CustomConnectorSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            datadog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DatadogSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DynatraceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            google_analytics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.GoogleAnalyticsSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            infor_nexus: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.InforNexusSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            marketo: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MarketoSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            pardot: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.PardotSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.S3SourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            salesforce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SalesforceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sapo_data: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SAPODataSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ServiceNowSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            singular: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SingularSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            slack: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SlackSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            trendmicro: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TrendmicroSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            veeva: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VeevaSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zendesk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ZendeskSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            amplitude: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.AmplitudeSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_connector: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.CustomConnectorSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            datadog: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DatadogSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            dynatrace: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DynatraceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            google_analytics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.GoogleAnalyticsSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            infor_nexus: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.InforNexusSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            marketo: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MarketoSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            pardot: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.PardotSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.S3SourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SalesforceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sapo_data: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SAPODataSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ServiceNowSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            singular: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SingularSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slack: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SlackSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            trendmicro: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TrendmicroSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            veeva: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.VeevaSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zendesk: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ZendeskSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the information that is required to query a particular connector.
 
@@ -10999,7 +10998,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__bfca05ac628581510d78eb8880099b2c8d67e6218aeca321ae975f0979bb85af)
+                type_hints = cached_type_hints(_typecheckingstub__bfca05ac628581510d78eb8880099b2c8d67e6218aeca321ae975f0979bb85af)
                 check_type(argname="argument amplitude", value=amplitude, expected_type=type_hints["amplitude"])
                 check_type(argname="argument custom_connector", value=custom_connector, expected_type=type_hints["custom_connector"])
                 check_type(argname="argument datadog", value=datadog, expected_type=type_hints["datadog"])
@@ -11056,189 +11055,189 @@ class CfnFlow(
         @builtins.property
         def amplitude(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AmplitudeSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AmplitudeSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Amplitude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-amplitude
             '''
             result = self._values.get("amplitude")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AmplitudeSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AmplitudeSourcePropertiesProperty"]], result)
 
         @builtins.property
         def custom_connector(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.CustomConnectorSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.CustomConnectorSourcePropertiesProperty"]]:
             '''The properties that are applied when the custom connector is being used as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-customconnector
             '''
             result = self._values.get("custom_connector")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.CustomConnectorSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.CustomConnectorSourcePropertiesProperty"]], result)
 
         @builtins.property
         def datadog(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DatadogSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DatadogSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Datadog.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-datadog
             '''
             result = self._values.get("datadog")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DatadogSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DatadogSourcePropertiesProperty"]], result)
 
         @builtins.property
         def dynatrace(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DynatraceSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DynatraceSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Dynatrace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-dynatrace
             '''
             result = self._values.get("dynatrace")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.DynatraceSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DynatraceSourcePropertiesProperty"]], result)
 
         @builtins.property
         def google_analytics(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GoogleAnalyticsSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GoogleAnalyticsSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Google Analytics.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-googleanalytics
             '''
             result = self._values.get("google_analytics")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.GoogleAnalyticsSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.GoogleAnalyticsSourcePropertiesProperty"]], result)
 
         @builtins.property
         def infor_nexus(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.InforNexusSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InforNexusSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Infor Nexus.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-infornexus
             '''
             result = self._values.get("infor_nexus")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.InforNexusSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.InforNexusSourcePropertiesProperty"]], result)
 
         @builtins.property
         def marketo(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MarketoSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MarketoSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Marketo.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-marketo
             '''
             result = self._values.get("marketo")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MarketoSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MarketoSourcePropertiesProperty"]], result)
 
         @builtins.property
         def pardot(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.PardotSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PardotSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Salesforce Pardot.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-pardot
             '''
             result = self._values.get("pardot")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.PardotSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PardotSourcePropertiesProperty"]], result)
 
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3SourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3SourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Amazon S3.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.S3SourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.S3SourcePropertiesProperty"]], result)
 
         @builtins.property
         def salesforce(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SalesforceSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SalesforceSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Salesforce.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-salesforce
             '''
             result = self._values.get("salesforce")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SalesforceSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SalesforceSourcePropertiesProperty"]], result)
 
         @builtins.property
         def sapo_data(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataSourcePropertiesProperty"]]:
             '''The properties that are applied when using SAPOData as a flow source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-sapodata
             '''
             result = self._values.get("sapo_data")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SAPODataSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SAPODataSourcePropertiesProperty"]], result)
 
         @builtins.property
         def service_now(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ServiceNowSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ServiceNowSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying ServiceNow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-servicenow
             '''
             result = self._values.get("service_now")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ServiceNowSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ServiceNowSourcePropertiesProperty"]], result)
 
         @builtins.property
         def singular(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SingularSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SingularSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Singular.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-singular
             '''
             result = self._values.get("singular")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SingularSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SingularSourcePropertiesProperty"]], result)
 
         @builtins.property
         def slack(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SlackSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SlackSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Slack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-slack
             '''
             result = self._values.get("slack")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SlackSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SlackSourcePropertiesProperty"]], result)
 
         @builtins.property
         def trendmicro(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.TrendmicroSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TrendmicroSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Trend Micro.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-trendmicro
             '''
             result = self._values.get("trendmicro")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.TrendmicroSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TrendmicroSourcePropertiesProperty"]], result)
 
         @builtins.property
         def veeva(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.VeevaSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VeevaSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Veeva.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-veeva
             '''
             result = self._values.get("veeva")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.VeevaSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.VeevaSourcePropertiesProperty"]], result)
 
         @builtins.property
         def zendesk(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ZendeskSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ZendeskSourcePropertiesProperty"]]:
             '''Specifies the information that is required for querying Zendesk.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceconnectorproperties.html#cfn-appflow-flow-sourceconnectorproperties-zendesk
             '''
             result = self._values.get("zendesk")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ZendeskSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ZendeskSourcePropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11267,10 +11266,10 @@ class CfnFlow(
             self,
             *,
             connector_type: builtins.str,
-            source_connector_properties: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_connector_properties: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
             api_version: typing.Optional[builtins.str] = None,
             connector_profile_name: typing.Optional[builtins.str] = None,
-            incremental_pull_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.IncrementalPullConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            incremental_pull_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.IncrementalPullConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information about the configuration of the source connector used in the flow.
 
@@ -11388,7 +11387,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__82f2b5bbb1f4a6eab214e7cfa4059986076879090f1ee5604886d749c25bc0af)
+                type_hints = cached_type_hints(_typecheckingstub__82f2b5bbb1f4a6eab214e7cfa4059986076879090f1ee5604886d749c25bc0af)
                 check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
                 check_type(argname="argument source_connector_properties", value=source_connector_properties, expected_type=type_hints["source_connector_properties"])
                 check_type(argname="argument api_version", value=api_version, expected_type=type_hints["api_version"])
@@ -11418,14 +11417,14 @@ class CfnFlow(
         @builtins.property
         def source_connector_properties(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceConnectorPropertiesProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceConnectorPropertiesProperty"]:
             '''Specifies the information that is required to query a particular source connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceflowconfig.html#cfn-appflow-flow-sourceflowconfig-sourceconnectorproperties
             '''
             result = self._values.get("source_connector_properties")
             assert result is not None, "Required property 'source_connector_properties' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceConnectorPropertiesProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceConnectorPropertiesProperty"], result)
 
         @builtins.property
         def api_version(self) -> typing.Optional[builtins.str]:
@@ -11450,7 +11449,7 @@ class CfnFlow(
         @builtins.property
         def incremental_pull_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.IncrementalPullConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.IncrementalPullConfigProperty"]]:
             '''Defines the configuration for a scheduled incremental data pull.
 
             If a valid configuration is provided, the fields specified in the configuration are used when querying for the incremental data pull.
@@ -11458,7 +11457,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-sourceflowconfig.html#cfn-appflow-flow-sourceflowconfig-incrementalpullconfig
             '''
             result = self._values.get("incremental_pull_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.IncrementalPullConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.IncrementalPullConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11505,7 +11504,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__2abacd16b8046f3cf4c6b41305e1a136113c378aa704f9caf9caf85babd687f3)
+                type_hints = cached_type_hints(_typecheckingstub__2abacd16b8046f3cf4c6b41305e1a136113c378aa704f9caf9caf85babd687f3)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11572,7 +11571,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__979dcfb4514caff045d16804e80e950a4b994c418d975bfda1b058b9b48fced4)
+                type_hints = cached_type_hints(_typecheckingstub__979dcfb4514caff045d16804e80e950a4b994c418d975bfda1b058b9b48fced4)
                 check_type(argname="argument key", value=key, expected_type=type_hints["key"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11628,9 +11627,9 @@ class CfnFlow(
             *,
             source_fields: typing.Sequence[builtins.str],
             task_type: builtins.str,
-            connector_operator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ConnectorOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_operator: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ConnectorOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination_field: typing.Optional[builtins.str] = None,
-            task_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TaskPropertiesObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            task_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TaskPropertiesObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A class for modeling different type of tasks.
 
@@ -11683,7 +11682,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__72c004cc65bad7fca9bee2b8e49d510b504af527bc9f31cdca10692f130cda87)
+                type_hints = cached_type_hints(_typecheckingstub__72c004cc65bad7fca9bee2b8e49d510b504af527bc9f31cdca10692f130cda87)
                 check_type(argname="argument source_fields", value=source_fields, expected_type=type_hints["source_fields"])
                 check_type(argname="argument task_type", value=task_type, expected_type=type_hints["task_type"])
                 check_type(argname="argument connector_operator", value=connector_operator, expected_type=type_hints["connector_operator"])
@@ -11725,13 +11724,13 @@ class CfnFlow(
         @builtins.property
         def connector_operator(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ConnectorOperatorProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ConnectorOperatorProperty"]]:
             '''The operation to be performed on the provided source fields.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-task.html#cfn-appflow-flow-task-connectoroperator
             '''
             result = self._values.get("connector_operator")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ConnectorOperatorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ConnectorOperatorProperty"]], result)
 
         @builtins.property
         def destination_field(self) -> typing.Optional[builtins.str]:
@@ -11745,7 +11744,7 @@ class CfnFlow(
         @builtins.property
         def task_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskPropertiesObjectProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskPropertiesObjectProperty"]]]]:
             '''A map used to store task-related information.
 
             The execution service looks for particular information based on the ``TaskType`` .
@@ -11753,7 +11752,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-task.html#cfn-appflow-flow-task-taskproperties
             '''
             result = self._values.get("task_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskPropertiesObjectProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskPropertiesObjectProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11791,7 +11790,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__41cf6b7146e8303d1b50511d2818edd5e3c2dfa0eab59171dd6d9b24f3cbfa80)
+                type_hints = cached_type_hints(_typecheckingstub__41cf6b7146e8303d1b50511d2818edd5e3c2dfa0eab59171dd6d9b24f3cbfa80)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -11831,7 +11830,7 @@ class CfnFlow(
             self,
             *,
             trigger_type: builtins.str,
-            trigger_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ScheduledTriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            trigger_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ScheduledTriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
 
@@ -11866,7 +11865,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cd28ca462b3e9e4f32cc44aec4e8810188f62b59f8d2642880f795974ed7aabc)
+                type_hints = cached_type_hints(_typecheckingstub__cd28ca462b3e9e4f32cc44aec4e8810188f62b59f8d2642880f795974ed7aabc)
                 check_type(argname="argument trigger_type", value=trigger_type, expected_type=type_hints["trigger_type"])
                 check_type(argname="argument trigger_properties", value=trigger_properties, expected_type=type_hints["trigger_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11890,7 +11889,7 @@ class CfnFlow(
         @builtins.property
         def trigger_properties(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ScheduledTriggerPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ScheduledTriggerPropertiesProperty"]]:
             '''Specifies the configuration details of a schedule-triggered flow as defined by the user.
 
             Currently, these settings only apply to the ``Scheduled`` trigger type.
@@ -11898,7 +11897,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-triggerconfig.html#cfn-appflow-flow-triggerconfig-triggerproperties
             '''
             result = self._values.get("trigger_properties")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ScheduledTriggerPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ScheduledTriggerPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11925,7 +11924,7 @@ class CfnFlow(
             self,
             *,
             bucket_name: builtins.str,
-            s3_output_format_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.UpsolverS3OutputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            s3_output_format_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.UpsolverS3OutputFormatConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             bucket_prefix: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The properties that are applied when Upsolver is used as a destination.
@@ -11965,7 +11964,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__05785a870fff4b04759a9e76167dfd9a3a7b02a191fa2a196cf1fcf2f10cc020)
+                type_hints = cached_type_hints(_typecheckingstub__05785a870fff4b04759a9e76167dfd9a3a7b02a191fa2a196cf1fcf2f10cc020)
                 check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
                 check_type(argname="argument s3_output_format_config", value=s3_output_format_config, expected_type=type_hints["s3_output_format_config"])
                 check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
@@ -11989,14 +11988,14 @@ class CfnFlow(
         @builtins.property
         def s3_output_format_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.UpsolverS3OutputFormatConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.UpsolverS3OutputFormatConfigProperty"]:
             '''The configuration that determines how data is formatted when Upsolver is used as the flow destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-upsolverdestinationproperties.html#cfn-appflow-flow-upsolverdestinationproperties-s3outputformatconfig
             '''
             result = self._values.get("s3_output_format_config")
             assert result is not None, "Required property 's3_output_format_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.UpsolverS3OutputFormatConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.UpsolverS3OutputFormatConfigProperty"], result)
 
         @builtins.property
         def bucket_prefix(self) -> typing.Optional[builtins.str]:
@@ -12031,8 +12030,8 @@ class CfnFlow(
         def __init__(
             self,
             *,
-            prefix_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.PrefixConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            aggregation_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.AggregationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prefix_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.PrefixConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            aggregation_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.AggregationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             file_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration that determines how Amazon AppFlow formats the flow output data when Upsolver is used as the destination.
@@ -12066,7 +12065,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cc27a8a1f41dd89c26ea1554f69fb21c1553a7bdaf514ef9f0b77024672f8e1f)
+                type_hints = cached_type_hints(_typecheckingstub__cc27a8a1f41dd89c26ea1554f69fb21c1553a7bdaf514ef9f0b77024672f8e1f)
                 check_type(argname="argument prefix_config", value=prefix_config, expected_type=type_hints["prefix_config"])
                 check_type(argname="argument aggregation_config", value=aggregation_config, expected_type=type_hints["aggregation_config"])
                 check_type(argname="argument file_type", value=file_type, expected_type=type_hints["file_type"])
@@ -12081,25 +12080,25 @@ class CfnFlow(
         @builtins.property
         def prefix_config(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.PrefixConfigProperty"]:
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PrefixConfigProperty"]:
             '''Specifies elements that Amazon AppFlow includes in the file and folder names in the flow destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-upsolvers3outputformatconfig.html#cfn-appflow-flow-upsolvers3outputformatconfig-prefixconfig
             '''
             result = self._values.get("prefix_config")
             assert result is not None, "Required property 'prefix_config' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.PrefixConfigProperty"], result)
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.PrefixConfigProperty"], result)
 
         @builtins.property
         def aggregation_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AggregationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AggregationConfigProperty"]]:
             '''The aggregation settings that you can use to customize the output format of your flow data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-upsolvers3outputformatconfig.html#cfn-appflow-flow-upsolvers3outputformatconfig-aggregationconfig
             '''
             result = self._values.get("aggregation_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.AggregationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.AggregationConfigProperty"]], result)
 
         @builtins.property
         def file_type(self) -> typing.Optional[builtins.str]:
@@ -12138,9 +12137,9 @@ class CfnFlow(
             *,
             object: builtins.str,
             document_type: typing.Optional[builtins.str] = None,
-            include_all_versions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_renditions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            include_source_files: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_all_versions: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_renditions: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            include_source_files: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
             '''The properties that are applied when using Veeva as a flow source.
 
@@ -12170,7 +12169,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__33eb5d9916f4bbfdcb7645bab52a5e8a99175f5473686f4922323cb792470b88)
+                type_hints = cached_type_hints(_typecheckingstub__33eb5d9916f4bbfdcb7645bab52a5e8a99175f5473686f4922323cb792470b88)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument document_type", value=document_type, expected_type=type_hints["document_type"])
                 check_type(argname="argument include_all_versions", value=include_all_versions, expected_type=type_hints["include_all_versions"])
@@ -12210,35 +12209,35 @@ class CfnFlow(
         @builtins.property
         def include_all_versions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Boolean value to include All Versions of files in Veeva document extract flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-veevasourceproperties.html#cfn-appflow-flow-veevasourceproperties-includeallversions
             '''
             result = self._values.get("include_all_versions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_renditions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Boolean value to include file renditions in Veeva document extract flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-veevasourceproperties.html#cfn-appflow-flow-veevasourceproperties-includerenditions
             '''
             result = self._values.get("include_renditions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def include_source_files(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
             '''Boolean value to include source files in Veeva document extract flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-veevasourceproperties.html#cfn-appflow-flow-veevasourceproperties-includesourcefiles
             '''
             result = self._values.get("include_source_files")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12266,7 +12265,7 @@ class CfnFlow(
             self,
             *,
             object: builtins.str,
-            error_handling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            error_handling_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.ErrorHandlingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
             write_operation_type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -12300,7 +12299,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b408dbbead0815b59be3690c6532ce03b6ccc36638f38661f96d1b80187c2dd4)
+                type_hints = cached_type_hints(_typecheckingstub__b408dbbead0815b59be3690c6532ce03b6ccc36638f38661f96d1b80187c2dd4)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
                 check_type(argname="argument error_handling_config", value=error_handling_config, expected_type=type_hints["error_handling_config"])
                 check_type(argname="argument id_field_names", value=id_field_names, expected_type=type_hints["id_field_names"])
@@ -12328,7 +12327,7 @@ class CfnFlow(
         @builtins.property
         def error_handling_config(
             self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]]:
             '''The settings that determine how Amazon AppFlow handles an error when placing data in the destination.
 
             For example, this setting would determine if the flow should fail after one insertion error, or continue and attempt to insert every record regardless of the initial failure. ``ErrorHandlingConfig`` is a part of the destination connector details.
@@ -12336,7 +12335,7 @@ class CfnFlow(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appflow-flow-zendeskdestinationproperties.html#cfn-appflow-flow-zendeskdestinationproperties-errorhandlingconfig
             '''
             result = self._values.get("error_handling_config")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.ErrorHandlingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.ErrorHandlingConfigProperty"]], result)
 
         @builtins.property
         def id_field_names(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12394,7 +12393,7 @@ class CfnFlow(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__97d56d701da8e030ea893f9e410a42eda76f5e8d95fbaeafd8ab06b3ff38829a)
+                type_hints = cached_type_hints(_typecheckingstub__97d56d701da8e030ea893f9e410a42eda76f5e8d95fbaeafd8ab06b3ff38829a)
                 check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "object": object,
@@ -12442,16 +12441,16 @@ class CfnFlowProps:
     def __init__(
         self,
         *,
-        destination_flow_config_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.DestinationFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        destination_flow_config_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.DestinationFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         flow_name: builtins.str,
-        source_flow_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        tasks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        trigger_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        source_flow_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        tasks: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        trigger_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
         flow_status: typing.Optional[builtins.str] = None,
-        kms_arn: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
-        metadata_catalog_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MetadataCatalogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_arn: typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]] = None,
+        metadata_catalog_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlow.MetadataCatalogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlow``.
 
@@ -12792,7 +12791,7 @@ class CfnFlowProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9)
+            type_hints = cached_type_hints(_typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9)
             check_type(argname="argument destination_flow_config_list", value=destination_flow_config_list, expected_type=type_hints["destination_flow_config_list"])
             check_type(argname="argument flow_name", value=flow_name, expected_type=type_hints["flow_name"])
             check_type(argname="argument source_flow_config", value=source_flow_config, expected_type=type_hints["source_flow_config"])
@@ -12824,14 +12823,14 @@ class CfnFlowProps:
     @builtins.property
     def destination_flow_config_list(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationFlowConfigProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationFlowConfigProperty"]]]:
         '''The configuration that controls how Amazon AppFlow places data in the destination connector.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-destinationflowconfiglist
         '''
         result = self._values.get("destination_flow_config_list")
         assert result is not None, "Required property 'destination_flow_config_list' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.DestinationFlowConfigProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.DestinationFlowConfigProperty"]]], result)
 
     @builtins.property
     def flow_name(self) -> builtins.str:
@@ -12848,38 +12847,38 @@ class CfnFlowProps:
     @builtins.property
     def source_flow_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceFlowConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceFlowConfigProperty"]:
         '''Contains information about the configuration of the source connector used in the flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-sourceflowconfig
         '''
         result = self._values.get("source_flow_config")
         assert result is not None, "Required property 'source_flow_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceFlowConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.SourceFlowConfigProperty"], result)
 
     @builtins.property
     def tasks(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskProperty"]]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskProperty"]]]:
         '''A list of tasks that Amazon AppFlow performs while transferring the data in the flow run.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tasks
         '''
         result = self._values.get("tasks")
         assert result is not None, "Required property 'tasks' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.TaskProperty"]]], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TaskProperty"]]], result)
 
     @builtins.property
     def trigger_config(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnFlow.TriggerConfigProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TriggerConfigProperty"]:
         '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-triggerconfig
         '''
         result = self._values.get("trigger_config")
         assert result is not None, "Required property 'trigger_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFlow.TriggerConfigProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.TriggerConfigProperty"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -12907,7 +12906,7 @@ class CfnFlowProps:
     @builtins.property
     def kms_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]]:
         '''The ARN (Amazon Resource Name) of the Key Management Service (KMS) key you provide for encryption.
 
         This is required if you do not want to use the Amazon AppFlow-managed KMS key. If you don't provide anything here, Amazon AppFlow uses the Amazon AppFlow-managed KMS key.
@@ -12915,12 +12914,12 @@ class CfnFlowProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-kmsarn
         '''
         result = self._values.get("kms_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_kms_18db7412.IKeyRef"]], result)
 
     @builtins.property
     def metadata_catalog_config(
         self,
-    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MetadataCatalogConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MetadataCatalogConfigProperty"]]:
         '''Specifies the configuration that Amazon AppFlow uses when it catalogs your data.
 
         When Amazon AppFlow catalogs your data, it stores metadata in a data catalog.
@@ -12928,16 +12927,16 @@ class CfnFlowProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-metadatacatalogconfig
         '''
         result = self._values.get("metadata_catalog_config")
-        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.MetadataCatalogConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFlow.MetadataCatalogConfigProperty"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''The tags used to organize, track, or control access for your flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appflow-flow.html#cfn-appflow-flow-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12966,7 +12965,7 @@ def _typecheckingstub__6bcd4af5099c6e263b309786f40e217a7b9534ca68e65e020a22b5811
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    connector_provisioning_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     connector_provisioning_type: builtins.str,
     connector_label: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -12975,7 +12974,7 @@ def _typecheckingstub__6bcd4af5099c6e263b309786f40e217a7b9534ca68e65e020a22b5811
     pass
 
 def _typecheckingstub__fd37f1b55711c84a51d3dcba7c81632cb2e65659facb11c9ec6dc179cc53aea5(
-    resource: _IConnectorRef_e928136a,
+    resource: _aws_appflow_53c0c847.IConnectorRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13003,7 +13002,7 @@ def _typecheckingstub__40dd576d0a4261a15275ba4c27fe716496f3d87fd25bc1da621d6ea2b
     pass
 
 def _typecheckingstub__02fe175937a3851291cfe730cc744110fbd6b06062b2f72be6c64c38cb811cc2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13015,7 +13014,7 @@ def _typecheckingstub__14908eefe331e5d6c90e4d41161c6e2df84fc31fc2c80c358aacd6d72
     pass
 
 def _typecheckingstub__e9a08650fe9a17324090179ab56d9509e56252c9865e3f2e1fa676c14b6cc03f(
-    value: typing.Union[_IResolvable_da3f097b, CfnConnector.ConnectorProvisioningConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.ConnectorProvisioningConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13040,7 +13039,7 @@ def _typecheckingstub__5201599f188c2814b1848bd455a0576a0e0a2d098b49d428d52355c42
 
 def _typecheckingstub__f30575b197aa2e677da77a036dc5bfce7d878974062d45e335a7a1ace3bb43fa(
     *,
-    lambda_: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.LambdaConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.LambdaConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13060,14 +13059,14 @@ def _typecheckingstub__6fdda7d6a6b65c327fe887afce3342c78cebf6c60dd8655f2dcd7b828
     connector_profile_name: builtins.str,
     connector_type: builtins.str,
     connector_label: typing.Optional[builtins.str] = None,
-    connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_profile_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__4203bc76f5c36650272ec66f214076acd51b3c7a25adfc8ccd7790b1b01f33a3(
-    resource: _IConnectorProfileRef_b117e5a6,
+    resource: _aws_appflow_53c0c847.IConnectorProfileRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13079,7 +13078,7 @@ def _typecheckingstub__10be467b19b6dee9fa3fd1ffd7b580c843d31a18524d0dcc14e28f247
     pass
 
 def _typecheckingstub__89b2a22e671284a42946f894ce72068c41b76bb904059c7bed5e45c71d48dc5a(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13115,7 +13114,7 @@ def _typecheckingstub__67b7946ef6d997ddf9c382bd294994647bbe3c0ad1aaaceece977af3d
     pass
 
 def _typecheckingstub__3377e00c38f6ec97040c9514a9f9cedd23ba70e3a2b918fb7ef76f04aca7d060(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorProfile.ConnectorProfileConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnectorProfile.ConnectorProfileConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13160,52 +13159,52 @@ def _typecheckingstub__10274e31bef95217811425846919ad5f3013d939461f69d203d5222cb
 
 def _typecheckingstub__c79f7beaf2ede6f336bef23f37f62a2315750767926008efbda3f98c15e34f73(
     *,
-    connector_profile_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    connector_profile_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_profile_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_profile_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__dd35c0b739bcd10a467238169b0d80e4d63f0277bdf37e945f3ea0bb11abbe59(
     *,
-    amplitude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_connector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.CustomConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    datadog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    google_analytics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    infor_nexus: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    marketo: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pardot: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.PardotConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    salesforce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sapo_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    singular: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SingularConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    slack: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SlackConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trendmicro: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    veeva: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zendesk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    amplitude: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.AmplitudeConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_connector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.CustomConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    datadog: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.DatadogConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynatrace: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.DynatraceConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    google_analytics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.GoogleAnalyticsConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    infor_nexus: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.InforNexusConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    marketo: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.MarketoConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pardot: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.PardotConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.RedshiftConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    salesforce: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SalesforceConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sapo_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SAPODataConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_now: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ServiceNowConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    singular: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SingularConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slack: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SlackConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SnowflakeConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trendmicro: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.TrendmicroConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    veeva: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.VeevaConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zendesk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ZendeskConnectorProfileCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__65e5865d49e1e2770f8833632ac69e47b3b029c81a4772e3b1c5426bdf879d4b(
     *,
-    custom_connector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.CustomConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    datadog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    infor_nexus: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    marketo: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pardot: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.PardotConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    salesforce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sapo_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    slack: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SlackConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    veeva: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zendesk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_connector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.CustomConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    datadog: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.DatadogConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynatrace: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.DynatraceConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    infor_nexus: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.InforNexusConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    marketo: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.MarketoConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pardot: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.PardotConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.RedshiftConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    salesforce: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SalesforceConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sapo_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SAPODataConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_now: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ServiceNowConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slack: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SlackConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.SnowflakeConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    veeva: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.VeevaConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zendesk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ZendeskConnectorProfilePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13213,7 +13212,7 @@ def _typecheckingstub__65e5865d49e1e2770f8833632ac69e47b3b029c81a4772e3b1c5426bd
 def _typecheckingstub__7f1703eb3a58b3e6fd9b4a3833c2dc0fda48f2e43ba626529bc4a347a6d456e2(
     *,
     custom_authentication_type: builtins.str,
-    credentials_map: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    credentials_map: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13221,18 +13220,18 @@ def _typecheckingstub__7f1703eb3a58b3e6fd9b4a3833c2dc0fda48f2e43ba626529bc4a347a
 def _typecheckingstub__706a9d527abbd20fd254cc98e3158ee9239289a3d14735ef9c32c2c9b41893ee(
     *,
     authentication_type: builtins.str,
-    api_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ApiKeyCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    basic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.BasicAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.CustomAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    oauth2: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuth2CredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ApiKeyCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.BasicAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.CustomAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    oauth2: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.OAuth2CredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__cdb89c4d5019ae54344a6656863ce47417e2890bffc90e8167ec429bcb73d3b5(
     *,
-    o_auth2_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuth2PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    profile_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    o_auth2_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.OAuth2PropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    profile_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13271,7 +13270,7 @@ def _typecheckingstub__4f33ae7fdb815fdbe41d4a4e9dc65db0eaa088f28c686524272747ffd
     client_id: builtins.str,
     client_secret: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13299,7 +13298,7 @@ def _typecheckingstub__319f8014bd5324a2f4dc144886a8f0e7be1951f564c0fbd5badf8555b
     client_id: builtins.str,
     client_secret: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13316,7 +13315,7 @@ def _typecheckingstub__9b23a5882bc69b9efde3f028d1f4180011380cc10767444f52981ddf4
     access_token: typing.Optional[builtins.str] = None,
     client_id: typing.Optional[builtins.str] = None,
     client_secret: typing.Optional[builtins.str] = None,
-    o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13326,7 +13325,7 @@ def _typecheckingstub__12b3508701004e181ac97abfefbe0c0e2c32f353cdc4077fc915d1e79
     *,
     o_auth2_grant_type: typing.Optional[builtins.str] = None,
     token_url: typing.Optional[builtins.str] = None,
-    token_url_custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
+    token_url_custom_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13336,7 +13335,7 @@ def _typecheckingstub__7da4be883f6a7b1d3ca824e7af71520a4dc18eb0c5c299a47adef3ced
     access_token: typing.Optional[builtins.str] = None,
     client_id: typing.Optional[builtins.str] = None,
     client_secret: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13355,7 +13354,7 @@ def _typecheckingstub__39a512cdf635aa9981165b275367a20430c45c0c4a601e102d0cdf5e1
     *,
     access_token: typing.Optional[builtins.str] = None,
     client_credentials_arn: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13365,7 +13364,7 @@ def _typecheckingstub__6a3e6a4fb1f0111e07cf857d2ee3ad46142f3b374d08c97bb704c89fa
     *,
     business_unit_id: builtins.str,
     instance_url: typing.Optional[builtins.str] = None,
-    is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13387,7 +13386,7 @@ def _typecheckingstub__b095f01640a40304a0331c41ae7ab321ae12f0c106bbb47ef402aac98
     data_api_role_arn: typing.Optional[builtins.str] = None,
     database_name: typing.Optional[builtins.str] = None,
     database_url: typing.Optional[builtins.str] = None,
-    is_redshift_serverless: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_redshift_serverless: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     workgroup_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13395,8 +13394,8 @@ def _typecheckingstub__b095f01640a40304a0331c41ae7ab321ae12f0c106bbb47ef402aac98
 
 def _typecheckingstub__e721304f58add999e91a5094b626deadf6f42ca2e0e3744b0e313380bc540b00(
     *,
-    basic_auth_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.BasicAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    o_auth_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    basic_auth_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.BasicAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.OAuthCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13406,9 +13405,9 @@ def _typecheckingstub__fa0bde147a80d4f5be2e3a0a92803dcbc8bf7a7949aaf97c980a8be44
     application_host_url: typing.Optional[builtins.str] = None,
     application_service_path: typing.Optional[builtins.str] = None,
     client_number: typing.Optional[builtins.str] = None,
-    disable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    disable_sso: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     logon_language: typing.Optional[builtins.str] = None,
-    o_auth_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.OAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     port_number: typing.Optional[jsii.Number] = None,
     private_link_service_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13419,7 +13418,7 @@ def _typecheckingstub__96f1396ecd411968fa6dcd8be1e9a9cbc6d0f02f80c0d4e9acc547f44
     *,
     access_token: typing.Optional[builtins.str] = None,
     client_credentials_arn: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     jwt_token: typing.Optional[builtins.str] = None,
     o_auth2_grant_type: typing.Optional[builtins.str] = None,
     refresh_token: typing.Optional[builtins.str] = None,
@@ -13430,15 +13429,15 @@ def _typecheckingstub__96f1396ecd411968fa6dcd8be1e9a9cbc6d0f02f80c0d4e9acc547f44
 def _typecheckingstub__e02155b4dbffca160c7213611f0f005432320f081cac130c77c180517e637a2f(
     *,
     instance_url: typing.Optional[builtins.str] = None,
-    is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    use_private_link_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    is_sandbox_environment: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    use_private_link_for_metadata_and_authorization: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9300511337a4bb1851f11ae6d27ff1f49d05843818e90659f8938653677148dc(
     *,
-    o_auth2_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.OAuth2CredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth2_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.OAuth2CredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     password: typing.Optional[builtins.str] = None,
     username: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13464,7 +13463,7 @@ def _typecheckingstub__33f7d201cd92c3241e76eeef7aa8154f9c19884178d71dfffea8c0db9
     client_id: builtins.str,
     client_secret: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13524,7 +13523,7 @@ def _typecheckingstub__23cdb025a23f9fe29cc4cc49eb6c3c171c1c23d9f0bf22702b88df0eb
     client_id: builtins.str,
     client_secret: builtins.str,
     access_token: typing.Optional[builtins.str] = None,
-    connector_o_auth_request: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_o_auth_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorOAuthRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13542,7 +13541,7 @@ def _typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35f
     connector_profile_name: builtins.str,
     connector_type: builtins.str,
     connector_label: typing.Optional[builtins.str] = None,
-    connector_profile_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_profile_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorProfile.ConnectorProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13550,7 +13549,7 @@ def _typecheckingstub__032712d85c2f8c1992ce0b706fc9b7992da5970e1c4b25cc48b86d35f
 
 def _typecheckingstub__204ab8f1f508d34470db08010b45b65c1aa7d47e66c5fb91f90cdeb633b5eb9b(
     *,
-    connector_provisioning_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    connector_provisioning_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ConnectorProvisioningConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     connector_provisioning_type: builtins.str,
     connector_label: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -13562,22 +13561,22 @@ def _typecheckingstub__76b6ef95e5f4f4d7b82746abb1435c9e6f43a91ed656c1dd9c1a02064
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    destination_flow_config_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
     flow_name: builtins.str,
-    source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_flow_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tasks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    trigger_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     flow_status: typing.Optional[builtins.str] = None,
-    kms_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    metadata_catalog_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a850f4e419216149cf2ecdf4451a2fad36294d9b0793614c509dd359a9475deb(
-    resource: _IFlowRef_30332276,
+    resource: _aws_appflow_53c0c847.IFlowRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13605,7 +13604,7 @@ def _typecheckingstub__72f6ea83247c606d83e64eaccbaa822d576ee445a0aaff979c62d7ef5
     pass
 
 def _typecheckingstub__3a0903a5b0777541e9478e23854a85d5a2c4808c0983bf165d70ab1b5449fca1(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13617,7 +13616,7 @@ def _typecheckingstub__2dc3a4aea78f4e89fd86f1b0a95c6b628a20b040c6bc400fdee8c2c44
     pass
 
 def _typecheckingstub__f6e790e910559e7c5bdcd3b94ffbcee395c9ebca3506e34c7dc5849e4cc2f22e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.DestinationFlowConfigProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.DestinationFlowConfigProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13629,19 +13628,19 @@ def _typecheckingstub__04271ee51cb938fbf314abcbe8001536684e210ea83443e61da82559f
     pass
 
 def _typecheckingstub__af0fe8bf747f64f1d7f670168d2b21f389c54a57af38e982865d5ff46125027c(
-    value: typing.Union[_IResolvable_da3f097b, CfnFlow.SourceFlowConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.SourceFlowConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6be845445f663cd529fe7ed672afb9293c81c28e04a68e7cffb28e49f904b1cf(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.TaskProperty]]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.TaskProperty]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__fb7ecca2b731f1a7b7e2f3e1002382bb5d5b42e9ff425b98984717cf715b0473(
-    value: typing.Union[_IResolvable_da3f097b, CfnFlow.TriggerConfigProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.TriggerConfigProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13665,13 +13664,13 @@ def _typecheckingstub__587868dddc78d2790162bd179ba67212276001fbdd8c989c9e3b837c1
     pass
 
 def _typecheckingstub__7a474740c338d02b5c3e7ece5ad8097d97710078550a9f34157e3e053142f0c9(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MetadataCatalogConfigProperty]],
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFlow.MetadataCatalogConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ac44925e55be2d561241744a9491ec33e37633d5ea9a74479066fc80e01dab99(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13717,8 +13716,8 @@ def _typecheckingstub__d0948b4cb879f7f09a0ff8663e81bf08fbed9c98d8935ce5ea10cae90
 def _typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a55377383a6d(
     *,
     entity_name: builtins.str,
-    custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     write_operation_type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13728,8 +13727,8 @@ def _typecheckingstub__c9546f78b7b6588933605f813de3303d240c8a8ea3ec8140f299a5537
 def _typecheckingstub__dca7f6a437784e099abbe4b67b153f5f8442b7f8bf74f61a2961a5fe146e546b(
     *,
     entity_name: builtins.str,
-    custom_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
-    data_transfer_api: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DataTransferApiProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    data_transfer_api: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DataTransferApiProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13751,17 +13750,17 @@ def _typecheckingstub__5b267c7bbc073ff7038f9afd92bea1a5aa8e3ce6c87cce7601e1a5c61
 
 def _typecheckingstub__61c1007c034c653922497591ce4be08935eae99b8eb4651428db4cd63bfbe836(
     *,
-    custom_connector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.CustomConnectorDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EventBridgeDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    lookout_metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.LookoutMetricsDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    marketo: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MarketoDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.RedshiftDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3DestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    salesforce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SalesforceDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sapo_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SAPODataDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    snowflake: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SnowflakeDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    upsolver: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.UpsolverDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zendesk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ZendeskDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_connector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.CustomConnectorDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bridge: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.EventBridgeDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lookout_metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.LookoutMetricsDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    marketo: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MarketoDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.RedshiftDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.S3DestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    salesforce: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SalesforceDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sapo_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SAPODataDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    snowflake: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SnowflakeDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    upsolver: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.UpsolverDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zendesk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ZendeskDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13769,7 +13768,7 @@ def _typecheckingstub__61c1007c034c653922497591ce4be08935eae99b8eb4651428db4cd63
 def _typecheckingstub__a402951d4f07b94704bb13f3e3d06a8b6b9d77e06e6fc1d84977f9517982e7f1(
     *,
     connector_type: builtins.str,
-    destination_connector_properties: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationConnectorPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    destination_connector_properties: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DestinationConnectorPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
     api_version: typing.Optional[builtins.str] = None,
     connector_profile_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13787,7 +13786,7 @@ def _typecheckingstub__078888996b9eead8bfd345f5605ec71018981578c357cd612506905b3
     *,
     bucket_name: typing.Optional[builtins.str] = None,
     bucket_prefix: typing.Optional[builtins.str] = None,
-    fail_on_first_error: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    fail_on_first_error: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13795,7 +13794,7 @@ def _typecheckingstub__078888996b9eead8bfd345f5605ec71018981578c357cd612506905b3
 def _typecheckingstub__c8e03b85b4f5295b92ede3385edaa38289164ed2e7ce6906b31d4ed43261f2a5(
     *,
     object: builtins.str,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13840,7 +13839,7 @@ def _typecheckingstub__060702aed5019190a6b199aad5e66f61768453c8fbe7c5549752dea9c
 def _typecheckingstub__0d081ec2d0308a134ab532b76aa1b67bd5dc34d931782456f9384ab6bee329ba(
     *,
     object: builtins.str,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13854,7 +13853,7 @@ def _typecheckingstub__8bd9aa6a3e0dbdbe51c141292970fcab641b368bdfcedea085461c812
 
 def _typecheckingstub__4d6c8a679bd51537f9a83827157b0794271255d4346540c24884c78865854859(
     *,
-    glue_data_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.GlueDataCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    glue_data_catalog: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.GlueDataCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13880,7 +13879,7 @@ def _typecheckingstub__f3402bfecb762ab7eeca84836d4541ecb34ac1e9bf357d0aca15d57bf
     intermediate_bucket_name: builtins.str,
     object: builtins.str,
     bucket_prefix: typing.Optional[builtins.str] = None,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13889,7 +13888,7 @@ def _typecheckingstub__ec0528e9590b2bddf1b9031aadc143a8f3989afde0772669ab454e92b
     *,
     bucket_name: builtins.str,
     bucket_prefix: typing.Optional[builtins.str] = None,
-    s3_output_format_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3OutputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_output_format_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.S3OutputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13903,10 +13902,10 @@ def _typecheckingstub__3026ab7181af509228fef339c10aee815ccd500d0b0ab562d0a601451
 
 def _typecheckingstub__407430b2021e0200bc72876aac4ff684f0d8799c206a3a9414a422d1117ad9e3(
     *,
-    aggregation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.AggregationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aggregation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.AggregationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     file_type: typing.Optional[builtins.str] = None,
-    prefix_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PrefixConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    prefix_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.PrefixConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    preserve_source_data_typing: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13915,7 +13914,7 @@ def _typecheckingstub__fceba990c11a1dcac2ffb6444971b0e2f656ef344ffa30a7be490d793
     *,
     bucket_name: builtins.str,
     bucket_prefix: builtins.str,
-    s3_input_format_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3InputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_input_format_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.S3InputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13923,9 +13922,9 @@ def _typecheckingstub__fceba990c11a1dcac2ffb6444971b0e2f656ef344ffa30a7be490d793
 def _typecheckingstub__fe430f8a0b8fb0ec38ccedbd370e2c15756d92142c80a33db63467c251bf746f(
     *,
     object_path: builtins.str,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    success_response_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SuccessResponseHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    success_response_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SuccessResponseHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_operation_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -13948,8 +13947,8 @@ def _typecheckingstub__668e98c80d12ecf0f0b6848ebbd4e31684d00592bad96c5d718f04567
 def _typecheckingstub__1c4e8d48237678f7dc3ac8c9c540e8c8080066daee936538208a6c98c0bd5b8e(
     *,
     object_path: builtins.str,
-    pagination_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SAPODataPaginationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parallelism_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SAPODataParallelismConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pagination_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SAPODataPaginationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parallelism_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SAPODataParallelismConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13958,7 +13957,7 @@ def _typecheckingstub__fb5fca2c002782d42209e79c110151b3808d3c3603d8ea4038a995070
     *,
     object: builtins.str,
     data_transfer_api: typing.Optional[builtins.str] = None,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     write_operation_type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -13969,8 +13968,8 @@ def _typecheckingstub__697f1bdf553e40b76d835a0032b4929b29e8c8e62c21e52cbc4d6e184
     *,
     object: builtins.str,
     data_transfer_api: typing.Optional[builtins.str] = None,
-    enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_deleted_records: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_deleted_records: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14015,30 +14014,30 @@ def _typecheckingstub__861db013349794673cd44026c51c9186e9b48c189f3d2f897e96326cf
     intermediate_bucket_name: builtins.str,
     object: builtins.str,
     bucket_prefix: typing.Optional[builtins.str] = None,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__bfca05ac628581510d78eb8880099b2c8d67e6218aeca321ae975f0979bb85af(
     *,
-    amplitude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.AmplitudeSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_connector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.CustomConnectorSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    datadog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DatadogSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DynatraceSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    google_analytics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.GoogleAnalyticsSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    infor_nexus: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.InforNexusSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    marketo: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MarketoSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    pardot: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PardotSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.S3SourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    salesforce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SalesforceSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sapo_data: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SAPODataSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ServiceNowSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    singular: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SingularSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    slack: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SlackSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trendmicro: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TrendmicroSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    veeva: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VeevaSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zendesk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ZendeskSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    amplitude: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.AmplitudeSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_connector: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.CustomConnectorSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    datadog: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DatadogSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynatrace: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DynatraceSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    google_analytics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.GoogleAnalyticsSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    infor_nexus: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.InforNexusSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    marketo: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MarketoSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pardot: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.PardotSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.S3SourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    salesforce: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SalesforceSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sapo_data: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SAPODataSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_now: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ServiceNowSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    singular: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SingularSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slack: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SlackSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trendmicro: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TrendmicroSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    veeva: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.VeevaSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zendesk: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ZendeskSourcePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14046,10 +14045,10 @@ def _typecheckingstub__bfca05ac628581510d78eb8880099b2c8d67e6218aeca321ae975f097
 def _typecheckingstub__82f2b5bbb1f4a6eab214e7cfa4059986076879090f1ee5604886d749c25bc0af(
     *,
     connector_type: builtins.str,
-    source_connector_properties: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceConnectorPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_connector_properties: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceConnectorPropertiesProperty, typing.Dict[builtins.str, typing.Any]]],
     api_version: typing.Optional[builtins.str] = None,
     connector_profile_name: typing.Optional[builtins.str] = None,
-    incremental_pull_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.IncrementalPullConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    incremental_pull_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.IncrementalPullConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14074,9 +14073,9 @@ def _typecheckingstub__72c004cc65bad7fca9bee2b8e49d510b504af527bc9f31cdca10692f1
     *,
     source_fields: typing.Sequence[builtins.str],
     task_type: builtins.str,
-    connector_operator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ConnectorOperatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    connector_operator: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ConnectorOperatorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     destination_field: typing.Optional[builtins.str] = None,
-    task_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskPropertiesObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    task_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TaskPropertiesObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14091,7 +14090,7 @@ def _typecheckingstub__41cf6b7146e8303d1b50511d2818edd5e3c2dfa0eab59171dd6d9b24f
 def _typecheckingstub__cd28ca462b3e9e4f32cc44aec4e8810188f62b59f8d2642880f795974ed7aabc(
     *,
     trigger_type: builtins.str,
-    trigger_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ScheduledTriggerPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trigger_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ScheduledTriggerPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14099,7 +14098,7 @@ def _typecheckingstub__cd28ca462b3e9e4f32cc44aec4e8810188f62b59f8d2642880f795974
 def _typecheckingstub__05785a870fff4b04759a9e76167dfd9a3a7b02a191fa2a196cf1fcf2f10cc020(
     *,
     bucket_name: builtins.str,
-    s3_output_format_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.UpsolverS3OutputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    s3_output_format_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.UpsolverS3OutputFormatConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     bucket_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14107,8 +14106,8 @@ def _typecheckingstub__05785a870fff4b04759a9e76167dfd9a3a7b02a191fa2a196cf1fcf2f
 
 def _typecheckingstub__cc27a8a1f41dd89c26ea1554f69fb21c1553a7bdaf514ef9f0b77024672f8e1f(
     *,
-    prefix_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PrefixConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    aggregation_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.AggregationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prefix_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.PrefixConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    aggregation_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.AggregationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     file_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -14118,9 +14117,9 @@ def _typecheckingstub__33eb5d9916f4bbfdcb7645bab52a5e8a99175f5473686f4922323cb79
     *,
     object: builtins.str,
     document_type: typing.Optional[builtins.str] = None,
-    include_all_versions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_renditions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    include_source_files: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    include_all_versions: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_renditions: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    include_source_files: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14128,7 +14127,7 @@ def _typecheckingstub__33eb5d9916f4bbfdcb7645bab52a5e8a99175f5473686f4922323cb79
 def _typecheckingstub__b408dbbead0815b59be3690c6532ce03b6ccc36638f38661f96d1b80187c2dd4(
     *,
     object: builtins.str,
-    error_handling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    error_handling_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.ErrorHandlingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     id_field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     write_operation_type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -14144,16 +14143,16 @@ def _typecheckingstub__97d56d701da8e030ea893f9e410a42eda76f5e8d95fbaeafd8ab06b3f
 
 def _typecheckingstub__85045c56f5ed71ad46fec6374ddad0e03a173028630204629542088fb8766ae9(
     *,
-    destination_flow_config_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    destination_flow_config_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.DestinationFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
     flow_name: builtins.str,
-    source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    source_flow_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.SourceFlowConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    tasks: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TaskProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    trigger_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.TriggerConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
     flow_status: typing.Optional[builtins.str] = None,
-    kms_arn: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
-    metadata_catalog_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_arn: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    metadata_catalog_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlow.MetadataCatalogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

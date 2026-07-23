@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,33 +13,35 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.IPublicRepositoryRef")
 class IPublicRepositoryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicRepository.
@@ -57,7 +61,7 @@ class IPublicRepositoryRef(
 
 class _IPublicRepositoryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PublicRepository.
 
@@ -82,7 +86,7 @@ typing.cast(typing.Any, IPublicRepositoryRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.IPullThroughCacheRuleRef")
 class IPullThroughCacheRuleRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PullThroughCacheRule.
@@ -102,7 +106,7 @@ class IPullThroughCacheRuleRef(
 
 class _IPullThroughCacheRuleRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PullThroughCacheRule.
 
@@ -127,7 +131,7 @@ typing.cast(typing.Any, IPullThroughCacheRuleRef).__jsii_proxy_class__ = lambda 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.IPullTimeUpdateExclusionRef")
 class IPullTimeUpdateExclusionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PullTimeUpdateExclusion.
@@ -147,7 +151,7 @@ class IPullTimeUpdateExclusionRef(
 
 class _IPullTimeUpdateExclusionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PullTimeUpdateExclusion.
 
@@ -172,7 +176,7 @@ typing.cast(typing.Any, IPullTimeUpdateExclusionRef).__jsii_proxy_class__ = lamb
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.IRegistryPolicyRef")
 class IRegistryPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
@@ -192,7 +196,7 @@ class IRegistryPolicyRef(
 
 class _IRegistryPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryPolicy.
 
@@ -219,7 +223,7 @@ typing.cast(typing.Any, IRegistryPolicyRef).__jsii_proxy_class__ = lambda : _IRe
 )
 class IRegistryScanningConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryScanningConfiguration.
@@ -241,7 +245,7 @@ class IRegistryScanningConfigurationRef(
 
 class _IRegistryScanningConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RegistryScanningConfiguration.
 
@@ -270,7 +274,7 @@ typing.cast(typing.Any, IRegistryScanningConfigurationRef).__jsii_proxy_class__ 
 )
 class IReplicationConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationConfiguration.
@@ -290,7 +294,7 @@ class IReplicationConfigurationRef(
 
 class _IReplicationConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ReplicationConfiguration.
 
@@ -317,7 +321,7 @@ typing.cast(typing.Any, IReplicationConfigurationRef).__jsii_proxy_class__ = lam
 )
 class IRepositoryCreationTemplateRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a RepositoryCreationTemplate.
@@ -337,7 +341,7 @@ class IRepositoryCreationTemplateRef(
 
 class _IRepositoryCreationTemplateRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a RepositoryCreationTemplate.
 
@@ -362,7 +366,7 @@ typing.cast(typing.Any, IRepositoryCreationTemplateRef).__jsii_proxy_class__ = l
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.IRepositoryRef")
 class IRepositoryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Repository.
@@ -382,7 +386,7 @@ class IRepositoryRef(
 
 class _IRepositoryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Repository.
 
@@ -407,7 +411,7 @@ typing.cast(typing.Any, IRepositoryRef).__jsii_proxy_class__ = lambda : _IReposi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecr.ISigningConfigurationRef")
 class ISigningConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a SigningConfiguration.
@@ -427,7 +431,7 @@ class ISigningConfigurationRef(
 
 class _ISigningConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a SigningConfiguration.
 
@@ -483,7 +487,7 @@ class PublicRepositoryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ebfd2912489ae24385c01d2d04e3310cbb4346432c48a1318317144a875e6a58)
+            type_hints = cached_type_hints(_typecheckingstub__ebfd2912489ae24385c01d2d04e3310cbb4346432c48a1318317144a875e6a58)
             check_type(argname="argument public_repository_arn", value=public_repository_arn, expected_type=type_hints["public_repository_arn"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -541,7 +545,7 @@ class PullThroughCacheRuleReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__145dab6c3bc935d0a97f691c737a910e8ba1300b79792f40d3dfb1008511c177)
+            type_hints = cached_type_hints(_typecheckingstub__145dab6c3bc935d0a97f691c737a910e8ba1300b79792f40d3dfb1008511c177)
             check_type(argname="argument ecr_repository_prefix", value=ecr_repository_prefix, expected_type=type_hints["ecr_repository_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "ecr_repository_prefix": ecr_repository_prefix,
@@ -590,7 +594,7 @@ class PullTimeUpdateExclusionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__330a03e1fa55fb9c9d03472c69de74e957ac563c8d7dc720929d2a24569ea675)
+            type_hints = cached_type_hints(_typecheckingstub__330a03e1fa55fb9c9d03472c69de74e957ac563c8d7dc720929d2a24569ea675)
             check_type(argname="argument principal_arn", value=principal_arn, expected_type=type_hints["principal_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "principal_arn": principal_arn,
@@ -639,7 +643,7 @@ class RegistryPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adbdf7f0cd6e663344f70be0b5fa348493a990a080943914514a05cfacf2dc95)
+            type_hints = cached_type_hints(_typecheckingstub__adbdf7f0cd6e663344f70be0b5fa348493a990a080943914514a05cfacf2dc95)
             check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_id": registry_id,
@@ -688,7 +692,7 @@ class RegistryScanningConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ee207c1cd4e8682993e949b8972b5f14d9e37a776fc2cb20f7fe381aaf8c25d)
+            type_hints = cached_type_hints(_typecheckingstub__1ee207c1cd4e8682993e949b8972b5f14d9e37a776fc2cb20f7fe381aaf8c25d)
             check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_id": registry_id,
@@ -737,7 +741,7 @@ class ReplicationConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c47cd53463c588d1b5b205c09185c16a98bbabe3ab9a58d21c9d9c458bc95220)
+            type_hints = cached_type_hints(_typecheckingstub__c47cd53463c588d1b5b205c09185c16a98bbabe3ab9a58d21c9d9c458bc95220)
             check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_id": registry_id,
@@ -786,7 +790,7 @@ class RepositoryCreationTemplateReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80d0639d93d36d2a80d3b390e50a9eb750e26e65b1ac6939a9416a6455008fac)
+            type_hints = cached_type_hints(_typecheckingstub__80d0639d93d36d2a80d3b390e50a9eb750e26e65b1ac6939a9416a6455008fac)
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "prefix": prefix,
@@ -845,7 +849,7 @@ class RepositoryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66f32cea5ccda62bfe26a5f38558d87cb2981e17b98568d84bbddab158c09060)
+            type_hints = cached_type_hints(_typecheckingstub__66f32cea5ccda62bfe26a5f38558d87cb2981e17b98568d84bbddab158c09060)
             check_type(argname="argument repository_arn", value=repository_arn, expected_type=type_hints["repository_arn"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -903,7 +907,7 @@ class SigningConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ca5da87623cd8967a68263b6732601acb2deab8aca8c22890cdd5142d8a3a9d)
+            type_hints = cached_type_hints(_typecheckingstub__7ca5da87623cd8967a68263b6732601acb2deab8aca8c22890cdd5142d8a3a9d)
             check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "registry_id": registry_id,

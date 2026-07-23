@@ -3,11 +3,16 @@ import hashlib
 import itertools
 import os
 import shutil
-import sys
+import sqlite3
 import threading
 import unittest
 import uuid
 from queue import Queue
+
+try:
+    import cysqlite
+except ImportError:
+    cysqlite = None
 
 try:
     from redis.connection import ConnectionPool
@@ -16,6 +21,7 @@ try:
 except ImportError:
     ConnectionPool = Redis = RedisConnectionError = None
 
+from huey.api import CySqliteHuey
 from huey.api import Huey
 from huey.api import MemoryHuey
 from huey.api import PriorityRedisHuey
@@ -24,14 +30,10 @@ from huey.api import RedisHuey
 from huey.api import SqliteHuey
 from huey.api import chord
 from huey.constants import EmptyData
-from huey.consumer import Consumer
 from huey.exceptions import ConfigurationError
-from huey.exceptions import ResultTimeout
 from huey.storage import FileStorage
-from huey.storage import MemoryStorage
-from huey.storage import RedisExpireStorage
 from huey.tests.base import BaseTestCase
-from huey.tests.base import TRAVIS
+from huey.tests.base import CI
 from huey.tests.base import slow_test
 
 
@@ -66,6 +68,9 @@ class StorageTests(object):
         for i in range(3):
             self.s.enqueue(b'item-%d' % i)
 
+        # A limit returns exactly the next-N items to be dequeued.
+        self.assertEqual(self.s.enqueued_items(2), [b'item-0', b'item-1'])
+
         # Remove two items (this API is not used, but we'll test it anyways).
         self.assertEqual(self.s.dequeue(), b'item-0')
         self.assertEqual(self.s.queue_size(), 2)
@@ -94,6 +99,9 @@ class StorageTests(object):
             self.s.add_to_schedule(data, ts)
 
         self.assertEqual(self.s.schedule_size(), 4)
+
+        # A limit returns exactly limit items, soonest first.
+        self.assertEqual(self.s.scheduled_items(2), [b'n1', b'p0'])
 
         # Read from the schedule up-to the "p0" timestamp.
         sched = self.s.read_schedule(timestamp)
@@ -434,10 +442,72 @@ class TestSqliteStorage(StorageTests, BaseTestCase):
     def get_huey(self):
         return SqliteHuey(filename='huey_storage.db', timeout=3)
 
+    def test_create_tables(self):
+        huey = SqliteHuey(filename='huey_ct.db', create_tables=False)
+        try:
+            self.assertRaises(sqlite3.OperationalError, huey.pending_count)
+            huey.storage.initialize_schema()
+            self.assertEqual(huey.pending_count(), 0)
+        finally:
+            huey.storage.close()
+            if os.path.exists('huey_ct.db'):
+                os.unlink('huey_ct.db')
+
     def test_timeout(self):
         self.assertEqual(self.s._timeout, 3)
         curs = self.s.conn.execute('pragma busy_timeout')
         self.assertEqual(curs.fetchone(), (3000,))
+
+
+@unittest.skipIf(cysqlite is None, 'requires cysqlite')
+class TestCySqliteStorage(StorageTests, BaseTestCase):
+    def tearDown(self):
+        super(TestCySqliteStorage, self).tearDown()
+        if os.path.exists('huey_storage.db'):
+            os.unlink('huey_storage.db')
+
+    def get_huey(self):
+        return CySqliteHuey(filename='huey_storage.db', timeout=3, pragmas={
+            'mmap_size': 1024 * 1024 * 32,
+            'synchronous': 1,
+        })
+
+    def test_pragmas_preserved(self):
+        conn = self.s.conn
+        self.assertEqual(conn.pragma('mmap_size'), 1024 * 1024 * 32)
+        self.assertEqual(conn.pragma('synchronous'), 1)
+        self.assertEqual(conn.pragma('journal_mode'), 'wal')
+
+    def test_sqlite_params_normalized(self):
+        pragmas = {'mmap_size': 4096}
+        huey = CySqliteHuey(filename='huey_np.db', pragmas=pragmas,
+                            cache_mb=4, fsync=True, journal_mode='truncate')
+        try:
+            conn = huey.storage.conn
+            self.assertEqual(conn.pragma('mmap_size'), 4096)
+            self.assertEqual(conn.pragma('cache_size'), -4000)
+            self.assertEqual(conn.pragma('synchronous'), 2)
+            self.assertEqual(conn.pragma('journal_mode'), 'truncate')
+            self.assertEqual(pragmas, {'mmap_size': 4096})
+        finally:
+            huey.storage.close()
+            if os.path.exists('huey_np.db'):
+                os.unlink('huey_np.db')
+
+    def test_create_tables(self):
+        huey = CySqliteHuey(filename='huey_ct.db', create_tables=False)
+        try:
+            self.assertRaises(cysqlite.OperationalError, huey.pending_count)
+            huey.storage.initialize_schema()
+            self.assertEqual(huey.pending_count(), 0)
+        finally:
+            huey.storage.close()
+            if os.path.exists('huey_ct.db'):
+                os.unlink('huey_ct.db')
+
+    def test_timeout(self):
+        self.assertEqual(self.s._timeout, 3)
+        self.assertEqual(self.s.conn.pragma('busy_timeout'), 3000)
 
 
 class TestFileStorageMethods(StorageTests, BaseTestCase):
@@ -449,6 +519,13 @@ class TestFileStorageMethods(StorageTests, BaseTestCase):
         super(TestFileStorageMethods, self).tearDown()
         if os.path.exists(self.path):
             shutil.rmtree(self.path)
+
+    def test_float_priority(self):
+        # Fractional priorities are truncated rather than raising.
+        self.s.enqueue(b'low', priority=1.5)
+        self.s.enqueue(b'high', priority=2.5)
+        self.assertEqual(self.s.dequeue(), b'high')
+        self.assertEqual(self.s.dequeue(), b'low')
 
     def get_huey(self):
         return Huey('test-file-storage', storage_class=FileStorage,
@@ -532,7 +609,7 @@ class TestFileStorageMethods(StorageTests, BaseTestCase):
         for i in range(nthreads * ntasks):
             self.assertEqual(in_q.get(), out_q.get())
 
-    @unittest.skipIf(TRAVIS, 'skipping test that is flaky on travis-ci')
+    @unittest.skipIf(CI, 'skipping test that is flaky on CI')
     def test_consumer_integration(self):
         return super(TestFileStorageMethods, self).test_consumer_integration()
 

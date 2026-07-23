@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using CloakBrowser;
 
@@ -5,14 +6,18 @@ using CloakBrowser;
 // Direct port of Python cloakbrowser/__main__.py.
 //
 // Usage:
+//   cloakbrowser login        # Save a license key (or get a free key via GitHub)
+//   cloakbrowser logout       # Remove the saved license key (revert to free binary)
 //   cloakbrowser install      # Download binary (with progress)
 //   cloakbrowser info         # Environment + binary diagnostics (--quick, --json)
 //   cloakbrowser doctor       # Alias for info
 //   cloakbrowser update       # Check for and download newer binary
 //   cloakbrowser clear-cache  # Remove cached binaries
 
-const string UpgradeHint =
-    "→ Get the latest Pro binary (Chromium 150) + newest patches: https://cloakbrowser.dev";
+const string UpgradeHint = "For more than one concurrent session → https://cloakbrowser.dev";
+const string FreeLatestHint =
+    "Get the latest binary free → run 'cloakbrowser login' or https://cloakbrowser.dev/free";
+const string FreeLoginUrl = "https://cloakbrowser.dev/api/license/free/github/start";
 
 // Route CloakBrowser logs to stderr at Info level (clean output).
 CloakLog.MinLevel = CloakLogLevel.Info;
@@ -43,6 +48,10 @@ try
         case "clear-cache":
             CmdClearCache();
             break;
+        case "login":
+            return CmdLogin(rest);
+        case "logout":
+            return CmdLogout();
         default:
             Console.Error.WriteLine($"Unknown command: {command}");
             PrintHelp();
@@ -170,9 +179,18 @@ static void PrintDiagnostics(Dictionary<string, object?> diag)
 
     var lic = (Dictionary<string, object?>)diag["license"]!;
     string tier = (string)lic["tier"]!;
-    if (tier == "free")
+    bool validated = lic.TryGetValue("valid", out var validObj) && validObj is true;
+    if (tier == "free" && validated)
     {
-        Console.WriteLine("License:   Free");
+        // Validated free-tier key (GitHub login): the latest binary, 1 session.
+        Console.WriteLine("License:   Free (latest binary, 1 concurrent session)");
+        Console.WriteLine($"           {UpgradeHint}");
+    }
+    else if (tier == "free")
+    {
+        // Keyless: running the older free binary — invite the free-latest login.
+        Console.WriteLine("License:   Free (no key)");
+        Console.WriteLine($"           {FreeLatestHint}");
         Console.WriteLine($"           {UpgradeHint}");
     }
     else if (lic.ContainsKey("error"))
@@ -246,6 +264,109 @@ static void CmdClearCache()
     Console.WriteLine("Cache cleared.");
 }
 
+// Activate any key. `login <key>` saves a pasted key; bare `login` prompts to
+// paste a key or press ENTER to get a free key via GitHub. Mirrors Python cmd_login.
+static int CmdLogin(string[] flags)
+{
+    string key = (flags.Length > 0 ? flags[0] : "").Trim();
+
+    if (string.IsNullOrEmpty(key))
+    {
+        if (Console.IsInputRedirected)
+        {
+            Console.Error.WriteLine(
+                "Usage: cloakbrowser login <key>  (or run it interactively for a free key).");
+            return 2;
+        }
+        Console.Write("Paste your license key, or press ENTER to get a free key via GitHub: ");
+        string entered = (Console.ReadLine() ?? "").Trim();
+        key = string.IsNullOrEmpty(entered) ? PromptFreeGithubLogin() : entered;
+    }
+
+    if (string.IsNullOrEmpty(key))
+    {
+        Console.Error.WriteLine("No key entered. Nothing saved.");
+        return 1;
+    }
+
+    LicenseInfo? info = License.ValidateLicense(key);
+    if (info is null)
+    {
+        Console.Error.WriteLine(
+            "Could not reach the license server to verify the key. Check your connection and retry.");
+        return 1;
+    }
+    if (!info.Valid)
+    {
+        Console.Error.WriteLine("That license key is invalid or expired. Nothing was saved.");
+        return 1;
+    }
+
+    SaveLicenseKey(key);
+    if (info.Plan == "free")
+    {
+        Console.WriteLine(
+            "Saved. Free tier active: latest binary, 1 concurrent session (one browser at a time).");
+        Console.WriteLine("Need to run more at once? See the plans at https://cloakbrowser.dev");
+    }
+    else
+    {
+        Console.WriteLine($"Saved. {TitleCase(info.Plan)} key active: latest binary, full plan limits.");
+    }
+    return 0;
+}
+
+// Remove the saved license key (revert to the free binary). Mirrors Python cmd_logout.
+static int CmdLogout()
+{
+    string keyFile = Path.Combine(Config.GetCacheDir(), "license.key");
+    if (File.Exists(keyFile))
+    {
+        try
+        {
+            File.Delete(keyFile);
+        }
+        catch (IOException e)
+        {
+            Console.Error.WriteLine($"Could not remove {keyFile}: {e.Message}");
+            return 1;
+        }
+        Console.WriteLine("Logged out. Removed the saved key; launches revert to the free binary.");
+    }
+    else
+    {
+        Console.WriteLine("No saved license key found.");
+    }
+    return 0;
+}
+
+// Persist a validated key to <cache_dir>/license.key.
+static void SaveLicenseKey(string key)
+{
+    string cacheDir = Config.GetCacheDir();
+    Directory.CreateDirectory(cacheDir);
+    string keyFile = Path.Combine(cacheDir, "license.key");
+    File.WriteAllText(keyFile, key.Trim() + "\n");
+}
+
+// Open the GitHub free-key page and read back the emailed key.
+static string PromptFreeGithubLogin()
+{
+    Console.WriteLine($"Opening GitHub sign-in: {FreeLoginUrl}");
+    try
+    {
+        Process.Start(new ProcessStartInfo(FreeLoginUrl) { UseShellExecute = true });
+    }
+    catch { /* best-effort — the URL is printed above for manual navigation */ }
+    Console.WriteLine("If your browser did not open, visit the URL above and authorize with GitHub.");
+    Console.WriteLine("We'll email your free CloakBrowser key to your GitHub email.");
+    Console.Write("Paste the key from that email here: ");
+    return (Console.ReadLine() ?? "").Trim();
+}
+
+static string TitleCase(string s) =>
+    string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
+
 static void PrintHelp()
 {
     Console.WriteLine("usage: cloakbrowser <command>");
@@ -253,6 +374,8 @@ static void PrintHelp()
     Console.WriteLine("Manage the CloakBrowser stealth Chromium binary.");
     Console.WriteLine();
     Console.WriteLine("commands:");
+    Console.WriteLine("  login        Save a license key (or get a free key via GitHub)");
+    Console.WriteLine("  logout       Remove the saved license key (revert to free binary)");
     Console.WriteLine("  install      Download the Chromium binary");
     Console.WriteLine("  info         Environment + binary diagnostics (--quick, --json)");
     Console.WriteLine("  doctor       Alias for info");

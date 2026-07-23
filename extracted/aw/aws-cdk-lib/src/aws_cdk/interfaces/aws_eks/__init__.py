@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -72,7 +76,7 @@ class AccessEntryReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70a5e484db113b4d5529dd453bcc42197c4a3a2f2574700dceec0ec68d28ea53)
+            type_hints = cached_type_hints(_typecheckingstub__70a5e484db113b4d5529dd453bcc42197c4a3a2f2574700dceec0ec68d28ea53)
             check_type(argname="argument access_entry_arn", value=access_entry_arn, expected_type=type_hints["access_entry_arn"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument principal_arn", value=principal_arn, expected_type=type_hints["principal_arn"])
@@ -153,7 +157,7 @@ class AddonReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8380b0e2d2286804f49005cd1b95a852ea64c317bb9048747945aafc0d036cf6)
+            type_hints = cached_type_hints(_typecheckingstub__8380b0e2d2286804f49005cd1b95a852ea64c317bb9048747945aafc0d036cf6)
             check_type(argname="argument addon_arn", value=addon_arn, expected_type=type_hints["addon_arn"])
             check_type(argname="argument addon_name", value=addon_name, expected_type=type_hints["addon_name"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
@@ -220,7 +224,7 @@ class CapabilityReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc801b63380c6ce04f8c7266654f326fcd069c8bbc7b78140d8b612445f8e92c)
+            type_hints = cached_type_hints(_typecheckingstub__bc801b63380c6ce04f8c7266654f326fcd069c8bbc7b78140d8b612445f8e92c)
             check_type(argname="argument capability_arn", value=capability_arn, expected_type=type_hints["capability_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capability_arn": capability_arn,
@@ -276,7 +280,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__109fa15f1d27371bb677c33727e10865a978f7a73cae0377fbee4c3b9b55a366)
+            type_hints = cached_type_hints(_typecheckingstub__109fa15f1d27371bb677c33727e10865a978f7a73cae0377fbee4c3b9b55a366)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -348,7 +352,7 @@ class FargateProfileReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e5b29978a76afad9c5fd180fa3163bf155032420d2718449094254c332eeec2)
+            type_hints = cached_type_hints(_typecheckingstub__4e5b29978a76afad9c5fd180fa3163bf155032420d2718449094254c332eeec2)
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument fargate_profile_arn", value=fargate_profile_arn, expected_type=type_hints["fargate_profile_arn"])
             check_type(argname="argument fargate_profile_name", value=fargate_profile_name, expected_type=type_hints["fargate_profile_name"])
@@ -394,7 +398,7 @@ class FargateProfileReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IAccessEntryRef")
 class IAccessEntryRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessEntry.
@@ -414,7 +418,7 @@ class IAccessEntryRef(
 
 class _IAccessEntryRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a AccessEntry.
 
@@ -439,7 +443,7 @@ typing.cast(typing.Any, IAccessEntryRef).__jsii_proxy_class__ = lambda : _IAcces
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IAddonRef")
 class IAddonRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Addon.
@@ -459,7 +463,7 @@ class IAddonRef(
 
 class _IAddonRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Addon.
 
@@ -484,7 +488,7 @@ typing.cast(typing.Any, IAddonRef).__jsii_proxy_class__ = lambda : _IAddonRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.ICapabilityRef")
 class ICapabilityRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Capability.
@@ -504,7 +508,7 @@ class ICapabilityRef(
 
 class _ICapabilityRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Capability.
 
@@ -529,7 +533,7 @@ typing.cast(typing.Any, ICapabilityRef).__jsii_proxy_class__ = lambda : _ICapabi
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -549,7 +553,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -574,7 +578,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IFargateProfileRef")
 class IFargateProfileRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a FargateProfile.
@@ -594,7 +598,7 @@ class IFargateProfileRef(
 
 class _IFargateProfileRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a FargateProfile.
 
@@ -619,7 +623,7 @@ typing.cast(typing.Any, IFargateProfileRef).__jsii_proxy_class__ = lambda : _IFa
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IIdentityProviderConfigRef")
 class IIdentityProviderConfigRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityProviderConfig.
@@ -639,7 +643,7 @@ class IIdentityProviderConfigRef(
 
 class _IIdentityProviderConfigRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a IdentityProviderConfig.
 
@@ -664,7 +668,7 @@ typing.cast(typing.Any, IIdentityProviderConfigRef).__jsii_proxy_class__ = lambd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.INodegroupRef")
 class INodegroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Nodegroup.
@@ -684,7 +688,7 @@ class INodegroupRef(
 
 class _INodegroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Nodegroup.
 
@@ -709,7 +713,7 @@ typing.cast(typing.Any, INodegroupRef).__jsii_proxy_class__ = lambda : _INodegro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_eks.IPodIdentityAssociationRef")
 class IPodIdentityAssociationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a PodIdentityAssociation.
@@ -729,7 +733,7 @@ class IPodIdentityAssociationRef(
 
 class _IPodIdentityAssociationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a PodIdentityAssociation.
 
@@ -793,7 +797,7 @@ class IdentityProviderConfigReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7f2b95faafabd5a5ac589edc611ad9e0ba9316371e087b5c86757363f9c056e)
+            type_hints = cached_type_hints(_typecheckingstub__a7f2b95faafabd5a5ac589edc611ad9e0ba9316371e087b5c86757363f9c056e)
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument identity_provider_config_arn", value=identity_provider_config_arn, expected_type=type_hints["identity_provider_config_arn"])
             check_type(argname="argument identity_provider_config_name", value=identity_provider_config_name, expected_type=type_hints["identity_provider_config_name"])
@@ -876,7 +880,7 @@ class NodegroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__975a2ffb7c240c21e751d5713f57ab08728fcfcda506863593becc085d7234c7)
+            type_hints = cached_type_hints(_typecheckingstub__975a2ffb7c240c21e751d5713f57ab08728fcfcda506863593becc085d7234c7)
             check_type(argname="argument nodegroup_arn", value=nodegroup_arn, expected_type=type_hints["nodegroup_arn"])
             check_type(argname="argument nodegroup_id", value=nodegroup_id, expected_type=type_hints["nodegroup_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -934,7 +938,7 @@ class PodIdentityAssociationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7465fc9c2ed3ddbe51e8bf5142f1243a8335f32f088977ac177d64c248cde46)
+            type_hints = cached_type_hints(_typecheckingstub__d7465fc9c2ed3ddbe51e8bf5142f1243a8335f32f088977ac177d64c248cde46)
             check_type(argname="argument association_arn", value=association_arn, expected_type=type_hints["association_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "association_arn": association_arn,

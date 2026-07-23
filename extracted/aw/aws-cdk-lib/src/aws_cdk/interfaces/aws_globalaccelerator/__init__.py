@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class AcceleratorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4096400e288158796964a5ecfa0983a78b9501f6cd517f689063671b58923ce1)
+            type_hints = cached_type_hints(_typecheckingstub__4096400e288158796964a5ecfa0983a78b9501f6cd517f689063671b58923ce1)
             check_type(argname="argument accelerator_arn", value=accelerator_arn, expected_type=type_hints["accelerator_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "accelerator_arn": accelerator_arn,
@@ -107,7 +111,7 @@ class CrossAccountAttachmentReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c41cc2cf3358d10c153b57747f11ab541c4be86d7c7dab98cb63d5e1379ff137)
+            type_hints = cached_type_hints(_typecheckingstub__c41cc2cf3358d10c153b57747f11ab541c4be86d7c7dab98cb63d5e1379ff137)
             check_type(argname="argument attachment_arn", value=attachment_arn, expected_type=type_hints["attachment_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "attachment_arn": attachment_arn,
@@ -156,7 +160,7 @@ class EndpointGroupReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b5b979b0b8410acbd43365f95043526af7b577eebd4f5201d643350b88abe9f)
+            type_hints = cached_type_hints(_typecheckingstub__7b5b979b0b8410acbd43365f95043526af7b577eebd4f5201d643350b88abe9f)
             check_type(argname="argument endpoint_group_arn", value=endpoint_group_arn, expected_type=type_hints["endpoint_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "endpoint_group_arn": endpoint_group_arn,
@@ -186,7 +190,7 @@ class EndpointGroupReference:
 )
 class IAcceleratorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Accelerator.
@@ -206,7 +210,7 @@ class IAcceleratorRef(
 
 class _IAcceleratorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Accelerator.
 
@@ -233,7 +237,7 @@ typing.cast(typing.Any, IAcceleratorRef).__jsii_proxy_class__ = lambda : _IAccel
 )
 class ICrossAccountAttachmentRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a CrossAccountAttachment.
@@ -253,7 +257,7 @@ class ICrossAccountAttachmentRef(
 
 class _ICrossAccountAttachmentRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a CrossAccountAttachment.
 
@@ -280,7 +284,7 @@ typing.cast(typing.Any, ICrossAccountAttachmentRef).__jsii_proxy_class__ = lambd
 )
 class IEndpointGroupRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointGroup.
@@ -300,7 +304,7 @@ class IEndpointGroupRef(
 
 class _IEndpointGroupRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a EndpointGroup.
 
@@ -325,7 +329,7 @@ typing.cast(typing.Any, IEndpointGroupRef).__jsii_proxy_class__ = lambda : _IEnd
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_globalaccelerator.IListenerRef")
 class IListenerRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Listener.
@@ -345,7 +349,7 @@ class IListenerRef(
 
 class _IListenerRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Listener.
 
@@ -391,7 +395,7 @@ class ListenerReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54494481df766234db9c29fb3f9de05ab9855fdbf1eef700fe27b6bd881ab606)
+            type_hints = cached_type_hints(_typecheckingstub__54494481df766234db9c29fb3f9de05ab9855fdbf1eef700fe27b6bd881ab606)
             check_type(argname="argument listener_arn", value=listener_arn, expected_type=type_hints["listener_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "listener_arn": listener_arn,

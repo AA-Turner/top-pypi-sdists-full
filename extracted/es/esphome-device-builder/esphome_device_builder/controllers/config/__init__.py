@@ -58,7 +58,9 @@ from .metadata import (
 )
 from .remote_build_settings import (
     _settings_from_raw,
+    effective_remote_build_settings,
     has_remote_build_settings_persisted,
+    load_effective_remote_build_settings,
     load_remote_build_settings,
     remote_build_settings_transaction,
     save_remote_build_settings,
@@ -100,11 +102,13 @@ __all__ = [
     "_unlink_quietly",
     "clear_volatile_device_metadata",
     "delete_label_cascade",
+    "effective_remote_build_settings",
     "get_board_id",
     "get_device_ip",
     "get_device_metadata",
     "has_remote_build_settings_persisted",
     "labels_transaction",
+    "load_effective_remote_build_settings",
     "load_labels",
     "load_remote_build_settings",
     "metadata_transaction",

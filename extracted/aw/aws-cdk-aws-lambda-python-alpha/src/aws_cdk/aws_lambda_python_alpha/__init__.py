@@ -346,6 +346,8 @@ additional_directories:
 
 Then restart the Finch VM by running `finch vm stop && finch vm start`.
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -359,37 +361,49 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_codeguruprofiler as _aws_cdk_aws_codeguruprofiler_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
-import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
-import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
-import aws_cdk.interfaces.aws_lambda as _aws_cdk_interfaces_aws_lambda_ceddda9d
-import aws_cdk.interfaces.aws_logs as _aws_cdk_interfaces_aws_logs_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_codeguruprofiler as _aws_cdk_aws_codeguruprofiler_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
+    import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
+    import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import aws_cdk.interfaces.aws_lambda as _aws_cdk_interfaces_aws_lambda_ceddda9d
+    import aws_cdk.interfaces.aws_logs as _aws_cdk_interfaces_aws_logs_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_codeguruprofiler_ceddda9d = _LazyImport("aws_cdk.aws_codeguruprofiler")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_sns_ceddda9d = _LazyImport("aws_cdk.aws_sns")
+    _aws_cdk_aws_sqs_ceddda9d = _LazyImport("aws_cdk.aws_sqs")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_cdk_interfaces_aws_lambda_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_lambda")
+    _aws_cdk_interfaces_aws_logs_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_logs")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(
@@ -483,7 +497,7 @@ class BundlingOptions(_aws_cdk_ceddda9d.DockerRunOptions):
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__964005355074abfcff858df524930caf3a9d6eb8213d8b5f235ee90adb179bd0)
+            type_hints = cached_type_hints(_typecheckingstub__964005355074abfcff858df524930caf3a9d6eb8213d8b5f235ee90adb179bd0)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -898,7 +912,7 @@ class _ICommandHooksProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__768bf3606aae5eb0f4dfdd9e0dcb611a9e29631e08b3fe968ecba684da2e2a1a)
+            type_hints = cached_type_hints(_typecheckingstub__768bf3606aae5eb0f4dfdd9e0dcb611a9e29631e08b3fe968ecba684da2e2a1a)
             check_type(argname="argument input_dir", value=input_dir, expected_type=type_hints["input_dir"])
             check_type(argname="argument output_dir", value=output_dir, expected_type=type_hints["output_dir"])
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "afterBundling", [input_dir, output_dir]))
@@ -919,7 +933,7 @@ class _ICommandHooksProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__531dd32f92ad2373ea3e7357d22a11c77c4f9176af1409671e5a9f87181f2a05)
+            type_hints = cached_type_hints(_typecheckingstub__531dd32f92ad2373ea3e7357d22a11c77c4f9176af1409671e5a9f87181f2a05)
             check_type(argname="argument input_dir", value=input_dir, expected_type=type_hints["input_dir"])
             check_type(argname="argument output_dir", value=output_dir, expected_type=type_hints["output_dir"])
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "beforeBundling", [input_dir, output_dir]))
@@ -1079,7 +1093,7 @@ class PythonFunction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5537a9d2877d6e8ff1275d2f45fdfd2900b726517ad0fa1c220fba47aefd1ac8)
+            type_hints = cached_type_hints(_typecheckingstub__5537a9d2877d6e8ff1275d2f45fdfd2900b726517ad0fa1c220fba47aefd1ac8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PythonFunctionProps(
@@ -1368,7 +1382,7 @@ class PythonFunctionProps(_aws_cdk_aws_lambda_ceddda9d.FunctionOptions):
         if isinstance(bundling, dict):
             bundling = BundlingOptions(**bundling)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__637cd4e3d3f8768a5067bfaaca86ae334c7670354dabddcb67008214b9dd5009)
+            type_hints = cached_type_hints(_typecheckingstub__637cd4e3d3f8768a5067bfaaca86ae334c7670354dabddcb67008214b9dd5009)
             check_type(argname="argument max_event_age", value=max_event_age, expected_type=type_hints["max_event_age"])
             check_type(argname="argument on_failure", value=on_failure, expected_type=type_hints["on_failure"])
             check_type(argname="argument on_success", value=on_success, expected_type=type_hints["on_success"])
@@ -2341,7 +2355,7 @@ class PythonLayerVersion(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77c4eed06ce3f6360f36ab2761bae814188f7ce533f1f7004fcfaa80b37d2b47)
+            type_hints = cached_type_hints(_typecheckingstub__77c4eed06ce3f6360f36ab2761bae814188f7ce533f1f7004fcfaa80b37d2b47)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = PythonLayerVersionProps(
@@ -2417,7 +2431,7 @@ class PythonLayerVersionProps(_aws_cdk_aws_lambda_ceddda9d.LayerVersionOptions):
         if isinstance(bundling, dict):
             bundling = BundlingOptions(**bundling)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f46c31c990827525b34afdaf54e4e1a68400e10414de51bc40f0c10d8ce86330)
+            type_hints = cached_type_hints(_typecheckingstub__f46c31c990827525b34afdaf54e4e1a68400e10414de51bc40f0c10d8ce86330)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument layer_version_name", value=layer_version_name, expected_type=type_hints["layer_version_name"])
             check_type(argname="argument license", value=license, expected_type=type_hints["license"])

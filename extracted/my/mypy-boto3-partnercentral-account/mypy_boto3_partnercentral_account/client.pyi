@@ -60,6 +60,12 @@ from .type_defs import (
     GetProfileUpdateTaskResponseTypeDef,
     GetProfileVisibilityRequestTypeDef,
     GetProfileVisibilityResponseTypeDef,
+    GetQualificationsAssociationDetailsRequestTypeDef,
+    GetQualificationsAssociationDetailsResponseTypeDef,
+    GetQualificationsAssociationTaskRequestTypeDef,
+    GetQualificationsAssociationTaskResponseTypeDef,
+    GetQualificationsDisassociationTaskRequestTypeDef,
+    GetQualificationsDisassociationTaskResponseTypeDef,
     GetVerificationRequestTypeDef,
     GetVerificationResponseTypeDef,
     ListConnectionInvitationsRequestTypeDef,
@@ -79,6 +85,10 @@ from .type_defs import (
     SendEmailVerificationCodeRequestTypeDef,
     StartProfileUpdateTaskRequestTypeDef,
     StartProfileUpdateTaskResponseTypeDef,
+    StartQualificationsAssociationTaskRequestTypeDef,
+    StartQualificationsAssociationTaskResponseTypeDef,
+    StartQualificationsDisassociationTaskRequestTypeDef,
+    StartQualificationsDisassociationTaskResponseTypeDef,
     StartVerificationRequestTypeDef,
     StartVerificationResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -296,6 +306,39 @@ class PartnerCentralAccountAPIClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#get_profile_visibility)
         """
 
+    def get_qualifications_association_details(
+        self, **kwargs: Unpack[GetQualificationsAssociationDetailsRequestTypeDef]
+    ) -> GetQualificationsAssociationDetailsResponseTypeDef:
+        """
+        Returns your current qualifications association status, the primary partner,
+        and the full list of partners associated under the primary partner.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/get_qualifications_association_details.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#get_qualifications_association_details)
+        """
+
+    def get_qualifications_association_task(
+        self, **kwargs: Unpack[GetQualificationsAssociationTaskRequestTypeDef]
+    ) -> GetQualificationsAssociationTaskResponseTypeDef:
+        """
+        Retrieves the status and details of the most recent qualifications association
+        task for your partner account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/get_qualifications_association_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#get_qualifications_association_task)
+        """
+
+    def get_qualifications_disassociation_task(
+        self, **kwargs: Unpack[GetQualificationsDisassociationTaskRequestTypeDef]
+    ) -> GetQualificationsDisassociationTaskResponseTypeDef:
+        """
+        Retrieves the status and details of the most recent qualifications
+        disassociation task for your partner account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/get_qualifications_disassociation_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#get_qualifications_disassociation_task)
+        """
+
     def get_verification(
         self, **kwargs: Unpack[GetVerificationRequestTypeDef]
     ) -> GetVerificationResponseTypeDef:
@@ -401,6 +444,28 @@ class PartnerCentralAccountAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/start_profile_update_task.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#start_profile_update_task)
+        """
+
+    def start_qualifications_association_task(
+        self, **kwargs: Unpack[StartQualificationsAssociationTaskRequestTypeDef]
+    ) -> StartQualificationsAssociationTaskResponseTypeDef:
+        """
+        Initiates an asynchronous task to associate your partner qualifications with a
+        primary account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/start_qualifications_association_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#start_qualifications_association_task)
+        """
+
+    def start_qualifications_disassociation_task(
+        self, **kwargs: Unpack[StartQualificationsDisassociationTaskRequestTypeDef]
+    ) -> StartQualificationsDisassociationTaskResponseTypeDef:
+        """
+        Initiates an asynchronous task to disassociate your partner qualifications from
+        a primary account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account/client/start_qualifications_disassociation_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/client/#start_qualifications_disassociation_task)
         """
 
     def start_verification(

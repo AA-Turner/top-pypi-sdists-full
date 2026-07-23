@@ -52,20 +52,20 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def runner():
-    """Runner fixture for :class:`click_extra.testing.CliRunner`.
+    """Runner fixture for {class}`click_extra.testing.CliRunner`.
 
-    Pins ``HOME`` (and its platform-specific equivalents) to a subdirectory of
+    Pins `HOME` (and its platform-specific equivalents) to a subdirectory of
     the runner's isolated filesystem so configuration-file discovery is
     deterministic and independent of the ambient environment. Without this, the
     handful of tests asserting on the config-search debug output depend on the
-    caller's ``HOME``: hermetic builders set ``HOME=/homeless-shelter``, which
+    caller's `HOME`: hermetic builders set `HOME=/homeless-shelter`, which
     would otherwise leak into those assertions.
 
     The environment is patched directly (via
-    :func:`~click_extra.envvar.temporary_env`) rather than through the
-    ``monkeypatch`` fixture on purpose: depending on ``monkeypatch`` here would
-    tear it down *after* ``isolated_filesystem`` removed the working directory
-    it tries to restore, breaking unrelated tests that ``chdir`` within the
+    {func}`~click_extra.envvar.temporary_env`) rather than through the
+    `monkeypatch` fixture on purpose: depending on `monkeypatch` here would
+    tear it down *after* `isolated_filesystem` removed the working directory
+    it tries to restore, breaking unrelated tests that `chdir` within the
     runner.
     """
     home_vars = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA")
@@ -79,7 +79,7 @@ def runner():
 
 @pytest.fixture
 def invoke(runner):
-    """Invoke fixture shorthand for :meth:`click_extra.testing.CliRunner.invoke`."""
+    """Invoke fixture shorthand for {meth}`click_extra.testing.CliRunner.invoke`."""
     return runner.invoke
 
 
@@ -87,42 +87,44 @@ def invoke(runner):
 def isolated_app_dir(monkeypatch, tmp_path):
     """Repoint configuration-file discovery at a fresh, empty directory.
 
-    The default ``--config`` search pattern derives from
-    :func:`click.get_app_dir`, which resolves to the *host* configuration
-    folder (``~/Library/Application Support/<app>`` on macOS,
-    ``~/.config/<app>`` on Unix, ``%APPDATA%\\<app>`` on Windows). Any
+    The default `--config` search pattern derives from
+    {func}`click.get_app_dir`, which resolves to the *host* configuration
+    folder (`~/Library/Application Support/<app>` on macOS,
+    `~/.config/<app>` on Unix, `%APPDATA%\\<app>` on Windows). Any
     configuration file living there bleeds into every in-process CLI
     invocation, making a test suite pass or fail depending on the developer's
     personal configuration.
 
-    This fixture repoints ``get_app_dir`` (both ``click``'s and the reference
+    This fixture repoints `get_app_dir` (both `click`'s and the reference
     bound into click-extra's config machinery) at a per-test temporary
     directory, whatever application name is requested. It returns that
     directory, so a test can also plant a configuration file in it to
     exercise the default discovery against a controlled file.
 
-    An explicit ``--config <path>`` bypasses the default search pattern and is
+    An explicit `--config <path>` bypasses the default search pattern and is
     left unaffected.
 
-    .. note::
-        The :func:`runner` fixture pins ``HOME`` and its platform equivalents
-        inside an isolated filesystem, which also redirects the discovery
-        paths built from the home directory — but only for tests requesting
-        that fixture. This one intercepts ``get_app_dir`` directly, covering
-        any in-process invocation, without touching ``HOME`` (a suite may need
-        the real one elsewhere) and without leaking into subprocesses.
+    ```{note}
+    The {func}`runner` fixture pins `HOME` and its platform equivalents
+    inside an isolated filesystem, which also redirects the discovery
+    paths built from the home directory — but only for tests requesting
+    that fixture. This one intercepts `get_app_dir` directly, covering
+    any in-process invocation, without touching `HOME` (a suite may need
+    the real one elsewhere) and without leaking into subprocesses.
+    ```
 
-    To make a whole suite hermetic, alias it to an ``autouse`` fixture in your
-    ``conftest.py``:
+    To make a whole suite hermetic, alias it to an `autouse` fixture in your
+    `conftest.py`:
 
-    .. code-block:: python
+    ```{code-block} python
 
-        import pytest
+    import pytest
 
 
-        @pytest.fixture(autouse=True)
-        def isolate_user_config(isolated_app_dir):
-            return isolated_app_dir
+    @pytest.fixture(autouse=True)
+    def isolate_user_config(isolated_app_dir):
+        return isolated_app_dir
+    ```
     """
     app_dir = tmp_path / "app-dir"
     app_dir.mkdir()
@@ -138,9 +140,9 @@ def isolated_app_dir(monkeypatch, tmp_path):
 skip_naked = pytest.mark.skip(reason="Naked decorator not supported.")
 """Mark to skip Cloup decorators without parenthesis.
 
-.. warning::
-    `Cloup does not yet support decorators without parenthesis
-    <https://github.com/janluke/cloup/issues/127>`_.
+```{warning}
+[Cloup does not yet support decorators without parenthesis](https://github.com/janluke/cloup/issues/127).
+```
 """
 
 
@@ -150,15 +152,15 @@ def _expand_decorator_params(
     with_parenthesis: bool,
     with_types: bool,
 ) -> tuple[ParameterSet, ...]:
-    """Expand ``(decorator, framework, kind)`` triples into pytest parameters.
+    """Expand `(decorator, framework, kind)` triples into pytest parameters.
 
-    Each triple yields the naked variant, then (``with_parenthesis``) the
-    parenthesized one. Parameter IDs are ``<framework>.<kind>`` and
-    ``<framework>.<kind>()``. Naked Cloup decorators carry the
-    :data:`skip_naked` mark, since Cloup does not support the
-    parenthesis-less form. With ``with_types``, each parameter also carries
-    its ``{framework-tag, kind}`` descriptor set (the ``click_extra``
-    framework is tagged ``extra``).
+    Each triple yields the naked variant, then (`with_parenthesis`) the
+    parenthesized one. Parameter IDs are `<framework>.<kind>` and
+    `<framework>.<kind>()`. Naked Cloup decorators carry the
+    {data}`skip_naked` mark, since Cloup does not support the
+    parenthesis-less form. With `with_types`, each parameter also carries
+    its ``{framework-tag, kind}`` descriptor set (the `click_extra`
+    framework is tagged `extra`).
     """
     params: list[ParameterSet] = []
     for deco, framework, kind in matrix:
@@ -189,20 +191,20 @@ def command_decorators(
 
     :return: Pytest parameters covering each command-like decorator variant:
 
-        - ``click.command``
-        - ``click.command()``
-        - ``cloup.command``
-        - ``cloup.command()``
-        - ``click_extra.command``
-        - ``click_extra.command()``
-        - ``click.group``
-        - ``click.group()``
-        - ``cloup.group``
-        - ``cloup.group()``
-        - ``click_extra.group``
-        - ``click_extra.group()``
+        - `click.command`
+        - `click.command()`
+        - `cloup.command`
+        - `cloup.command()`
+        - `click_extra.command`
+        - `click_extra.command()`
+        - `click.group`
+        - `click.group()`
+        - `cloup.group`
+        - `cloup.group()`
+        - `click_extra.group`
+        - `click_extra.group()`
     """
-    # The decorator cells are typed ``Any``: mypy cannot join Click's overloaded
+    # The decorator cells are typed `Any`: mypy cannot join Click's overloaded
     # callables with Click Extra's decorator protocols into one iterable type.
     kind_rows: tuple[tuple[str, bool, tuple[Any, Any, Any]], ...] = (
         ("command", no_commands, (click.command, cloup.command, command)),
@@ -237,20 +239,20 @@ def option_decorators(
 
     :return: Pytest parameters covering each parameter-like decorator variant:
 
-        - ``click.option``
-        - ``click.option()``
-        - ``cloup.option``
-        - ``cloup.option()``
-        - ``click_extra.option``
-        - ``click_extra.option()``
-        - ``click.argument``
-        - ``click.argument()``
-        - ``cloup.argument``
-        - ``cloup.argument()``
-        - ``click_extra.argument``
-        - ``click_extra.argument()``
+        - `click.option`
+        - `click.option()`
+        - `cloup.option`
+        - `cloup.option()`
+        - `click_extra.option`
+        - `click_extra.option()`
+        - `click.argument`
+        - `click.argument()`
+        - `cloup.argument`
+        - `cloup.argument()`
+        - `click_extra.argument`
+        - `click_extra.argument()`
     """
-    # The decorator cells are typed ``Any``: mypy cannot join Click's overloaded
+    # The decorator cells are typed `Any`: mypy cannot join Click's overloaded
     # callables with Click Extra's decorator protocols into one iterable type.
     kind_rows: tuple[tuple[str, bool, tuple[Any, Any, Any]], ...] = (
         ("option", no_options, (click.option, cloup.option, option)),
@@ -319,7 +321,7 @@ default_options_uncolored_help = (
     r"  --theme \[dark\|dracula\|light\|manpage\|monokai\|nord\|solarized_dark\]\n"
     r"                               Color theme used for help screens\.  \[default:\n"
     r"                               dark\]\n"
-    r"  --show-params                Show all CLI parameters, their provenance,\n"
+    r"  --params                     Show all CLI parameters, their provenance,\n"
     r"                               defaults and value, then exit\.\n"
     r"  --table-format \[aligned\|asciidoc\|colon-grid\|csv\|csv-excel\|csv-excel-tab\|csv-unix\|double-grid\|double-outline\|fancy-grid\|fancy-outline\|github\|grid\|heavy-grid\|heavy-outline\|hjson\|html\|jira\|json\|json5\|jsonc\|latex\|latex-booktabs\|latex-longtable\|latex-raw\|mediawiki\|mixed-grid\|mixed-outline\|moinmoin\|orgtbl\|outline\|pipe\|plain\|presto\|pretty\|psql\|rounded-grid\|rounded-outline\|rst\|simple\|simple-grid\|simple-outline\|textile\|toml\|tsv\|unsafehtml\|vertical\|xml\|yaml\|youtrack\]\n"
     r"                               Rendering style of tables\.  \[default: rounded-\n"
@@ -365,7 +367,7 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m--theme\x1b\[0m \[\x1b\[35m\x1b\[1mdark\x1b\[0m\|\x1b\[35m\x1b\[1mdracula\x1b\[0m\|\x1b\[35m\x1b\[1mlight\x1b\[0m\|\x1b\[35m\x1b\[1mmanpage\x1b\[0m\|\x1b\[35m\x1b\[1mmonokai\x1b\[0m\|\x1b\[35m\x1b\[1mnord\x1b\[0m\|\x1b\[35m\x1b\[1msolarized_dark\x1b\[0m\]\n"
     r"                               Color theme used for help screens\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault:\n"
     r"                               \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mdark\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
-    r"  \x1b\[36m\x1b\[1m--show-params\x1b\[0m                Show all CLI parameters, their provenance,\n"
+    r"  \x1b\[36m\x1b\[1m--params\x1b\[0m                     Show all CLI parameters, their provenance,\n"
     r"                               defaults and value, then exit\.\n"
     r"  \x1b\[36m\x1b\[1m--table-format\x1b\[0m \[\x1b\[35m\x1b\[1maligned\x1b\[0m\|\x1b\[35m\x1b\[1masciidoc\x1b\[0m\|\x1b\[35m\x1b\[1mcolon-grid\x1b\[0m\|\x1b\[35m\x1b\[1mcsv\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-excel\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-excel-tab\x1b\[0m\|\x1b\[35m\x1b\[1mcsv-unix\x1b\[0m\|\x1b\[35m\x1b\[1mdouble-grid\x1b\[0m\|\x1b\[35m\x1b\[1mdouble-outline\x1b\[0m\|\x1b\[35m\x1b\[1mfancy-grid\x1b\[0m\|\x1b\[35m\x1b\[1mfancy-outline\x1b\[0m\|\x1b\[35m\x1b\[1mgithub\x1b\[0m\|\x1b\[35m\x1b\[1mgrid\x1b\[0m\|\x1b\[35m\x1b\[1mheavy-grid\x1b\[0m\|\x1b\[35m\x1b\[1mheavy-outline\x1b\[0m\|\x1b\[35m\x1b\[1mhjson\x1b\[0m\|\x1b\[35m\x1b\[1mhtml\x1b\[0m\|\x1b\[35m\x1b\[1mjira\x1b\[0m\|\x1b\[35m\x1b\[1mjson\x1b\[0m\|\x1b\[35m\x1b\[1mjson5\x1b\[0m\|\x1b\[35m\x1b\[1mjsonc\x1b\[0m\|\x1b\[35m\x1b\[1mlatex\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-booktabs\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-longtable\x1b\[0m\|\x1b\[35m\x1b\[1mlatex-raw\x1b\[0m\|\x1b\[35m\x1b\[1mmediawiki\x1b\[0m\|\x1b\[35m\x1b\[1mmixed-grid\x1b\[0m\|\x1b\[35m\x1b\[1mmixed-outline\x1b\[0m\|\x1b\[35m\x1b\[1mmoinmoin\x1b\[0m\|\x1b\[35m\x1b\[1morgtbl\x1b\[0m\|\x1b\[35m\x1b\[1moutline\x1b\[0m\|\x1b\[35m\x1b\[1mpipe\x1b\[0m\|\x1b\[35m\x1b\[1mplain\x1b\[0m\|\x1b\[35m\x1b\[1mpresto\x1b\[0m\|\x1b\[35m\x1b\[1mpretty\x1b\[0m\|\x1b\[35m\x1b\[1mpsql\x1b\[0m\|\x1b\[35m\x1b\[1mrounded-grid\x1b\[0m\|\x1b\[35m\x1b\[1mrounded-outline\x1b\[0m\|\x1b\[35m\x1b\[1mrst\x1b\[0m\|\x1b\[35m\x1b\[1msimple\x1b\[0m\|\x1b\[35m\x1b\[1msimple-grid\x1b\[0m\|\x1b\[35m\x1b\[1msimple-outline\x1b\[0m\|\x1b\[35m\x1b\[1mtextile\x1b\[0m\|\x1b\[35m\x1b\[1mtoml\x1b\[0m\|\x1b\[35m\x1b\[1mtsv\x1b\[0m\|\x1b\[35m\x1b\[1munsafehtml\x1b\[0m\|\x1b\[35m\x1b\[1mvertical\x1b\[0m\|\x1b\[35m\x1b\[1mxml\x1b\[0m\|\x1b\[35m\x1b\[1myaml\x1b\[0m\|\x1b\[35m\x1b\[1myoutrack\x1b\[0m\]\n"
     r"                               Rendering style of tables\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mrounded-\n"
@@ -414,13 +416,13 @@ default_debug_colored_quiet_log = (
 
 
 default_config_file_pattern = (
-    # ``*.json5`` and ``*.jsonc`` are only emitted by ``ConfigFormat`` when
-    # the optional ``json5`` and ``json-with-comments`` packages are
-    # importable (see ``click_extra.config``). Make both optional in the
+    # `*.json5` and `*.jsonc` are only emitted by `ConfigFormat` when
+    # the optional `json5` and `json-with-comments` packages are
+    # importable (see `click_extra.config`). Make both optional in the
     # regex so the same assertion matches whether or not those extras are
     # installed: full match in upstream CI, gracefully shorter match in
     # hermetic builders (Guix, Nixpkgs) that ship neither extra. Same
-    # shape as the ``git_long_hash = (?:hash|None)`` graceful-degradation
+    # shape as the `git_long_hash = (?:hash|None)` graceful-degradation
     # pattern further down.
     r"\{\*\.toml,\*\.yaml,\*\.yml,\*\.json"
     r"(?:,\*\.json5)?(?:,\*\.jsonc)?"
@@ -530,10 +532,10 @@ def assert_output_regex():
     """
 
     def _check_output(output: str, regex: str) -> None:
-        """Check that the ``output`` matches the given ``regex``.
+        """Check that the `output` matches the given `regex`.
 
-        On mismatch, raise an ``AssertionError`` carrying a line diff (built
-        with :func:`difflib.ndiff`) that points at the offending characters.
+        On mismatch, raise an `AssertionError` carrying a line diff (built
+        with {func}`difflib.ndiff`) that points at the offending characters.
         """
         try:
             regex_fullmatch_line_by_line(regex, output)

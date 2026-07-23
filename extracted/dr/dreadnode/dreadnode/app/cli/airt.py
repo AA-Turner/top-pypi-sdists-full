@@ -1200,11 +1200,8 @@ def run(
     console.print(f"  Attacker:  [dim]{atk_model}[/dim]")
     if eval_model != atk_model:
         console.print(f"  Judge:     [dim]{eval_model}[/dim]")
-    if transforms:
-        tx_names = ", ".join(
-            t.__class__.__name__ if hasattr(t, "__class__") else str(t) for t in transforms
-        )
-        console.print(f"  Transforms: [yellow]{tx_names}[/yellow]")
+    if transform:
+        console.print(f"  Transforms: [yellow]{', '.join(transform)}[/yellow]")
     console.print(f"  Iterations: {n_iterations}, Early stop: {early_stopping}")
     console.print()
 
@@ -1301,6 +1298,295 @@ def run(
                 )
 
         print_success("Attack complete — results uploaded to platform")
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# run-classifier — Black-box attack against a classic-ML classifier predict API
+# ---------------------------------------------------------------------------
+
+_ML_EVASION = frozenset(
+    {
+        "boundary",
+        "hopskipjump",
+        "simba",
+        "square",
+        "zoo",
+        "text",
+        "deepwordbug",
+        "textfooler",
+        "pwws",
+        "bae",
+        "textbugger",
+    }
+)
+_ML_EXTRACTION = frozenset(
+    {"knockoff", "copycat", "activethief", "distillation", "jacobian", "equation_solving"}
+)
+_ML_MEMBERSHIP = frozenset({"threshold", "entropy", "loss", "label_only", "shadow_model", "lira"})
+_ML_INVERSION = frozenset({"confidence", "nes"})
+
+
+@cli.command(name="run-classifier")
+def run_classifier(
+    *,
+    attack: t.Annotated[
+        str,
+        cyclopts.Parameter(
+            help="Classic-ML attack: evasion (boundary/hopskipjump/square/pwws/deepwordbug/...), "
+            "extraction (knockoff/copycat/activethief/distillation), membership "
+            "(threshold/entropy/shadow_model/lira/...), inversion (confidence/nes)"
+        ),
+    ],
+    endpoint: t.Annotated[str, cyclopts.Parameter(help="Classifier predict endpoint URL")],
+    num_classes: t.Annotated[int, cyclopts.Parameter(help="Number of classes")] = 2,
+    modality: t.Annotated[str, cyclopts.Parameter(help="tabular | image | text")] = "tabular",
+    query_budget: t.Annotated[int, cyclopts.Parameter(help="Query / max-queries budget")] = 600,
+    data_url: t.Annotated[
+        str | None,
+        cyclopts.Parameter(
+            help="Base URL exposing /pool /members /nonmembers helpers "
+            "(defaults to the endpoint host)"
+        ),
+    ] = None,
+    probabilities_path: t.Annotated[
+        str, cyclopts.Parameter(help="JSONPath to the probability vector in the response")
+    ] = "$.probabilities",
+    api_key: t.Annotated[
+        str | None,
+        cyclopts.Parameter(help="x-api-key value for the target, if it requires auth"),
+    ] = None,
+    assessment_name: t.Annotated[str | None, cyclopts.Parameter(help="Assessment name")] = None,
+    goal_category: t.Annotated[str | None, cyclopts.Parameter(help="Goal category")] = None,
+    as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
+    platform: PlatformScopeArgs = PlatformScopeArgs(),
+) -> None:
+    """Run a black-box attack against a classic-ML classifier predict API.
+
+    Covers model evasion, extraction, membership inference, and model inversion.
+    The target must expose /pool, /members, /nonmembers data helpers (as the demo
+    classifier targets do). Results upload to the platform automatically.
+
+    Examples:
+        dn airt run-classifier --attack knockoff --endpoint http://localhost:8009/predict --num-classes 2 --modality tabular
+        dn airt run-classifier --attack shadow_model --endpoint http://localhost:8010/predict --num-classes 10 --modality image
+        dn airt run-classifier --attack pwws --endpoint http://localhost:8011/predict --num-classes 2 --modality text
+    """
+    import os
+
+    import httpx as _httpx
+
+    if attack in _ML_EVASION:
+        family = "evasion"
+    elif attack in _ML_EXTRACTION:
+        family = "extraction"
+    elif attack in _ML_MEMBERSHIP:
+        family = "membership"
+    elif attack in _ML_INVERSION:
+        family = "inversion"
+    else:
+        print_error(f"Unknown classic-ML attack '{attack}'.")
+        return
+
+    base = data_url or endpoint.rsplit("/predict", 1)[0]
+    hdr = {"x-api-key": api_key} if api_key else None
+    if api_key:
+        os.environ["TARGET_API_KEY"] = api_key
+
+    def _fetch(path: str) -> t.Any:
+        r = _httpx.get(f"{base}{path}", headers=hdr, timeout=90)
+        r.raise_for_status()
+        return r.json()
+
+    original_project = platform.project
+    _api, profile = platform.connect()
+    name = assessment_name or f"{attack} -- {family}"
+
+    console.print("\n[bold]Classic-ML attack[/bold]")
+    console.print(f"  Attack:    [cyan]{attack}[/cyan] ({family})")
+    console.print(f"  Endpoint:  [dim]{endpoint}[/dim]")
+    console.print(f"  Modality:  {modality}, classes: {num_classes}, budget: {query_budget}\n")
+
+    async def _run() -> None:
+        from dreadnode.airt import (
+            Assessment,
+            PredictionTargetSpec,
+            TargetAuth,
+            activethief_extraction,
+            bae_evasion,
+            boundary_evasion,
+            confidence_inversion,
+            copycat_extraction,
+            deepwordbug_evasion,
+            distillation_extraction,
+            entropy_membership,
+            equation_solving_extraction,
+            hopskipjump_evasion,
+            jacobian_extraction,
+            knockoff_extraction,
+            label_only_membership,
+            lira_membership,
+            loss_membership,
+            nes_inversion,
+            pwws_evasion,
+            shadow_model_membership,
+            simba_evasion,
+            square_evasion,
+            text_evasion,
+            textbugger_evasion,
+            textfooler_evasion,
+            threshold_membership,
+            zoo_evasion,
+        )
+        from dreadnode.airt.assessment import _set_platform_context
+        from dreadnode.app.main import DEFAULT_INSTANCE
+
+        env_project = os.getenv("DREADNODE_PROJECT")
+        sdk_project = original_project or profile.project or env_project or "default"
+        try:
+            DEFAULT_INSTANCE.configure(
+                server=profile.url,
+                api_key=profile.api_key,
+                organization=profile.organization,
+                workspace=profile.workspace,
+                project=sdk_project,
+            )
+        except Exception:
+            from loguru import logger
+
+            logger.debug("SDK configure failed; using platform context fallback")
+        _set_platform_context(_api, profile)
+        final_project_id = (
+            _resolve_project_id(_api, profile, sdk_project) or profile.project_id or sdk_project
+        )
+
+        tmpl = '{"text": "{input}"}' if modality == "text" else '{"features": {input}}'
+        spec_kwargs: dict[str, t.Any] = {
+            "endpoint": endpoint,
+            "request_template": tmpl,
+            "probabilities_path": probabilities_path,
+            "input_format": "text" if modality == "text" else "json_array",
+            "num_classes": num_classes,
+            "name": name,
+        }
+        if api_key:
+            spec_kwargs["auth"] = TargetAuth(
+                type="api_key", header="x-api-key", env_var="TARGET_API_KEY"
+            )
+        spec = PredictionTargetSpec(**spec_kwargs)
+
+        async with Assessment(
+            name=name,
+            target_model=f"classifier:{endpoint}",
+            goal_category=goal_category,
+            project_id=final_project_id,
+        ) as assessment:
+            if family == "evasion":
+                ev = {
+                    "boundary": boundary_evasion,
+                    "hopskipjump": hopskipjump_evasion,
+                    "simba": simba_evasion,
+                    "square": square_evasion,
+                    "zoo": zoo_evasion,
+                    "text": text_evasion,
+                    "deepwordbug": deepwordbug_evasion,
+                    "textfooler": textfooler_evasion,
+                    "pwws": pwws_evasion,
+                    "bae": bae_evasion,
+                    "textbugger": textbugger_evasion,
+                }
+                orig = _fetch("/members?n=1")["records"][0]
+                res = await ev[attack](
+                    spec,
+                    orig,
+                    num_classes=num_classes,
+                    modality=modality,
+                    max_queries=query_budget,
+                    seed=0,
+                ).run()
+                score, detail = (
+                    res.best_score,
+                    f"success={res.success} distance={res.distance_value:.3f}",
+                )
+            elif family == "extraction":
+                ex = {
+                    "knockoff": knockoff_extraction,
+                    "copycat": copycat_extraction,
+                    "activethief": activethief_extraction,
+                    "distillation": distillation_extraction,
+                    "jacobian": jacobian_extraction,
+                    "equation_solving": equation_solving_extraction,
+                }
+                pool = _fetch(f"/pool?n={max(400, query_budget)}")["inputs"]
+                res = await ex[attack](
+                    spec,
+                    query_pool=pool,
+                    query_budget=query_budget,
+                    num_classes=num_classes,
+                    modality=modality,
+                    measure_transfer=False,
+                    seed=0,
+                ).run()
+                score, detail = (
+                    res.fidelity,
+                    f"fidelity={res.fidelity:.3f} agreement={res.agreement_rate:.3f}",
+                )
+            elif family == "membership":
+                mb = {
+                    "threshold": threshold_membership,
+                    "entropy": entropy_membership,
+                    "loss": loss_membership,
+                    "label_only": label_only_membership,
+                    "shadow_model": shadow_model_membership,
+                    "lira": lira_membership,
+                }
+                mem, non = _fetch("/members?n=200"), _fetch("/nonmembers?n=200")
+                res = await mb[attack](
+                    spec,
+                    members=mem["records"],
+                    nonmembers=non["records"],
+                    member_labels=mem["labels"],
+                    nonmember_labels=non["labels"],
+                    num_classes=num_classes,
+                    modality=modality,
+                    seed=0,
+                ).run()
+                score, detail = res.auc, f"auc={res.auc:.3f} advantage={res.advantage:.3f}"
+            else:  # inversion
+                iv = {"confidence": confidence_inversion, "nes": nes_inversion}
+                pool = _fetch("/pool?n=200")["inputs"]
+                res = await iv[attack](
+                    spec,
+                    num_classes=num_classes,
+                    input_dim=len(pool[0]),
+                    modality=modality,
+                    target_classes=list(range(min(num_classes, 4))),
+                    max_queries=query_budget,
+                    seed=0,
+                ).run()
+                score, detail = (
+                    res.mean_confidence,
+                    (
+                        f"mean_confidence={res.mean_confidence:.3f} reconstructed={res.classes_reconstructed}"
+                    ),
+                )
+
+            color = "red" if score >= 0.7 else "yellow" if score >= 0.5 else "green"
+            console.print("\n[bold]Result[/bold]")
+            console.print(f"  Score:      [{color}]{score:.3f}[/{color}]  {detail}")
+            console.print(f"  Assessment: [dim]{assessment.assessment_id}[/dim]")
+            if as_json:
+                _print_json(
+                    {
+                        "assessment_id": assessment.assessment_id,
+                        "attack": attack,
+                        "family": family,
+                        "score": round(float(score), 4),
+                    }
+                )
+
+        print_success("Classic-ML attack complete — results uploaded to platform")
 
     asyncio.run(_run())
 

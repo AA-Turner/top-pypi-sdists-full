@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow-avif-plugin
-Version: 1.5.5
+Version: 1.6.0
 Summary: A pillow plugin that adds avif support via libavif
 Home-page: https://github.com/fdintino/pillow-avif-plugin/
 Download-URL: https://github.com/fdintino/pillow-avif-plugin/releases

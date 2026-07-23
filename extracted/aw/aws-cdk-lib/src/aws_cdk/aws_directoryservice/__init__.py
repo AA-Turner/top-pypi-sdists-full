@@ -25,6 +25,8 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -38,46 +40,36 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import (
-    CfnResource as _CfnResource_9df397a6,
-    CfnTag as _CfnTag_f6864754,
-    IInspectable as _IInspectable_c2943556,
-    IResolvable as _IResolvable_da3f097b,
-    ITaggableV2 as _ITaggableV2_4e6798f8,
-    TagManager as _TagManager_0a598cb3,
-    TreeInspector as _TreeInspector_488e0dd5,
-)
-from ..interfaces.aws_directoryservice import (
-    IMicrosoftADRef as _IMicrosoftADRef_c742cfe6,
-    ISimpleADRef as _ISimpleADRef_73ed9e5f,
-    MicrosoftADReference as _MicrosoftADReference_19ed304e,
-    SimpleADReference as _SimpleADReference_3e97e624,
-)
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_directoryservice as _aws_directoryservice_9c5be704
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_directoryservice_9c5be704 = _LazyImport("aws_cdk.interfaces.aws_directoryservice")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_IInspectable_c2943556, _IMicrosoftADRef_c742cfe6)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directoryservice_9c5be704.IMicrosoftADRef)
 class CfnMicrosoftAD(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directoryservice.CfnMicrosoftAD",
 ):
@@ -118,10 +110,10 @@ class CfnMicrosoftAD(
         *,
         name: builtins.str,
         password: builtins.str,
-        vpc_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrosoftAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrosoftAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         edition: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         short_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::DirectoryService::MicrosoftAD``.
@@ -137,7 +129,7 @@ class CfnMicrosoftAD(
         :param short_name: The NetBIOS name for your domain, such as ``CORP`` . If you don't specify a NetBIOS name, it will default to the first part of your directory DNS. For example, ``CORP`` for the directory DNS ``corp.example.com`` .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd6139d8d11b9a68029fab0f5bc46297bfd5088edc6674f022f826f902974540)
+            type_hints = cached_type_hints(_typecheckingstub__bd6139d8d11b9a68029fab0f5bc46297bfd5088edc6674f022f826f902974540)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnMicrosoftADProps(
@@ -160,18 +152,18 @@ class CfnMicrosoftAD(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5c17bc167140d1b59fa4131e1841d0c6be9699997e487f707e32d685768923d)
+            type_hints = cached_type_hints(_typecheckingstub__a5c17bc167140d1b59fa4131e1841d0c6be9699997e487f707e32d685768923d)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMicrosoftAD", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a9ef33ce2b22ad5e906e2065f5fb2a109d663bb39d8625ac1c9c5f9290535ae)
+            type_hints = cached_type_hints(_typecheckingstub__9a9ef33ce2b22ad5e906e2065f5fb2a109d663bb39d8625ac1c9c5f9290535ae)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -184,7 +176,7 @@ class CfnMicrosoftAD(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e2b70ea0a0fba7b268162287b083bdf946a088db50926682f3b81a48e403c4)
+            type_hints = cached_type_hints(_typecheckingstub__d1e2b70ea0a0fba7b268162287b083bdf946a088db50926682f3b81a48e403c4)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -237,9 +229,9 @@ class CfnMicrosoftAD(
 
     @builtins.property
     @jsii.member(jsii_name="microsoftAdRef")
-    def microsoft_ad_ref(self) -> "_MicrosoftADReference_19ed304e":
+    def microsoft_ad_ref(self) -> "_aws_directoryservice_9c5be704.MicrosoftADReference":
         '''A reference to a MicrosoftAD resource.'''
-        return typing.cast("_MicrosoftADReference_19ed304e", jsii.get(self, "microsoftAdRef"))
+        return typing.cast("_aws_directoryservice_9c5be704.MicrosoftADReference", jsii.get(self, "microsoftAdRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -250,7 +242,7 @@ class CfnMicrosoftAD(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__112fb8405e10bbc906f83d73e5b0af5f5a8ae854c04751ac6709698a11f478bb)
+            type_hints = cached_type_hints(_typecheckingstub__112fb8405e10bbc906f83d73e5b0af5f5a8ae854c04751ac6709698a11f478bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -263,7 +255,7 @@ class CfnMicrosoftAD(
     @password.setter
     def password(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc760b5f2c2b02fc7c50f03f5673177e683887f7f392b34832edb453966e992)
+            type_hints = cached_type_hints(_typecheckingstub__8cc760b5f2c2b02fc7c50f03f5673177e683887f7f392b34832edb453966e992)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
 
@@ -271,17 +263,17 @@ class CfnMicrosoftAD(
     @jsii.member(jsii_name="vpcSettings")
     def vpc_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrosoftAD.VpcSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrosoftAD.VpcSettingsProperty"]:
         '''Specifies the VPC settings of the Microsoft AD directory server in AWS .'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrosoftAD.VpcSettingsProperty"], jsii.get(self, "vpcSettings"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrosoftAD.VpcSettingsProperty"], jsii.get(self, "vpcSettings"))
 
     @vpc_settings.setter
     def vpc_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnMicrosoftAD.VpcSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrosoftAD.VpcSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75297793aadbe4453a84753658d85991f077c5f42c9305cc2731693d29a5901f)
+            type_hints = cached_type_hints(_typecheckingstub__75297793aadbe4453a84753658d85991f077c5f42c9305cc2731693d29a5901f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -289,17 +281,17 @@ class CfnMicrosoftAD(
     @jsii.member(jsii_name="createAlias")
     def create_alias(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies an alias for a directory and assigns the alias to the directory.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "createAlias"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "createAlias"))
 
     @create_alias.setter
     def create_alias(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62ec978df7e1a1e2437893c2704eb4532e0b65321074386cfb030c8e8a99864c)
+            type_hints = cached_type_hints(_typecheckingstub__62ec978df7e1a1e2437893c2704eb4532e0b65321074386cfb030c8e8a99864c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "createAlias", value) # pyright: ignore[reportArgumentType]
 
@@ -312,7 +304,7 @@ class CfnMicrosoftAD(
     @edition.setter
     def edition(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ced9c598d5743f53d4678f9dfb00a06806c9e1e7c95be7ac578beb7f417c6536)
+            type_hints = cached_type_hints(_typecheckingstub__ced9c598d5743f53d4678f9dfb00a06806c9e1e7c95be7ac578beb7f417c6536)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "edition", value) # pyright: ignore[reportArgumentType]
 
@@ -320,17 +312,17 @@ class CfnMicrosoftAD(
     @jsii.member(jsii_name="enableSso")
     def enable_sso(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to enable single sign-on for a Microsoft Active Directory in AWS .'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableSso"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSso"))
 
     @enable_sso.setter
     def enable_sso(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ce84c71d0f4e6c8581052317cb887db3b1dcb81863f7e39f3f520193f6c5287)
+            type_hints = cached_type_hints(_typecheckingstub__1ce84c71d0f4e6c8581052317cb887db3b1dcb81863f7e39f3f520193f6c5287)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableSso", value) # pyright: ignore[reportArgumentType]
 
@@ -343,7 +335,7 @@ class CfnMicrosoftAD(
     @short_name.setter
     def short_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d26767a53bfb3a106209fbda0be0dc95b0dc1f47eccfcf621e2a92ff21477680)
+            type_hints = cached_type_hints(_typecheckingstub__d26767a53bfb3a106209fbda0be0dc95b0dc1f47eccfcf621e2a92ff21477680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shortName", value) # pyright: ignore[reportArgumentType]
 
@@ -379,7 +371,7 @@ class CfnMicrosoftAD(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__87466c9ba298d42dc628a07b7127a241f6cb9e589e939fff261e0dd1c007545e)
+                type_hints = cached_type_hints(_typecheckingstub__87466c9ba298d42dc628a07b7127a241f6cb9e589e939fff261e0dd1c007545e)
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -440,10 +432,10 @@ class CfnMicrosoftADProps:
         *,
         name: builtins.str,
         password: builtins.str,
-        vpc_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnMicrosoftAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMicrosoftAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         edition: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         short_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMicrosoftAD``.
@@ -481,7 +473,7 @@ class CfnMicrosoftADProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f)
+            type_hints = cached_type_hints(_typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643f524b4f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
             check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
@@ -528,19 +520,19 @@ class CfnMicrosoftADProps:
     @builtins.property
     def vpc_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnMicrosoftAD.VpcSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrosoftAD.VpcSettingsProperty"]:
         '''Specifies the VPC settings of the Microsoft AD directory server in AWS .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-vpcsettings
         '''
         result = self._values.get("vpc_settings")
         assert result is not None, "Required property 'vpc_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnMicrosoftAD.VpcSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMicrosoftAD.VpcSettingsProperty"], result)
 
     @builtins.property
     def create_alias(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Specifies an alias for a directory and assigns the alias to the directory.
 
         The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, CloudFormation does not create an alias.
@@ -551,7 +543,7 @@ class CfnMicrosoftADProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-createalias
         '''
         result = self._values.get("create_alias")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def edition(self) -> typing.Optional[builtins.str]:
@@ -567,7 +559,7 @@ class CfnMicrosoftADProps:
     @builtins.property
     def enable_sso(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to enable single sign-on for a Microsoft Active Directory in AWS .
 
         Single sign-on allows users in your directory to access certain AWS services from a computer joined to the directory without having to enter their credentials separately. If you don't specify a value, CloudFormation disables single sign-on by default.
@@ -575,7 +567,7 @@ class CfnMicrosoftADProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-microsoftad.html#cfn-directoryservice-microsoftad-enablesso
         '''
         result = self._values.get("enable_sso")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def short_name(self) -> typing.Optional[builtins.str]:
@@ -600,9 +592,9 @@ class CfnMicrosoftADProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISimpleADRef_73ed9e5f, _ITaggableV2_4e6798f8)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_directoryservice_9c5be704.ISimpleADRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSimpleAD(
-    _CfnResource_9df397a6,
+    _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_directoryservice.CfnSimpleAD",
 ):
@@ -649,13 +641,13 @@ class CfnSimpleAD(
         *,
         name: builtins.str,
         size: builtins.str,
-        vpc_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimpleAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimpleAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         password: typing.Optional[builtins.str] = None,
         short_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectoryService::SimpleAD``.
 
@@ -672,7 +664,7 @@ class CfnSimpleAD(
         :param tags: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40820ee1ed03f2cd4befa65e6404c1024999677e0624ca5450f4b1f9220b604a)
+            type_hints = cached_type_hints(_typecheckingstub__40820ee1ed03f2cd4befa65e6404c1024999677e0624ca5450f4b1f9220b604a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSimpleADProps(
@@ -691,12 +683,15 @@ class CfnSimpleAD(
 
     @jsii.member(jsii_name="arnForSimpleAD")
     @builtins.classmethod
-    def arn_for_simple_ad(cls, resource: "_ISimpleADRef_73ed9e5f") -> builtins.str:
+    def arn_for_simple_ad(
+        cls,
+        resource: "_aws_directoryservice_9c5be704.ISimpleADRef",
+    ) -> builtins.str:
         '''
         :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__175ac855db0e53f34ccb5ceefd1d2062c5b688b3adf79d2e5f025ed325fedd35)
+            type_hints = cached_type_hints(_typecheckingstub__175ac855db0e53f34ccb5ceefd1d2062c5b688b3adf79d2e5f025ed325fedd35)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSimpleAD", [resource]))
 
@@ -707,7 +702,7 @@ class CfnSimpleAD(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         directory_id: builtins.str,
-    ) -> "_ISimpleADRef_73ed9e5f":
+    ) -> "_aws_directoryservice_9c5be704.ISimpleADRef":
         '''Creates a new ISimpleADRef from a directoryId.
 
         :param scope: -
@@ -715,11 +710,11 @@ class CfnSimpleAD(
         :param directory_id: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4edb8188cf1a787819f9e08e002165b6e7e58550d088f80151ce91f3ee2ad4f0)
+            type_hints = cached_type_hints(_typecheckingstub__4edb8188cf1a787819f9e08e002165b6e7e58550d088f80151ce91f3ee2ad4f0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument directory_id", value=directory_id, expected_type=type_hints["directory_id"])
-        return typing.cast("_ISimpleADRef_73ed9e5f", jsii.sinvoke(cls, "fromDirectoryId", [scope, id, directory_id]))
+        return typing.cast("_aws_directoryservice_9c5be704.ISimpleADRef", jsii.sinvoke(cls, "fromDirectoryId", [scope, id, directory_id]))
 
     @jsii.member(jsii_name="isCfnSimpleAD")
     @builtins.classmethod
@@ -729,18 +724,18 @@ class CfnSimpleAD(
         :param x: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff40b203e99e4d155c4bd33ac7ac127cac006b51555c57b903b51de8a39e98fd)
+            type_hints = cached_type_hints(_typecheckingstub__ff40b203e99e4d155c4bd33ac7ac127cac006b51555c57b903b51de8a39e98fd)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSimpleAD", [x]))
 
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adbd82c9a36437463cde56b3a4ad4d5c5c16f2073416fd9e1873351e5eb928b2)
+            type_hints = cached_type_hints(_typecheckingstub__adbd82c9a36437463cde56b3a4ad4d5c5c16f2073416fd9e1873351e5eb928b2)
             check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
         return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
 
@@ -753,7 +748,7 @@ class CfnSimpleAD(
         :param props: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a7e8b311879500ab8eb669b71e4c719b95dd8d686723498b45ea89664345e41)
+            type_hints = cached_type_hints(_typecheckingstub__5a7e8b311879500ab8eb669b71e4c719b95dd8d686723498b45ea89664345e41)
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
 
@@ -804,9 +799,9 @@ class CfnSimpleAD(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -820,9 +815,9 @@ class CfnSimpleAD(
 
     @builtins.property
     @jsii.member(jsii_name="simpleAdRef")
-    def simple_ad_ref(self) -> "_SimpleADReference_3e97e624":
+    def simple_ad_ref(self) -> "_aws_directoryservice_9c5be704.SimpleADReference":
         '''A reference to a SimpleAD resource.'''
-        return typing.cast("_SimpleADReference_3e97e624", jsii.get(self, "simpleAdRef"))
+        return typing.cast("_aws_directoryservice_9c5be704.SimpleADReference", jsii.get(self, "simpleAdRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -833,7 +828,7 @@ class CfnSimpleAD(
     @name.setter
     def name(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3a78121d492cd58fc500f705f47004309952863836f8d6363c085425d61b5e8)
+            type_hints = cached_type_hints(_typecheckingstub__a3a78121d492cd58fc500f705f47004309952863836f8d6363c085425d61b5e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
@@ -846,7 +841,7 @@ class CfnSimpleAD(
     @size.setter
     def size(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c947223df100c39d3ba17f1ff698114d9a307629c47fd70256f83e548f4784ab)
+            type_hints = cached_type_hints(_typecheckingstub__c947223df100c39d3ba17f1ff698114d9a307629c47fd70256f83e548f4784ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "size", value) # pyright: ignore[reportArgumentType]
 
@@ -854,17 +849,17 @@ class CfnSimpleAD(
     @jsii.member(jsii_name="vpcSettings")
     def vpc_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimpleAD.VpcSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimpleAD.VpcSettingsProperty"]:
         '''A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimpleAD.VpcSettingsProperty"], jsii.get(self, "vpcSettings"))
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimpleAD.VpcSettingsProperty"], jsii.get(self, "vpcSettings"))
 
     @vpc_settings.setter
     def vpc_settings(
         self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnSimpleAD.VpcSettingsProperty"],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimpleAD.VpcSettingsProperty"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6428aafed6f7ca93dde6ec0c6f047a3df0f1e0611e08f0e547ace9ba88f2405f)
+            type_hints = cached_type_hints(_typecheckingstub__6428aafed6f7ca93dde6ec0c6f047a3df0f1e0611e08f0e547ace9ba88f2405f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcSettings", value) # pyright: ignore[reportArgumentType]
 
@@ -872,17 +867,17 @@ class CfnSimpleAD(
     @jsii.member(jsii_name="createAlias")
     def create_alias(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "createAlias"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "createAlias"))
 
     @create_alias.setter
     def create_alias(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fd6c1eca9f65d5acc1c1fa49fb9c2d7595239e452ab418012abd1a20597b5f3)
+            type_hints = cached_type_hints(_typecheckingstub__6fd6c1eca9f65d5acc1c1fa49fb9c2d7595239e452ab418012abd1a20597b5f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "createAlias", value) # pyright: ignore[reportArgumentType]
 
@@ -895,7 +890,7 @@ class CfnSimpleAD(
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f523334b45fcfb70dccb3363e6ec46cc38283b1a77028b92e89f62fd48ac31d6)
+            type_hints = cached_type_hints(_typecheckingstub__f523334b45fcfb70dccb3363e6ec46cc38283b1a77028b92e89f62fd48ac31d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -903,17 +898,17 @@ class CfnSimpleAD(
     @jsii.member(jsii_name="enableSso")
     def enable_sso(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to enable single sign-on for a directory.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableSso"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSso"))
 
     @enable_sso.setter
     def enable_sso(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87bb88b5d4bdf801ed5bb1eff487991cd1104ca7311fda40c4c7666e682d3f6)
+            type_hints = cached_type_hints(_typecheckingstub__c87bb88b5d4bdf801ed5bb1eff487991cd1104ca7311fda40c4c7666e682d3f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableSso", value) # pyright: ignore[reportArgumentType]
 
@@ -926,7 +921,7 @@ class CfnSimpleAD(
     @password.setter
     def password(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71aba9c326c0546afb2bfadc98225001babe64951c885082746f7d7f8553bf37)
+            type_hints = cached_type_hints(_typecheckingstub__71aba9c326c0546afb2bfadc98225001babe64951c885082746f7d7f8553bf37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
 
@@ -939,19 +934,22 @@ class CfnSimpleAD(
     @short_name.setter
     def short_name(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c28a5ea3ad534ce7feaf34230d92ea3e87c2179d359d490a286a8b1936fcf350)
+            type_hints = cached_type_hints(_typecheckingstub__c28a5ea3ad534ce7feaf34230d92ea3e87c2179d359d490a286a8b1936fcf350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shortName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c)
+            type_hints = cached_type_hints(_typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
@@ -987,7 +985,7 @@ class CfnSimpleAD(
                 )
             '''
             if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c8735fadd5f261261242f08594a8935a9e3119659f4d14301a33cd4a4858ea92)
+                type_hints = cached_type_hints(_typecheckingstub__c8735fadd5f261261242f08594a8935a9e3119659f4d14301a33cd4a4858ea92)
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1050,13 +1048,13 @@ class CfnSimpleADProps:
         *,
         name: builtins.str,
         size: builtins.str,
-        vpc_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnSimpleAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
-        create_alias: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        vpc_settings: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSimpleAD.VpcSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
+        create_alias: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_sso: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         password: typing.Optional[builtins.str] = None,
         short_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSimpleAD``.
 
@@ -1101,7 +1099,7 @@ class CfnSimpleADProps:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b)
+            type_hints = cached_type_hints(_typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a05f5f11b)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument size", value=size, expected_type=type_hints["size"])
             check_type(argname="argument vpc_settings", value=vpc_settings, expected_type=type_hints["vpc_settings"])
@@ -1154,19 +1152,19 @@ class CfnSimpleADProps:
     @builtins.property
     def vpc_settings(
         self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnSimpleAD.VpcSettingsProperty"]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimpleAD.VpcSettingsProperty"]:
         '''A `DirectoryVpcSettings <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_DirectoryVpcSettings.html>`_ object that contains additional information for the operation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-vpcsettings
         '''
         result = self._values.get("vpc_settings")
         assert result is not None, "Required property 'vpc_settings' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnSimpleAD.VpcSettingsProperty"], result)
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSimpleAD.VpcSettingsProperty"], result)
 
     @builtins.property
     def create_alias(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''If set to ``true`` , specifies an alias for a directory and assigns the alias to the directory.
 
         The alias is used to construct the access URL for the directory, such as ``http://<alias>.awsapps.com`` . By default, this property is set to ``false`` .
@@ -1177,7 +1175,7 @@ class CfnSimpleADProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-createalias
         '''
         result = self._values.get("create_alias")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1191,7 +1189,7 @@ class CfnSimpleADProps:
     @builtins.property
     def enable_sso(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
         '''Whether to enable single sign-on for a directory.
 
         If you don't specify a value, CloudFormation disables single sign-on by default.
@@ -1199,7 +1197,7 @@ class CfnSimpleADProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-enablesso
         '''
         result = self._values.get("enable_sso")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
@@ -1224,12 +1222,12 @@ class CfnSimpleADProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1258,10 +1256,10 @@ def _typecheckingstub__bd6139d8d11b9a68029fab0f5bc46297bfd5088edc6674f022f826f90
     *,
     name: builtins.str,
     password: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     edition: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     short_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1274,7 +1272,7 @@ def _typecheckingstub__a5c17bc167140d1b59fa4131e1841d0c6be9699997e487f707e32d685
     pass
 
 def _typecheckingstub__9a9ef33ce2b22ad5e906e2065f5fb2a109d663bb39d8625ac1c9c5f9290535ae(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1298,13 +1296,13 @@ def _typecheckingstub__8cc760b5f2c2b02fc7c50f03f5673177e683887f7f392b34832edb453
     pass
 
 def _typecheckingstub__75297793aadbe4453a84753658d85991f077c5f42c9305cc2731693d29a5901f(
-    value: typing.Union[_IResolvable_da3f097b, CfnMicrosoftAD.VpcSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMicrosoftAD.VpcSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__62ec978df7e1a1e2437893c2704eb4532e0b65321074386cfb030c8e8a99864c(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1316,7 +1314,7 @@ def _typecheckingstub__ced9c598d5743f53d4678f9dfb00a06806c9e1e7c95be7ac578beb7f4
     pass
 
 def _typecheckingstub__1ce84c71d0f4e6c8581052317cb887db3b1dcb81863f7e39f3f520193f6c5287(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1339,10 +1337,10 @@ def _typecheckingstub__c02b262207b4026ffecfe6e07c2c9ad2212defb3dd9694e86dde27643
     *,
     name: builtins.str,
     password: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMicrosoftAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     edition: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     short_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1354,19 +1352,19 @@ def _typecheckingstub__40820ee1ed03f2cd4befa65e6404c1024999677e0624ca5450f4b1f92
     *,
     name: builtins.str,
     size: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     password: typing.Optional[builtins.str] = None,
     short_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__175ac855db0e53f34ccb5ceefd1d2062c5b688b3adf79d2e5f025ed325fedd35(
-    resource: _ISimpleADRef_73ed9e5f,
+    resource: _aws_directoryservice_9c5be704.ISimpleADRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1386,7 +1384,7 @@ def _typecheckingstub__ff40b203e99e4d155c4bd33ac7ac127cac006b51555c57b903b51de8a
     pass
 
 def _typecheckingstub__adbd82c9a36437463cde56b3a4ad4d5c5c16f2073416fd9e1873351e5eb928b2(
-    inspector: _TreeInspector_488e0dd5,
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1410,13 +1408,13 @@ def _typecheckingstub__c947223df100c39d3ba17f1ff698114d9a307629c47fd70256f83e548
     pass
 
 def _typecheckingstub__6428aafed6f7ca93dde6ec0c6f047a3df0f1e0611e08f0e547ace9ba88f2405f(
-    value: typing.Union[_IResolvable_da3f097b, CfnSimpleAD.VpcSettingsProperty],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSimpleAD.VpcSettingsProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__6fd6c1eca9f65d5acc1c1fa49fb9c2d7595239e452ab418012abd1a20597b5f3(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1428,7 +1426,7 @@ def _typecheckingstub__f523334b45fcfb70dccb3363e6ec46cc38283b1a77028b92e89f62fd4
     pass
 
 def _typecheckingstub__c87bb88b5d4bdf801ed5bb1eff487991cd1104ca7311fda40c4c7666e682d3f6(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1446,7 +1444,7 @@ def _typecheckingstub__c28a5ea3ad534ce7feaf34230d92ea3e87c2179d359d490a286a8b193
     pass
 
 def _typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1463,13 +1461,13 @@ def _typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a0
     *,
     name: builtins.str,
     size: builtins.str,
-    vpc_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
-    create_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_settings: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSimpleAD.VpcSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
+    create_alias: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_sso: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     password: typing.Optional[builtins.str] = None,
     short_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

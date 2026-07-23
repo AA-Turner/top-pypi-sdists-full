@@ -338,7 +338,10 @@ class Orchestrator:
         self._tick_count = 0
         self._consecutive_server_failures: int = 0
         self._cached_critical_path_ids: set[str] = set()
-        self._dependency_scanner = DependencyVulnerabilityScanner(workdir)
+        self._dependency_scanner = DependencyVulnerabilityScanner(
+            workdir,
+            enabled=config.dependency_scan_enabled,
+        )
         # Track spawn failures per batch for backoff: task_ids -> (fail_count, last_fail_ts)
         self._spawn_failures: dict[frozenset[str], tuple[int, float]] = {}
         self._spawn_failure_history: dict[frozenset[str], list[Any]] = {}
@@ -595,6 +598,16 @@ class Orchestrator:
         # BERNSTEIN_REPLAY_RETENTION over past runs rather than an on/off
         # gate.
         self._recorder = EventJournal(run_id=run_id, sdd_dir=workdir / ".sdd")
+
+        # Live OTLP export of the journal projection : each
+        # appended journal entry streams its journal-anchored span to the
+        # operator's collector. Default off -- attach_live_export returns
+        # None (constructing nothing, touching no network) unless
+        # BERNSTEIN_OTEL_ENDPOINT is set. Finalized in the stop path so
+        # the run's otel.projection audit event anchors the live trace.
+        from bernstein.core.observability.otel_bridge import attach_live_export
+
+        self._otel_stream = attach_live_export(self._recorder, workdir=workdir)
 
         # Providers whose mutation-observability capability has been
         # recorded into the journal this run (issue #2507). One
@@ -2516,6 +2529,8 @@ class Orchestrator:
             fingerprint=self._recorder.fingerprint(),
         )
         self._seal_journal_into_lineage_spine()
+        if self._otel_stream is not None:
+            self._otel_stream.finalize()
         logger.info(
             "Orchestrator stopped (replay: %s, fingerprint: %s)",
             self._recorder.path,
@@ -5832,6 +5847,12 @@ if __name__ == "__main__":
             sandbox_options={"image": _container_image} if _docker_sandbox_backend is not None else None,
             sandbox_server_port=args.port,
             default_model=run_model,
+            # Explicit adapter selection (--adapter / BERNSTEIN_ADAPTER / a
+            # non-"auto" seed cli) must never be overridden by model-name
+            # inference at spawn time (#2751). "auto" is the only unpinned
+            # state - adapter_name is guaranteed non-empty by the fatal
+            # check above.
+            adapter_pinned=adapter_name != "auto",
         )
         run_config_budget_usd: float | None = None
         dry_run = False

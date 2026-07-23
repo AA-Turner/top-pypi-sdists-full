@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -11,27 +13,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
-import constructs as _constructs_77d1e7e8
-from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.interfaces as _interfaces_8ca7e747
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _constructs_77d1e7e8 = _LazyImport("constructs")
+    _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
 @jsii.data_type(
@@ -58,7 +62,7 @@ class BatchScramSecretReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ae6fd3d6b9a92551a7fe3361254f3ecb9afe5a6d80aba771970693b48cccc54)
+            type_hints = cached_type_hints(_typecheckingstub__9ae6fd3d6b9a92551a7fe3361254f3ecb9afe5a6d80aba771970693b48cccc54)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_arn": cluster_arn,
@@ -107,7 +111,7 @@ class ClusterPolicyReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7437407d73b1f96febd4fbf267a7df0376e00317b287110a369a63b2103e33ea)
+            type_hints = cached_type_hints(_typecheckingstub__7437407d73b1f96febd4fbf267a7df0376e00317b287110a369a63b2103e33ea)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_arn": cluster_arn,
@@ -156,7 +160,7 @@ class ClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8818272280762cb9d13032c7d2b464bd15beeb018f33fd68fcd2cef71918be4a)
+            type_hints = cached_type_hints(_typecheckingstub__8818272280762cb9d13032c7d2b464bd15beeb018f33fd68fcd2cef71918be4a)
             check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_arn": cluster_arn,
@@ -205,7 +209,7 @@ class ConfigurationReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ac4483325f29ec090543f797d00d9496c22aa71cc0eb3e899712d8e19bbfcf94)
+            type_hints = cached_type_hints(_typecheckingstub__ac4483325f29ec090543f797d00d9496c22aa71cc0eb3e899712d8e19bbfcf94)
             check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "configuration_arn": configuration_arn,
@@ -233,7 +237,7 @@ class ConfigurationReference:
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IBatchScramSecretRef")
 class IBatchScramSecretRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a BatchScramSecret.
@@ -253,7 +257,7 @@ class IBatchScramSecretRef(
 
 class _IBatchScramSecretRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a BatchScramSecret.
 
@@ -278,7 +282,7 @@ typing.cast(typing.Any, IBatchScramSecretRef).__jsii_proxy_class__ = lambda : _I
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IClusterPolicyRef")
 class IClusterPolicyRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterPolicy.
@@ -298,7 +302,7 @@ class IClusterPolicyRef(
 
 class _IClusterPolicyRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ClusterPolicy.
 
@@ -323,7 +327,7 @@ typing.cast(typing.Any, IClusterPolicyRef).__jsii_proxy_class__ = lambda : _IClu
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IClusterRef")
 class IClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
@@ -343,7 +347,7 @@ class IClusterRef(
 
 class _IClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Cluster.
 
@@ -368,7 +372,7 @@ typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRe
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IConfigurationRef")
 class IConfigurationRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Configuration.
@@ -388,7 +392,7 @@ class IConfigurationRef(
 
 class _IConfigurationRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Configuration.
 
@@ -413,7 +417,7 @@ typing.cast(typing.Any, IConfigurationRef).__jsii_proxy_class__ = lambda : _ICon
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IReplicatorRef")
 class IReplicatorRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Replicator.
@@ -433,7 +437,7 @@ class IReplicatorRef(
 
 class _IReplicatorRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Replicator.
 
@@ -458,7 +462,7 @@ typing.cast(typing.Any, IReplicatorRef).__jsii_proxy_class__ = lambda : _IReplic
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IServerlessClusterRef")
 class IServerlessClusterRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServerlessCluster.
@@ -478,7 +482,7 @@ class IServerlessClusterRef(
 
 class _IServerlessClusterRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a ServerlessCluster.
 
@@ -503,7 +507,7 @@ typing.cast(typing.Any, IServerlessClusterRef).__jsii_proxy_class__ = lambda : _
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.ITopicRef")
 class ITopicRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a Topic.
@@ -523,7 +527,7 @@ class ITopicRef(
 
 class _ITopicRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a Topic.
 
@@ -548,7 +552,7 @@ typing.cast(typing.Any, ITopicRef).__jsii_proxy_class__ = lambda : _ITopicRefPro
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IVpcConnectionRef")
 class IVpcConnectionRef(
     _constructs_77d1e7e8.IConstruct,
-    _IEnvironmentAware_f39049ee,
+    _interfaces_8ca7e747.IEnvironmentAware,
     typing_extensions.Protocol,
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcConnection.
@@ -568,7 +572,7 @@ class IVpcConnectionRef(
 
 class _IVpcConnectionRefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
 ):
     '''(experimental) Indicates that this resource can be referenced as a VpcConnection.
 
@@ -614,7 +618,7 @@ class ReplicatorReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5263d5fd3d72353960dd34ae5c95e89382a09b37faaf247a895a78a673082937)
+            type_hints = cached_type_hints(_typecheckingstub__5263d5fd3d72353960dd34ae5c95e89382a09b37faaf247a895a78a673082937)
             check_type(argname="argument replicator_arn", value=replicator_arn, expected_type=type_hints["replicator_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replicator_arn": replicator_arn,
@@ -663,7 +667,7 @@ class ServerlessClusterReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3321e6aad062bb2681b8b3ca453afdbe7ce171d7e0f9708f642675a5e92f259b)
+            type_hints = cached_type_hints(_typecheckingstub__3321e6aad062bb2681b8b3ca453afdbe7ce171d7e0f9708f642675a5e92f259b)
             check_type(argname="argument serverless_cluster_arn", value=serverless_cluster_arn, expected_type=type_hints["serverless_cluster_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "serverless_cluster_arn": serverless_cluster_arn,
@@ -712,7 +716,7 @@ class TopicReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2099850b9885f27ffe5c85b2a40f22d4b54b7f7c42e467c067cb92ef2e2a1713)
+            type_hints = cached_type_hints(_typecheckingstub__2099850b9885f27ffe5c85b2a40f22d4b54b7f7c42e467c067cb92ef2e2a1713)
             check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "topic_arn": topic_arn,
@@ -761,7 +765,7 @@ class VpcConnectionReference:
             )
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__558a2bbe85670dfe0fc92872489481ed10c7f008336d8079d1585447114a3ca8)
+            type_hints = cached_type_hints(_typecheckingstub__558a2bbe85670dfe0fc92872489481ed10c7f008336d8079d1585447114a3ca8)
             check_type(argname="argument vpc_connection_arn", value=vpc_connection_arn, expected_type=type_hints["vpc_connection_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc_connection_arn": vpc_connection_arn,

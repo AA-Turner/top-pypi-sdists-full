@@ -233,7 +233,7 @@ class PrometheusServiceClient(BaseClient):
         self, **kwargs: Unpack[CreateScraperRequestTypeDef]
     ) -> CreateScraperResponseTypeDef:
         """
-        The <code>CreateScraper</code> operation creates a scraper to collect metrics.
+        Creates a scraper to collect metrics from Prometheus-compatible sources.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/create_scraper.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_amp/client/#create_scraper)
