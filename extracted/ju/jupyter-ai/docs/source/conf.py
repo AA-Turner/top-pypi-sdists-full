@@ -1,6 +1,11 @@
 # Configuration file for the Sphinx documentation builder.
 
+import os
+import sys
 import time
+
+# Make the local Sphinx extensions in docs/source/_ext importable.
+sys.path.insert(0, os.path.abspath("_ext"))
 
 project = "Jupyter AI"
 copyright = f"© 2023–{time.localtime().tm_year}, Project Jupyter"
@@ -9,7 +14,20 @@ html_title = "Jupyter AI"
 
 # -- General configuration ---------------------------------------------------
 
-extensions = ["myst_parser", "sphinx_design", "sphinx_tabs.tabs", "sphinx_copybutton"]
+extensions = [
+    "myst_parser",
+    "sphinx_design",
+    "sphinx_tabs.tabs",
+    "sphinx_copybutton",
+    # Aggregates each subpackage's docs/source/{contributors,developers}/ from
+    # its submodule under submodules/<repo>/ into this build. See
+    # docs/source/_ext/subpackage_docs.py.
+    "subpackage_docs",
+    # Enables auto-generated API reference in subpackage docs: bundles
+    # autodoc + napoleon + linkcode + autodoc_pydantic and wires up a
+    # manifest-driven GitHub linkcode_resolve. See _ext/autodoc_subpackages.py.
+    "autodoc_subpackages",
+]
 myst_enable_extensions = ["colon_fence"]
 
 templates_path = ["_templates"]
@@ -29,6 +47,15 @@ html_logo = "_static/jupyter_logo.png"
 html_theme_options = {
     "accent_color": "orange",
     "github_url": "https://github.com/jupyterlab/jupyter-ai",
+    # The announcement is injected on every page as raw HTML (not run through
+    # Sphinx's link resolver), so a relative path can't work — it would resolve
+    # differently per page depth. Use an absolute URL, pinned to /en/stable so it
+    # tracks the latest released docs rather than /en/latest (unreleased main).
+    "announcement": (
+        "Jupyter AI v3.1.0 is now released! 🎉 "
+        '<a href="https://jupyter-ai.readthedocs.io/en/stable/releases/v3.1.0.html">'
+        "See the release notes</a>."
+    ),
     "nav_links": [
         {
             "title": "Quickstart",

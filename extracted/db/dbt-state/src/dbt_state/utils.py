@@ -48,10 +48,37 @@ _KNOWN_MATERIALIZATIONS = frozenset(
     {"table", "view", "materialized_view", "incremental", "ephemeral", "semantic_view", "snapshot"}
 )
 
+# dbt's built-in incremental strategies. Any other strategy is a user-defined
+# custom strategy backed by a `get_incremental_<strategy>_sql` macro
+# (see https://docs.getdbt.com/docs/build/incremental-strategy#custom-strategies).
+_KNOWN_INCREMENTAL_STRATEGIES = frozenset(
+    {"append", "delete_insert", "merge", "insert_overwrite", "microbatch"}
+)
+
+
+def _normalize_incremental_strategy(strategy: str) -> str:
+    return strategy.replace("+", "_").lower()
+
+
+def is_custom_incremental_strategy(node: ManifestNode) -> bool:
+    if node.get_materialization() != "incremental":
+        return False
+    strategy = getattr(node.config, "incremental_strategy", None)
+    # A missing strategy means dbt falls back to the adapter's default, which is
+    # always one of the built-in strategies.
+    return (
+        strategy is not None
+        and _normalize_incremental_strategy(strategy) not in _KNOWN_INCREMENTAL_STRATEGIES
+    )
+
 
 def is_custom_materialization(node: ManifestNode) -> bool:
     materialization = node.get_materialization()
-    return materialization is not None and materialization not in _KNOWN_MATERIALIZATIONS
+    if materialization is None:
+        return False
+    if materialization not in _KNOWN_MATERIALIZATIONS:
+        return True
+    return is_custom_incremental_strategy(node)
 
 
 def is_table(node: ManifestNode) -> bool:

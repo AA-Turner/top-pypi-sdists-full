@@ -150,6 +150,7 @@ class _Sandbox(modal._object._Object):
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs._SandboxFilesystem]
     _is_v2: bool
+    _app_id: typing.Optional[str]
 
     @staticmethod
     def _default_pty_info() -> modal_proto.api_pb2.PTYInfo: ...
@@ -165,7 +166,7 @@ class _Sandbox(modal._object._Object):
         gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
-        cpu: typing.Optional[float] = None,
+        cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
@@ -368,8 +369,8 @@ class _Sandbox(modal._object._Object):
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        cpu: typing.Optional[float] = None,
-        memory: typing.Optional[int] = None,
+        cpu: typing.Union[float, tuple[float, float], None] = None,
+        memory: typing.Union[int, tuple[int, int], None] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         block_network: bool = False,
@@ -390,18 +391,27 @@ class _Sandbox(modal._object._Object):
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         include_oidc_identity_token: bool = False,
         verbose: bool = False,
+        custom_domain: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
+        _experimental_enable_snapshot: bool = False,
     ) -> _Sandbox:
         """Create a sandbox using the V2 backend.
 
         Supported features include exec, encrypted tunnels, wait/poll/terminate,
         CPU and memory configuration, region placement, private IPv6 networking
         (i6pn), volumes, cloud bucket mounts (with static credentials via
-        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
-        filesystem snapshots.
+        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies,
+        filesystem snapshots, and custom domains (`custom_domain=...` allows
+        connections to the sandbox via a subdomain of that parent domain rather
+        than a default Modal domain; requires prior setup by Modal).
 
-        Features like memory snapshots, network file systems, GPUs, and custom
-        domains are not supported.
+        `cpu` and `memory` accept either a scalar request or a `(request, limit)`
+        tuple that additionally sets a hard limit (fractional CPU cores; memory
+        in MiB), matching `Sandbox.create()`.
+
+        Pass `_experimental_enable_snapshot=True` to create a sandbox that can be
+        snapshotted with `._experimental_snapshot()`. Features like network
+        file systems and GPUs are not supported.
 
         Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
         workspace can address each other directly at their `i6pn.modal.local`
@@ -417,7 +427,8 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.SandboxHandleMetadata: ...
+    def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]) -> None: ...
     def _hydrate_metadata_v2(self) -> None:
         """Wire up V2 stdio readers that read directly from the worker. Cheap
         to call eagerly: the router connection is opened lazily on first read.
@@ -527,6 +538,23 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _experimental_set_name(self, name: str) -> None:
+        """Assign a name to a running V2 Sandbox that was created without one.
+
+        This is only supported for V2 sandboxes, ie sandboxes created via
+        `modal.Sandbox._experimental_create`. A name may only be set once and
+        only on a Sandbox that has never had one; afterwards the Sandbox can
+        be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+
+        Args:
+            name: Name to assign to the Sandbox. Must be unique within the App.
+
+        Raises:
+            AlreadyExistsError: If another running Sandbox in the App already holds the name.
+            ConflictError: If the Sandbox already has a name or is no longer running.
+        """
+        ...
+
     async def _experimental_set_outbound_network_policy(
         self,
         *,
@@ -545,6 +573,31 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _experimental_get_exit_snapshot(self, timeout: typing.Optional[float] = 60) -> modal._image._Image:
+        """Get the exit filesystem snapshot image.
+
+        Args:
+            timeout: Client-side deadline in seconds (default 60). Use `None` to
+                poll until the snapshot reaches a terminal state. Use `0` to
+                perform an immediate check.
+
+        Returns:
+            The exit snapshot Image.
+
+        Raises:
+            InvalidError: If `timeout` is negative, or if exit snapshot is not
+                enabled for the sandbox.
+            TimeoutError: If `timeout` elapses before the snapshot reaches a
+                terminal state. This includes `timeout=0` when the snapshot is
+                still pending.
+            SnapshotCreationError: If no exit snapshot image will be produced.
+            NotFoundError: If the sandbox does not exist.
+            PermissionDeniedError: If the caller cannot access the sandbox.
+            InternalError: If persisted snapshot state is malformed.
+            ServiceError: If a transient client/server communication failure occurs.
+        """
+        ...
+
     async def snapshot_filesystem(
         self, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000
     ) -> modal._image._Image:
@@ -559,7 +612,7 @@ class _Sandbox(modal._object._Object):
                 the image indefinitely.
 
         Returns:
-            An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
+            An [`Image`](https://modal.com/docs/sdk/py/latest/Image) object which can be used to spawn a new
             Sandbox with the same filesystem.
         """
         ...
@@ -826,14 +879,25 @@ class _Sandbox(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         *,
         name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
-    ): ...
+    ):
+        """Restore a Sandbox from a memory snapshot.
+
+        The restore targets the same backend the snapshot was taken from. A V1
+        snapshot restores as a V1 sandbox, a V2 snapshot as a V2 sandbox.
+        """
+        ...
+
+    @staticmethod
+    async def _experimental_from_snapshot_v2(
+        snapshot: modal.snapshot._SandboxSnapshot,
+        client: modal.client._Client,
+        *,
+        override_type: int,
+        name_override: typing.Optional[str],
+    ) -> _Sandbox: ...
     @property
     def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
-        """Namespace for filesystem APIs.
-
-        Returns:
-            A `SandboxFilesystem` helper bound to this sandbox.
-        """
+        """Namespace for Sandbox filesystem APIs."""
         ...
 
     @typing.overload
@@ -893,7 +957,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stdout(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the sandbox's stdout stream.
 
         Returns:
@@ -903,7 +967,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stderr(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the Sandbox's stderr stream.
 
         Returns:
@@ -913,7 +977,7 @@ class _Sandbox(modal._object._Object):
 
     @property
     def stdin(self) -> modal.io_streams._StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamwriter)
+        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/io_streams#streamwriter)
         for the Sandbox's stdin stream.
 
         Returns:
@@ -1029,7 +1093,7 @@ class _SidecarContainer:
     ) -> modal.container_process._ContainerProcess[bytes]: ...
     @property
     def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
-        """Namespace for filesystem APIs."""
+        """Namespace for Sandbox filesystem APIs."""
         ...
 
     async def wait(self, raise_on_termination: bool = True) -> None: ...
@@ -1181,7 +1245,7 @@ class SidecarContainer:
 
     @property
     def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
-        """Namespace for filesystem APIs."""
+        """Namespace for Sandbox filesystem APIs."""
         ...
 
     class __wait_spec(typing_extensions.Protocol):
@@ -1318,6 +1382,7 @@ class Sandbox(modal.object.Object):
     _attached: bool
     _filesystem: typing.Optional[modal.sandbox_fs.SandboxFilesystem]
     _is_v2: bool
+    _app_id: typing.Optional[str]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -1337,7 +1402,7 @@ class Sandbox(modal.object.Object):
         gpu: typing.Optional[str] = None,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
-        cpu: typing.Optional[float] = None,
+        cpu: typing.Union[float, tuple[float, float], None] = None,
         memory: typing.Union[int, tuple[int, int], None] = None,
         mounts: collections.abc.Sequence[modal.mount.Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem] = {},
@@ -1721,8 +1786,8 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            cpu: typing.Optional[float] = None,
-            memory: typing.Optional[int] = None,
+            cpu: typing.Union[float, tuple[float, float], None] = None,
+            memory: typing.Union[int, tuple[int, int], None] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
@@ -1743,18 +1808,27 @@ class Sandbox(modal.object.Object):
             experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
+            custom_domain: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
+            _experimental_enable_snapshot: bool = False,
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
             CPU and memory configuration, region placement, private IPv6 networking
             (i6pn), volumes, cloud bucket mounts (with static credentials via
-            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
-            filesystem snapshots.
+            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies,
+            filesystem snapshots, and custom domains (`custom_domain=...` allows
+            connections to the sandbox via a subdomain of that parent domain rather
+            than a default Modal domain; requires prior setup by Modal).
 
-            Features like memory snapshots, network file systems, GPUs, and custom
-            domains are not supported.
+            `cpu` and `memory` accept either a scalar request or a `(request, limit)`
+            tuple that additionally sets a hard limit (fractional CPU cores; memory
+            in MiB), matching `Sandbox.create()`.
+
+            Pass `_experimental_enable_snapshot=True` to create a sandbox that can be
+            snapshotted with `._experimental_snapshot()`. Features like network
+            file systems and GPUs are not supported.
 
             Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
             workspace can address each other directly at their `i6pn.modal.local`
@@ -1783,8 +1857,8 @@ class Sandbox(modal.object.Object):
             timeout: int = 300,
             idle_timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            cpu: typing.Optional[float] = None,
-            memory: typing.Optional[int] = None,
+            cpu: typing.Union[float, tuple[float, float], None] = None,
+            memory: typing.Union[int, tuple[int, int], None] = None,
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
@@ -1805,18 +1879,27 @@ class Sandbox(modal.object.Object):
             experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
+            custom_domain: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
+            _experimental_enable_snapshot: bool = False,
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
             CPU and memory configuration, region placement, private IPv6 networking
             (i6pn), volumes, cloud bucket mounts (with static credentials via
-            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
-            filesystem snapshots.
+            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies,
+            filesystem snapshots, and custom domains (`custom_domain=...` allows
+            connections to the sandbox via a subdomain of that parent domain rather
+            than a default Modal domain; requires prior setup by Modal).
 
-            Features like memory snapshots, network file systems, GPUs, and custom
-            domains are not supported.
+            `cpu` and `memory` accept either a scalar request or a `(request, limit)`
+            tuple that additionally sets a hard limit (fractional CPU cores; memory
+            in MiB), matching `Sandbox.create()`.
+
+            Pass `_experimental_enable_snapshot=True` to create a sandbox that can be
+            snapshotted with `._experimental_snapshot()`. Features like network
+            file systems and GPUs are not supported.
 
             Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
             workspace can address each other directly at their `i6pn.modal.local`
@@ -1834,7 +1917,8 @@ class Sandbox(modal.object.Object):
 
     _experimental_create: typing.ClassVar[___experimental_create_spec]
 
-    def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> modal_proto.api_pb2.SandboxHandleMetadata: ...
+    def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]) -> None: ...
     def _hydrate_metadata_v2(self) -> None:
         """Wire up V2 stdio readers that read directly from the worker. Cheap
         to call eagerly: the router connection is opened lazily on first read.
@@ -2061,6 +2145,43 @@ class Sandbox(modal.object.Object):
 
     set_tags: __set_tags_spec
 
+    class ___experimental_set_name_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str) -> None:
+            """Assign a name to a running V2 Sandbox that was created without one.
+
+            This is only supported for V2 sandboxes, ie sandboxes created via
+            `modal.Sandbox._experimental_create`. A name may only be set once and
+            only on a Sandbox that has never had one; afterwards the Sandbox can
+            be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+
+            Args:
+                name: Name to assign to the Sandbox. Must be unique within the App.
+
+            Raises:
+                AlreadyExistsError: If another running Sandbox in the App already holds the name.
+                ConflictError: If the Sandbox already has a name or is no longer running.
+            """
+            ...
+
+        async def aio(self, /, name: str) -> None:
+            """Assign a name to a running V2 Sandbox that was created without one.
+
+            This is only supported for V2 sandboxes, ie sandboxes created via
+            `modal.Sandbox._experimental_create`. A name may only be set once and
+            only on a Sandbox that has never had one; afterwards the Sandbox can
+            be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+
+            Args:
+                name: Name to assign to the Sandbox. Must be unique within the App.
+
+            Raises:
+                AlreadyExistsError: If another running Sandbox in the App already holds the name.
+                ConflictError: If the Sandbox already has a name or is no longer running.
+            """
+            ...
+
+    _experimental_set_name: ___experimental_set_name_spec
+
     class ___experimental_set_outbound_network_policy_spec(typing_extensions.Protocol):
         def __call__(
             self,
@@ -2102,6 +2223,59 @@ class Sandbox(modal.object.Object):
 
     _experimental_set_outbound_network_policy: ___experimental_set_outbound_network_policy_spec
 
+    class ___experimental_get_exit_snapshot_spec(typing_extensions.Protocol):
+        def __call__(self, /, timeout: typing.Optional[float] = 60) -> modal.image.Image:
+            """Get the exit filesystem snapshot image.
+
+            Args:
+                timeout: Client-side deadline in seconds (default 60). Use `None` to
+                    poll until the snapshot reaches a terminal state. Use `0` to
+                    perform an immediate check.
+
+            Returns:
+                The exit snapshot Image.
+
+            Raises:
+                InvalidError: If `timeout` is negative, or if exit snapshot is not
+                    enabled for the sandbox.
+                TimeoutError: If `timeout` elapses before the snapshot reaches a
+                    terminal state. This includes `timeout=0` when the snapshot is
+                    still pending.
+                SnapshotCreationError: If no exit snapshot image will be produced.
+                NotFoundError: If the sandbox does not exist.
+                PermissionDeniedError: If the caller cannot access the sandbox.
+                InternalError: If persisted snapshot state is malformed.
+                ServiceError: If a transient client/server communication failure occurs.
+            """
+            ...
+
+        async def aio(self, /, timeout: typing.Optional[float] = 60) -> modal.image.Image:
+            """Get the exit filesystem snapshot image.
+
+            Args:
+                timeout: Client-side deadline in seconds (default 60). Use `None` to
+                    poll until the snapshot reaches a terminal state. Use `0` to
+                    perform an immediate check.
+
+            Returns:
+                The exit snapshot Image.
+
+            Raises:
+                InvalidError: If `timeout` is negative, or if exit snapshot is not
+                    enabled for the sandbox.
+                TimeoutError: If `timeout` elapses before the snapshot reaches a
+                    terminal state. This includes `timeout=0` when the snapshot is
+                    still pending.
+                SnapshotCreationError: If no exit snapshot image will be produced.
+                NotFoundError: If the sandbox does not exist.
+                PermissionDeniedError: If the caller cannot access the sandbox.
+                InternalError: If persisted snapshot state is malformed.
+                ServiceError: If a transient client/server communication failure occurs.
+            """
+            ...
+
+    _experimental_get_exit_snapshot: ___experimental_get_exit_snapshot_spec
+
     class __snapshot_filesystem_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
             """Snapshot the filesystem of the Sandbox.
@@ -2115,7 +2289,7 @@ class Sandbox(modal.object.Object):
                     the image indefinitely.
 
             Returns:
-                An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
+                An [`Image`](https://modal.com/docs/sdk/py/latest/Image) object which can be used to spawn a new
                 Sandbox with the same filesystem.
             """
             ...
@@ -2132,7 +2306,7 @@ class Sandbox(modal.object.Object):
                     the image indefinitely.
 
             Returns:
-                An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
+                An [`Image`](https://modal.com/docs/sdk/py/latest/Image) object which can be used to spawn a new
                 Sandbox with the same filesystem.
             """
             ...
@@ -2727,7 +2901,14 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             *,
             name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
-        ): ...
+        ):
+            """Restore a Sandbox from a memory snapshot.
+
+            The restore targets the same backend the snapshot was taken from. A V1
+            snapshot restores as a V1 sandbox, a V2 snapshot as a V2 sandbox.
+            """
+            ...
+
         async def aio(
             self,
             /,
@@ -2735,17 +2916,41 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             *,
             name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
-        ): ...
+        ):
+            """Restore a Sandbox from a memory snapshot.
+
+            The restore targets the same backend the snapshot was taken from. A V1
+            snapshot restores as a V1 sandbox, a V2 snapshot as a V2 sandbox.
+            """
+            ...
 
     _experimental_from_snapshot: typing.ClassVar[___experimental_from_snapshot_spec]
 
+    class ___experimental_from_snapshot_v2_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            snapshot: modal.snapshot.SandboxSnapshot,
+            client: modal.client.Client,
+            *,
+            override_type: int,
+            name_override: typing.Optional[str],
+        ) -> Sandbox: ...
+        async def aio(
+            self,
+            /,
+            snapshot: modal.snapshot.SandboxSnapshot,
+            client: modal.client.Client,
+            *,
+            override_type: int,
+            name_override: typing.Optional[str],
+        ) -> Sandbox: ...
+
+    _experimental_from_snapshot_v2: typing.ClassVar[___experimental_from_snapshot_v2_spec]
+
     @property
     def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
-        """Namespace for filesystem APIs.
-
-        Returns:
-            A `SandboxFilesystem` helper bound to this sandbox.
-        """
+        """Namespace for Sandbox filesystem APIs."""
         ...
 
     class __open_spec(typing_extensions.Protocol):
@@ -2878,7 +3083,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stdout(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the sandbox's stdout stream.
 
         Returns:
@@ -2888,7 +3093,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stderr(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        """[`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the Sandbox's stderr stream.
 
         Returns:
@@ -2898,7 +3103,7 @@ class Sandbox(modal.object.Object):
 
     @property
     def stdin(self) -> modal.io_streams.StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamwriter)
+        """[`StreamWriter`](https://modal.com/docs/sdk/py/latest/io_streams#streamwriter)
         for the Sandbox's stdin stream.
 
         Returns:

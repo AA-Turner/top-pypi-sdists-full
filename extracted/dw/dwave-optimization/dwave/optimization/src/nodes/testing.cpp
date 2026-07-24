@@ -75,11 +75,11 @@ ArrayValidationNode::ArrayValidationNode(ArrayNode* node_ptr) : array_ptr(node_p
 
     assert(node_ptr->sizeinfo() == node_ptr->sizeinfo().substitute(100));
 
-    add_predecessor(node_ptr);
+    add_predecessor_(node_ptr);
 }
 
 void ArrayValidationNode::commit(State& state) const {
-    auto node_data = data_ptr<ArrayValidationNodeData>(state);
+    auto node_data = data_ptr_<ArrayValidationNodeData>(state);
     assert(array_ptr->diff(state).size() == 0);
     assert(array_ptr->size_diff(state) == 0);
     assert(array_ptr->size(state) == static_cast<ssize_t>(node_data->current_data.size()));
@@ -89,7 +89,7 @@ void ArrayValidationNode::commit(State& state) const {
 }
 
 void ArrayValidationNode::initialize_state(State& state) const {
-    emplace_data_ptr<ArrayValidationNodeData>(state, array_ptr->view(state));
+    emplace_data_ptr_<ArrayValidationNodeData>(state, array_ptr->view(state));
     assert(array_ptr->diff(state).size() == 0);
     assert(array_ptr->size_diff(state) == 0);
     assert(static_cast<ssize_t>(array_ptr->view(state).size()) == array_ptr->size(state));
@@ -113,7 +113,7 @@ void ArrayValidationNode::initialize_state(State& state) const {
 }
 
 void ArrayValidationNode::propagate(State& state) const {
-    auto node_data = data_ptr<ArrayValidationNodeData>(state);
+    auto node_data = data_ptr_<ArrayValidationNodeData>(state);
     std::string node_id = typeid(*array_ptr).name() + std::string{"["} +
                           std::to_string(array_ptr->topological_index()) + std::string{"]"};
 
@@ -211,11 +211,32 @@ void ArrayValidationNode::propagate(State& state) const {
 
     current_data = expected;
 
-    // check that all values are within min/max
+    // check that all values are within min/max (and integral if necessary)
     if (array_ptr->size(state)) {
-        assert(std::ranges::min(array_ptr->view(state)) >= array_ptr->min());
-        assert(std::ranges::max(array_ptr->view(state)) <= array_ptr->max());
-        assert(!array_ptr->integral() || std::ranges::all_of(array_ptr->view(state), is_integer));
+        const double min = std::ranges::min(array_ptr->view(state));
+        const double max = std::ranges::max(array_ptr->view(state));
+        if (std::isinf(min) or std::isinf(max)) {
+            do_logging&& std::cout << node_id << " | output contains inf" << std::endl;
+            assert(false and "array output contains inf");
+        }
+        if (min < array_ptr->min()) {
+            do_logging&& std::cout << node_id << " | output is less than array.min(): "
+                                   << std::ranges::min(array_ptr->view(state)) << " < "
+                                   << array_ptr->min() << std::endl;
+            assert(false and "array output less than reported minimum");
+        }
+        if (max > array_ptr->max()) {
+            do_logging&& std::cout << node_id << " | output is greater than array.max(): "
+                                   << std::ranges::max(array_ptr->view(state)) << " > "
+                                   << array_ptr->max() << std::endl;
+            assert(false and "array output greater than reported maximum");
+        }
+        if (array_ptr->integral() and not std::ranges::all_of(array_ptr->view(state), is_integer)) {
+            do_logging&& std::cout << node_id
+                                   << " | output is non-integral even though integral() is true"
+                                   << std::endl;
+            assert(false and "output is non-integral even through array self-reports as integral");
+        }
     }
 
     // check that whatever sizeinfo the array reports is accurate
@@ -248,7 +269,7 @@ void ArrayValidationNode::propagate(State& state) const {
 }
 
 void ArrayValidationNode::revert(State& state) const {
-    auto node_data = data_ptr<ArrayValidationNodeData>(state);
+    auto node_data = data_ptr_<ArrayValidationNodeData>(state);
     assert(array_ptr->diff(state).size() == 0);
     assert(array_ptr->size_diff(state) == 0);
     assert(array_ptr->size(state) == static_cast<ssize_t>(node_data->old_data.size()));
@@ -373,27 +394,27 @@ void DynamicArrayTestingNode::initialize_state(State& state, std::span<const dou
     assert(shape.size() > 0);
     shape[0] = values.size() / (strides()[0] / itemsize());
 
-    emplace_data_ptr<DynamicArrayTestingNodeData>(state, shape, values);
+    emplace_data_ptr_<DynamicArrayTestingNodeData>(state, shape, values);
 }
 
 double const* DynamicArrayTestingNode::buff(const State& state) const noexcept {
-    return data_ptr<DynamicArrayTestingNodeData>(state)->current_data.data();
+    return data_ptr_<DynamicArrayTestingNodeData>(state)->current_data.data();
 }
 
 std::span<const Update> DynamicArrayTestingNode::diff(const State& state) const {
-    return data_ptr<DynamicArrayTestingNodeData>(state)->diff;
+    return data_ptr_<DynamicArrayTestingNodeData>(state)->diff;
 }
 
 ssize_t DynamicArrayTestingNode::size(const State& state) const {
-    return data_ptr<DynamicArrayTestingNodeData>(state)->current_data.size();
+    return data_ptr_<DynamicArrayTestingNodeData>(state)->current_data.size();
 }
 
 std::span<const ssize_t> DynamicArrayTestingNode::shape(const State& state) const {
-    return data_ptr<DynamicArrayTestingNodeData>(state)->shape();
+    return data_ptr_<DynamicArrayTestingNodeData>(state)->shape();
 }
 
 ssize_t DynamicArrayTestingNode::size_diff(const State& state) const {
-    auto node_data = data_ptr<DynamicArrayTestingNodeData>(state);
+    auto node_data = data_ptr_<DynamicArrayTestingNodeData>(state);
 
     return node_data->current_data.size() - node_data->old_data.size();
 }
@@ -411,11 +432,11 @@ double DynamicArrayTestingNode::max() const {
 SizeInfo DynamicArrayTestingNode::sizeinfo() const { return sizeinfo_.value_or(SizeInfo(this)); }
 
 void DynamicArrayTestingNode::commit(State& state) const {
-    data_ptr<DynamicArrayTestingNodeData>(state)->commit();
+    data_ptr_<DynamicArrayTestingNodeData>(state)->commit();
 }
 
 void DynamicArrayTestingNode::revert(State& state) const {
-    data_ptr<DynamicArrayTestingNodeData>(state)->revert();
+    data_ptr_<DynamicArrayTestingNodeData>(state)->revert();
 }
 
 void DynamicArrayTestingNode::update(State&, int) const {}
@@ -428,19 +449,19 @@ void DynamicArrayTestingNode::grow(State& state, std::span<const double> values)
     assert(ndim() >= 1);
     assert(values.size() % (strides()[0] / itemsize()) == 0);
 
-    auto node_data = data_ptr<DynamicArrayTestingNodeData>(state);
+    auto node_data = data_ptr_<DynamicArrayTestingNodeData>(state);
     node_data->grow(values);
     node_data->current_shape[0] += values.size() / (strides()[0] / itemsize());
 }
 
 void DynamicArrayTestingNode::set(State& state, ssize_t index, double value) const {
-    data_ptr<DynamicArrayTestingNodeData>(state)->set(index, value);
+    data_ptr_<DynamicArrayTestingNodeData>(state)->set(index, value);
 }
 
 void DynamicArrayTestingNode::shrink(State& state) const {
     if (!size(state)) return;  // nothing to do
     const ssize_t row_size = strides()[0] / itemsize();
-    data_ptr<DynamicArrayTestingNodeData>(state)->shrink(row_size);
+    data_ptr_<DynamicArrayTestingNodeData>(state)->shrink(row_size);
 }
 
 }  // namespace dwave::optimization

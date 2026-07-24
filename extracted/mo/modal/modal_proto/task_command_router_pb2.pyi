@@ -225,6 +225,7 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     WORKDIR_FIELD_NUMBER: builtins.int
     SECRET_IDS_FIELD_NUMBER: builtins.int
     VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
+    NETWORK_ACCESS_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_name: builtins.str
     """Logical container name."""
@@ -240,6 +241,12 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     @property
     def volume_mounts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[modal_proto.api_pb2.VolumeMount]:
         """Volumes to mount into the container."""
+    @property
+    def network_access(self) -> modal_proto.api_pb2.NetworkAccess:
+        """Outbound network policy for the sidecar, independent of the main
+        container. When unset, defaults to open network access. BLOCKED is not
+        accepted: a blocked sidecar has no IP and cannot reach the main container.
+        """
     def __init__(
         self,
         *,
@@ -251,8 +258,11 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         workdir: builtins.str = ...,
         secret_ids: collections.abc.Iterable[builtins.str] | None = ...,
         volume_mounts: collections.abc.Iterable[modal_proto.api_pb2.VolumeMount] | None = ...,
+        network_access: modal_proto.api_pb2.NetworkAccess | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "network_access", b"network_access"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_network_access", b"_network_access", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "network_access", b"network_access", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_network_access", b"_network_access"]) -> typing_extensions.Literal["network_access"] | None: ...
 
 global___TaskContainerCreateRequest = TaskContainerCreateRequest
 
@@ -845,13 +855,17 @@ class TaskReloadVolumesRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     TASK_ID_FIELD_NUMBER: builtins.int
+    CONTAINER_ID_FIELD_NUMBER: builtins.int
     task_id: builtins.str
+    container_id: builtins.str
+    """Fully qualified target container ID. Empty targets the main container."""
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
+        container_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["task_id", b"task_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_id", b"container_id", "task_id", b"task_id"]) -> None: ...
 
 global___TaskReloadVolumesRequest = TaskReloadVolumesRequest
 
@@ -1009,6 +1023,37 @@ class TaskSnapshotFilesystemResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["image_id", b"image_id"]) -> None: ...
 
 global___TaskSnapshotFilesystemResponse = TaskSnapshotFilesystemResponse
+
+class TaskSnapshotMemoryRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    idempotency_key: builtins.str
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        idempotency_key: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["idempotency_key", b"idempotency_key", "task_id", b"task_id"]) -> None: ...
+
+global___TaskSnapshotMemoryRequest = TaskSnapshotMemoryRequest
+
+class TaskSnapshotMemoryResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SNAPSHOT_ID_FIELD_NUMBER: builtins.int
+    snapshot_id: builtins.str
+    def __init__(
+        self,
+        *,
+        snapshot_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["snapshot_id", b"snapshot_id"]) -> None: ...
+
+global___TaskSnapshotMemoryResponse = TaskSnapshotMemoryResponse
 
 class TaskUnmountDirectoryRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

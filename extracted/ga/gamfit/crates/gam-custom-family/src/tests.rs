@@ -4043,6 +4043,54 @@ impl CustomFamily for OneBlockConstrainedExactFamily {
     }
 }
 
+/// #2366 fixture: two coefficients, quadratic likelihood `−½‖β − target‖²`,
+/// elementwise box `β ≥ 0`. With `target = (1.0, −0.5)` the unconstrained
+/// optimum violates the box, so the constrained mode pins `β₂ = 0` with a
+/// strictly positive multiplier while `β₁` stays free — the minimal geometry
+/// where a coupling penalty (off-diagonal `S`) pushes the full-Hessian IFT
+/// mode response off the active face.
+#[derive(Clone)]
+pub(crate) struct TwoCoefConstrainedExactFamily {
+    pub(crate) target: Array1<f64>,
+}
+
+impl CustomFamily for TwoCoefConstrainedExactFamily {
+    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
+        let beta = &block_states
+            .first()
+            .ok_or_else(|| "missing block 0".to_string())?
+            .beta;
+        if beta.len() != 2 || self.target.len() != 2 {
+            return Err("TwoCoefConstrainedExactFamily expects exactly 2 coefficients".to_string());
+        }
+        let resid = &self.target - beta;
+        let ll = -0.5 * resid.dot(&resid);
+        Ok(FamilyEvaluation {
+            log_likelihood: ll,
+            blockworking_sets: vec![BlockWorkingSet::ExactNewton {
+                gradient: resid.clone(),
+                hessian: SymmetricMatrix::Dense(Array2::eye(2)),
+            }],
+        })
+    }
+
+    fn block_linear_constraints(
+        &self,
+        _: &[ParameterBlockState],
+        block_idx: usize,
+        block_spec: &ParameterBlockSpec,
+    ) -> Result<Option<ConstraintSet>, String> {
+        assert!(!block_spec.name.is_empty());
+        if block_idx != 0 {
+            return Ok(None);
+        }
+        Ok(Some(ConstraintSet::Dense(LinearInequalityConstraints {
+            a: Array2::eye(2),
+            b: Array1::zeros(2),
+        })))
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct OneBlockConstrainedNaNHessianFamily;
 
@@ -4217,6 +4265,71 @@ impl CustomFamily for TwoBlockJointConstrainedFamily {
     ) -> Result<Option<Array2<f64>>, String> {
         assert!(arr.iter().all(|v| !v.is_nan()));
         Ok(Some(Array2::zeros((2, 2))))
+    }
+
+    fn block_linear_constraints(
+        &self,
+        _: &[ParameterBlockState],
+        block_idx: usize,
+        block_spec: &ParameterBlockSpec,
+    ) -> Result<Option<ConstraintSet>, String> {
+        assert!(!block_spec.name.is_empty());
+        if block_idx >= 2 {
+            return Ok(None);
+        }
+        Ok(Some(ConstraintSet::Dense(LinearInequalityConstraints {
+            a: array![[1.0]],
+            b: array![0.0],
+        })))
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct TwoBlockJointActiveFaceFamily {
+    pub(crate) coupling: f64,
+    pub(crate) target: Array1<f64>,
+}
+
+impl CustomFamily for TwoBlockJointActiveFaceFamily {
+    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
+        let beta = array![block_states[0].beta[0], block_states[1].beta[0]];
+        let c = self.coupling;
+        let resid = &self.target - &beta;
+        // ll = -1/2 (beta - t)' H_L (beta - t),  H_L = [[1, c], [c, 1]].
+        let h_resid = array![resid[0] + c * resid[1], c * resid[0] + resid[1]];
+        Ok(FamilyEvaluation {
+            log_likelihood: -0.5 * resid.dot(&h_resid),
+            blockworking_sets: vec![
+                BlockWorkingSet::ExactNewton {
+                    gradient: array![h_resid[0]],
+                    hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                },
+                BlockWorkingSet::ExactNewton {
+                    gradient: array![h_resid[1]],
+                    hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                },
+            ],
+        })
+    }
+
+    fn exact_newton_joint_hessian(
+        &self,
+        _: &[ParameterBlockState],
+    ) -> Result<Option<Array2<f64>>, String> {
+        Ok(Some(array![[1.0, self.coupling], [self.coupling, 1.0]]))
+    }
+
+    fn exact_newton_joint_hessian_directional_derivative(
+        &self,
+        _: &[ParameterBlockState],
+        arr: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        assert!(arr.iter().all(|v| !v.is_nan()));
+        Ok(Some(Array2::zeros((2, 2))))
+    }
+
+    fn has_explicit_joint_hessian(&self) -> bool {
+        true
     }
 
     fn block_linear_constraints(

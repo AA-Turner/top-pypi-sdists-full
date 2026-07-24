@@ -8,9 +8,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from pydantic import TypeAdapter, model_validator
-from typing import Self
+from typing import ClassVar, Self
 
-from .base_types import BinProviderName, PATHStr, BinName, InstallArgs
+from .base_types import BinProviderName, PATHStr, BinName, HostBinPath, InstallArgs
 from .semver import SemVer
 from .binprovider import BinProvider, EnvProvider, ShallowBinary, remap_kwargs
 from .logging import format_subprocess_output
@@ -24,6 +24,8 @@ class AptProvider(BinProvider):
     name: BinProviderName = "apt"
     _log_emoji = "🐧"
     INSTALLER_BIN: BinName = "apt-get"
+    INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = ("env",)
+    DEFAULT_SUPPORTED_PLATFORMS: ClassVar[tuple[str, ...] | None] = ("linux",)
 
     PATH: PATHStr = ""  # Starts empty; setup_PATH() discovers package runtime bin dirs via dpkg and replaces PATH with those dirs.
     euid: int | None = (
@@ -108,11 +110,19 @@ class AptProvider(BinProvider):
                     .split("\n")
                 )
                 dpkg_bin_dirs = [
-                    path for path in dpkg_install_dirs if path.endswith("/bin")
+                    Path(path) for path in dpkg_install_dirs if path.endswith("/bin")
                 ]
-                for bin_dir in dpkg_bin_dirs:
-                    if str(bin_dir) not in PATH:
-                        PATH = ":".join([str(bin_dir), *PATH.split(":")])
+                dpkg_runtime_dirs = list(
+                    dict.fromkeys(
+                        runtime_dir
+                        for bin_dir in dpkg_bin_dirs
+                        for runtime_dir in (bin_dir, bin_dir.with_name("sbin"))
+                        if runtime_dir.is_dir()
+                    ),
+                )
+                for runtime_dir in dpkg_runtime_dirs:
+                    if str(runtime_dir) not in PATH:
+                        PATH = ":".join([str(runtime_dir), *PATH.split(":")])
                 self.PATH = TypeAdapter(PATHStr).validate_python(PATH)
         super().setup_PATH(no_cache=no_cache)
 
@@ -154,6 +164,70 @@ class AptProvider(BinProvider):
         distro, codename = self._detect_distro_codename()
         host = "packages.debian.org" if distro == "debian" else "packages.ubuntu.com"
         return f"https://{host}/{codename}/{package}"
+
+    def default_version_handler(
+        self,
+        bin_name: BinName,
+        abspath: HostBinPath | None = None,
+        timeout: int | None = None,
+        no_cache: bool = False,
+        **context,
+    ) -> SemVer | None:
+        try:
+            version = super().default_version_handler(
+                bin_name,
+                abspath=abspath,
+                timeout=timeout,
+                no_cache=no_cache,
+                **context,
+            )
+            if isinstance(version, SemVer):
+                return version
+        except ValueError:
+            pass
+
+        resolved_abspath = abspath or self.get_abspath(
+            bin_name,
+            quiet=True,
+            no_cache=no_cache,
+        )
+        dpkg_query = EnvProvider().load("dpkg-query", no_cache=no_cache)
+        if not resolved_abspath or not dpkg_query or not dpkg_query.loaded_abspath:
+            return None
+
+        resolved_path = Path(resolved_abspath).resolve()
+        path_candidates = [Path(resolved_abspath), resolved_path]
+        if resolved_path.parts[:2] == ("/", "usr"):
+            path_candidates.append(Path("/", *resolved_path.parts[2:]))
+        elif resolved_path.parts and resolved_path.parts[0] == "/":
+            path_candidates.append(Path("/usr", *resolved_path.parts[1:]))
+
+        owning_package = None
+        for path_candidate in dict.fromkeys(path_candidates):
+            proc = self.exec(
+                bin_name=dpkg_query.loaded_abspath,
+                cmd=["--search", str(path_candidate)],
+                quiet=True,
+                timeout=timeout,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                owning_package = proc
+                break
+        if owning_package is None:
+            return None
+        package_name, separator, _ = owning_package.stdout.partition(": ")
+        if not separator or not package_name:
+            return None
+
+        package_version = self.exec(
+            bin_name=dpkg_query.loaded_abspath,
+            cmd=["--show", "--showformat=${Version}", package_name],
+            quiet=True,
+            timeout=timeout,
+        )
+        if package_version.returncode != 0:
+            return None
+        return SemVer.parse(package_version.stdout.strip())
 
     @remap_kwargs({"packages": "install_args"})
     def default_install_handler(

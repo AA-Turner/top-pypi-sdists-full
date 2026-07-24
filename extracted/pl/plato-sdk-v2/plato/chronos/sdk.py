@@ -51,6 +51,7 @@ from plato.chronos.api.sessions import (
     get_session_trajectory,
     list_sessions,
     update_session_notes,
+    upsert_session_preview_url,
 )
 from plato.chronos.api.workspace_repos import (
     audit_events_summary as audit_events_summary_api,
@@ -83,6 +84,7 @@ from plato.chronos.models import (
     SessionLogsResponse,
     SessionMetricsResponse,
     SessionNotesPayloadInput,
+    SessionPreviewUrlsResponse,
     SessionResponse,
     SessionStatusResponse,
     SessionTrajectory,
@@ -90,6 +92,7 @@ from plato.chronos.models import (
     Status1,
     TrajectoryMetrics,
     UpdateNotesRequest,
+    UpsertSessionPreviewUrlRequest,
     WorkspaceRepoCredentialsResponse,
     WorldConfigInput,
     WorldRuntimeConfig,
@@ -360,6 +363,20 @@ class Chronos(_ChronosBase):
             self._client,
             public_id=session_id,
             body=UpdateNotesRequest(notes=notes),
+        )
+
+    def publish_preview_url(
+        self,
+        session_id: str,
+        url: str,
+        *,
+        label: str = "Preview",
+    ) -> SessionPreviewUrlsResponse:
+        """Publish or replace a labeled preview link on a session."""
+        return upsert_session_preview_url.sync(
+            self._client,
+            public_id=session_id,
+            body=UpsertSessionPreviewUrlRequest.model_validate({"label": label, "url": url}),
         )
 
     def get_logs(
@@ -751,6 +768,20 @@ class AsyncChronos(_ChronosBase):
             self._client,
             public_id=session_id,
             body=UpdateNotesRequest(notes=notes),
+        )
+
+    async def publish_preview_url(
+        self,
+        session_id: str,
+        url: str,
+        *,
+        label: str = "Preview",
+    ) -> SessionPreviewUrlsResponse:
+        """Publish or replace a labeled preview link on a session."""
+        return await upsert_session_preview_url.asyncio(
+            self._client,
+            public_id=session_id,
+            body=UpsertSessionPreviewUrlRequest.model_validate({"label": label, "url": url}),
         )
 
     async def get_logs(

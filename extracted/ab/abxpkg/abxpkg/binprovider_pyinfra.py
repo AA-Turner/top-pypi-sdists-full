@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from typing import Any
+from typing import Any, ClassVar
 
 from .binary import Binary
 from .base_types import BinProviderName, PATHStr, BinName, InstallArgs
@@ -263,6 +263,12 @@ class PyinfraProvider(BinProvider):
     name: BinProviderName = "pyinfra"
     _log_emoji = "🛠️"
     INSTALLER_BIN: BinName = "pyinfra"
+    INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = (
+        "env",
+        "pip",
+        "uv",
+    )
+    DEFAULT_ENABLED: ClassVar[bool] = False
     PATH: PATHStr = DEFAULT_ENV_PATH  # Always ambient system PATH plus standard package manager bin dirs. Pyinfra has no bin_dir field of its own and never mutates PATH in setup().
 
     def INSTALLER_BINARY(self, no_cache: bool = False):

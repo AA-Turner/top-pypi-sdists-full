@@ -5,17 +5,20 @@ import http.client
 import inspect
 import json
 import logging
+import posixpath
+import urllib.parse
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
 from urllib.parse import unquote_plus
 
 import requests
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.hashers import check_password, identify_hasher
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import router, transaction
+from django.db.models import F
 from django.http import HttpRequest
 from django.utils import dateformat, timezone
 from django.utils.crypto import constant_time_compare
@@ -24,9 +27,12 @@ from django.utils.translation import gettext_lazy as _
 from jwcrypto import jws, jwt
 from jwcrypto.common import JWException
 from jwcrypto.jwt import JWTExpired
+from oauthlib.common import Request as OauthlibRequest
 from oauthlib.oauth2.rfc6749 import errors, utils
 from oauthlib.openid import RequestValidator
 
+from . import cimd
+from .bcp import bcp_compliant
 from .exceptions import FatalClientError
 from .models import (
     AbstractApplication,
@@ -39,6 +45,111 @@ from .models import (
 from .scopes import get_scopes_backend
 from .settings import oauth2_settings
 from .utils import get_timezone
+
+
+# Default ports used to normalize URIs before comparison, so that e.g.
+# "https://api.example.com:443/foo" and "https://api.example.com/foo" match.
+_SCHEME_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _parse_and_validate_uri(uri):
+    """Parse a URI and return (scheme, hostname, port, path) or None if invalid.
+
+    Paths are normalized to resolve dot segments (RFC 3986 Section 5.2.4).
+    For http and https URIs, an omitted port is normalized to the scheme default
+    (RFC 3986 Section 6.2.3); for other schemes it remains None.
+    URIs with userinfo or fragment components are rejected. A query component is
+    accepted (RFC 8707 allows one on resource indicators) but is not part of the
+    returned tuple, so it plays no role in matching.
+
+    A non-string ``uri`` (e.g. a non-string element in a JSON ``resource`` array)
+    returns None rather than raising, so callers fail closed with a clean
+    ``invalid_target`` error instead of a TypeError / 500.
+    """
+    if not isinstance(uri, str):
+        return None
+    parsed = urllib.parse.urlsplit(uri)
+    # "is not None" catches empty-but-present components ("https://@example.com",
+    # "https://example.com/#") that truthiness checks would let through.
+    if parsed.username is not None or parsed.password is not None:
+        return None
+    if parsed.fragment or "#" in uri:
+        return None
+    if not parsed.scheme or not parsed.hostname:
+        return None
+    scheme = parsed.scheme.lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        # Non-numeric or out-of-range port
+        return None
+    if port is None:
+        port = _SCHEME_DEFAULT_PORTS.get(scheme)
+    path = posixpath.normpath(parsed.path or "/")
+    return (scheme, parsed.hostname.lower(), port, path)
+
+
+def is_valid_resource_uri(uri):
+    """Return True if ``uri`` is acceptable as an RFC 8707 resource indicator.
+
+    Accepted values are absolute URIs with a scheme and host, without userinfo
+    or fragment components (e.g. ``https://api.example.com/path``).
+    """
+    return _parse_and_validate_uri(uri) is not None
+
+
+def validate_resource_as_url_prefix(request_uri, audiences):
+    """
+    Default resource validator using URL prefix matching (RFC 8707).
+
+    Validates that the request URI matches one of the token's audience claims
+    using prefix matching. The audience URI acts as a base URI that the request
+    must start with.
+
+    URIs are parsed and compared component-by-component to prevent bypasses
+    via userinfo injection or authority confusion.
+
+    Examples:
+        - Token audience: "https://api.example.com/foo"
+        - Matches: "https://api.example.com/foo"
+        - Matches: "https://api.example.com/foo/"
+        - Matches: "https://api.example.com/foo/bar"
+        - Rejects: "https://other.example.com/foo/bar"
+        - Rejects: "https://api.example.com/bar"
+        - Rejects: "https://api.example.com/food-blog"
+        - Rejects: "https://api.example.com@evil.com/foo"
+
+    Both ``request_uri`` and the audience values must be absolute URIs with a
+    scheme and host; other absolute-URI forms (e.g. URNs) never match.
+
+    :param request_uri: String URI of the current request (without query string)
+    :param audiences: List of audience URI strings from token
+    :return: True if token is valid for this request, False otherwise
+    """
+    if not audiences:
+        return True
+
+    request_parts = _parse_and_validate_uri(request_uri)
+    if request_parts is None:
+        return False
+
+    req_scheme, req_host, req_port, req_path = request_parts
+    req_path_normalized = req_path.rstrip("/") + "/"
+
+    for audience in audiences:
+        aud_parts = _parse_and_validate_uri(audience)
+        if aud_parts is None:
+            continue
+
+        aud_scheme, aud_host, aud_port, aud_path = aud_parts
+        if (req_scheme, req_host, req_port) != (aud_scheme, aud_host, aud_port):
+            continue
+
+        aud_path_normalized = aud_path.rstrip("/") + "/"
+        if req_path_normalized.startswith(aud_path_normalized):
+            return True
+
+    return False
 
 
 log = logging.getLogger("oauth2_provider")
@@ -147,13 +258,15 @@ class OAuth2Validator(RequestValidator):
         try:
             b64_decoded = base64.b64decode(auth_string)
         except (TypeError, binascii.Error):
-            log.debug("Failed basic auth: %r can't be decoded as base64", auth_string)
+            # auth_string is the base64 of "client_id:client_secret"; never log it.
+            log.debug("Failed basic auth: credentials can't be decoded as base64")
             return False
 
         try:
             auth_string_decoded = b64_decoded.decode(encoding)
         except UnicodeDecodeError:
-            log.debug("Failed basic auth: %r can't be decoded as unicode by %r", auth_string, encoding)
+            # auth_string is the base64 of "client_id:client_secret"; never log it.
+            log.debug("Failed basic auth: credentials can't be decoded as unicode by %r", encoding)
             return False
 
         try:
@@ -174,7 +287,7 @@ class OAuth2Validator(RequestValidator):
         ):
             return True
         elif not self._check_secret(client_secret, request.client.client_secret):
-            log.debug("Failed basic auth: wrong client secret %s" % client_secret)
+            log.debug("Failed basic auth: wrong client secret for client_id %s", client_id)
             return False
         else:
             return True
@@ -204,7 +317,7 @@ class OAuth2Validator(RequestValidator):
         ):
             return True
         elif not self._check_secret(client_secret, request.client.client_secret):
-            log.debug("Failed body auth: wrong client secret %s" % client_secret)
+            log.debug("Failed body auth: wrong client secret for client_id %s", client_id)
             return False
         else:
             return True
@@ -213,6 +326,11 @@ class OAuth2Validator(RequestValidator):
         """
         If request.client was not set, load application instance for given
         client_id and store it in request.client
+
+        When CIMD is enabled and client_id is a metadata-document URL, this may
+        additionally fetch that URL and persist an Application on first sight (or
+        re-fetch a stale one), so a lookup here can perform network I/O and a
+        write to the default database.
         """
         if request.client:
             # check for cached client, to save the db hit if this has already been loaded
@@ -234,15 +352,32 @@ class OAuth2Validator(RequestValidator):
         try:
             # cache not hit, loading application from database for client_id %r
             client = Application.objects.get(client_id=client_id)
-            if not client.is_usable(request):
-                # Failed to load application: Application %r is not usable
-                return None
-            request.client = client
-            # Loaded application with client_id %r from database
-            return request.client
         except Application.DoesNotExist:
-            # Failed to load application: Application with client_id %r does not exist
+            # Not stored yet: the client_id may be a Client ID Metadata Document
+            # URL we can fetch and persist on first sight. Returns None when CIMD
+            # is disabled or the id is not a resolvable CIMD URL.
+            client = cimd.resolve_cimd_application(client_id, request=request)
+            if client is not None and client.is_usable(request):
+                request.client = client
+                return request.client
             return None
+        except ValueError:
+            # Some database backends (e.g. PostgreSQL via psycopg2)
+            # raise ValueError instead of executing the query at all
+            # when client_id contains characters they can't represent
+            # in a string literal (most notably a NUL/0x00 byte). No
+            # legitimate client_id could ever contain such a byte, so
+            # treat this the same as "no matching Application found"
+            # rather than letting it propagate into a 500 error.
+            # See GH #1006.
+            return None
+        client = cimd.refresh_if_stale(client, request=request)
+        if not client.is_usable(request):
+            # Failed to load application: Application %r is not usable
+            return None
+        request.client = client
+        # Loaded application with client_id %r from database
+        return request.client
 
     def _set_oauth2_error_on_request(self, request, access_token, scopes):
         if access_token is None:
@@ -430,12 +565,17 @@ class OAuth2Validator(RequestValidator):
             else:
                 user = None
 
-            max_caching_time = datetime.now() + timedelta(
+            max_caching_time = datetime.now(tz=datetime_timezone.utc) + timedelta(
                 seconds=oauth2_settings.RESOURCE_SERVER_TOKEN_CACHING_SECONDS
             )
 
             if "exp" in content:
-                expires = datetime.utcfromtimestamp(content["exp"])
+                expires = datetime.fromtimestamp(content["exp"], tz=datetime_timezone.utc)
+                exp_time_zone = oauth2_settings.AUTHENTICATION_SERVER_EXP_TIME_ZONE
+                if exp_time_zone != "UTC":
+                    # Deprecated AUTHENTICATION_SERVER_EXP_TIME_ZONE workaround: reinterpret the
+                    # exp wall-clock time as being in the configured (non-UTC) time zone.
+                    expires = make_aware(expires.replace(tzinfo=None), timezone=get_timezone(exp_time_zone))
                 if expires > max_caching_time:
                     expires = max_caching_time
             else:
@@ -443,20 +583,34 @@ class OAuth2Validator(RequestValidator):
 
             scope = content.get("scope", "")
 
-            if settings.USE_TZ:
-                expires = make_aware(
-                    expires, timezone=get_timezone(oauth2_settings.AUTHENTICATION_SERVER_EXP_TIME_ZONE)
-                )
+            if not settings.USE_TZ:
+                expires = timezone.make_naive(expires, expires.tzinfo)
+
+            # RFC 8707: Map introspection 'aud' claim to resource field.
+            # RFC 7662 defines 'aud' as a string or array of strings. 'aud' is a
+            # security restriction, so a malformed value must fail closed: treating
+            # it as unrestricted would let the token through on any resource.
+            aud = content.get("aud", [])
+            if isinstance(aud, str):
+                aud = [aud]
+            elif not isinstance(aud, list) or not all(isinstance(entry, str) for entry in aud):
+                log.warning("Rejecting token: malformed 'aud' claim in introspection response: %r", aud)
+                return None
 
             token_checksum = hashlib.sha256(token.encode("utf-8")).hexdigest()
+            # Respect hashed-at-rest storage (RFC 9700): the resource-server token cache
+            # is looked up by checksum, so it must not persist the cleartext token when
+            # COMPLIANT_BCP_RFC9700_TOKEN_STORAGE is enabled.
+            stored_token = "" if oauth2_settings.COMPLIANT_BCP_RFC9700_TOKEN_STORAGE else token
             access_token, _created = AccessToken.objects.update_or_create(
                 token_checksum=token_checksum,
                 defaults={
-                    "token": token,
+                    "token": stored_token,
                     "user": user,
                     "application": None,
                     "scope": scope,
                     "expires": expires,
+                    "resource": aud,
                 },
             )
 
@@ -483,6 +637,24 @@ class OAuth2Validator(RequestValidator):
                 )
 
         if access_token and access_token.is_valid(scopes):
+            # RFC 8707: Only resource-restricted tokens are audience-checked, so
+            # unrestricted tokens keep working with minimal request objects that
+            # carry no uri. Restricted tokens fail closed when the uri is absent.
+            if access_token.resource:
+                # request.uri is the full URI from the oauthlib Request object
+                request_uri = (getattr(request, "uri", None) or "").split("?")[0]
+                if not access_token.allows_audience(request_uri):
+                    request.oauth2_error = OrderedDict(
+                        [
+                            ("error", "invalid_token"),
+                            (
+                                "error_description",
+                                _("The access token is not valid for this resource."),
+                            ),
+                        ]
+                    )
+                    return False
+
             request.client = access_token.application
             request.user = access_token.user
             request.scopes = list(access_token.scopes)
@@ -523,7 +695,21 @@ class OAuth2Validator(RequestValidator):
         Validate both grant_type is a valid string and grant_type is allowed for current workflow
         """
         assert grant_type in GRANT_TYPE_MAPPING  # mapping misconfiguration
-        return request.client.allows_grant_type(*GRANT_TYPE_MAPPING[grant_type])
+        allowed = request.client.allows_grant_type(*GRANT_TYPE_MAPPING[grant_type])
+        # RFC 9700 §2.4: the resource owner password credentials grant MUST NOT be
+        # used. The gate is only consulted (and thus only warns) when the client is
+        # otherwise allowed to use the grant, so requests that are rejected anyway
+        # don't emit the deprecation warning.
+        if (
+            allowed
+            and grant_type == "password"
+            and bcp_compliant(
+                "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT",
+                "The OAuth 2.0 resource owner password credentials grant",
+            )
+        ):
+            return False
+        return allowed
 
     def validate_response_type(self, client_id, response_type, client, request, *args, **kwargs):
         """
@@ -533,11 +719,11 @@ class OAuth2Validator(RequestValidator):
         if response_type == "code":
             return client.allows_grant_type(AbstractApplication.GRANT_AUTHORIZATION_CODE)
         elif response_type == "token":
-            return client.allows_grant_type(AbstractApplication.GRANT_IMPLICIT)
+            return self._validate_implicit_response_type(client)
         elif response_type == "id_token":
-            return client.allows_grant_type(AbstractApplication.GRANT_IMPLICIT)
+            return self._validate_implicit_response_type(client)
         elif response_type == "id_token token":
-            return client.allows_grant_type(AbstractApplication.GRANT_IMPLICIT)
+            return self._validate_implicit_response_type(client)
         elif response_type == "code id_token":
             return client.allows_grant_type(AbstractApplication.GRANT_OPENID_HYBRID)
         elif response_type == "code token":
@@ -546,6 +732,23 @@ class OAuth2Validator(RequestValidator):
             return client.allows_grant_type(AbstractApplication.GRANT_OPENID_HYBRID)
         else:
             return False
+
+    def _validate_implicit_response_type(self, client):
+        """
+        Validate an implicit-grant response type (``token``/``id_token``).
+
+        RFC 9700 §2.1.2 says the implicit grant MUST NOT be used. Gated by
+        COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT: when the gate is enabled the
+        response type is rejected even for applications registered for it.
+        """
+        if not client.allows_grant_type(AbstractApplication.GRANT_IMPLICIT):
+            return False
+        if bcp_compliant(
+            "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT",
+            "The OAuth 2.0 implicit grant (response_type=token/id_token)",
+        ):
+            return False
+        return True
 
     def validate_scopes(self, client_id, scopes, client, request, *args, **kwargs):
         """
@@ -607,6 +810,108 @@ class OAuth2Validator(RequestValidator):
         with transaction.atomic(using=router.db_for_write(AccessToken)):
             return self._save_bearer_token(token, request, *args, **kwargs)
 
+    def _validate_resource_uris(self, request, resources):
+        """
+        RFC 8707: Reject any resource that is not an absolute URI with a scheme
+        and host (no userinfo or fragment). Note this is stricter than RFC 3986
+        absolute-URI: authority-less forms such as URNs are rejected because the
+        default prefix validator matches on (scheme, host, port, path).
+        """
+        for res in resources:
+            if _parse_and_validate_uri(res) is None:
+                raise errors.CustomOAuth2Error(
+                    error="invalid_target",
+                    description=(
+                        f"The resource '{res}' is not a valid resource indicator: "
+                        "it must be an absolute URI with a scheme and host."
+                    ),
+                    request=request,
+                )
+
+    def _check_and_set_request_resource(self, request):
+        """
+        Handle 'resource' parameter from token requests (RFC 8707).
+        Normalizes request.resource to a list of URIs.
+
+        request.resource will be set to one of:
+        - [] (no resources)
+        - List of URIs: ["https://api.example.com"] or ["https://a.com", "https://b.com"]
+        """
+        resource = getattr(request, "resource", None)
+
+        # RFC 8707 allows repeating the ``resource`` parameter, but oauthlib
+        # keeps only the last value when body parameters repeat. Recover the
+        # full list from the decoded body.
+        if isinstance(resource, str):
+            body_values = [
+                value for key, value in (getattr(request, "decoded_body", None) or []) if key == "resource"
+            ]
+            if len(body_values) > 1:
+                resource = body_values
+
+        if isinstance(resource, list):
+            # Already a list, use as-is
+            request.resource = resource or []
+        elif resource and isinstance(resource, str) and resource.strip():
+            # Single URI string from token endpoint POST
+            request.resource = [resource]
+        else:
+            request.resource = []
+
+        # RFC 8707: Validate that each resource is an absolute URI with scheme and host
+        self._validate_resource_uris(request, request.resource)
+
+        if request.grant_type == "authorization_code":
+            # Handle grant resource narrowing
+            grant = Grant.objects.filter(code=request.code, application=request.client).first()
+            grant_resource = (grant.resource or []) if grant else []
+
+            if request.resource and grant_resource:
+                # Token request is narrowing the resource scope
+                # Validate that requested resources are a subset of granted resources
+                for res in request.resource:
+                    if res not in grant_resource:
+                        raise errors.CustomOAuth2Error(
+                            error="invalid_target",
+                            description=(
+                                f"The requested resource '{res}' is not allowed. "
+                                "Token request cannot escalate resource permissions beyond the "
+                                "original authorization grant"
+                            ),
+                            request=request,
+                        )
+            elif grant_resource:
+                # Inherited values may predate validation at the authorization
+                # endpoint (e.g. rows written before upgrading) - validate them
+                # before they end up on the issued token.
+                self._validate_resource_uris(request, grant_resource)
+                request.resource = grant_resource
+
+        elif request.grant_type == "refresh_token":
+            # Preserve resource from the refresh token
+            refresh_token_instance = getattr(request, "refresh_token_instance", None)
+            if refresh_token_instance and refresh_token_instance.resource:
+                # If no resource specified in request, inherit from refresh token
+                if not request.resource:
+                    # Validate inherited values the same way as client-supplied ones.
+                    self._validate_resource_uris(request, refresh_token_instance.resource)
+                    request.resource = refresh_token_instance.resource
+                # If resource specified, validate it's a subset of refresh token's resources
+                elif request.resource != refresh_token_instance.resource:
+                    refresh_list = refresh_token_instance.resource
+
+                    for res in request.resource:
+                        if res not in refresh_list:
+                            raise errors.CustomOAuth2Error(
+                                error="invalid_target",
+                                description=(
+                                    f"The requested resource '{res}' is not allowed. "
+                                    "Token refresh cannot request resources beyond the "
+                                    "original refresh token scope"
+                                ),
+                                request=request,
+                            )
+
     def _save_bearer_token(self, token, request, *args, **kwargs):
         """
         Save access and refresh token.
@@ -618,6 +923,8 @@ class OAuth2Validator(RequestValidator):
 
         if "scope" not in token:
             raise FatalClientError("Failed to renew access token: missing scope")
+
+        self._check_and_set_request_resource(request)
 
         # expires_in is passed to Server on initialization
         # custom server class can have logic to override this
@@ -655,8 +962,9 @@ class OAuth2Validator(RequestValidator):
                 access_token.user = request.user
                 access_token.scope = token["scope"]
                 access_token.expires = expires
-                access_token.token = token["access_token"]
+                self._set_token_value(access_token, token["access_token"])
                 access_token.application = request.client
+                access_token.resource = getattr(request, "resource", [])  # RFC 8707
                 access_token.save()
 
             # else create fresh with access & refresh tokens
@@ -710,23 +1018,65 @@ class OAuth2Validator(RequestValidator):
         else:
             self._create_access_token(expires, request, token)
 
+    def _set_token_value(self, token_instance, raw_token):
+        """
+        Assign the raw token to a token instance, redacting the value stored at rest
+        when COMPLIANT_BCP_RFC9700_TOKEN_STORAGE is enabled (RFC 9700).
+
+        The lookup checksum (``token_checksum``) is always derived from the raw token;
+        when redacting, the raw value is stashed on ``_raw_token`` (used only to compute
+        the checksum) and the ``token`` column is left blank so the reusable token is
+        never persisted.
+
+        Plaintext storage is an ambient config posture exercised on every token
+        issuance, so (unlike the request-time gates) it is surfaced by the ``--deploy``
+        system check ``W006`` rather than a per-token warning here. See
+        :mod:`oauth2_provider.bcp`.
+        """
+        if oauth2_settings.COMPLIANT_BCP_RFC9700_TOKEN_STORAGE:
+            token_instance._raw_token = raw_token
+            token_instance.token = ""
+        else:
+            token_instance.token = raw_token
+            # Clear any stale redaction marker so a later save recomputes the checksum
+            # from this plaintext token rather than a previously stashed raw value.
+            token_instance._raw_token = None
+
     def _create_access_token(self, expires, request, token, source_refresh_token=None):
         id_token = token.get("id_token", None)
         if id_token:
             id_token = self._load_id_token(id_token)
-        return AccessToken.objects.create(
+        access_token = AccessToken(
             user=request.user,
             scope=token["scope"],
             expires=expires,
-            token=token["access_token"],
             id_token=id_token,
             application=request.client,
             source_refresh_token=source_refresh_token,
+            resource=getattr(request, "resource", []),  # RFC 8707
         )
+        self._set_token_value(access_token, token["access_token"])
+        access_token.save()
+        return access_token
 
     def _create_authorization_code(self, request, code, expires=None):
         if not expires:
             expires = timezone.now() + timedelta(seconds=oauth2_settings.AUTHORIZATION_CODE_EXPIRE_SECONDS)
+
+        # RFC 9700 §2.1.1 / RFC 7636 §4.2: the "plain" PKCE code_challenge_method is
+        # discouraged in favor of "S256". Gated by COMPLIANT_BCP_RFC9700_PKCE_METHOD.
+        if request.code_challenge_method == "plain" and bcp_compliant(
+            "COMPLIANT_BCP_RFC9700_PKCE_METHOD",
+            'The PKCE "plain" code_challenge_method',
+        ):
+            raise errors.InvalidRequestError(
+                description='Unsupported "plain" code_challenge_method; use "S256".',
+                request=request,
+            )
+
+        # RFC 8707: Extract resource parameter
+        resource = getattr(request, "resource", [])
+
         return Grant.objects.create(
             application=request.client,
             user=request.user,
@@ -738,6 +1088,7 @@ class OAuth2Validator(RequestValidator):
             code_challenge_method=request.code_challenge_method or "",
             nonce=request.nonce or "",
             claims=json.dumps(request.claims or {}),
+            resource=resource,
         )
 
     def _create_refresh_token(self, request, refresh_token_code, access_token, previous_refresh_token):
@@ -745,13 +1096,16 @@ class OAuth2Validator(RequestValidator):
             token_family = previous_refresh_token.token_family
         else:
             token_family = uuid.uuid4()
-        return RefreshToken.objects.create(
+        refresh_token = RefreshToken(
             user=request.user,
-            token=refresh_token_code,
             application=request.client,
             access_token=access_token,
             token_family=token_family,
+            resource=getattr(request, "resource", []),  # RFC 8707
         )
+        self._set_token_value(refresh_token, refresh_token_code)
+        refresh_token.save()
+        return refresh_token
 
     def revoke_token(self, token, token_type_hint, request, *args, **kwargs):
         """
@@ -769,27 +1123,53 @@ class OAuth2Validator(RequestValidator):
             "refresh_token": RefreshToken,
         }
 
+        token_checksum = hashlib.sha256(token.encode("utf-8")).hexdigest()
         token_type = token_types.get(token_type_hint, AccessToken)
-        try:
-            token_type.objects.get(token=token).revoke()
-        except ObjectDoesNotExist:
+        # RefreshToken uniqueness is (token_checksum, revoked), so several rows may share a
+        # checksum; revoke every match instead of get() to avoid MultipleObjectsReturned.
+        tokens = list(token_type.objects.filter(token_checksum=token_checksum))
+        if not tokens:
             for other_type in [_t for _t in token_types.values() if _t != token_type]:
-                # slightly inefficient on Python2, but the queryset contains only one instance
-                list(map(lambda t: t.revoke(), other_type.objects.filter(token=token)))
+                tokens.extend(other_type.objects.filter(token_checksum=token_checksum))
+        for t in tokens:
+            t.revoke()
+
+    def build_http_request(self, request: OauthlibRequest) -> HttpRequest:
+        """
+        Build a Django ``HttpRequest`` from the oauthlib ``Request`` for Django's
+        ``authenticate()``. Override to pass extra attributes to your auth backends.
+        """
+        http_request = HttpRequest()
+        http_request.path = request.uri
+        http_request.method = request.http_method
+        getattr(http_request, request.http_method).update(dict(request.decoded_body))
+        http_request.META = request.headers
+        return http_request
 
     def validate_user(self, username, password, client, request, *args, **kwargs):
         """
         Check username and password correspond to a valid and active User
         """
         # Passing the optional HttpRequest adds compatibility for backends
-        # which depend on its presence. Create one with attributes likely
-        # to be used.
-        http_request = HttpRequest()
-        http_request.path = request.uri
-        http_request.method = request.http_method
-        getattr(http_request, request.http_method).update(dict(request.decoded_body))
-        http_request.META = request.headers
-        u = authenticate(http_request, username=username, password=password)
+        # which depend on its presence.
+        http_request = self.build_http_request(request)
+        u = None
+        try:
+            u = authenticate(http_request, username=username, password=password)
+        except ValueError:
+            # Some database backends (e.g. PostgreSQL via psycopg2)
+            # raise ValueError instead of executing the underlying
+            # user lookup query at all when username contains a NUL/0x00
+            # byte, rather than the usual "no matching user" outcome
+            # authenticate() otherwise returns as None. No legitimate
+            # username can contain a NUL byte, so treat it the same way:
+            # authentication simply failed, rather than letting it
+            # propagate into a 500 error. Any other ValueError (e.g.
+            # raised by a custom authentication backend for an unrelated
+            # reason) is re-raised so genuine errors are not silently
+            # masked. See GH #1006.
+            if "\x00" not in username:
+                raise
         if u is not None and u.is_active:
             request.user = u
             return True
@@ -812,7 +1192,15 @@ class OAuth2Validator(RequestValidator):
         Also attach User instance to the request object
         """
 
-        rt = RefreshToken.objects.filter(token=refresh_token).select_related("access_token").first()
+        token_checksum = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
+        # Several rows may share a checksum (uniqueness is (token_checksum, revoked)):
+        # prefer the unrevoked row, otherwise the most recently revoked one.
+        rt = (
+            RefreshToken.objects.filter(token_checksum=token_checksum)
+            .select_related("access_token")
+            .order_by(F("revoked").desc(nulls_first=True))
+            .first()
+        )
 
         if not rt:
             return False
@@ -827,7 +1215,10 @@ class OAuth2Validator(RequestValidator):
             return False
 
         request.user = rt.user
-        request.refresh_token = rt.token
+        # Use the raw token presented in the request, not rt.token: under hashed-at-rest
+        # storage (COMPLIANT_BCP_RFC9700_TOKEN_STORAGE=True) the stored
+        # column is blank, and oauthlib reuses request.refresh_token when rotation is off.
+        request.refresh_token = refresh_token
         # Temporary store RefreshToken instance to be reused by get_original_scopes and save_bearer_token.
         request.refresh_token_instance = rt
 
@@ -897,12 +1288,28 @@ class OAuth2Validator(RequestValidator):
         claims = self.get_oidc_claims(token, token_handler, request)
 
         expiration_time = timezone.now() + timedelta(seconds=oauth2_settings.ID_TOKEN_EXPIRE_SECONDS)
+
+        auth_time = request.user.last_login
+        if auth_time is None:
+            auth_time = timezone.now()
+
+        # RFC 7519 numeric dates are seconds since epoch in UTC.
+        # For USE_TZ=False, naive datetimes represent local wall-clock time.
+        # For USE_TZ=True, legacy naive values are interpreted as UTC.
+        if timezone.is_naive(auth_time):
+            if settings.USE_TZ:
+                auth_time = auth_time.replace(tzinfo=datetime_timezone.utc)
+            else:
+                auth_time = make_aware(auth_time, timezone=timezone.get_default_timezone())
+
+        auth_time = auth_time.astimezone(datetime_timezone.utc)
+
         # Required ID Token claims
         claims.update(
             **{
                 "iss": self.get_oidc_issuer_endpoint(request),
                 "exp": int(dateformat.format(expiration_time, "U")),
-                "auth_time": int(dateformat.format(request.user.last_login, "U")),
+                "auth_time": int(auth_time.timestamp()),
                 "jti": str(uuid.uuid4()),
             }
         )

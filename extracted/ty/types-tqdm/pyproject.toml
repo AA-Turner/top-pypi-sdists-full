@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-tqdm"
-version = "4.69.0.20260720"
+version = "4.69.0.20260724"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for tqdm"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0`](https://github.com/python/typeshed/commit/e4e0f7e3faccda1ea2be38c00fc43ba4a77249d0).
+[`97e83f65cee88c0c978fa34668d9f59b8c362fce`](https://github.com/python/typeshed/commit/97e83f65cee88c0c978fa34668d9f59b8c362fce).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

@@ -45,6 +45,60 @@ console = Console()
 
 CONFIG_PATH = Path.home() / ".cvc" / "config.yaml"
 
+
+def _detect_platform_install_hint() -> str | None:
+    """
+    If the current host is one where uv's default hardlink installer is known
+    to fail (Android/Termux, some chroots, some WSL2 distros with cross-mount
+    /root), return a one-line install hint that explains the workaround.
+
+    Detection is heuristic: ANDROID_ROOT / ANDROID_DATA env vars (Android),
+    plus a libc probe of the ``/root/.cache`` create + link test. We do NOT
+    shell out to ``uv`` — that's the user's install step, not ours.
+
+    Returns:
+        None if the platform looks normal, otherwise a short recommendation.
+    """
+    # Direct Android signal — Termux + native Android set these.
+    if os.environ.get("ANDROID_ROOT") or os.environ.get("ANDROID_DATA"):
+        return (
+            "Detected Android environment. If `uv tool install tm-ai` fails with "
+            "`Operation not permitted (os error 1)` during extraction, run:\n"
+            "    UV_LINK_MODE=copy uv tool install tm-ai --upgrade --force"
+        )
+
+    # Heuristic: can we hardlink across /root/.cache <-> /root/.local?
+    # Many read-only bind mounts and chroots fail here. We *try* one hardlink
+    # and immediately clean up. If it fails, surface the hint.
+    src_dir = Path("/tmp")
+    try:
+        a = src_dir / ".cvc_probe_a"
+        b = src_dir / ".cvc_probe_b"
+        if a.exists():
+            a.unlink()
+        if b.exists():
+            b.unlink()
+        a.write_text("x")
+        try:
+            os.link(a, b)
+        except OSError:
+            return (
+                "Filesystem here disallows hardlinks (common on Android, chroots, "
+                "and some WSL2 mounts). If `uv tool install tm-ai` fails with "
+                "`Operation not permitted (os error 1)`, run:\n"
+                "    UV_LINK_MODE=copy uv tool install tm-ai --upgrade --force"
+            )
+        finally:
+            if a.exists():
+                a.unlink()
+            if b.exists():
+                b.unlink()
+    except Exception:
+        # If we can't even probe, just stay silent — don't add noise.
+        return None
+
+    return None
+
 def _load_providers_from_registry() -> list[tuple[str, str, str]]:
     """Build the legacy (key, label, default_model) tuples from the registry.
 
@@ -532,6 +586,22 @@ def run_wizard(first_run: bool = False) -> None:
             padding=(1, 4),
         )
     )
+
+    # Platform-specific install hint (Android, chroots, some WSL2 mounts).
+    # See _detect_platform_install_hint for the rationale.
+    hint = _detect_platform_install_hint()
+    if hint:
+        console.print()
+        console.print(
+            Panel(
+                Text.from_markup(
+                    f"[bold yellow]Platform notice[/bold yellow]\n"
+                    f"[{THEME['text']}]{hint}[/{THEME['text']}]"
+                ),
+                border_style="yellow",
+                padding=(1, 4),
+            )
+        )
 
     existing = _load_existing()
     if existing and not first_run:

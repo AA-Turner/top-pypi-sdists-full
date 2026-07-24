@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: msgraph-beta-sdk
-Version: 1.60.1
+Version: 1.61.0
 Summary: The Microsoft Graph Beta Python SDK
 Keywords: msgraph,openAPI,Microsoft,Graph,beta
 Author-email: Microsoft <graphtooling+python@microsoft.com>

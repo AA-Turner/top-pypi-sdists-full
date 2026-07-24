@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coredis
-Version: 6.7.0
+Version: 6.8.0
 Summary: Fast, async, fully-typed Redis client with support for cluster and sentinel
 Project-URL: Homepage, https://github.com/alisaifee/coredis
 Project-URL: Source, https://github.com/alisaifee/coredis
@@ -177,7 +177,6 @@ coredis is additionally tested against:
 - 3.12
 - 3.13
 - 3.14
-- PyPy 3.10
 - PyPy 3.11
 
 ### Redis API compatible databases

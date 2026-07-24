@@ -25,6 +25,7 @@ from snowflake.snowpark_connect.utils.scala_udf_utils import LazyCreatedScalaUdf
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.udf_helper import (
+    LazyPythonUdf,
     LazySnowparkUdf,
     SnowparkUDF,
     SnowparkUdfBase,
@@ -35,6 +36,7 @@ from snowflake.snowpark_connect.utils.udf_helper import (
 )
 from snowflake.snowpark_connect.utils.udf_utils import (
     ProcessCommonInlineUserDefinedFunction,
+    build_timestamp_return_descriptor,
 )
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
@@ -95,12 +97,17 @@ def process_udf_return_type(
     """
     original_snowpark_type = proto_to_snowpark_type(return_type)
 
-    # Snowflake UDF does not support MapType or StructType, so we convert them to VariantType.
-    # We return both the converted type and original type for proper result processing.
-    # Array Type with Timestamps raises an incident when return type is not converted to VariantType.
-    # Related JIRA: https://snowflakecomputing.atlassian.net/browse/SNOW-2131897
-    if isinstance(original_snowpark_type, (ArrayType, MapType, StructType)):
+    # MapType/StructType → always VARIANT (no native Snowflake UDF return for these).
+    if isinstance(original_snowpark_type, (MapType, StructType)):
         return VariantType(), original_snowpark_type
+
+    # ArrayType → native unless it contains a TimestampType leaf.
+    # Arrays with timestamps raise a Snowflake incident (SNOW-2131897) when returned natively,
+    # so we keep them as VARIANT.
+    if isinstance(original_snowpark_type, ArrayType):
+        if build_timestamp_return_descriptor(original_snowpark_type) is not None:
+            return VariantType(), original_snowpark_type
+        return original_snowpark_type, original_snowpark_type
 
     return original_snowpark_type, original_snowpark_type
 
@@ -170,6 +177,39 @@ def register_udf(
 
     is_python_udf = udf_proto.WhichOneof("function") == "python_udf"
 
+    # For Python UDFs registered via spark.udf.register, use a lazy handle that defers
+    # DDL emission until the first call site.  This allows native input types (instead of
+    # all-VARIANT) to be emitted when all call-site types are natively representable, which
+    # eliminates the schema-JSON coercion wrapper and VARIANT round-trip overhead.
+    if is_python_udf:
+        cast_to_original = isinstance(processed_return_type, VariantType)
+        # The physical Snowflake function name must be session-unique: two Spark
+        # sessions can register different UDFs under the same logical name, and the
+        # deferred DDL would otherwise CREATE OR REPLACE a single shared function
+        # (breaking session isolation). Mirror the Scala lazy path's session suffix.
+        # The logical name (function_name.lower()) remains the session-cache key.
+        from snowflake.snowpark_connect.utils.context import get_spark_session_id
+
+        logical_name = udf_proto.function_name.lower()
+        session_id = get_spark_session_id()
+        session_suffix = f"_{session_id.replace('-', '_')}" if session_id else ""
+        udf_name = f"{logical_name}{session_suffix}"
+        snowpark_udf: SnowparkUdfBase = LazyPythonUdf(
+            name=udf_name,
+            return_type=processed_return_type,
+            original_return_type=original_return_type,
+            cast_to_original_return_type=cast_to_original,
+            _proto=udf_proto,
+            _udf_packages=global_config.get("snowpark.connect.udf.packages", ""),
+            _udf_imports=get_python_udxf_import_files(session),
+            _artifact_repository=get_artifact_repository(),
+            _resource_constraint=_get_resource_constraint(),
+            _use_sproc=require_creating_udf_in_sproc(udf_proto),
+        )
+        cache = get_spark_session_cache()
+        cache.udfs.register(logical_name, snowpark_udf)
+        return snowpark_udf
+
     kwargs = {
         "common_inline_user_defined_function": udf_proto,
         "called_from": "register_udf",
@@ -179,14 +219,7 @@ def register_udf(
         "original_return_type": original_return_type,
         "artifact_repository": get_artifact_repository(),
         "resource_constraint": _get_resource_constraint(),
-        # SNOW-3381818: for UDFs registered via spark.udf.register, the proto
-        # carries no call-site input types so the underlying Snowflake UDF
-        # defaults to VARIANT inputs. That round-trip collapses
-        # integer-valued FloatType/DoubleType values to Python int
-        # (e.g. 1.0 -> 1), which diverges from Spark. We pass per-call type
-        # metadata as an extra arg and let the UDF wrapper coerce — see
-        # ``create_schema_json_coercion_wrapper``.
-        "coerce_via_schema_json": is_python_udf,
+        "coerce_via_schema_json": False,
     }
 
     use_sproc = require_creating_udf_in_sproc(udf_proto)

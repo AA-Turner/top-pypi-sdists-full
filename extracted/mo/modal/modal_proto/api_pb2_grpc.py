@@ -380,6 +380,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentGetOrCreateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.EnvironmentGetOrCreateResponse.FromString,
                 )
+        self.EnvironmentGetRoles = channel.unary_unary(
+                '/modal.client.ModalClient/EnvironmentGetRoles',
+                request_serializer=modal__proto_dot_api__pb2.EnvironmentGetRolesRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EnvironmentGetRolesResponse.FromString,
+                )
         self.EnvironmentList = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentList',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
@@ -454,6 +459,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/FunctionCallGetDataOut',
                 request_serializer=modal__proto_dot_api__pb2.FunctionCallGetDataRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.DataChunk.FromString,
+                )
+        self.FunctionCallGetInfo = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionCallGetInfo',
+                request_serializer=modal__proto_dot_api__pb2.FunctionCallGetInfoRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FunctionCallGetInfoResponse.FromString,
                 )
         self.FunctionCallList = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionCallList',
@@ -725,6 +735,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessResponse.FromString,
                 )
+        self.SandboxGetExitSnapshot = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxGetExitSnapshot',
+                request_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
+                )
         self.SandboxGetFromName = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxGetFromName',
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
@@ -779,6 +794,16 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/SandboxRestore',
                 request_serializer=modal__proto_dot_api__pb2.SandboxRestoreRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxRestoreResponse.FromString,
+                )
+        self.SandboxRestoreV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxRestoreV2',
+                request_serializer=modal__proto_dot_api__pb2.SandboxRestoreV2Request.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxRestoreV2Response.FromString,
+                )
+        self.SandboxSetName = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxSetName',
+                request_serializer=modal__proto_dot_api__pb2.SandboxSetNameRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxSetNameResponse.FromString,
                 )
         self.SandboxSnapshot = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxSnapshot',
@@ -1611,6 +1636,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EnvironmentGetRoles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EnvironmentList(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1698,6 +1729,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def FunctionCallGetDataOut(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FunctionCallGetInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2038,6 +2075,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SandboxGetExitSnapshot(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SandboxGetFromName(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2100,6 +2143,18 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxRestore(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxRestoreV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxSetName(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2933,6 +2988,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentGetOrCreateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.EnvironmentGetOrCreateResponse.SerializeToString,
             ),
+            'EnvironmentGetRoles': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnvironmentGetRoles,
+                    request_deserializer=modal__proto_dot_api__pb2.EnvironmentGetRolesRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EnvironmentGetRolesResponse.SerializeToString,
+            ),
             'EnvironmentList': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentList,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
@@ -3007,6 +3067,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.FunctionCallGetDataOut,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCallGetDataRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.DataChunk.SerializeToString,
+            ),
+            'FunctionCallGetInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionCallGetInfo,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionCallGetInfoRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FunctionCallGetInfoResponse.SerializeToString,
             ),
             'FunctionCallList': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionCallList,
@@ -3278,6 +3343,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessResponse.SerializeToString,
             ),
+            'SandboxGetExitSnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxGetExitSnapshot,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.SerializeToString,
+            ),
             'SandboxGetFromName': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxGetFromName,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.FromString,
@@ -3332,6 +3402,16 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.SandboxRestore,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxRestoreRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxRestoreResponse.SerializeToString,
+            ),
+            'SandboxRestoreV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxRestoreV2,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxRestoreV2Request.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxRestoreV2Response.SerializeToString,
+            ),
+            'SandboxSetName': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxSetName,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxSetNameRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxSetNameResponse.SerializeToString,
             ),
             'SandboxSnapshot': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxSnapshot,
@@ -4960,6 +5040,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EnvironmentGetRoles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentGetRoles',
+            modal__proto_dot_api__pb2.EnvironmentGetRolesRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EnvironmentGetRolesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def EnvironmentList(request,
             target,
             options=(),
@@ -5211,6 +5308,23 @@ class ModalClient(object):
         return grpc.experimental.unary_stream(request, target, '/modal.client.ModalClient/FunctionCallGetDataOut',
             modal__proto_dot_api__pb2.FunctionCallGetDataRequest.SerializeToString,
             modal__proto_dot_api__pb2.DataChunk.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FunctionCallGetInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionCallGetInfo',
+            modal__proto_dot_api__pb2.FunctionCallGetInfoRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FunctionCallGetInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -6133,6 +6247,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def SandboxGetExitSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetExitSnapshot',
+            modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def SandboxGetFromName(request,
             target,
             options=(),
@@ -6316,6 +6447,40 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxRestore',
             modal__proto_dot_api__pb2.SandboxRestoreRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxRestoreResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxRestoreV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxRestoreV2',
+            modal__proto_dot_api__pb2.SandboxRestoreV2Request.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxRestoreV2Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxSetName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxSetName',
+            modal__proto_dot_api__pb2.SandboxSetNameRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxSetNameResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

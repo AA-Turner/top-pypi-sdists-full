@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from collections import UserDict
-from typing import Optional, cast
+from typing import Any, Callable, Optional, cast
 
 from pymobiledevice3.exceptions import InspectorEvaluateError
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
@@ -20,8 +20,8 @@ webinspector_logger_handlers = {
 }
 
 
-class JSObjectPreview(UserDict):
-    def __init__(self, properties: list[dict]):
+class JSObjectPreview(UserDict[str, Any]):
+    def __init__(self, properties: list[dict[str, Any]]):
         super().__init__()
         for p in properties:
             name = p["name"]
@@ -29,8 +29,8 @@ class JSObjectPreview(UserDict):
             self.data[name] = value
 
 
-class JSObjectProperties(UserDict):
-    def __init__(self, properties: list[dict]):
+class JSObjectProperties(UserDict[str, Any]):
+    def __init__(self, properties: list[dict[str, Any]]):
         super().__init__()
         for p in properties:
             name = p["name"]
@@ -59,10 +59,10 @@ class InspectorSession:
         self.protocol = protocol
         self.target_id = target_id
         self.message_id = 1
-        self._last_console_message = {}
-        self._dispatch_message_responses = {}
+        self._last_console_message: dict[str, Any] = {}
+        self._dispatch_message_responses: dict[int, dict[str, Any]] = {}
 
-        self.response_methods = {
+        self.response_methods: dict[str, Callable[[dict[str, Any]], Any]] = {
             "Target.targetCreated": self._target_created,
             "Target.targetDestroyed": self._target_destroyed,
             "Target.dispatchMessageFromTarget": self._target_dispatch_message_from_target,
@@ -94,7 +94,7 @@ class InspectorSession:
         target = cls(protocol, target_id)
         return target
 
-    def set_target_id(self, target_id):
+    def set_target_id(self, target_id: str):
         self.target_id = target_id
         logger.info(f"Changed to: {target_id}")
 
@@ -105,7 +105,7 @@ class InspectorSession:
         snapshot = await self.send_command("Heap.snapshot")
         if self.target_id is not None:
             # when a target id is present, the response came from Target.dispatchMessageFromTarget (a dict)
-            snapshot = json.loads(cast(dict, snapshot)["params"]["message"])
+            snapshot = json.loads(cast(dict[str, Any], snapshot)["params"]["message"])
         snapshot = json.loads(cast(str, snapshot))["result"]["snapshotData"]
         return snapshot
 
@@ -118,7 +118,7 @@ class InspectorSession:
     async def runtime_enable(self):
         return await self.send_command("Runtime.enable")
 
-    async def send_command(self, method: str, **kwargs):
+    async def send_command(self, method: str, **kwargs: Any):
         if self.target_id is None:
             return await self.protocol.send_receive(method, **kwargs)
         else:
@@ -153,7 +153,7 @@ class InspectorSession:
     async def navigate_to_url(self, url: str):
         return await self.runtime_evaluate(exp=f'window.location = "{url}"')
 
-    async def send_and_receive(self, message: dict) -> dict:
+    async def send_and_receive(self, message: dict[str, Any]) -> dict[str, Any]:
         if self.target_id is None:
             message_id = await self.protocol.send_command(message["method"], **message.get("params", {}))
             return await self.protocol.wait_for_message(message_id)
@@ -161,7 +161,7 @@ class InspectorSession:
             message_id = await self.send_message_to_target(message)
             return await self.receive_response_by_id(message_id)
 
-    async def send_message_to_target(self, message: dict) -> int:
+    async def send_message_to_target(self, message: dict[str, Any]) -> int:
         message["id"] = self.message_id
         self.message_id += 1
         await self.protocol.send_command(
@@ -181,7 +181,7 @@ class InspectorSession:
             else:
                 logger.error(f"Unknown response: {response}")
 
-    async def receive_response_by_id(self, message_id: int) -> dict:
+    async def receive_response_by_id(self, message_id: int) -> dict[str, Any]:
         while True:
             if message_id in self._dispatch_message_responses:
                 return self._dispatch_message_responses.pop(message_id)
@@ -189,7 +189,7 @@ class InspectorSession:
 
     async def get_properties(self, object_id: str) -> JSObjectProperties:
         message = cast(
-            dict,
+            dict[str, Any],
             await self.send_command(
                 "Runtime.getProperties", objectId=object_id, ownProperties=True, generatePreview=True
             ),
@@ -198,7 +198,7 @@ class InspectorSession:
             message = json.loads(message["params"]["message"])["result"]
         return JSObjectProperties(message["properties"])
 
-    async def _parse_runtime_evaluate(self, response: dict):
+    async def _parse_runtime_evaluate(self, response: dict[str, Any]):
         message = response if self.target_id is None else json.loads(response["params"]["message"])
         result = message["result"]["result"]
         if result.get("subtype", "") == "error":
@@ -235,7 +235,7 @@ class InspectorSession:
             return result["value"]
 
     # response methods
-    def _target_dispatch_message_from_target(self, response: dict):
+    def _target_dispatch_message_from_target(self, response: dict[str, Any]):
         target_message = json.loads(response["params"]["message"])
         receive_message_id = target_message.get("id")
         if receive_message_id is None:
@@ -243,30 +243,30 @@ class InspectorSession:
             return
         self._dispatch_message_responses[receive_message_id] = response
 
-    def _missing_id_in_message(self, message: dict):
+    def _missing_id_in_message(self, message: dict[str, Any]):
         handler = self.response_methods.get(message["method"])
         if handler is not None:
             handler(message)
         else:
             logger.critical(f"unhandled message: {message}")
 
-    def _console_message_added(self, message: dict):
+    def _console_message_added(self, message: dict[str, Any]):
         log_level = message["params"]["message"]["level"]
         text = message["params"]["message"]["text"]
         self._last_console_message = message
         webinspector_logger_handlers[log_level](text)
 
-    def _console_message_repeated_count_updated(self, message: dict):
+    def _console_message_repeated_count_updated(self, message: dict[str, Any]):
         self._console_message_added(self._last_console_message)
 
-    def _heap_garbage_collected(self, message: dict):
+    def _heap_garbage_collected(self, message: dict[str, Any]):
         heap_logger.debug(message["params"])
 
-    def _target_created(self, response: dict):
+    def _target_created(self, response: dict[str, Any]):
         pass
 
-    def _target_destroyed(self, response: dict):
+    def _target_destroyed(self, response: dict[str, Any]):
         pass
 
-    def _target_did_commit_provisional_target(self, response: dict):
+    def _target_did_commit_provisional_target(self, response: dict[str, Any]):
         self.set_target_id(response["params"]["newTargetId"])

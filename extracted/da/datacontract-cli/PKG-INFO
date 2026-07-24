@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.0.13
+Version: 1.0.14
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -11,7 +11,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: typer<0.27,>=0.18.0
+Requires-Dist: typer<0.28,>=0.18.0
 Requires-Dist: click<9.0.0,>=8.1.0
 Requires-Dist: pydantic<2.14.0,>=2.8.2
 Requires-Dist: pyyaml~=6.0.1
@@ -42,7 +42,7 @@ Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "excel"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks,pyspark]<13.0.0,>=10.0.0; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.4.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.121.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.122.0; extra == "databricks"
 Requires-Dist: pyspark<5.0.0,>=3.5.0; extra == "databricks"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg==0.11.1; extra == "iceberg"
@@ -55,9 +55,11 @@ Requires-Dist: datacontract-cli[duckdb]; extra == "mysql"
 Provides-Extra: postgres
 Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "postgres"
 Requires-Dist: psycopg[binary]<4.0,>=3.1; extra == "postgres"
+Requires-Dist: packaging<27.0,>=21.3; extra == "postgres"
 Provides-Extra: redshift
 Requires-Dist: ibis-framework[postgres]<13.0.0,>=10.0.0; extra == "redshift"
 Requires-Dist: psycopg[binary]<4.0,>=3.1; extra == "redshift"
+Requires-Dist: packaging<27.0,>=21.3; extra == "redshift"
 Provides-Extra: s3
 Requires-Dist: s3fs<2027.0.0,>=2025.2.0; extra == "s3"
 Requires-Dist: duckdb-extension-httpfs<1.6.0,>=1.5.0; extra == "s3"
@@ -71,18 +73,23 @@ Requires-Dist: duckdb-extension-azure<1.6.0,>=1.5.0; extra == "azure"
 Requires-Dist: azure-identity<1.26,>=1.17.1; extra == "azure"
 Requires-Dist: azure-storage-blob<12.31,>=12.24; extra == "azure"
 Provides-Extra: snowflake
-Requires-Dist: snowflake-connector-python[pandas]<4.7,>=3.6; extra == "snowflake"
+Requires-Dist: snowflake-connector-python[pandas]<4.8,>=3.6; extra == "snowflake"
 Requires-Dist: ibis-framework[snowflake]<13.0.0,>=10.0.0; extra == "snowflake"
 Provides-Extra: sqlserver
 Requires-Dist: ibis-framework[mssql]<13.0.0,>=10.0.0; extra == "sqlserver"
+Requires-Dist: packaging<27.0,>=21.3; extra == "sqlserver"
 Provides-Extra: oracle
 Requires-Dist: ibis-framework[oracle]<13.0.0,>=10.0.0; extra == "oracle"
+Requires-Dist: packaging<27.0,>=21.3; extra == "oracle"
 Provides-Extra: athena
 Requires-Dist: ibis-framework[athena]<13.0.0,>=10.0.0; extra == "athena"
+Requires-Dist: packaging<27.0,>=21.3; extra == "athena"
 Provides-Extra: trino
 Requires-Dist: ibis-framework[trino]<13.0.0,>=10.0.0; extra == "trino"
+Requires-Dist: packaging<27.0,>=21.3; extra == "trino"
 Provides-Extra: impala
 Requires-Dist: ibis-framework[impala]<13.0.0,>=10.0.0; extra == "impala"
+Requires-Dist: packaging<27.0,>=21.3; extra == "impala"
 Provides-Extra: dbml
 Requires-Dist: pydbml>=1.1.1; extra == "dbml"
 Provides-Extra: duckdb
@@ -112,7 +119,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.3.13; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<9.7.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.15.21; extra == "dev"
+Requires-Dist: ruff==0.15.22; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.14.2; extra == "dev"
 Requires-Dist: trino==0.338.0; extra == "dev"
 Dynamic: license-file

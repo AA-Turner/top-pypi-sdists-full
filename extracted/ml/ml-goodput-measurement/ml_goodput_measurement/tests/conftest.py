@@ -17,10 +17,10 @@ import pathlib
 import sys
 import types
 
-_= types.ModuleType(')
-___path__ = [str(pathlib.Path(__file__).parent.parent.parent)]
-___package__ = '
-sys.modules['] = _cloud_goodput
+_cloud_goodput = types.ModuleType('cloud_goodput')
+_cloud_goodput.__path__ = [str(pathlib.Path(__file__).parent.parent.parent)]
+_cloud_goodput.__package__ = 'cloud_goodput'
+sys.modules['cloud_goodput'] = _cloud_goodput
 
 from absl.testing import absltest as _absltest
 

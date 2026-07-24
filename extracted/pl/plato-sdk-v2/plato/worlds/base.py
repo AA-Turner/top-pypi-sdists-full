@@ -757,6 +757,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         git_ws: list[tuple[Workspace, WorkspaceMarker]] = []
         rsync_ws: list[Workspace] = []
         sshfs_ws: list[Workspace] = []
+        fuse_ws: list[tuple[Workspace, WorkspaceMarker]] = []
 
         for ws in self._workspaces.values():
             marker = annotations.get(ws.name)
@@ -765,7 +766,13 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 git_ws.append((ws, marker))
             elif marker_transport == "rsync":
                 rsync_ws.append(ws)
-            elif self.config.transport_mode == "sshfs" and marker_transport != "git":
+            elif marker_transport == "fuse" and isinstance(marker, WorkspaceMarker):
+                fuse_ws.append((ws, marker))
+            elif marker_transport == "sshfs" or (marker_transport is None and self.config.transport_mode == "sshfs"):
+                # An EXPLICIT per-workspace transport always wins: a marker
+                # pinned to "nfs_kernel" must not be silently rerouted to
+                # sshfs by the world-level transport_mode (read-only datasets
+                # opt out of fuse INTO NFS specifically).
                 sshfs_ws.append(ws)
             else:
                 nfs_ws.append((ws, marker if isinstance(marker, WorkspaceMarker) else None))
@@ -791,9 +798,19 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 marker_transport="rsync",
             )
 
+        # Direct per-agent-VM fuse mounts (read-only datasets): no world-side
+        # server, so these init in parallel like git/rsync/sshfs.
+        async def _setup_fuse(ws: Workspace, marker: WorkspaceMarker) -> None:
+            await ws.setup_transport(
+                runtime_info,
+                marker_transport="fuse",
+                readonly=marker.readonly,
+            )
+
         parallel_tasks = [_setup_git(ws, m) for ws, m in git_ws]
         parallel_tasks.extend(_setup_rsync(ws) for ws in rsync_ws)
         parallel_tasks.extend(_setup_sshfs(ws) for ws in sshfs_ws)
+        parallel_tasks.extend(_setup_fuse(ws, m) for ws, m in fuse_ws)
 
         # NFS: first workspace creates server, rest add exports (sequential)
         nfs_server = None

@@ -48,7 +48,7 @@ def _passed_forbidden_args(
     passed_forbidden: list[str] = []
     for param in params:
         name = param.name
-        if name is None or allowed(name):
+        if not name or allowed(name):
             continue
         default = param.process_value(ctx, param.get_default(ctx))
         if passed_args.get(name) != default:
@@ -150,7 +150,7 @@ def _start_shell_in_running_container(ref: str, cmd: str, pty: bool) -> None:
 
     assert _is_valid_modal_id(ref, "ta-")
     try:
-        _exec_impl(container_id=ref, command=shlex.split(cmd), pty=pty, object_id_for_v2=object_id_for_v2)
+        _ = _exec_impl(container_id=ref, command=tuple(shlex.split(cmd)), pty=pty, object_id_for_v2=object_id_for_v2)
     except NotFoundError:
         raise ClickException(f"Container '{ref}' not found (is it still running?)")
     except Exception as e:
@@ -236,6 +236,7 @@ def _start_shell_from_image(
     region: str | None,
     pty: bool,
     experimental_options: dict[str, str],
+    v2: bool,
 ) -> None:
     volumes = {f"/mnt/{vol}": Volume.from_name(vol) for vol in volume}
     secrets = [Secret.from_name(s) for s in secret]
@@ -267,6 +268,7 @@ def _start_shell_from_image(
         region=region.split(",") if region else [],
         pty=pty,
         experimental_options=experimental_options,
+        v2=v2,
     )
 
 
@@ -327,6 +329,14 @@ def _start_shell_from_image(
     hidden=True,
     metavar="KEY=VALUE",
 )
+@click.option(
+    "--experimental-v2",
+    "v2",
+    is_flag=True,
+    default=False,
+    hidden=True,
+    help="Create the shell using the V2 sandbox backend.",
+)
 def shell(
     ref: str | None = None,
     cmd: str = "/bin/bash",
@@ -344,6 +354,7 @@ def shell(
     pty: bool | None = None,
     use_module_mode: bool = False,
     experimental_options: tuple[str, ...] = (),
+    v2: bool = False,
 ):
     """Run a command or interactive shell inside a Modal container.
 
@@ -362,7 +373,7 @@ def shell(
     modal shell hello_world.py::my_function
     ```
 
-    Or, if you're using a [modal.Cls](https://modal.com/docs/sdk/py/latest/modal.Cls)
+    Or, if you're using a [modal.Cls](https://modal.com/docs/sdk/py/latest/Cls)
     you can refer to a `@modal.method` directly:
 
     ```
@@ -423,13 +434,20 @@ def shell(
             shell.params,
             ctx,
             locals(),
-            allowed=lambda p: p in {"cmd", "env", "pty", "ref", "use_module_mode", "experimental_options"},
+            allowed=lambda p: p in {"cmd", "env", "pty", "ref", "use_module_mode", "experimental_options", "v2"},
         ):
             raise ClickException(
                 f"Cannot specify container configuration arguments ({', '.join(passed_forbidden)}) "
                 f"when starting a new container from a function reference ('{ref}')."
             )
 
+        if v2:
+            # Function specs always carry mounts (e.g. the client mount), which the
+            # V2 backend does not support.
+            raise ClickException(
+                "--experimental-v2 is not supported when starting a shell from a function reference. "
+                "Use an image instead (e.g. `modal shell --experimental-v2 --image ...`)."
+            )
         function_spec = _function_spec_from_ref(ref, use_module_mode)
         _start_shell_from_function_spec(app, cmds, env, timeout, function_spec, pty, parsed_experimental_options)
         return
@@ -463,4 +481,5 @@ def shell(
         region,
         pty,
         parsed_experimental_options,
+        v2,
     )

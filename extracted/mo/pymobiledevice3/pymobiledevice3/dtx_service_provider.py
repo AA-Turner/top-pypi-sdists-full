@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import socket as _socket
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional, cast
 
 from packaging.version import Version
 from typing_extensions import Self
@@ -135,7 +135,7 @@ class DtxServiceProvider:
         self._dtx: Optional[DTXConnection] = dtx
         self._owns_dtx: bool = dtx is None
         self.logger = logging.getLogger(self.__module__)
-        self.sent_capabilities: Optional[dict] = DTXConnection.DEFAULT_CAPABILITIES.copy()
+        self.sent_capabilities: Optional[dict[str, Any]] = DTXConnection.DEFAULT_CAPABILITIES.copy()
         """Capabilities to send during handshake.  Defaults to
         :attr:`DTXConnection.DEFAULT_CAPABILITIES`.  Set to ``None`` to skip the handshake entirely
         """
@@ -205,9 +205,9 @@ class DtxServiceProvider:
             with lockdown.ssl_file() as f:  # type: ignore[attr-defined]
                 if strip_ssl:
                     svc.setblocking(True)
-                    svc.ssl_start_sync(f)
+                    svc.ssl_start_sync(cast(str, f))
                 else:
-                    await svc.ssl_start(f)
+                    await svc.ssl_start(cast(str, f))
 
         if (
             strip_ssl

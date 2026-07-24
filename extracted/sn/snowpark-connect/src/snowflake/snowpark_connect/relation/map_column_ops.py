@@ -96,6 +96,7 @@ from snowflake.snowpark_connect.utils.expression_transformer import (
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.schema_utils import datatypes_equal
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.udtf_helper import create_apply_udtf_in_sproc
 from snowflake.snowpark_connect.utils.udtf_utils import (
@@ -1034,9 +1035,23 @@ def map_to_schema(
         snowpark_new_column_names = new_snowpark_new_column_names
     new_schema = rel.to_schema.schema
     snowpark_schema: snowpark.types.StructType = proto_to_snowpark_type(new_schema)
+    # Skip identity casts: a column that already has its declared type only needs
+    # to be selected. `input_df.schema` is already materialized above (validation),
+    # and only carries the pre-existing columns; freshly added NULL columns are
+    # absent, so they fall through to the cast branch as before.
+    current_types_by_name = (
+        {unquote_if_quoted(f.name): f.datatype for f in input_df.schema.fields}
+        if already_existing_columns
+        else {}
+    )
     result_with_casting = result.select(
         *[
-            snowpark_fn.cast(col_name, snowpark_field.datatype).as_(col_name)
+            snowpark_fn.col(col_name).as_(col_name)
+            if datatypes_equal(
+                current_types_by_name.get(unquote_if_quoted(col_name)),
+                snowpark_field.datatype,
+            )
+            else snowpark_fn.cast(col_name, snowpark_field.datatype).as_(col_name)
             for col_name, snowpark_field in zip(
                 snowpark_new_column_names, snowpark_schema.fields
             )

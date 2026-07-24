@@ -364,6 +364,8 @@ from .type_defs import (
     StartNotebookImportOutputTypeDef,
     StartNotebookRunInputTypeDef,
     StartNotebookRunOutputTypeDef,
+    StartNotebookSyncInputTypeDef,
+    StartNotebookSyncOutputTypeDef,
     StopNotebookRunInputTypeDef,
     StopNotebookRunOutputTypeDef,
     TagResourceRequestTypeDef,
@@ -2072,6 +2074,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#start_notebook_run)
+        """
+
+    def start_notebook_sync(
+        self, **kwargs: Unpack[StartNotebookSyncInputTypeDef]
+    ) -> StartNotebookSyncOutputTypeDef:
+        """
+        Starts a notebook sync in Amazon SageMaker Unified Studio.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/start_notebook_sync.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datazone/client/#start_notebook_sync)
         """
 
     def stop_notebook_run(

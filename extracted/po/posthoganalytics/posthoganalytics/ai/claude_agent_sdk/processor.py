@@ -25,6 +25,7 @@ except ImportError:
     )
 
 from posthoganalytics import setup
+from posthoganalytics.ai.utils import _capture_ai_event
 from posthoganalytics.client import Client
 
 log = logging.getLogger("posthog")
@@ -198,9 +199,10 @@ class PostHogClaudeAgentProcessor:
                 **self._properties,
             }
 
-            self._client.capture(
+            _capture_ai_event(
+                self._client,
+                event,
                 distinct_id=distinct_id or "unknown",
-                event=event,
                 properties=final_properties,
                 groups=groups if groups is not None else self._groups,
             )

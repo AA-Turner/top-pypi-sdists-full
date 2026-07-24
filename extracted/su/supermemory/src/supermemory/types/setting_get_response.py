@@ -60,5 +60,3 @@ class SettingGetResponse(BaseModel):
     """Profile bucket definitions"""
 
     should_llm_filter: Optional[bool] = FieldInfo(alias="shouldLLMFilter", default=None)
-
-    workspace_prompt: Optional[str] = FieldInfo(alias="workspacePrompt", default=None)

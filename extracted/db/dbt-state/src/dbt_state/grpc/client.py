@@ -46,7 +46,7 @@ from query_cache_common.models.services import (
 
 
 if t.TYPE_CHECKING:
-    from dbt_state._typing import SQLSubmitResponse
+    from dbt_state._typing import SpeculativeSubmitResponse, SQLSubmitResponse
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -245,6 +245,45 @@ class QueryCacheGrpcClient:
             return sql_service_models.SkipExecutionResponse.from_proto(response.skip_execution)
         if which == "ready_to_clone":
             return clone_service_models.ReadyToCloneResponse.from_proto(response.ready_to_clone)
+        raise ValueError(f"Unexpected response type: {which}")
+
+    def submit_sql_speculative(
+        self,
+        request: sql_service_models.SubmitEnrichedSQLRequest,
+        request_id: t.Optional[str] = None,
+    ) -> SpeculativeSubmitResponse:
+        """Submit enriched SQL for a speculative cache decision using whatever
+        dependency timestamps are currently available.
+
+        Args:
+            request: SubmitEnrichedSQLRequest
+            request_id: Optional UUID string
+
+        Returns:
+            One of: ReadyToExecuteUntrackedResponse, SkipExecutionResponse,
+            ReadyToCloneResponse, or UndecidedResponse
+
+        Raises:
+            grpc.RpcError: If the RPC fails
+        """
+        self._check_channel_state("submit_sql_speculative")
+
+        metadata = [(REQUEST_ID_HEADER, request_id)] if request_id else None
+        response = self.sql_stub.SubmitEnrichedSQLSpeculative(
+            request.to_proto(), timeout=self.timeout, metadata=metadata
+        )
+
+        which = response.WhichOneof("response")
+        if which == "ready_to_execute_untracked":
+            return sql_service_models.ReadyToExecuteUntrackedResponse.from_proto(
+                response.ready_to_execute_untracked
+            )
+        if which == "skip_execution":
+            return sql_service_models.SkipExecutionResponse.from_proto(response.skip_execution)
+        if which == "ready_to_clone":
+            return clone_service_models.ReadyToCloneResponse.from_proto(response.ready_to_clone)
+        if which == "undecided":
+            return sql_service_models.UndecidedResponse.from_proto(response.undecided)
         raise ValueError(f"Unexpected response type: {which}")
 
     def submit_values(

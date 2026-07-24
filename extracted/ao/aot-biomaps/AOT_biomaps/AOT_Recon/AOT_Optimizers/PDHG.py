@@ -252,7 +252,11 @@ def PDHG(
         raise ValueError(f"[AOT-biomaps] Shape mismatch: y {y.shape} vs SMatrix (T={SMatrix.T}, N={SMatrix.N})")
 
     data_dtype = xp.complex64 if SMatrix.isComplexSMatrix else xp.float32
-    y_flat = xp.asarray(y.T.flatten().astype(data_dtype))
+
+    y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
+    if y_max > 0:
+        y_norm = y / y_max 
+    y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
 
     # 2. Dual variables initialization (q and p)
     q = xp.zeros(NT, dtype=data_dtype)
@@ -371,10 +375,10 @@ def PDHG(
                 break
 
         if isSavingEachIteration and it in save_indices:
-            
-            img_snapshot = cp.asnumpy(lambda_flat.reshape(Z, X)) if is_gpu else np.array(lambda_flat.reshape(Z, X), copy=True)
-            saved_lambda.append(img_snapshot)
+            lambda_snapshot = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
+            saved_lambda.append(lambda_snapshot * y_max / SMatrix.normalization_factor)
             saved_indices_list.append(it)
 
     final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
+    final_result *= y_max / SMatrix.normalization_factor
     return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

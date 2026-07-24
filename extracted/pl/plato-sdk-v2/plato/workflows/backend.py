@@ -90,9 +90,10 @@ class AgentCallOpts(BaseModel):
     model: str | None = None
     effort: str | None = None
     workspace: str | None = None  # None = no code workspace; "code" = the git workspace
-    # Read-only NFS dataset selection: False = none; True = the default `data`
+    # Read-only dataset selection: False = none; True = the default `data`
     # workspace (/workspace/data); a list selects by name — "data" for the
-    # default, any other entry a config-declared dataset (/workspace/datasets/<name>).
+    # default, any other entry a config-declared dataset (/workspace/datasets/<name>,
+    # mounted per the dataset's configured transport: direct per-VM fuse or NFS).
     data: bool | list[str] = False
 
     @field_validator("data")
@@ -460,7 +461,8 @@ class WorldAgentBackend:
         opts = request.opts
         results_mount = self._results_workspace.mount()
         # Appended last on purpose: mounts[0] drives the workdir and the git
-        # review gate; dataset mounts are passive read-only NFS views.
+        # review gate; dataset mounts are passive read-only views (per-VM
+        # fuse or NFS, per dataset config).
         extra = [ws.mount() for ws in self._resolve_data_selection(opts.data)]
         if opts.workspace is None:
             return [results_mount, *extra]

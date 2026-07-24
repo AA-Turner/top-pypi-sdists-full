@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 2.16.0
+Version: 2.17.0
 Summary: AI Agent Framework, the Pydantic way
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -27,47 +27,47 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,retries,web]==2.16.0
+Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,retries,web]==2.17.0
 Provides-Extra: ag-ui
-Requires-Dist: pydantic-ai-slim[ag-ui]==2.16.0; extra == 'ag-ui'
+Requires-Dist: pydantic-ai-slim[ag-ui]==2.17.0; extra == 'ag-ui'
 Provides-Extra: bedrock
-Requires-Dist: pydantic-ai-slim[bedrock]==2.16.0; extra == 'bedrock'
+Requires-Dist: pydantic-ai-slim[bedrock]==2.17.0; extra == 'bedrock'
 Provides-Extra: cohere
-Requires-Dist: pydantic-ai-slim[cohere]==2.16.0; extra == 'cohere'
+Requires-Dist: pydantic-ai-slim[cohere]==2.17.0; extra == 'cohere'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.16.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.17.0; extra == 'dbos'
 Provides-Extra: duckduckgo
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.16.0; extra == 'duckduckgo'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.17.0; extra == 'duckduckgo'
 Provides-Extra: exa
-Requires-Dist: pydantic-ai-slim[exa]==2.16.0; extra == 'exa'
+Requires-Dist: pydantic-ai-slim[exa]==2.17.0; extra == 'exa'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==2.16.0; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==2.17.0; extra == 'examples'
 Provides-Extra: groq
-Requires-Dist: pydantic-ai-slim[groq]==2.16.0; extra == 'groq'
+Requires-Dist: pydantic-ai-slim[groq]==2.17.0; extra == 'groq'
 Provides-Extra: huggingface
-Requires-Dist: pydantic-ai-slim[huggingface]==2.16.0; extra == 'huggingface'
+Requires-Dist: pydantic-ai-slim[huggingface]==2.17.0; extra == 'huggingface'
 Provides-Extra: mistral
-Requires-Dist: pydantic-ai-slim[mistral]==2.16.0; extra == 'mistral'
+Requires-Dist: pydantic-ai-slim[mistral]==2.17.0; extra == 'mistral'
 Provides-Extra: openrouter
-Requires-Dist: pydantic-ai-slim[openrouter]==2.16.0; extra == 'openrouter'
+Requires-Dist: pydantic-ai-slim[openrouter]==2.17.0; extra == 'openrouter'
 Provides-Extra: prefect
-Requires-Dist: pydantic-ai-slim[prefect]==2.16.0; extra == 'prefect'
+Requires-Dist: pydantic-ai-slim[prefect]==2.17.0; extra == 'prefect'
 Provides-Extra: sentence-transformers
-Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.16.0; extra == 'sentence-transformers'
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.17.0; extra == 'sentence-transformers'
 Provides-Extra: spec
-Requires-Dist: pydantic-ai-slim[spec]==2.16.0; extra == 'spec'
+Requires-Dist: pydantic-ai-slim[spec]==2.17.0; extra == 'spec'
 Provides-Extra: tavily
-Requires-Dist: pydantic-ai-slim[tavily]==2.16.0; extra == 'tavily'
+Requires-Dist: pydantic-ai-slim[tavily]==2.17.0; extra == 'tavily'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.16.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.17.0; extra == 'temporal'
 Provides-Extra: ui
-Requires-Dist: pydantic-ai-slim[ui]==2.16.0; extra == 'ui'
+Requires-Dist: pydantic-ai-slim[ui]==2.17.0; extra == 'ui'
 Provides-Extra: voyageai
-Requires-Dist: pydantic-ai-slim[voyageai]==2.16.0; extra == 'voyageai'
+Requires-Dist: pydantic-ai-slim[voyageai]==2.17.0; extra == 'voyageai'
 Provides-Extra: web-fetch
-Requires-Dist: pydantic-ai-slim[web-fetch]==2.16.0; extra == 'web-fetch'
+Requires-Dist: pydantic-ai-slim[web-fetch]==2.17.0; extra == 'web-fetch'
 Provides-Extra: xai
-Requires-Dist: pydantic-ai-slim[xai]==2.16.0; extra == 'xai'
+Requires-Dist: pydantic-ai-slim[xai]==2.17.0; extra == 'xai'
 Description-Content-Type: text/markdown
 
 <div align="center">

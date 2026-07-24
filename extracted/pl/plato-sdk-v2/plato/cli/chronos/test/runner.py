@@ -51,7 +51,7 @@ from plato.cli.chronos.dev.ssh import (
     build_ssh_command_string,
     get_vm_ssh_options,
 )
-from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.dev.sync import SyncManager, sync_fuse_binary_override
 from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
 from plato.cli.chronos.provision import (
     SyncTarget,
@@ -525,6 +525,8 @@ class TestRunner:
             raise RuntimeError(f"Sync failed for {failed} target(s)")
         self._print("[reuse] Code synced (skipped editable install)")
 
+        await self._sync_fuse_binary_override()
+
         await self._sync_world_deps()
         await self._resolve_and_write_config()
         self._print("[reuse] VM ready for tests")
@@ -573,6 +575,21 @@ class TestRunner:
             raise RuntimeError("No sync targets configured. Provide `dev.world` and/or `dev.agents`.")
         return targets
 
+    async def _sync_fuse_binary_override(self) -> None:
+        """Honor PLATO_FUSE_BINARY like dev mode does.
+
+        Without this, a test run validating a locally built plato-fuse runs
+        the image-baked binary instead — the world mounts with it AND the
+        agent-VM fuse transport pushes it to agent VMs, silently voiding the
+        binary under test.
+        """
+        if not self.world_env or not self.ssh_key:
+            raise RuntimeError("world_env and ssh_key must be initialized")
+        fuse_binary = await sync_fuse_binary_override(self.world_env.job_id, self.ssh_key.private_key_path)
+        if fuse_binary:
+            await self.world_env.execute("chmod +x /usr/local/bin/plato-fuse", timeout=10)
+            self._print(f"[setup] plato-fuse binary synced to VM: {fuse_binary}")
+
     async def _install_editable_packages(self) -> None:
         if not self.world_env:
             raise RuntimeError("world_env must be initialized")
@@ -583,6 +600,8 @@ class TestRunner:
         t0 = perf_counter()
         await self.world_env.execute(ENSURE_FUSE3_COMMAND, timeout=60)
         logger.info("fuse3 check: %.1fs", perf_counter() - t0)
+
+        await self._sync_fuse_binary_override()
 
         # Clean build artifacts so editable install uses fresh source
         if self.config.dev.world:

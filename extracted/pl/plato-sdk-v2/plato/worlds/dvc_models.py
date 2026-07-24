@@ -29,6 +29,11 @@ from plato.chronos.models import DVCManifestEntry
 
 logger = logging.getLogger(__name__)
 
+# Legacy-manifest metadata resolution: max tasks materialized at once
+# (memory bound) and max in-flight S3 calls (stampede bound).
+_RESOLVE_CHUNK_SIZE = 256
+_RESOLVE_CONCURRENCY = 32
+
 
 def _env_flag_enabled(name: str) -> bool:
     value = os.environ.get(name, "")
@@ -168,6 +173,13 @@ class DVCManifest:
 
     @staticmethod
     async def _resolve_missing_sizes(entries: list[DVCManifestEntry], s3_config: S3Config) -> None:
+        # Bounded fan-out: a fully-legacy manifest ({md5, relpath} only) puts
+        # EVERY file entry here — an unbounded gather materializes one task
+        # per entry (hundreds of thousands on large datasets) and stampedes
+        # S3. Chunked spawning bounds memory; the semaphore caps in-flight
+        # S3 calls within a chunk. Mirrors plato-fuse's resolution bound.
+        sem = asyncio.Semaphore(_RESOLVE_CONCURRENCY)
+
         async def _resolve(entry: DVCManifestEntry) -> None:
             if (entry.size or 0) > 0 or entry.isdir:
                 return
@@ -206,7 +218,13 @@ class DVCManifest:
                     exc,
                 )
 
-        await asyncio.gather(*(_resolve(entry) for entry in entries if (entry.size or 0) == 0))
+        async def _bounded(entry: DVCManifestEntry) -> None:
+            async with sem:
+                await _resolve(entry)
+
+        todo = [entry for entry in entries if (entry.size or 0) == 0]
+        for start in range(0, len(todo), _RESOLVE_CHUNK_SIZE):
+            await asyncio.gather(*(_bounded(entry) for entry in todo[start : start + _RESOLVE_CHUNK_SIZE]))
 
     def entries_dict(self) -> dict[str, DVCManifestEntry]:
         return {e.relpath: e for e in self.entries_list}
@@ -234,6 +252,12 @@ class LazyDVCMount:
     manifest: DVCManifest
     worker_proc: Any = None
     worker_log_tasks: tuple[Any, ...] | None = None
+    # The S3 config the mount was created with. Load-bearing for cross-repo
+    # restores: the blobs live under the SOURCE repo's prefix, and the
+    # workspace's own repo identity is restored right after restore() —
+    # anything re-deriving S3 access for this mount's content (e.g. direct
+    # agent-VM fuse mounts) must use THIS config's bucket/prefix/refresh.
+    s3_config: S3Config | None = None
 
     @property
     def meta_path(self) -> Path:

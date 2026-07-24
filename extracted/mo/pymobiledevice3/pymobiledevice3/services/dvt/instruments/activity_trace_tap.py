@@ -2,9 +2,11 @@ import dataclasses
 import math
 import os
 import struct
+from collections.abc import AsyncGenerator, Callable, Generator
 from io import BytesIO
-from typing import cast
+from typing import Any, cast
 
+from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.services.dvt.instruments.tap import Tap
 
 CMD_DEFINE_TABLE = 1
@@ -23,7 +25,7 @@ class Table:
     unknown0: str
     unknown2: str
     name: str
-    columns: list
+    columns: list[Any]
 
 
 def decode_str(s: bytes):
@@ -39,7 +41,7 @@ def ignored_null(s: bytes) -> bytes:
     return s
 
 
-def decode_message_format(message) -> str:
+def decode_message_format(message: Any) -> str:
     s = ""
     for type_, data in message:
         if data and isinstance(data, bytes):
@@ -69,7 +71,7 @@ def decode_message_format(message) -> str:
         elif type_ in ("data", "uuid"):
             if data is not None:
                 # for these types the payload is a list of bytes chunks, not a single bytes object
-                s += b"".join(cast("list[bytes]", data)).hex()
+                s += b"".join(cast(list[bytes], data)).hex()
         else:
             # by default, make sure the data can be concatenated
             s += str(data)
@@ -89,7 +91,7 @@ class ActivityTraceTap(Tap):
 
     IDENTIFIER = "com.apple.instruments.server.services.activitytracetap"
 
-    def __init__(self, dvt, enable_http_archive_logging=False):
+    def __init__(self, dvt: DtxServiceProvider, enable_http_archive_logging: bool = False):
         """
         :param dvt: The `DvtProvider` used to open the Instruments channel.
         :param enable_http_archive_logging: When True, request that the device also include HTTP
@@ -99,7 +101,7 @@ class ActivityTraceTap(Tap):
         #   reverse: [DTOSLogLoader _handleRecord:], DTTableRowEncoder::*
         #   to understand each row's structure.
 
-        config = {
+        config: dict[str, Any] = {
             "bm": 0,  # buffer mode
             "combineDataScope": 0,
             "machTimebaseDenom": 3,
@@ -118,10 +120,10 @@ class ActivityTraceTap(Tap):
 
         super().__init__(dvt, self.IDENTIFIER, config)
 
-        self.stack = []
+        self.stack: list[Any] = []
         self.generation = 0
         self.background = 0
-        self.tables = []
+        self.tables: list[Table] = []
         # trailing bytes of an opcode that was split across two DTX frames
         self._carry = b""
 
@@ -134,10 +136,10 @@ class ActivityTraceTap(Tap):
         self._set_current_message(self._carry + message)
         self._carry = b""
 
-    def _set_current_message(self, message):
+    def _set_current_message(self, message: bytes):
         self._message = BytesIO(message)
 
-    def _seek_relative(self, offset):
+    def _seek_relative(self, offset: int):
         self._message.seek(offset, os.SEEK_CUR)
 
     def _peek_word(self) -> int:
@@ -153,7 +155,7 @@ class ActivityTraceTap(Tap):
         self._message.seek(2, os.SEEK_CUR)
         return word
 
-    def _handle_push(self, word):
+    def _handle_push(self, word: int):
         assert word >> 14 in (0b10, 0b11), f"invalid magic for pushed item. word: {hex(word)}"
 
         count = 0
@@ -177,17 +179,17 @@ class ActivityTraceTap(Tap):
 
         return result
 
-    def _handle_table_reset(self, word):
+    def _handle_table_reset(self, word: int):
         """start new table vector"""
         self.generation += 1
         self.background = 0
         self.stack = []
 
-    def _handle_sentinel(self, word):
+    def _handle_sentinel(self, word: int):
         """push a dummy"""
         self.stack.append(None)
 
-    def _handle_struct(self, word):
+    def _handle_struct(self, word: int):
         """replace last `distance` items with a single one which represents them as a tuple"""
         distance = word & 0xFF
 
@@ -199,7 +201,7 @@ class ActivityTraceTap(Tap):
         self.stack = self.stack[:-distance]
         self.stack.append(new_item)
 
-    def _handle_define_table(self, word):
+    def _handle_define_table(self, word: int):
         """define a table struct"""
         distance = 4
 
@@ -215,7 +217,7 @@ class ActivityTraceTap(Tap):
         self.stack = self.stack[:-distance]
         self.tables.append(table)
 
-    def _handle_debug(self, word):
+    def _handle_debug(self, word: int):
         """pop last pushed item from stack"""
         debug_id = word & 0xFF
         item = self.stack[-1]
@@ -227,7 +229,7 @@ class ActivityTraceTap(Tap):
         )
         self.stack = self.stack[:-1]
 
-    def _handle_copy(self, word):
+    def _handle_copy(self, word: int):
         """copy item at distance from stack"""
         distance = word & 0xFF
         if distance != 0xFF:
@@ -240,7 +242,7 @@ class ActivityTraceTap(Tap):
             self.stack = self.stack[:-1]
             self.stack.append(self.stack[reference])
 
-    def _handle_end_row(self, word):
+    def _handle_end_row(self, word: int):
         """flush current row"""
         generation = word & 0xFF
         columns = self.tables[generation].columns
@@ -269,18 +271,18 @@ class ActivityTraceTap(Tap):
         if hasattr(message, "message"):
             return message
 
-    def _handle_placeholder_count(self, word):
+    def _handle_placeholder_count(self, word: int):
         """remove `count` last items from stack"""
         count = word & 0xFF
         if count > 0:
             self.stack = self.stack[:-count]
 
-    def _handle_convert_mach_continuous(self, word):
+    def _handle_convert_mach_continuous(self, word: int):
         """push an item and pop it. effectively do nothing"""
         pass
 
-    def _parse(self):
-        operations = {
+    def _parse(self) -> Generator[Any, None, None]:
+        operations: dict[int, Callable[[int], Any]] = {
             CMD_TABLE_RESET: self._handle_table_reset,
             CMD_SENTINEL: self._handle_sentinel,
             CMD_STRUCT: self._handle_struct,
@@ -314,7 +316,7 @@ class ActivityTraceTap(Tap):
             if opcode == CMD_END_ROW and result is not None:
                 yield result
 
-    async def __aiter__(self):
+    async def __aiter__(self) -> AsyncGenerator[Any, None]:
         """
         Continuously receive frames and yield the decoded log entries they contain.
 

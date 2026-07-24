@@ -8,9 +8,12 @@ This file is regenerated automatically; do not edit by hand.
 
 from ._generated.account_groups import AccountGroupsResource
 from ._generated.account_settings import AccountSettingsResource
+from ._generated.ad_accounts import AdAccountsResource
 from ._generated.ad_audiences import AdAudiencesResource
 from ._generated.ad_campaigns import AdCampaignsResource
-from ._generated.ads import AdsResource
+from ._generated.ad_creatives import AdCreativesResource
+from ._generated.ad_insights import AdInsightsResource
+from ._generated.ad_targeting import AdTargetingResource
 from ._generated.api_keys import ApiKeysResource
 from ._generated.broadcasts import BroadcastsResource
 from ._generated.calls import CallsResource
@@ -18,6 +21,7 @@ from ._generated.comment_automations import CommentAutomationsResource
 from ._generated.comments import CommentsResource
 from ._generated.connect import ConnectResource
 from ._generated.contacts import ContactsResource
+from ._generated.conversions import ConversionsResource
 from ._generated.custom_fields import CustomFieldsResource
 from ._generated.discord import DiscordResource
 from ._generated.gmb_services import GmbServicesResource
@@ -25,10 +29,13 @@ from ._generated.gmb_verifications import GmbVerificationsResource
 from ._generated.inbox_analytics import InboxAnalyticsResource
 from ._generated.instagram import InstagramResource
 from ._generated.invites import InvitesResource
+from ._generated.lead_gen import LeadGenResource
 from ._generated.logs import LogsResource
 from ._generated.mentions import MentionsResource
 from ._generated.messages import MessagesResource
+from ._generated.messaging_ads import MessagingAdsResource
 from ._generated.phone_numbers import PhoneNumbersResource
+from ._generated.reach_and_frequency import ReachAndFrequencyResource
 from ._generated.reddit import RedditResource
 from ._generated.reviews import ReviewsResource
 from ._generated.sequences import SequencesResource
@@ -48,6 +55,7 @@ from ._generated.whatsapp_sandbox import WhatsappSandboxResource
 from ._generated.whatsapp_templates import WhatsappTemplatesResource
 from ._generated.workflows import WorkflowsResource
 from .accounts import AccountsResource
+from .ads import AdsResource
 from .analytics import AnalyticsResource
 from .media import MediaResource
 from .posts import PostsResource
@@ -60,8 +68,12 @@ __all__ = [
     "AccountGroupsResource",
     "AccountSettingsResource",
     "AccountsResource",
+    "AdAccountsResource",
     "AdAudiencesResource",
     "AdCampaignsResource",
+    "AdCreativesResource",
+    "AdInsightsResource",
+    "AdTargetingResource",
     "AdsResource",
     "AnalyticsResource",
     "ApiKeysResource",
@@ -71,6 +83,7 @@ __all__ = [
     "CommentsResource",
     "ConnectResource",
     "ContactsResource",
+    "ConversionsResource",
     "CustomFieldsResource",
     "DiscordResource",
     "GmbServicesResource",
@@ -78,14 +91,17 @@ __all__ = [
     "InboxAnalyticsResource",
     "InstagramResource",
     "InvitesResource",
+    "LeadGenResource",
     "LogsResource",
     "MediaResource",
     "MentionsResource",
     "MessagesResource",
+    "MessagingAdsResource",
     "PhoneNumbersResource",
     "PostsResource",
     "ProfilesResource",
     "QueueResource",
+    "ReachAndFrequencyResource",
     "RedditResource",
     "ReviewsResource",
     "SequencesResource",

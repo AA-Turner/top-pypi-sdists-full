@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowpark-connect
-Version: 1.35.0
+Version: 1.36.0
 Summary: Snowpark Connect for Spark
 Author: Snowflake, Inc
 License: Apache License, Version 2.0
@@ -10,14 +10,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: LICENSE-binary
 License-File: NOTICE-binary
-Requires-Dist: snowpark-connect-deps-1==3.56.5
-Requires-Dist: snowpark-connect-deps-2==3.56.5
+Requires-Dist: snowpark-connect-deps-1==3.56.6
+Requires-Dist: snowpark-connect-deps-2==3.56.6
 Requires-Dist: certifi>=2025.1.31
 Requires-Dist: cloudpickle
 Requires-Dist: fsspec
 Requires-Dist: jpype1; sys_platform != "darwin" or platform_machine != "arm64"
 Requires-Dist: jpype1!=1.7.0,!=1.7.1; sys_platform == "darwin" and platform_machine == "arm64"
-Requires-Dist: protobuf<6.34,>=4.25.3
+Requires-Dist: protobuf<6.34,>=3.20.2
 Requires-Dist: s3fs>=2025.3.0
 Requires-Dist: snowflake.core<2,>=1.0.5
 Requires-Dist: snowflake-snowpark-python[pandas]<1.54.0,>=1.53.0
@@ -26,14 +26,15 @@ Requires-Dist: sqlglot>=26.3.8
 Requires-Dist: aiobotocore<4,>=2.23.0
 Requires-Dist: py4j<0.10.10.0,>=0.10.9.7
 Requires-Dist: pandas<3.0,>=1.0.5
-Requires-Dist: pyarrow<25.0.0,>=23.0.1
-Requires-Dist: grpcio<=1.78.0,>=1.56.0
-Requires-Dist: grpcio-status<=1.78.0,>=1.56.0
+Requires-Dist: pyarrow!=15.*,!=16.*,!=17.*,!=18.*,!=19.*,!=20.*,!=21.*,!=22.*,!=23.0.0,<25.0.0,>=14.0.1
+Requires-Dist: grpcio<=1.78.0,>=1.48.2
+Requires-Dist: grpcio-status<=1.78.0,>=1.41.1
 Requires-Dist: googleapis-common-protos>=1.56.4
 Requires-Dist: numpy>=1.15
 Requires-Dist: gcsfs>=2025.2.0
 Provides-Extra: jdk
-Requires-Dist: jdk4py==17.0.9.2; extra == "jdk"
+Requires-Dist: jdk4py>=21.0.4.0; (platform_system == "Linux" and platform_machine == "aarch64") and extra == "jdk"
+Requires-Dist: jdk4py==17.0.9.2; (platform_system != "Linux" or platform_machine != "aarch64") and extra == "jdk"
 Provides-Extra: iceberg
 Requires-Dist: snowpark-connect-deps-iceberg>=1.0.2; extra == "iceberg"
 Dynamic: author

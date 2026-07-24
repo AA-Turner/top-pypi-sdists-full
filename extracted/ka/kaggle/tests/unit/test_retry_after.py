@@ -6,10 +6,12 @@ that the retry logic respects the Retry-After header.
 """
 
 import unittest
+from typing import Any, cast
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-from requests.exceptions import HTTPError
+import urllib3.exceptions as urllib3_exceptions
+from requests.exceptions import ConnectionError, ConnectTimeout, HTTPError
 from requests.models import Response
 
 from kaggle.api.kaggle_api_extended import KaggleApi
@@ -54,22 +56,28 @@ class TestGetRetryAfterDelay(unittest.TestCase):
 
     def test_parses_integer_seconds(self):
         response = self._make_response("120")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 120.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 120.0)
 
     def test_parses_float_seconds(self):
         response = self._make_response("30.5")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 30.5)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 30.5)
 
     def test_negative_value_clamped_to_zero(self):
         response = self._make_response("-5")
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 0.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 0.0)
 
     def test_parses_http_date(self):
         future = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=60)
         date_str = future.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response = self._make_response(date_str)
         delay = KaggleApi._get_retry_after_delay(response)
-        self.assertIsNotNone(delay)
+        assert delay is not None
         # Allow some tolerance for time elapsed during test
         self.assertAlmostEqual(delay, 60.0, delta=2.0)
 
@@ -77,7 +85,9 @@ class TestGetRetryAfterDelay(unittest.TestCase):
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=60)
         date_str = past.strftime("%a, %d %b %Y %H:%M:%S GMT")
         response = self._make_response(date_str)
-        self.assertAlmostEqual(KaggleApi._get_retry_after_delay(response), 0.0)
+        delay = KaggleApi._get_retry_after_delay(response)
+        assert delay is not None
+        self.assertAlmostEqual(delay, 0.0)
 
     def test_returns_none_for_garbage(self):
         response = self._make_response("not-a-number-or-date")
@@ -101,6 +111,18 @@ class TestIsRetriable(unittest.TestCase):
         response.status_code = 403
         error = HTTPError(response=response)
         self.assertFalse(self.api._is_retriable(error))
+
+    def test_connection_error_is_retriable(self):
+        self.assertTrue(self.api._is_retriable(ConnectionError("boom")))
+
+    def test_connect_timeout_is_retriable(self):
+        self.assertTrue(self.api._is_retriable(ConnectTimeout("slow")))
+
+    def test_urllib3_protocol_error_is_retriable(self):
+        self.assertTrue(self.api._is_retriable(urllib3_exceptions.ProtocolError("broken")))
+
+    def test_value_error_is_not_retriable(self):
+        self.assertFalse(self.api._is_retriable(ValueError("nope")))
 
 
 class TestWithRetryRateLimiting(unittest.TestCase):
@@ -139,8 +161,9 @@ class TestWithRetryRateLimiting(unittest.TestCase):
         # Should have slept for 42 seconds (from Retry-After)
         mock_sleep.assert_called_once_with(42.0)
         # Logger should have been called with rate-limit info
-        self.api.logger.info.assert_called()
-        log_msg = self.api.logger.info.call_args[0][0]
+        logger = cast(Any, self.api.logger)
+        logger.info.assert_called()
+        log_msg = logger.info.call_args[0][0]
         self.assertIn("Retry-After", log_msg)
 
     @patch("kaggle.api.kaggle_api_extended.time.sleep")
@@ -164,8 +187,85 @@ class TestWithRetryRateLimiting(unittest.TestCase):
         # Should have slept for some backoff delay (not the retry-after value)
         mock_sleep.assert_called_once()
         # Logger should mention missing Retry-After
-        log_msg = self.api.logger.info.call_args[0][0]
+        logger = cast(Any, self.api.logger)
+        log_msg = logger.info.call_args[0][0]
         self.assertIn("No valid Retry-After", log_msg)
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch("builtins.print")
+    def test_connection_error_is_retried(self, mock_print, mock_sleep):
+        call_count = 0
+
+        def failing_then_succeeding(*args):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ConnectionError("connection dropped")
+            return "success"
+
+        wrapped = self.api.with_retry(failing_then_succeeding, max_retries=3)
+        result = wrapped()
+
+        self.assertEqual(result, "success")
+        self.assertEqual(call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch("builtins.print")
+    def test_connect_timeout_is_retried(self, mock_print, mock_sleep):
+        call_count = 0
+
+        def failing_then_succeeding(*args):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ConnectTimeout("timed out")
+            return "success"
+
+        wrapped = self.api.with_retry(failing_then_succeeding, max_retries=3)
+        result = wrapped()
+
+        self.assertEqual(result, "success")
+        self.assertEqual(call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch("builtins.print")
+    def test_urllib3_protocol_error_is_retried(self, mock_print, mock_sleep):
+        call_count = 0
+
+        def failing_then_succeeding(*args):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise urllib3_exceptions.ProtocolError("connection aborted")
+            return "success"
+
+        wrapped = self.api.with_retry(failing_then_succeeding, max_retries=3)
+        result = wrapped()
+
+        self.assertEqual(result, "success")
+        self.assertEqual(call_count, 2)
+        mock_sleep.assert_called_once()
+
+    @patch("kaggle.api.kaggle_api_extended.time.sleep")
+    @patch("builtins.print")
+    def test_non_retriable_error_fails_immediately(self, mock_print, mock_sleep):
+        call_count = 0
+
+        def always_failing(*args):
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("not retriable")
+
+        wrapped = self.api.with_retry(always_failing, max_retries=3)
+
+        with self.assertRaises(ValueError):
+            wrapped()
+
+        # Should not retry or sleep for a non-retriable exception.
+        self.assertEqual(call_count, 1)
+        mock_sleep.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -398,26 +398,26 @@ def test_is_compatibility_mode_enabled_false_when_lf_enabled():
 
 
 def test_is_compatibility_mode_enabled_no_runtime_config():
-    """Ensure _is_compatibility_mode_enabled returns False when runtimeConfiguration is None."""
-    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled({}) is False
+    """Ensure _is_compatibility_mode_enabled returns True when runtimeConfiguration is None (default to FTA)."""
+    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled({}) is True
     assert (
         EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(
             {"runtimeConfiguration": None}
         )
-        is False
+        is True
     )
 
 
 def test_is_compatibility_mode_enabled_no_spark_defaults():
-    """Ensure _is_compatibility_mode_enabled returns False when spark-defaults not present."""
+    """Ensure _is_compatibility_mode_enabled returns True when spark-defaults not present (default to FTA)."""
     app = {"runtimeConfiguration": [{"classification": "other", "properties": {}}]}
-    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(app) is False
+    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(app) is True
 
 
 def test_is_compatibility_mode_enabled_no_properties():
-    """Ensure _is_compatibility_mode_enabled returns False when properties is None."""
+    """Ensure _is_compatibility_mode_enabled returns True when properties is None (default to FTA)."""
     app = {"runtimeConfiguration": [{"classification": "spark-defaults", "properties": None}]}
-    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(app) is False
+    assert EMRServerlessSparkSessionManager._is_compatibility_mode_enabled(app) is True
 
 
 def test_is_compatibility_mode_enabled_lf_key_absent():
@@ -1030,12 +1030,21 @@ def test_get_service_specific_configs_fta_supported(manager):
 
 
 def test_get_service_specific_configs_fta_not_supported(manager):
-    """Ensure _get_service_specific_configs does not include compat configs when FTA not supported.
+    """Ensure _get_service_specific_configs does not include compat configs when native FGAC is active.
 
-    On a release that supports native FGAC (>= emr-7.14 / emr-spark-8.1) the else branch
-    proceeds without raising and applies no compatibility-mode configs.
+    When spark.emr-serverless.lakeformation.enabled is explicitly 'true' and the release
+    supports native FGAC (>= emr-7.14), the else branch proceeds without raising and
+    applies no compatibility-mode configs.
     """
-    non_fta_app = {"releaseLabel": "emr-7.14.0"}
+    non_fta_app = {
+        "releaseLabel": "emr-7.14.0",
+        "runtimeConfiguration": [
+            {
+                "classification": "spark-defaults",
+                "properties": {"spark.emr-serverless.lakeformation.enabled": "true"},
+            }
+        ],
+    }
 
     with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
         configs = manager._get_service_specific_configs(non_fta_app)
@@ -1105,3 +1114,25 @@ def test_supports_native_fgac():
     assert fn("") is False
     # malformed emr-spark version (non-numeric) -> ValueError/IndexError caught -> not supported
     assert fn("emr-spark-bogus") is False
+
+
+def test_session_start_timeout_override(mock_boto3_clients, mock_internal_utils):
+    """session_start_timeout from ClientConfig.overrides is passed to the session wait."""
+    from sagemaker_studio.project import ClientConfig
+
+    mgr = EMRServerlessSparkSessionManager(
+        connection_name="test_connection",
+        config=ClientConfig(overrides={"emr-serverless": {"session_start_timeout": 240}}),
+    )
+    _setup_manager_for_session_start(mgr, mock_boto3_clients)
+    with patch.object(mgr, "_wait_for_emr_serverless_session") as mock_wait:
+        mgr._start_emr_serverless_session("app-1", "test-user", {})
+    assert mock_wait.call_args.kwargs["timeout"] == 240
+
+
+def test_session_start_timeout_defaults_to_120(manager, mock_boto3_clients):
+    """Without an override, the session wait uses the 120s default."""
+    _setup_manager_for_session_start(manager, mock_boto3_clients)
+    with patch.object(manager, "_wait_for_emr_serverless_session") as mock_wait:
+        manager._start_emr_serverless_session("app-1", "test-user", {})
+    assert mock_wait.call_args.kwargs["timeout"] == 120

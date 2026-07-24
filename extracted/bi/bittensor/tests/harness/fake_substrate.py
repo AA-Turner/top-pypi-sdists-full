@@ -51,6 +51,7 @@ DEFAULT_STORAGE: dict[tuple[str, str], Any] = {
     ("SubtensorModule", "ImmunityPeriod"): 4096,
     ("SubtensorModule", "SubnetworkN"): 0,
     ("SubtensorModule", "NetworkRegisteredAt"): 0,
+    ("SubtensorModule", "SubnetLocked"): 10**9,
     ("SubtensorModule", "SubnetEmissionEnabled"): True,
     ("System", "Account"): {"data": {"free": 0, "reserved": 0, "frozen": 0}},
     ("Timestamp", "Now"): 1_700_000_000_000,
@@ -67,6 +68,7 @@ DEFAULT_CONSTANTS: dict[tuple[str, str], Any] = {
 # slippage-protection limit) work offline.
 DEFAULT_RUNTIME: dict[tuple[str, str], Any] = {
     ("SwapRuntimeApi", "current_alpha_price"): 10**9,  # 1 TAO per alpha
+    ("SubnetRegistrationRuntimeApi", "get_network_registration_cost"): 10**9,
 }
 
 GENESIS_HASH = "0x" + "00" * 32
@@ -127,6 +129,7 @@ class FakeSubstrate:
         self.connected = False
         self.closed = False
         self.block = 100
+        self.runtime_spec_version = 300
 
         # (module, item) -> {params-tuple: value}
         self._storage: dict[tuple[str, str], dict[tuple, Any]] = defaultdict(dict)
@@ -148,6 +151,8 @@ class FakeSubstrate:
         # Results handed out by submit/submit_signed/submit_multisig, FIFO;
         # empty -> a fresh success result.
         self.pending_results: list[ExtrinsicResult] = []
+        # block number -> decoded System.Events records, for event-driven waits.
+        self._events: dict[int, list[dict]] = {}
 
     # -- seeding -------------------------------------------------------------
 
@@ -169,6 +174,9 @@ class FakeSubstrate:
 
     def queue_result(self, result: ExtrinsicResult) -> None:
         self.pending_results.append(result)
+
+    def seed_events(self, block: int, events: list[dict]) -> None:
+        self._events[int(block)] = list(events)
 
     @property
     def last_call(self) -> Any:
@@ -199,6 +207,9 @@ class FakeSubstrate:
     async def block_time(self) -> float:
         # Same derivation as production: the chain's Aura.SlotDuration constant.
         return int(await self.constant("Aura", "SlotDuration")) / 1000.0
+
+    async def spec_version(self) -> int:
+        return self.runtime_spec_version
 
     async def get_block(
         self, block_number: Optional[int] = None, block_hash: Optional[str] = None
@@ -271,6 +282,10 @@ class FakeSubstrate:
         for offset in range(3):
             number = self.block + offset
             yield {"header": {"number": number, "parentHash": f"0x{number - 1:064x}"}}
+
+    async def events(self, block_hash: Optional[str] = None) -> list[dict]:
+        block = self.block if block_hash is None else int(block_hash, 16)
+        return list(self._events.get(block, []))
 
     # -- calls and fees ----------------------------------------------------------
 

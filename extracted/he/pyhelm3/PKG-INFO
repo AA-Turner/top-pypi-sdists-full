@@ -1,18 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyhelm3
-Version: 0.4.0
-Summary: Python library for managing Helm releases using Helm 3.
-Home-page: https://github.com/azimuth-cloud/pyhelm3
-Author: Matt Pryor
-Author-email: matt@stackhpc.com
-Description-Content-Type: text/markdown
+Version: 0.5.1
+Summary: Python library for managing Helm releases using Helm 3 and later (i.e. Tiller-less Helm).
+License-Expression: Apache-2.0
 License-File: LICENSE
-Requires-Dist: pydantic
-Requires-Dist: pyyaml
+Requires-Python: >=3.10
+Requires-Dist: pydantic<3,>=2.10.6
+Requires-Dist: pyyaml<7,>=6.0.2
+Requires-Dist: semver<3,>=2.9.1
+Description-Content-Type: text/markdown
 
 # pyhelm3
 
-Python library for managing Helm releases using Helm 3 (i.e. Tiller-less Helm).
+Python library for managing Helm releases using Helm 3 and later (i.e. Tiller-less Helm).
 
 ## Installation
 
@@ -73,7 +73,7 @@ revision = await client.install_or_upgrade_release(
     "cert-manager",
     chart,
     { "installCRDs": True },
-    atomic = True,
+    atomic = True, # when using a helm 3 client, rollback_on_failure=True when using a helm 4 client
     wait = True
 )
 print(

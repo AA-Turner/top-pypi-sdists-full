@@ -9,7 +9,7 @@ from typing import Any, Callable, Coroutine, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
 from amazon.opentelemetry.distro._utils import is_agent_observability_enabled
-from amazon.opentelemetry.distro.instrumentation.common.instrumentation_utils import serialize_to_json_string
+from amazon.opentelemetry.distro.instrumentation.common.instrumentation_utils import to_tool_attribute_value
 from opentelemetry import context, trace
 from opentelemetry.instrumentation.utils import suppress_http_instrumentation
 from opentelemetry.propagate import get_global_textmap
@@ -118,7 +118,7 @@ class McpWrapper:
             if message.params.arguments:
                 span.set_attribute(
                     GEN_AI_TOOL_CALL_ARGUMENTS,
-                    serialize_to_json_string(message.params.arguments),
+                    to_tool_attribute_value(message.params.arguments),
                 )
 
         elif isinstance(message, types.GetPromptRequest):
@@ -156,7 +156,7 @@ class McpWrapper:
 
         if isinstance(message, types.CallToolRequest) and result is not None:
             try:
-                span.set_attribute(GEN_AI_TOOL_CALL_RESULT, serialize_to_json_string(result))
+                span.set_attribute(GEN_AI_TOOL_CALL_RESULT, to_tool_attribute_value(result))
                 if hasattr(result, "isError") and result.isError:
                     span.set_attribute(ERROR_TYPE, "tool_error")
                     span.set_status(Status(StatusCode.ERROR))
@@ -291,6 +291,26 @@ class ClientWrapper(McpWrapper):
                 context.detach(token)
 
         return wrapper()
+
+    def wrap_prepare_headers(self, wrapped: Callable[..., Any], instance: Any, args: Any, kwargs: Any) -> Any:
+        """Wrap ``StreamableHTTPTransport._prepare_headers`` to inject W3C trace context.
+
+        ``_prepare_headers`` runs inside ``_handle_post_request``, which our
+        ``wrap_handle_post_request`` wrapper has already restored the per-tool-call
+        context from ``_meta`` for. So the current OTel context at this point is the
+        correct per-request parent — we just need to inject it into the returned
+        headers dict.
+
+        Only injects when ``_should_suppress_http_spans`` is True (the default);
+        when False, the httpx client instrumentation handles header injection itself.
+        """
+        headers = wrapped(*args, **kwargs)
+        if self._should_suppress_http_spans:
+            try:
+                self._propagators.inject(carrier=headers)
+            except Exception:  # pylint: disable=broad-exception-caught
+                _LOG.debug("MCP trace-context header injection failed", exc_info=True)
+        return headers
 
     def wrap_handle_post_request(
         self,
@@ -456,8 +476,7 @@ class ServerWrapper(McpWrapper):
 
         request_id = getattr(incoming_msg, "id", None)
 
-        carrier = self._extract_trace_context(incoming_msg)
-        parent_ctx = self._propagators.extract(carrier=carrier)
+        parent_ctx = self._extract_trace_context(incoming_msg, args)
 
         with self._tracer.start_as_current_span(
             self._SERVER_SPAN_NAME,
@@ -488,22 +507,39 @@ class ServerWrapper(McpWrapper):
                 self._set_error_attrs(span, exc)
                 raise
 
-    def _extract_trace_context(self, message: Any) -> Dict[str, Any]:  # pylint: disable=no-self-use
+    def _extract_trace_context(self, message: Any, args: Tuple[Any, ...]) -> context.Context:
         """
-        Extract trace context carrier from message metadata.
+        Extract trace context from MCP message metadata, falling back to the incoming
+        request's HTTP headers.
 
         Args:
             message: Incoming MCP message
+            args: Server handler arguments carrying the request
 
         Returns:
-            Dictionary containing trace context or empty dict
+            Extracted context, or an empty context if neither carrier is present
         """
+        # pylint: disable=import-outside-toplevel
+        from mcp.shared.message import ServerMessageMetadata
+        from mcp.shared.session import RequestResponder
+
         try:
             if hasattr(message, "params") and hasattr(message.params, "meta") and message.params.meta:
-                return message.params.meta.model_dump()
+                ctx = self._propagators.extract(carrier=message.params.meta.model_dump())
+                if trace.get_current_span(ctx).get_span_context().is_valid:
+                    return ctx
+
+            responder = args[0] if args else None
+            if isinstance(responder, RequestResponder) and isinstance(
+                responder.message_metadata, ServerMessageMetadata
+            ):
+                request_context = responder.message_metadata.request_context
+                headers = getattr(request_context, "headers", None) if request_context else None
+                if headers:
+                    return self._propagators.extract(carrier=dict(headers.items()))
         except Exception as exc:  # pylint: disable=broad-exception-caught
             _LOG.debug("Failed to extract trace context: %s", exc)
-        return {}
+        return context.Context()
 
     def _extract_server_transport_info(
         self, args: Tuple[Any, ...]

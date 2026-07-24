@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: f5-tts
-Version: 1.1.21
+Version: 1.1.22
 Summary: F5-TTS: A Fairytaler that Fakes Fluent and Faithful Speech with Flow Matching
 License: MIT License
 Project-URL: Homepage, https://github.com/SWivid/F5-TTS

@@ -27,10 +27,12 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.typed_column import TypedColumn
 from snowflake.snowpark_connect.utils.context import (
+    AMBIGUOUS_PLAN_ID,
     get_jpype_jclass_lock,
     get_sql_named_arg,
     get_sql_plan,
     get_sql_pos_arg,
+    is_out_of_scope_correlated_qualifier,
     push_evaluating_sql_scope,
     push_sql_scope,
 )
@@ -518,7 +520,8 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                     )
                 )
         case "Exists":
-            rel_proto = map_logical_plan_relation(exp.plan())
+            with push_sql_scope(is_boundary=True):
+                rel_proto = map_logical_plan_relation(exp.plan())
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -548,7 +551,8 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                     ),
                 )
         case "InSubquery":
-            rel_proto = map_logical_plan_relation(exp.query().plan())
+            with push_sql_scope(is_boundary=True):
+                rel_proto = map_logical_plan_relation(exp.query().plan())
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -778,7 +782,8 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                 raise exception
             proto = expressions_proto.Expression(literal=value)
         case "ScalarSubquery":
-            rel_proto = map_logical_plan_relation(exp.plan())
+            with push_sql_scope(is_boundary=True):
+                rel_proto = map_logical_plan_relation(exp.plan())
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(
@@ -868,8 +873,34 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
                 if parents:
                     parent_name = ".".join(str(p) for p in parents)
                     plan_id = get_sql_plan(parent_name)
+                    if plan_id == AMBIGUOUS_PLAN_ID:
+                        exception = AnalysisException(
+                            f"[AMBIGUOUS_REFERENCE] Reference `{parent_name}`.`{name}` is ambiguous, "
+                            f"could be multiple tables with the same name `{parent_name}`."
+                        )
+                        attach_custom_error_code(
+                            exception, ErrorCodes.AMBIGUOUS_COLUMN_NAME
+                        )
+                        raise exception
                     # If no plan_id exists, treat the column name as fully qualified by its parent.
                     if plan_id is None:
+                        # A qualifier that resolves only to a grandparent scope
+                        # (two or more levels up) is an out-of-scope correlated
+                        # reference.  Spark rejects it with UNRESOLVED_COLUMN
+                        # (e.g. `(SELECT d.d_budget)` nested inside another
+                        # subquery), while Snowflake would resolve the
+                        # correlation and diverge.  Raise a Spark-compatible
+                        # error rather than passing it through.
+                        if is_out_of_scope_correlated_qualifier(parent_name):
+                            exception = AnalysisException(
+                                f"[UNRESOLVED_COLUMN.WITHOUT_SUGGESTION] A column or "
+                                f"function parameter with name `{parent_name}`.`{name}` "
+                                f"cannot be resolved."
+                            )
+                            attach_custom_error_code(
+                                exception, ErrorCodes.COLUMN_NOT_FOUND
+                            )
+                            raise exception
                         # There's a difference in how Spark sql and dataframe operation passes backticks in column names.
                         # Spark sql un-escapes the backticks instead of passing the raw string. This
                         # logic is to escape backticks again to make it consistent with regular spark functions.
@@ -949,7 +980,8 @@ def map_logical_plan_expression(exp: jpype.JObject) -> expressions_proto.Express
             window_spec = exp.windowSpec()
             proto = get_window_expression_proto(window_spec, exp.windowFunction())
         case "FunctionTableSubqueryArgumentExpression":
-            rel_proto = map_logical_plan_relation(exp.plan())
+            with push_sql_scope(is_boundary=True):
+                rel_proto = map_logical_plan_relation(exp.plan())
             any_proto = Any()
             any_proto.Pack(
                 snowflake_proto.ExpExtension(

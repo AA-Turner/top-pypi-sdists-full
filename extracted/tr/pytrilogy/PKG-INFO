@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.297
+Version: 0.3.298
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -330,7 +330,7 @@ query = text_to_query(
     executor.environment,
     "number of flights by month in 2005",
     Provider.OPENAI,
-    "gpt-5-chat-latest",
+    "gpt-5.5",
     api_key,
 )
 

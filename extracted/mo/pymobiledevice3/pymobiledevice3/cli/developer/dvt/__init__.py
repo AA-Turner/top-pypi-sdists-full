@@ -3,10 +3,11 @@ import logging
 import os
 import posixpath
 import shlex
+from collections.abc import AsyncIterator
 from datetime import datetime
 from enum import IntEnum
 from pathlib import Path
-from typing import Annotated, NamedTuple, Optional
+from typing import Annotated, Any, NamedTuple, Optional, cast
 
 import typer
 from click.exceptions import BadParameter, MissingParameter, UsageError
@@ -329,7 +330,7 @@ def dvt_shell(service_provider: ServiceProviderDep) -> None:
         start_ipython_shell(
             header=highlight(
                 SHELL_USAGE,
-                lexers.PythonLexer(),
+                cast(Any, lexers).PythonLexer(),
                 formatters.Terminal256Formatter(style="native"),
             ),
             user_ns={"dvt": dvt, "dtx": dvt.dtx},
@@ -372,7 +373,7 @@ async def ls(
 async def device_information(service_provider: ServiceProviderDep) -> None:
     """Print system information"""
     async with DvtProvider(service_provider) as dvt, DeviceInfo(dvt) as device_info:
-        info = {
+        info: dict[str, Any] = {
             "hardware": await device_info.hardware_information(),
             "network": await device_info.network_information(),
             "kernel-name": await device_info.mach_kernel_name(),
@@ -470,16 +471,16 @@ async def xcuitest(
 
             async def test_suite_did_finish(
                 self,
-                suite,
-                finished_at,
-                run_count,
-                failures,
-                unexpected,
-                test_duration,
-                total_duration,
-                skipped,
-                expected_failures,
-                uncaught_exceptions,
+                suite: str,
+                finished_at: str,
+                run_count: int,
+                failures: int,
+                unexpected: int,
+                test_duration: float,
+                total_duration: float,
+                skipped: int,
+                expected_failures: int,
+                uncaught_exceptions: int,
             ) -> None:
                 _write(
                     f"[suite] finish {suite}  at={finished_at}"
@@ -541,7 +542,7 @@ async def dvt_name_for_gid(service_provider: ServiceProviderDep, gid: int) -> No
 async def dvt_oslog(service_provider: ServiceProviderDep, pid: Optional[int] = None) -> None:
     """Sniff device oslog (not very stable, but includes more data and normal syslog)"""
     async with DvtProvider(service_provider) as dvt, ActivityTraceTap(dvt) as tap:
-        async for message in tap:
+        async for message in cast(AsyncIterator[Any], tap):
             message_pid = message.process
             # without message_type maybe signpost have event_type
             message_type = (

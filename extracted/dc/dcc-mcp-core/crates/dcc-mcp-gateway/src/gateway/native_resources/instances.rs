@@ -240,6 +240,12 @@ pub async fn build_payload(gs: &GatewayState, query: &Query) -> Result<Value, St
                             "busy" if e.status.to_string() != "busy" || stale => {
                                 return false;
                             }
+                            "unreachable" if e.status.to_string() != "unreachable" || stale => {
+                                return false;
+                            }
+                            "booting" if e.status.to_string() != "booting" || stale => {
+                                return false;
+                            }
                             "stale" if !stale => {
                                 return false;
                             }
@@ -301,7 +307,8 @@ pub async fn build_payload(gs: &GatewayState, query: &Query) -> Result<Value, St
             let entry = gs
                 .resolve_instance(&reg, Some(instance_id.as_str()), None)
                 .map_err(|err| err.to_string())?;
-            Ok(gs.instance_json(&entry))
+            drop(reg);
+            Ok(super::super::instance_context::build_payload(gs, entry).await)
         }
     }
 }

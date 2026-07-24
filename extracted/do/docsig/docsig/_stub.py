@@ -46,22 +46,38 @@ _FIELD_WORD = r"(?:\\?\*){0,2}\w+(?:[.,|\[\]]+\w+)*[,\[\]]*"
 #: arbitrarily and so never counts as a param indent anomaly
 _DIRECTIVE = _re.compile(r"^[ \t]*\.\..*\n(?:[ \t]+.*\n)*", _re.MULTILINE)
 
-#: an rst field such as ``:param:``, marking a docstring as already rst
-_RST_FIELD = _re.compile(r"^:\w+", _re.MULTILINE)
+#: an rst field such as ``:param:``, marking a docstring as already rst;
+#: the closing colon must be followed by whitespace or the end of the
+#: line, which a role such as ``:class:`Thing``` never is, so a wrapped
+#: cross-reference at column 0 does not pass for a field
+_RST_FIELD = _re.compile(r"^:\w+[^:\n]*:(?=\s|$)", _re.MULTILINE)
 
-#: a numpy section header such as ``Returns`` underlined with dashes
+#: every section name napoleon knows, longest first so multi-word names
+#: are preferred; derived from napoleon itself rather than hand-listed,
+#: because a hand-listed subset silently stops docstrings it does not
+#: recognise from ever reaching napoleon, hiding their params
+_SECTION_NAMES = "|".join(
+    _re.escape(name)
+    for name in sorted(
+        # pylint: disable-next=protected-access
+        _s.GoogleDocstring("")._sections,  # type: ignore
+        key=len,
+        reverse=True,
+    )
+)
+
+#: a numpy section header such as ``Returns`` underlined with dashes;
+#: trailing whitespace after the name is tolerated, as napoleon strips
+#: it and the underline below already allows it
 _NUMPY_SECTION = _re.compile(
-    r"^(Parameters|Other Parameters|Returns|Yields|Raises|"
-    r"See Also|Notes|Examples|Attributes|Methods)\n"
-    r"\s*-{3,}\s*$",
-    _re.MULTILINE,
+    rf"^({_SECTION_NAMES})[ \t]*\n\s*-{{3,}}\s*$",
+    _re.MULTILINE | _re.IGNORECASE,
 )
 
 #: a Google section header such as ``Args:``
 _GOOGLE_SECTION = _re.compile(
-    r"^(Args|Arguments|Keyword Args|Keyword Arguments|Parameters|"
-    r"Returns|Yields|Raises|Attributes|Example|Examples):\s*$",
-    _re.MULTILINE,
+    rf"^({_SECTION_NAMES}):\s*$",
+    _re.MULTILINE | _re.IGNORECASE,
 )
 
 #: a return field such as ``:return:``, capturing its description

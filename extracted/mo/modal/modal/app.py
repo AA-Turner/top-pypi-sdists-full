@@ -710,7 +710,7 @@ class _App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -920,6 +920,7 @@ class _App:
                 i6pn_enabled = i6pn or (f.flags & _PartialFunctionFlags.CLUSTERED)
                 cluster_size = f.params.cluster_size  # Experimental: Clustered functions
                 rdma = f.params.rdma
+                fabric_size = f.params.fabric_size
 
                 info = FunctionInfo(f.raw_f, serialized=serialized, name_override=name)
                 raw_f = f.raw_f
@@ -974,6 +975,7 @@ class _App:
 
                 cluster_size = None  # Experimental: Clustered functions
                 rdma = None
+                fabric_size = None
                 i6pn_enabled = i6pn
 
             if is_generator is None:
@@ -1016,6 +1018,7 @@ class _App:
                 i6pn_enabled=i6pn_enabled,
                 cluster_size=cluster_size,  # Experimental: Clustered functions
                 rdma=rdma,
+                fabric_size=fabric_size,  # Experimental: Clustered functions
                 include_source=include_source if include_source is not None else local_state.include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 restrict_output=_experimental_restrict_output,
@@ -1066,7 +1069,7 @@ class _App:
         max_inputs: int | None = None,
     ) -> Callable[[CLS_T | _PartialFunction], CLS_T]:
         """
-        Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
+        Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -1151,16 +1154,19 @@ class _App:
                 if wrapped_cls.flags & _PartialFunctionFlags.CLUSTERED:
                     cluster_size = wrapped_cls.params.cluster_size
                     rdma = wrapped_cls.params.rdma
+                    fabric_size = wrapped_cls.params.fabric_size
 
                 else:
                     cluster_size = None
                     rdma = None
+                    fabric_size = None
             else:
                 user_cls = wrapped_cls
                 max_concurrent_inputs = None
                 target_concurrent_inputs = None
                 cluster_size = None
                 rdma = None
+                fabric_size = None
             if not inspect.isclass(user_cls):
                 raise TypeError("The @app.cls decorator must be used on a class.")
 
@@ -1246,6 +1252,7 @@ class _App:
                 i6pn_enabled=i6pn_enabled,
                 cluster_size=cluster_size,
                 rdma=rdma,
+                fabric_size=fabric_size,
                 include_source=include_source if include_source is not None else local_state.include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 restrict_output=_experimental_restrict_output,
@@ -1288,6 +1295,7 @@ class _App:
         scaleup_window: int | None = None,  # Stabilization window (seconds) of sustained demand before scaling up
         scaledown_window: int | None = None,  # Max idle time before scaling down (seconds)
         startup_timeout: int = 30,  # Maximum container startup time in seconds
+        name: str | None = None,  # Name of the server
         port: int = 8000,  # Port the HTTP server listens on
         unauthenticated: bool = False,  # Whether the endpoint requires proxy authentication, required by default.
         h2_enabled: bool = False,  # Enable HTTP/2
@@ -1334,6 +1342,7 @@ class _App:
             scaleup_window: Seconds of sustained demand required before scaling up new containers.
             scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
             startup_timeout: Maximum container startup time in seconds.
+            name: Sets the Modal name of the function within the app, defaults to class name.
             port: Port the HTTP server listens on.
             unauthenticated: Whether the endpoint requires proxy authentication; required by default.
             h2_enabled: Enable HTTP/2.
@@ -1403,6 +1412,7 @@ class _App:
             # Extract the underlying class if wrapped in a _PartialFunction (e.g., from @modal.clustered())
             cluster_size = None
             rdma = None
+            fabric_size = None
             user_cls = wrapped_user_cls
 
             if isinstance(wrapped_user_cls, _PartialFunction):
@@ -1410,11 +1420,12 @@ class _App:
                 if wrapped_user_cls.flags & _PartialFunctionFlags.CLUSTERED:
                     cluster_size = wrapped_user_cls.params.cluster_size
                     rdma = wrapped_user_cls.params.rdma
+                    fabric_size = wrapped_user_cls.params.fabric_size
 
             local_state = self._local_state
 
             # Create the FunctionInfo for the server, note we treat FunctionInfo as a class for servers
-            info = FunctionInfo(None, serialized=serialized, user_cls=user_cls, name_override=user_cls.__name__)
+            info = FunctionInfo(None, serialized=serialized, user_cls=user_cls, name_override=name or user_cls.__name__)
             # Create the service function
             service_function = _Function.from_local(
                 info,
@@ -1449,6 +1460,7 @@ class _App:
                 i6pn_enabled=i6pn or (cluster_size is not None),
                 cluster_size=cluster_size,
                 rdma=rdma,
+                fabric_size=fabric_size,
                 include_source=include_source if include_source is not None else local_state.include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 restrict_output=False,

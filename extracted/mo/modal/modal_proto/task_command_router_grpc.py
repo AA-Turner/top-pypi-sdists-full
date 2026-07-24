@@ -97,6 +97,10 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskSnapshotMemory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSnapshotMemoryRequest, modal_proto.task_command_router_pb2.TaskSnapshotMemoryResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskUnmountDirectory(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -221,6 +225,12 @@ class TaskCommandRouterBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
                 modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskSnapshotMemory': grpclib.const.Handler(
+                self.TaskSnapshotMemory,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskSnapshotMemoryRequest,
+                modal_proto.task_command_router_pb2.TaskSnapshotMemoryResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory': grpclib.const.Handler(
                 self.TaskUnmountDirectory,
@@ -353,6 +363,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem',
             modal_proto.task_command_router_pb2.TaskSnapshotFilesystemRequest,
             modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
+        )
+        self.TaskSnapshotMemory = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskSnapshotMemory',
+            modal_proto.task_command_router_pb2.TaskSnapshotMemoryRequest,
+            modal_proto.task_command_router_pb2.TaskSnapshotMemoryResponse,
         )
         self.TaskUnmountDirectory = grpclib.client.UnaryUnaryMethod(
             channel,

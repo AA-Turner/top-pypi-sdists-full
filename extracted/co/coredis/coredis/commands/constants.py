@@ -92,6 +92,7 @@ class CommandName(bytes, enum.Enum):
     HOTKEYS_RESET = b"HOTKEYS RESET"  # Since redis: 8.6.0
     HOTKEYS_START = b"HOTKEYS START"  # Since redis: 8.6.0
     HOTKEYS_STOP = b"HOTKEYS STOP"  # Since redis: 8.6.0
+    HOTKEYS_HELP = b"HOTKEYS HELP"  # Since redis: 8.6.1
     SLAVEOF = b"SLAVEOF"  # Deprecated in redis: 5.0.0
 
     #: Commands for string
@@ -115,11 +116,32 @@ class CommandName(bytes, enum.Enum):
     DELEX = b"DELEX"  # Since redis: 8.4.0
     DIGEST = b"DIGEST"  # Since redis: 8.4.0
     MSETEX = b"MSETEX"  # Since redis: 8.4.0
+    INCREX = b"INCREX"  # Since redis: 8.8.0
     GETSET = b"GETSET"  # Deprecated in redis: 6.2.0
     SETNX = b"SETNX"  # Deprecated in redis: 2.6.12
     SUBSTR = b"SUBSTR"  # Deprecated in redis: 2.0.0
     SETEX = b"SETEX"  # Deprecated in redis: 2.6.12
     PSETEX = b"PSETEX"  # Deprecated in redis: 2.6.12
+
+    #: Commands for array
+    ARCOUNT = b"ARCOUNT"  # Since redis: 8.8.0
+    ARDEL = b"ARDEL"  # Since redis: 8.8.0
+    ARDELRANGE = b"ARDELRANGE"  # Since redis: 8.8.0
+    ARGET = b"ARGET"  # Since redis: 8.8.0
+    ARGETRANGE = b"ARGETRANGE"  # Since redis: 8.8.0
+    ARGREP = b"ARGREP"  # Since redis: 8.8.0
+    ARINFO = b"ARINFO"  # Since redis: 8.8.0
+    ARINSERT = b"ARINSERT"  # Since redis: 8.8.0
+    ARLASTITEMS = b"ARLASTITEMS"  # Since redis: 8.8.0
+    ARLEN = b"ARLEN"  # Since redis: 8.8.0
+    ARMGET = b"ARMGET"  # Since redis: 8.8.0
+    ARMSET = b"ARMSET"  # Since redis: 8.8.0
+    ARNEXT = b"ARNEXT"  # Since redis: 8.8.0
+    AROP = b"AROP"  # Since redis: 8.8.0
+    ARRING = b"ARRING"  # Since redis: 8.8.0
+    ARSCAN = b"ARSCAN"  # Since redis: 8.8.0
+    ARSEEK = b"ARSEEK"  # Since redis: 8.8.0
+    ARSET = b"ARSET"  # Since redis: 8.8.0
 
     #: Commands for cluster
     ASKING = b"ASKING"  # Since redis: 3.0.0
@@ -435,6 +457,8 @@ class CommandName(bytes, enum.Enum):
     XACKDEL = b"XACKDEL"  # Since redis: 8.2.0
     XDELEX = b"XDELEX"  # Since redis: 8.2.0
     XCFGSET = b"XCFGSET"  # Since redis: 8.6.0
+    XIDMPRECORD = b"XIDMPRECORD"  # Since redis: 8.6.2
+    XNACK = b"XNACK"  # Since redis: 8.8.0
 
     #: Commands for vector_set
     VADD = b"VADD"  # Since redis: 8.0.0
@@ -556,6 +580,7 @@ class CommandName(bytes, enum.Enum):
     TS_REVRANGE = b"TS.REVRANGE"  # Since timeseries: 1.4.0
     TS_MREVRANGE = b"TS.MREVRANGE"  # Since timeseries: 1.4.0
     TS_DEL = b"TS.DEL"  # Since timeseries: 1.6.0
+    TS_BGET = b"TS.BGET"  # Since timeseries: 8.10.0
 
     #: Commands for search
     FT_CREATE = b"FT.CREATE"  # Since search: 1.0.0
@@ -580,6 +605,7 @@ class CommandName(bytes, enum.Enum):
     FT_DROPINDEX = b"FT.DROPINDEX"  # Since search: 2.0.0
     FT__LIST = b"FT._LIST"  # Since search: 2.0.0
     FT_PROFILE = b"FT.PROFILE"  # Since search: 2.2.0
+    FT_ALIASLIST = b"FT.ALIASLIST"  # Since search: 8.10.0
     FT_HYBRID = b"FT.HYBRID"  # Since search: 8.4.4
     FT_CONFIG_SET = b"FT.CONFIG SET"  # Deprecated in search: 8.0.0
     FT_CONFIG_GET = b"FT.CONFIG GET"  # Deprecated in search: 8.0.0
@@ -617,6 +643,7 @@ class CommandName(bytes, enum.Enum):
 
 
 class CommandGroup(enum.Enum):
+    ARRAY = "array"
     BF = "bf"
     BITMAP = "bitmap"
     CF = "cf"

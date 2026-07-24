@@ -141,20 +141,71 @@ def expand_dir_to_stage_files(
     (e.g. ``dir/file.txt``), which is the shape Text's ``SELECT ... FROM
     '@stage/<relative>'`` reads expect.
 
+    For a **named external stage** whose URL carries a non-root prefix
+    (``CREATE STAGE ... URL='s3://bucket/<prefix>'``), the ``LIST`` rows still
+    include ``<prefix>``. Stripping only scheme+bucket would leave ``<prefix>``
+    in the "relative" path, so the per-file ``SELECT ... FROM '@stage/<rel>'``
+    would re-root under the stage and double-count the prefix — reading nothing
+    (SNOW-3723843). We therefore resolve the stage's own URL via
+    ``DESCRIBE STAGE`` and strip that full prefix (matching on the bucket+key
+    portion with the scheme ignored, so an ``s3://`` vs ``s3a://`` or trailing-slash
+    difference between ``LIST`` and ``DESCRIBE STAGE`` still matches), yielding a
+    genuinely stage-relative path -- the shape
+    ``path_anchoring._stage_relative_list_prefix`` (used by the non-recursive / glob
+    filters) expects. Internal stages (no URL) and direct cloud paths fall back to
+    the scheme+bucket strip.
+
     ``skip_success_markers`` drops Spark's ``_SUCCESS`` sentinel files. Depth /
     hidden-file filtering for ``recursiveFileLookup=false`` is left to the
     caller because it depends on the input path depth.
     """
+    from snowflake.snowpark_connect.relation.io_utils import (
+        get_stage_url_prefix,
+        is_external_cloud_url,
+    )
+
+    listed_rows = session.sql(f"LIST {path}").collect()
+
+    # Only a named *external* stage needs its own URL prefix stripped: its LIST
+    # rows are rooted at the stage's cloud URL (bucket + the stage's prefix), and
+    # stripping just scheme+bucket would leave that prefix behind (SNOW-3723843).
+    # Internal stages list stage-name-rooted paths, so gate the DESCRIBE STAGE
+    # lookup on the LIST output actually being cloud-rooted -- this skips a wasted
+    # round-trip on the common internal-stage path and only pays it when it can
+    # change the result.
+    #
+    # We match on the bucket+key portion with the scheme dropped so a scheme
+    # difference between LIST and DESCRIBE STAGE (e.g. ``s3://`` vs ``s3a://``) or
+    # a trailing slash cannot cause a silent miss that falls back to the broken
+    # scheme+bucket strip.
+    stage_url_rest: str | None = None
+    stripped_path = path.strip("'\"")
+    if stripped_path.startswith("@") and any(
+        is_external_cloud_url(row[0]) for row in listed_rows
+    ):
+        stage_name = stripped_path[1:].split("/", 1)[0]
+        stage_url = get_stage_url_prefix(stage_name, session)
+        if stage_url and is_external_cloud_url(stage_url):
+            stage_url_rest = stage_url.split("://", 1)[-1].strip("/")
+
     file_paths: list[str] = []
-    for listed_path_row in session.sql(f"LIST {path}").collect():
+    for listed_path_row in listed_rows:
         listed = listed_path_row[0]
         if skip_success_markers and listed.endswith("_SUCCESS"):
             continue
 
-        relative = cloud_list_path_to_relative(listed)
+        relative: str | None = None
+        if stage_url_rest:
+            # External stage with a URL prefix: strip the full stage URL (scheme
+            # ignored) so the path is relative to the stage root, not the bucket.
+            listed_rest = listed.split("://", 1)[-1]
+            if listed_rest.startswith(stage_url_rest + "/"):
+                relative = listed_rest[len(stage_url_rest) + 1 :]
         if relative is None:
-            # Stage-name-rooted path (e.g. ``stage/dir/file``): drop the leading
-            # stage-name component.
-            relative = "/".join(listed.split("/")[1:])
+            relative = cloud_list_path_to_relative(listed)
+            if relative is None:
+                # Stage-name-rooted path (e.g. ``stage/dir/file``): drop the
+                # leading stage-name component.
+                relative = "/".join(listed.split("/")[1:])
         file_paths.append(relative)
     return file_paths

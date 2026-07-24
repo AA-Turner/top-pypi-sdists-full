@@ -16,6 +16,7 @@
 
 #include "_state.hpp"
 #include "dwave-optimization/array.hpp"
+#include "dwave-optimization/graph.hpp"
 #include "dwave-optimization/nodes/inputs.hpp"
 #include "dwave-optimization/state.hpp"
 
@@ -44,23 +45,23 @@ AccumulateZipNode::AccumulateZipNode(
     array_or_double initial
 ) :
     ArrayOutputMixin(operands.empty() ? std::span<ssize_t, 0>() : operands[0]->shape()),
-    initial(initial),
     expression_ptr_(std::move(expression_ptr)),
+    initial_(initial),
     operands_(operands),
     sizeinfo_(operands.empty() ? SizeInfo(0) : operands_[0]->sizeinfo()) {
-    check(*expression_ptr_, operands, initial);
+    check(*expression_ptr_, operands, initial_);
 
-    if (std::holds_alternative<ArrayNode*>(initial)) {
+    if (std::holds_alternative<ArrayNode*>(initial_)) {
         // was checked in check() method
-        add_predecessor(std::get<ArrayNode*>(initial));
+        add_predecessor_(std::get<ArrayNode*>(initial_));
     }
     for (const auto& op : operands_) {
-        add_predecessor(op);
+        add_predecessor_(op);
     }
 }
 
 double const* AccumulateZipNode::buff(const State& state) const {
-    return data_ptr<AccumulateZipNodeData>(state)->buff();
+    return data_ptr_<AccumulateZipNodeData>(state)->buff();
 }
 
 void AccumulateZipNode::check(
@@ -222,11 +223,11 @@ void AccumulateZipNode::check(
 }
 
 void AccumulateZipNode::commit(State& state) const {
-    data_ptr<AccumulateZipNodeData>(state)->commit();
+    data_ptr_<AccumulateZipNodeData>(state)->commit();
 }
 
 std::span<const Update> AccumulateZipNode::diff(const State& state) const {
-    return data_ptr<AccumulateZipNodeData>(state)->diff();
+    return data_ptr_<AccumulateZipNodeData>(state)->diff();
 }
 
 double AccumulateZipNode::evaluate_expression(State& register_) const {
@@ -242,10 +243,10 @@ double AccumulateZipNode::evaluate_expression(State& register_) const {
 }
 
 double AccumulateZipNode::get_initial_value(const State& state) const {
-    if (std::holds_alternative<double>(initial)) {
-        return std::get<double>(initial);
+    if (std::holds_alternative<double>(initial_)) {
+        return std::get<double>(initial_);
     } else {
-        return std::get<ArrayNode*>(initial)->view(state)[0];
+        return std::get<ArrayNode*>(initial_)->view(state)[0];
     }
 }
 
@@ -301,6 +302,16 @@ void AccumulateZipNode::initialize_state(State& state) const {
     );
 }
 
+bool AccumulateZipNode::equal_to(const AccumulateZipNode& rhs) const {
+    // note that we don't have a notion of Graph equality, so we instead
+    // just check whether we have the same underlying shared ptr
+    return (
+        expression_ptr_ == rhs.expression_ptr_ and  //
+        operands_ == rhs.operands_ and              //
+        initial_ == rhs.initial_
+    );
+}
+
 bool AccumulateZipNode::integral() const { return expression_ptr_->objective()->integral(); }
 
 double AccumulateZipNode::max() const { return expression_ptr_->objective()->max(); }
@@ -312,7 +323,7 @@ std::span<const InputNode* const> AccumulateZipNode::operand_inputs() const {
 }
 
 void AccumulateZipNode::propagate(State& state) const {
-    AccumulateZipNodeData* data = data_ptr<AccumulateZipNodeData>(state);
+    AccumulateZipNodeData* data = data_ptr_<AccumulateZipNodeData>(state);
     ssize_t new_size = this->size(state);
     ssize_t num_args = operands_.size();
 
@@ -354,8 +365,31 @@ const InputNode* const AccumulateZipNode::accumulate_input() const {
     return expression_ptr_->inputs()[0];
 }
 
+void AccumulateZipNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+
+    assert(0 <= index);
+    if (std::holds_alternative<ArrayNode*>(initial_)) {
+        if (index == 0) {
+            // we're replacing the initial array
+            initial_ = dynamic_cast<ArrayNode*>(node_ptr);
+            assert(std::get<ArrayNode*>(initial_) != nullptr);
+            return;
+        }
+
+        // If initial is not the array we're looking for, decrement the index
+        // so we can search in operands
+        index -= 1;
+        assert(0 <= index);
+    }
+
+    assert(0 <= index and static_cast<size_t>(index) < operands_.size());
+    operands_[index] = dynamic_cast<ArrayNode*>(node_ptr);
+    assert(operands_[index] != nullptr);
+}
+
 void AccumulateZipNode::revert(State& state) const {
-    data_ptr<AccumulateZipNodeData>(state)->revert();
+    data_ptr_<AccumulateZipNodeData>(state)->revert();
 }
 
 std::span<const ssize_t> AccumulateZipNode::shape(const State& state) const {
@@ -367,7 +401,7 @@ ssize_t AccumulateZipNode::size(const State& state) const { return operands_[0]-
 SizeInfo AccumulateZipNode::sizeinfo() const { return this->sizeinfo_; }
 
 ssize_t AccumulateZipNode::size_diff(const State& state) const {
-    return data_ptr<AccumulateZipNodeData>(state)->size_diff();
+    return data_ptr_<AccumulateZipNodeData>(state)->size_diff();
 }
 
 }  // namespace dwave::optimization

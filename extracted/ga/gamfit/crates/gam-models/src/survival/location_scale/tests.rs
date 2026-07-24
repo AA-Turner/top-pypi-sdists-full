@@ -8465,3 +8465,99 @@ fn reduced_parametric_aft_stopping_criterion_is_weight_scale_invariant() {
         "log-sigma must be weight-scale invariant: w=1 -> {ls1:.9}, w=500 -> {ls500:.9}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// #2390 (#2385 instance 1): the symmetric cone fraction-to-boundary rule that
+// keeps every realized link-wiggle conditional-mean vector inside the β ≥ 0
+// cone during exact response-moment integration.
+// ---------------------------------------------------------------------------
+
+/// Interior coefficients far from every wall admit the full displacement: the
+/// unconstrained rule is recovered verbatim (α = 1).
+#[test]
+pub(crate) fn cone_fraction_to_boundary_is_identity_in_the_interior_2390() {
+    let beta = array![2.0, 3.0, 1.5];
+    let d = array![0.5, -1.0, 0.75];
+    let alpha =
+        super::moments::symmetric_cone_fraction_to_boundary(beta.view(), d.view());
+    assert_eq!(alpha, 1.0, "interior β̂ with sub-wall displacement must keep α = 1");
+}
+
+/// A coordinate pinned exactly at its wall with a nonzero displacement
+/// collapses the whole displacement: no realized vector may leave the cone.
+#[test]
+pub(crate) fn cone_fraction_to_boundary_freezes_pinned_wall_coordinates_2390() {
+    let beta = array![1.0, 0.0, 2.0];
+    let d = array![0.3, 0.2, -0.1];
+    let alpha =
+        super::moments::symmetric_cone_fraction_to_boundary(beta.view(), d.view());
+    assert_eq!(alpha, 0.0, "a pinned cone coordinate with |d| > 0 must freeze the step");
+    // Round-off guard: a slightly negative β̂ (numerical wall overshoot) is
+    // clamped to the wall, never allowed to licence a negative-direction step.
+    let beta_neg = array![1.0, -1.0e-14, 2.0];
+    let alpha_neg =
+        super::moments::symmetric_cone_fraction_to_boundary(beta_neg.view(), d.view());
+    assert_eq!(alpha_neg, 0.0);
+}
+
+/// The factor depends only on |d|: α(d) = α(−d), so symmetric quadrature
+/// nodes stay symmetric about β̂ and linear functionals stay unbiased; and the
+/// clipped vectors β̂ ± α·d are feasible componentwise.
+#[test]
+pub(crate) fn cone_fraction_to_boundary_is_sign_symmetric_and_feasible_2390() {
+    let beta = array![0.25, 1.0, 0.05, 3.0];
+    let d = array![0.5, -0.4, 0.2, 0.0];
+    let alpha =
+        super::moments::symmetric_cone_fraction_to_boundary(beta.view(), d.view());
+    let alpha_flip = super::moments::symmetric_cone_fraction_to_boundary(
+        beta.view(),
+        d.mapv(|v| -v).view(),
+    );
+    assert_eq!(alpha, alpha_flip, "α must be invariant to the displacement sign");
+    // Tightest wall here is β̂[2]/|d[2]| = 0.05/0.2 = 0.25.
+    assert!((alpha - 0.25).abs() < 1e-15, "α must bind at the tightest wall, got {alpha}");
+    for (b, dv) in beta.iter().zip(d.iter()) {
+        assert!(b + alpha * dv >= 0.0 && b - alpha * dv >= 0.0, "both ± nodes must stay in the cone");
+    }
+}
+
+/// #2390 layer 2: the `[0,∞)`-truncated Gaussian expectation matches the
+/// closed-form truncated-normal moments (E[w | w ≥ 0] = μ + σ·φ(α)/(1−Φ(α)),
+/// α = −μ/σ), normalizes the measure exactly, and degenerates to the wall
+/// when the unconstrained mass sits entirely below it.
+#[test]
+pub(crate) fn truncated_nonnegative_normal_expectation_matches_closed_form_2390() {
+    use gam_math::probability::normal_cdf;
+    let phi = |x: f64| (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt();
+    // Measure normalization: a constant integrand integrates to itself.
+    let (one, four) = super::moments::truncated_nonnegative_normal_expectation_pair(
+        0.3, 0.7, |_| Ok((1.0, 4.0)),
+    )
+    .expect("constant integrand");
+    assert!((one - 1.0).abs() < 1e-12 && (four - 4.0).abs() < 1e-12);
+    // First moment against the closed form, at a wall-adjacent mean.
+    for &(mu, sd) in &[(0.3_f64, 0.7_f64), (0.0, 1.3), (2.5, 0.5), (-0.4, 0.8)] {
+        let alpha = -mu / sd;
+        let expected = mu + sd * phi(alpha) / (1.0 - normal_cdf(alpha));
+        let (m1, _) = super::moments::truncated_nonnegative_normal_expectation_pair(
+            mu, sd, |w| Ok((w, w * w)),
+        )
+        .expect("identity integrand");
+        assert!(
+            (m1 - expected).abs() < 1e-9 * expected.abs().max(1.0),
+            "E[w | w>=0] mismatch at mu={mu} sd={sd}: got {m1}, want {expected}"
+        );
+    }
+    // Interior limit: truncation underflows and the plain mean is recovered.
+    let (m1, _) = super::moments::truncated_nonnegative_normal_expectation_pair(
+        50.0, 1.0, |w| Ok((w, w * w)),
+    )
+    .expect("interior integrand");
+    assert!((m1 - 50.0).abs() < 1e-9);
+    // All mass below the wall: the truncated law concentrates at the wall.
+    let (m1, m2) = super::moments::truncated_nonnegative_normal_expectation_pair(
+        -1.0e6, 1.0e-3, |w| Ok((w, 1.0 + w)),
+    )
+    .expect("wall integrand");
+    assert!(m1 == 0.0 && m2 == 1.0);
+}

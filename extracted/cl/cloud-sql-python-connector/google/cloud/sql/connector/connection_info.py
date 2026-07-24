@@ -18,13 +18,12 @@ import abc
 from dataclasses import dataclass
 import logging
 import ssl
-from typing import Any, Optional, TYPE_CHECKING
-
-from aiofiles.tempfile import TemporaryDirectory
+from typing import Any, TYPE_CHECKING
 
 from google.cloud.sql.connector.connection_name import ConnectionName
 from google.cloud.sql.connector.exceptions import CloudSQLIPTypeError
 from google.cloud.sql.connector.exceptions import TLSVersionError
+from google.cloud.sql.connector.utils import AsyncTemporaryDirectory
 from google.cloud.sql.connector.utils import write_to_file
 
 if TYPE_CHECKING:
@@ -68,7 +67,7 @@ class ConnectionInfo:
     ip_addrs: dict[str, Any]
     database_version: str
     expiration: datetime.datetime
-    context: Optional[ssl.SSLContext] = None
+    context: ssl.SSLContext | None = None
 
     async def create_ssl_context(self, enable_iam_auth: bool = False) -> ssl.SSLContext:
         """Constructs a SSL/TLS context for the given connection info.
@@ -108,7 +107,7 @@ class ConnectionInfo:
         # tmpdir and its contents are automatically deleted after the CA cert
         # and ephemeral cert are loaded into the SSLcontext. The values
         # need to be written to files in order to be loaded by the SSLContext
-        async with TemporaryDirectory() as tmpdir:
+        async with AsyncTemporaryDirectory() as tmpdir:
             ca_filename, cert_filename, key_filename = await write_to_file(
                 tmpdir, self.server_ca_cert, self.client_cert, self.private_key
             )
@@ -120,6 +119,17 @@ class ConnectionInfo:
 
     def get_preferred_ip(self, ip_type: IPTypes) -> str:
         """Returns the first IP address for the instance, according to the preference
+        supplied by ip_type. If no IP addressess with the given preference are found,
+        an error is raised."""
+        if ip_type.value in self.ip_addrs:
+            return self.ip_addrs[ip_type.value][0]
+        raise CloudSQLIPTypeError(
+            "Cloud SQL instance does not have any IP addresses matching "
+            f"preference: {ip_type.value}"
+        )
+
+    def get_preferred_ips(self, ip_type: IPTypes) -> list[str]:
+        """Returns all IP addresses for the instance, according to the preference
         supplied by ip_type. If no IP addressess with the given preference are found,
         an error is raised."""
         if ip_type.value in self.ip_addrs:

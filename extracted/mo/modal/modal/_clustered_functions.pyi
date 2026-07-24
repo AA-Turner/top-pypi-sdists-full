@@ -3,14 +3,17 @@ import types
 import typing_extensions
 
 class ClusterInfo:
-    """ClusterInfo(rank: int, cluster_id: str, container_ips: list[str], container_ipv4_ips: list[str])"""
+    """ClusterInfo(rank: int, cluster_id: str, container_ips: list[str], container_ipv4_ips: list[str], fabric_ids: list[str])"""
 
     rank: int
     cluster_id: str
     container_ips: list[str]
     container_ipv4_ips: list[str]
+    fabric_ids: list[str]
 
-    def __init__(self, rank: int, cluster_id: str, container_ips: list[str], container_ipv4_ips: list[str]) -> None:
+    def __init__(
+        self, rank: int, cluster_id: str, container_ips: list[str], container_ipv4_ips: list[str], fabric_ids: list[str]
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -23,6 +26,7 @@ class ClusterInfo:
         ...
 
 def get_cluster_info() -> ClusterInfo: ...
+def get_fabric_peers() -> list[int]: ...
 async def _initialize_clustered_function(client: modal.client._Client, task_id: str, world_size: int): ...
 
 class __initialize_clustered_function_spec(typing_extensions.Protocol):

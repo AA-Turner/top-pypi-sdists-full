@@ -338,6 +338,7 @@ __all__ = (
     "DeleteWorkloadIdentityRequestTypeDef",
     "DescriptorsTypeDef",
     "EfsAccessPointConfigurationTypeDef",
+    "EfsConfigurationTypeDef",
     "EpisodicConsolidationOverrideTypeDef",
     "EpisodicExtractionOverrideTypeDef",
     "EpisodicMemoryStrategyInputTypeDef",
@@ -795,6 +796,7 @@ __all__ = (
     "RuntimeTargetConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
+    "S3FilesConfigurationTypeDef",
     "S3LocationTypeDef",
     "S3SourceTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
@@ -876,6 +878,7 @@ __all__ = (
     "ToolSchemaOutputTypeDef",
     "ToolSchemaTypeDef",
     "ToolsDefinitionTypeDef",
+    "ToolsFileSystemConfigurationTypeDef",
     "TrafficSplitEntryOutputTypeDef",
     "TrafficSplitEntryTypeDef",
     "TrafficSplitEntryUnionTypeDef",
@@ -1645,6 +1648,12 @@ class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
 class EfsAccessPointConfigurationTypeDef(TypedDict):
     accessPointArn: str
     mountPath: str
+
+
+class EfsConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
 
 
 class EvaluatorSummaryTypeDef(TypedDict):
@@ -2568,6 +2577,12 @@ class SamplingConfigTypeDef(TypedDict):
 
 class SessionConfigTypeDef(TypedDict):
     sessionTimeoutMinutes: int
+
+
+class S3FilesConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
 
 
 SchemaDefinitionOutputTypeDef = TypedDict(
@@ -4339,6 +4354,11 @@ RequestHeaderConfigurationUnionTypeDef = Union[
 ]
 
 
+class ToolsFileSystemConfigurationTypeDef(TypedDict):
+    s3FilesConfiguration: NotRequired[S3FilesConfigurationTypeDef]
+    efsConfiguration: NotRequired[EfsConfigurationTypeDef]
+
+
 class ToolDefinitionOutputTypeDef(TypedDict):
     name: str
     description: str
@@ -5142,6 +5162,7 @@ class CreateCodeInterpreterRequestTypeDef(TypedDict):
     description: NotRequired[str]
     executionRoleArn: NotRequired[str]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -5155,6 +5176,7 @@ class GetCodeInterpreterResponseTypeDef(TypedDict):
     networkConfiguration: CodeInterpreterNetworkConfigurationOutputTypeDef
     status: CodeInterpreterStatusType
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     failureReason: str
     createdAt: datetime
     lastUpdatedAt: datetime
@@ -5185,6 +5207,7 @@ class CreateBrowserRequestTypeDef(TypedDict):
     browserSigning: NotRequired[BrowserSigningConfigInputTypeDef]
     enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -5200,6 +5223,7 @@ class GetBrowserResponseTypeDef(TypedDict):
     browserSigning: BrowserSigningConfigOutputTypeDef
     enterprisePolicies: list[BrowserEnterprisePolicyTypeDef]
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     status: BrowserStatusType
     failureReason: str
     createdAt: datetime

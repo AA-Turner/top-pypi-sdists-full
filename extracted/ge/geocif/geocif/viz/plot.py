@@ -147,15 +147,23 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
             ax.add_feature(region_feature, linewidth=lw)
 
             if annotate_regions:
-                xy = (region["geometry"].centroid.x, region["geometry"].centroid.y)
-                plt.annotate(
-                    text=region[annotate_region_column].title(),
-                    xy=xy,
-                    ha="center",
-                    va="center",
-                    fontsize=3,
-                    bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
-                )
+                lon, lat = region["geometry"].centroid.x, region["geometry"].centroid.y
+                # Transform lat/lon centroid into the axes projection so labels
+                # land correctly under any projection (identity for PlateCarree,
+                # reprojected for Albers/USA).
+                try:
+                    xt, yt = ax.projection.transform_point(lon, lat, ccrs.PlateCarree())
+                except Exception:
+                    xt, yt = lon, lat
+                if np.isfinite(xt) and np.isfinite(yt):
+                    plt.annotate(
+                        text=region[annotate_region_column].title(),
+                        xy=(xt, yt),
+                        ha="center",
+                        va="center",
+                        fontsize=3,
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
+                    )
 
 
 
@@ -265,6 +273,24 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
         major_ticks[0].tick2line.set_visible(False)
 
 
+def _projection_for(name_country):
+    """Axes map projection for ``name_country``.
+
+    The contiguous U.S. is badly stretched under plate-carree, so USA maps use
+    Albers Equal Area (standard CONUS parameters). Every other country keeps
+    ``PlateCarree`` (unchanged). Data is always added with a PlateCarree
+    ``transform`` (lat/lon), so cartopy reprojects correctly either way.
+    """
+    names = name_country if isinstance(name_country, (list, tuple)) else [name_country]
+    norm = {str(n).replace("_", " ").lower() for n in names if n}
+    if norm & {"united states of america", "united states", "usa"}:
+        return ccrs.AlbersEqualArea(
+            central_longitude=-96.0, central_latitude=37.5,
+            standard_parallels=(29.5, 45.5),
+        )
+    return ccrs.PlateCarree()
+
+
 def _set_extent(ax, name_country):
     """Set map extent and add country borders."""
     if not name_country:
@@ -329,7 +355,9 @@ def _set_extent(ax, name_country):
         lat_range = extent[3] - extent[2]
         extent[3] = extent[3] + lat_range * 0.05  # ~5% for title
         extent[2] = extent[2] - lat_range * 0.08  # ~8% for legend
-        ax.set_extent(extent)
+        # extent is lat/lon; pass crs so it's correct under any axes projection
+        # (identity for PlateCarree, reprojected for Albers/USA).
+        ax.set_extent(extent, crs=ccrs.PlateCarree())
     else:
         ax.add_feature(cartopy.feature.LAND.with_scale("50m"), color="white")
         ax.add_feature(
@@ -338,7 +366,7 @@ def _set_extent(ax, name_country):
         ax.add_feature(
             cartopy.feature.COASTLINE.with_scale("110m"), linewidth=0.35, edgecolor="black"
         )
-        ax.set_extent([-179, 180, -60, 85])
+        ax.set_extent([-179, 180, -60, 85], crs=ccrs.PlateCarree())
 
 
 def _save(fig, dir_out, fname):
@@ -419,7 +447,7 @@ def plot_map(
     external_ax = ax is not None
     if not external_ax:
         os.makedirs(dir_out, exist_ok=True)
-        proj = ccrs.PlateCarree()
+        proj = _projection_for(name_country)
         fig, ax = plt.subplots(subplot_kw={"projection": proj})
 
     if name_country == "world":

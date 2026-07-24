@@ -3,9 +3,9 @@ import logging
 import plistlib
 import tempfile
 import traceback
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
-from typing import IO, Annotated, Optional, Union
+from typing import IO, Annotated, Any, Optional, Union, cast
 
 import requests
 import typer
@@ -105,7 +105,7 @@ DeviceDep = Annotated[
 
 
 @contextlib.contextmanager
-def tempzip_download_ctx(url: str) -> Iterator[IPSW]:
+def tempzip_download_ctx(url: str) -> Generator[IPSW, None, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpzip = Path(tmpdir) / url.split("/")[-1]
         file_download(url, tmpzip)
@@ -114,7 +114,7 @@ def tempzip_download_ctx(url: str) -> Iterator[IPSW]:
 
 
 @contextlib.contextmanager
-def ipsw_ctx(path: Union[str, Path]) -> Iterator[IPSW]:
+def ipsw_ctx(path: Union[str, Path]) -> Generator[IPSW, None, None]:
     yield IPSW.create_from_path(str(path))
 
 
@@ -157,7 +157,7 @@ def tss_dependency(
 
 
 TSSDep = Annotated[
-    Optional[dict],
+    Optional[dict[str, Any]],
     Depends(tss_dependency),
 ]
 
@@ -179,7 +179,7 @@ def query_ipswme(identifier: str) -> str:
 async def restore_update_task(
     device: Device,
     ipsw: IPSW,
-    tss: Optional[dict],
+    tss: Optional[dict[str, Any]],
     erase: bool,
     ignore_fdr: bool,
     enable_tss_batch: bool = False,
@@ -207,7 +207,9 @@ async def restore_update_task(
 def restore_shell(device: DeviceDep) -> None:
     """create an IPython shell for interacting with iBoot"""
     start_ipython_shell(
-        header=highlight(SHELL_USAGE, lexers.PythonLexer(), formatters.Terminal256Formatter(style="native")),
+        header=highlight(
+            SHELL_USAGE, cast(Any, lexers).PythonLexer(), cast(Any, formatters).Terminal256Formatter(style="native")
+        ),
         user_ns={
             "irecv": device.irecv,
         },
@@ -247,7 +249,7 @@ async def restore_restart(device: DeviceDep) -> None:
 async def restore_tss_task(
     device: Device,
     ipsw_ctx: contextlib.AbstractContextManager[IPSW],
-    out: Optional[IO],
+    out: Optional[IO[bytes]],
     behavior: Behavior = Behavior.Update,
 ) -> None:
     with ipsw_ctx as ipsw:

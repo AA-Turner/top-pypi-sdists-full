@@ -1,7 +1,8 @@
 import asyncio
 import logging
 from inspect import isawaitable
-from typing import Optional, Union
+from types import TracebackType
+from typing import Any, Optional, Union
 
 from typing_extensions import Self
 
@@ -20,7 +21,7 @@ class _LazyServiceConnection:
         return self._owner._service
 
     def __getattr__(self, name: str):
-        async def _call(*args, **kwargs):
+        async def _call(*args: Any, **kwargs: Any):
             conn = await self._get_conn()
             attr = getattr(conn, name)
             result = attr(*args, **kwargs)
@@ -77,7 +78,7 @@ class LockdownService:
         self.logger: logging.Logger = logging.getLogger(self.__module__)
         # Shared Future: the first connect() call creates it; concurrent callers join it
         # instead of racing to call start_lockdown_service() multiple times.
-        self._connect_future: Optional[asyncio.Future] = None
+        self._connect_future: Optional[asyncio.Future[None]] = None
 
     @property
     def service(self) -> Union[ServiceConnection, _LazyServiceConnection]:
@@ -95,7 +96,12 @@ class LockdownService:
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ):
         await self.close()
 
     async def close(self) -> None:

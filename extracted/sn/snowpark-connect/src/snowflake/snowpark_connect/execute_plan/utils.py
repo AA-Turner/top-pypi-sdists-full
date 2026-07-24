@@ -3,6 +3,7 @@
 #
 from typing import Optional
 
+import numpy
 import pandas
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -345,6 +346,92 @@ def _relax_pa_schema_for_nulls(table: Table, schema: pa.Schema) -> pa.Schema:
     return pa.schema(relaxed)
 
 
+def _offsets_with_validity(arr: pa.Array) -> pa.Array:
+    """Return a list/map offsets array that also encodes the parent validity.
+
+    ``MapArray.from_arrays`` / ``ListArray.from_arrays`` reproduce a null slot
+    when the corresponding entry in the offsets array is null. ``arr.offsets``
+    itself carries no validity, so we splice the parent null mask back in.
+    """
+    offsets = arr.offsets
+    if arr.null_count == 0:
+        return offsets
+    valid = pc.is_valid(arr).to_pylist()
+    mask = [not v for v in valid] + [False]  # last offset is always valid
+    return pa.array(offsets.to_pylist(), type=offsets.type, mask=mask)
+
+
+def _safe_cast_array(arr: pa.Array | pa.ChunkedArray, target: pa.DataType):
+    """Cast an arrow array to ``target``, avoiding a pyarrow 14.0.x crash.
+
+    pyarrow 14.0.x aborts (native SIGABRT) when ``cast`` changes the key type of
+    a map whose value is a nested type (e.g. ``map<decimal128, list<double>>`` →
+    ``map<int64, list<double>>``). We sidestep the buggy cast kernel by rebuilding
+    map/list/struct arrays from their recursively-cast child arrays. Primitive
+    types fall through to the normal ``cast``.
+    """
+    if isinstance(arr, pa.ChunkedArray):
+        if arr.num_chunks == 0:
+            return arr.cast(target, safe=False)
+        return pa.chunked_array(
+            [_safe_cast_array(chunk, target) for chunk in arr.chunks], type=target
+        )
+    if arr.type.equals(target):
+        return arr
+    if pa.types.is_map(target) and pa.types.is_map(arr.type):
+        keys = _safe_cast_array(arr.keys, target.key_type)
+        items = _safe_cast_array(arr.items, target.item_type)
+        return pa.MapArray.from_arrays(_offsets_with_validity(arr), keys, items)
+    if (pa.types.is_list(target) or pa.types.is_large_list(target)) and (
+        pa.types.is_list(arr.type) or pa.types.is_large_list(arr.type)
+    ):
+        values = _safe_cast_array(arr.values, target.value_type)
+        return pa.ListArray.from_arrays(_offsets_with_validity(arr), values)
+    if pa.types.is_struct(target) and pa.types.is_struct(arr.type):
+        fields = [
+            _safe_cast_array(arr.field(i), target.field(i).type)
+            for i in range(target.num_fields)
+        ]
+        names = [target.field(i).name for i in range(target.num_fields)]
+        mask = pc.is_null(arr) if arr.null_count else None
+        return pa.StructArray.from_arrays(fields, names=names, mask=mask)
+    return arr.cast(target, safe=False)
+
+
+def _target_has_map(pa_type: pa.DataType) -> bool:
+    """True if ``pa_type`` is, or nests, a map type."""
+    if pa.types.is_map(pa_type):
+        return True
+    if pa.types.is_list(pa_type) or pa.types.is_large_list(pa_type):
+        return _target_has_map(pa_type.value_type)
+    if pa.types.is_struct(pa_type):
+        return any(
+            _target_has_map(pa_type.field(i).type) for i in range(pa_type.num_fields)
+        )
+    return False
+
+
+def _safe_cast_table(table: Table, target_pa_schema: pa.Schema) -> Table:
+    """Cast a table to ``target_pa_schema`` avoiding the pyarrow 14.0.x map-cast crash.
+
+    Only map-bearing columns take the manual rebuild path; every other column
+    keeps the standard ``cast`` behaviour so non-map results are unaffected.
+    """
+
+    import numpy
+
+    if not numpy.__version__.startswith("14."):
+        return table.cast(target_pa_schema, safe=False)
+
+    if not any(_target_has_map(field.type) for field in target_pa_schema):
+        return table.cast(target_pa_schema, safe=False)
+    columns = [
+        _safe_cast_array(table.column(i), target_pa_schema.field(i).type)
+        for i in range(table.num_columns)
+    ]
+    return pa.Table.from_arrays(columns, schema=target_pa_schema)
+
+
 def _cast_arrow_table(
     table: Table,
     target_pa_schema: pa.Schema,
@@ -355,17 +442,18 @@ def _cast_arrow_table(
     # 2. casting is required here because sometimes arrow table does use expected data type. E.g., for LongType,
     #       pyarrow table uses decimal128(38,0), which converts to Decimal instead of Long on client side.
     table = table.rename_columns([str(i) for i in range(table.num_columns)])
+
     if temp_pa_schema is not None and not temp_pa_schema.equals(target_pa_schema):
         # cast to temp_pa_schema is necessary for cases when i.e. the pyarrow table has int64,
         # but the snowpark schema is Decimal128(p, s) with p <= 18.
-        table = table.cast(temp_pa_schema, safe=False)
+        table = _safe_cast_table(table, temp_pa_schema)
 
     # Cast non-timestamp columns with safe=False (Spark allows integer overflow
     # wrapping, so we must not reject decimal128 → int64 overflows here).
     # For timestamp columns, use safe=True to catch values that overflow int64
     # microseconds — matching Spark's ArithmeticException on timestamp overflow.
     _safe_cast_timestamp_columns(table, target_pa_schema)
-    table = table.cast(target_pa_schema, safe=False)
+    table = _safe_cast_table(table, target_pa_schema)
     table = table.rename_columns(spark_columns)
     return table
 
@@ -386,4 +474,11 @@ def pandas_empty_table_to_arrow_bytes(
         )
     )
     table = _cast_arrow_table(table, pa_schema, spark_columns)
+
+    if numpy.__version__.startswith("14."):
+        # _cast_arrow_table restores the (possibly duplicate) spark column names, so
+        # dedup again before to_pandas — pyarrow <15 raises "Found non-unique column
+        # index" on duplicate labels. pandas_to_arrow_batches_bytes re-dedups and the
+        # client relies on the explicit response schema, so these names are throwaway.
+        table = table.rename_columns(_dedup_names(table.column_names))
     return pandas_to_arrow_batches_bytes(table.to_pandas())

@@ -764,6 +764,76 @@ def emit_step(
         pass
 
 
+COMPUTER_USE_COORDINATES_SPAN = "plato.computer-use.coordinates"
+
+
+def emit_computer_use_coordinates(
+    tracer: Tracer | None,
+    *,
+    action: str,
+    x: float,
+    y: float,
+    screen_width: int,
+    screen_height: int,
+    end_x: float | None = None,
+    end_y: float | None = None,
+    path: list[tuple[float, float]] | None = None,
+    button: str | None = None,
+) -> None:
+    """Emit a ``plato.computer-use.coordinates`` span for one mouse action.
+
+    The explicit, provider-agnostic contract for UIs that overlay pointer
+    targets on session screenshots (Chronos cinema mode). Coordinates are
+    ALWAYS normalized to ``[0, 1]`` relative to the full screen — ``(0, 0)``
+    top-left, ``(1, 1)`` bottom-right — regardless of the provider's native
+    coordinate convention (pixel, 0-1000 normalized, ...). Callers pass raw
+    screen pixels plus the screen dimensions in effect for the action; this
+    helper does the normalization so every agent emits the same shape.
+
+    Attributes:
+        ``plato.computer_use.action``: ``click`` / ``double_click`` /
+            ``triple_click`` / ``mouse_move`` / ``drag`` / ``scroll``
+        ``plato.computer_use.x`` / ``.y``: normalized primary point (for a
+            drag: the start point)
+        ``plato.computer_use.end_x`` / ``.end_y``: normalized drag end point
+        ``plato.computer_use.path``: JSON ``[[x, y], ...]`` normalized
+            waypoints for multi-point drags
+        ``plato.computer_use.button``: mouse button when applicable
+        ``plato.computer_use.screen_width`` / ``.screen_height``: pixel
+            dimensions the normalization used (provenance/debugging)
+
+    No-op when screen dimensions are unknown or invalid. Safe to call without
+    a configured tracer provider (falls back to the global tracer, which
+    yields non-recording spans).
+    """
+    if screen_width <= 0 or screen_height <= 0:
+        return
+
+    def _norm(value: float, dim: int) -> float:
+        return min(1.0, max(0.0, float(value) / float(dim)))
+
+    tr = tracer or trace.get_tracer("plato.computer_use")
+    span = tr.start_span(COMPUTER_USE_COORDINATES_SPAN)
+    try:
+        span.set_attribute("plato.computer_use.action", action)
+        span.set_attribute("plato.computer_use.x", _norm(x, screen_width))
+        span.set_attribute("plato.computer_use.y", _norm(y, screen_height))
+        if end_x is not None and end_y is not None:
+            span.set_attribute("plato.computer_use.end_x", _norm(end_x, screen_width))
+            span.set_attribute("plato.computer_use.end_y", _norm(end_y, screen_height))
+        if path:
+            span.set_attribute(
+                "plato.computer_use.path",
+                json.dumps([[_norm(px, screen_width), _norm(py, screen_height)] for px, py in path]),
+            )
+        if button:
+            span.set_attribute("plato.computer_use.button", button)
+        span.set_attribute("plato.computer_use.screen_width", int(screen_width))
+        span.set_attribute("plato.computer_use.screen_height", int(screen_height))
+    finally:
+        span.end()
+
+
 @dataclass
 class _ModelCost:
     """Per-model cost/token totals."""

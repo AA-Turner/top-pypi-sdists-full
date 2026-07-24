@@ -1,5 +1,8 @@
 import dataclasses
+from collections.abc import AsyncGenerator
+from typing import Any
 
+from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.services.dvt.instruments.device_info import DeviceInfo
 from pymobiledevice3.services.dvt.instruments.tap import Tap
 
@@ -21,7 +24,7 @@ class Sysmontap(Tap):
 
     def __init__(
         self,
-        dvt,
+        dvt: DtxServiceProvider,
         process_attributes: list[str],
         system_attributes: list[str],
         interval_ms: int = DEFAULT_INTERVAL_MS,
@@ -35,7 +38,7 @@ class Sysmontap(Tap):
         self.process_attributes_cls = dataclasses.make_dataclass("SysmonProcessAttributes", process_attributes)
         self.system_attributes_cls = dataclasses.make_dataclass("SysmonSystemAttributes", system_attributes)
 
-        config = {
+        config: dict[str, Any] = {
             "ur": Sysmontap.MINIMUM_INTERVAL_MS,  # Output frequency ms
             "bm": 0,
             "procAttrs": process_attributes,
@@ -48,7 +51,7 @@ class Sysmontap(Tap):
         super().__init__(dvt, self.IDENTIFIER, config)
 
     @classmethod
-    async def create(cls, dvt, interval: int = DEFAULT_INTERVAL_MS) -> "Sysmontap":
+    async def create(cls, dvt: DtxServiceProvider, interval: int = DEFAULT_INTERVAL_MS) -> "Sysmontap":
         """
         Build a `Sysmontap` with the device's full set of supported attributes.
 
@@ -64,7 +67,7 @@ class Sysmontap(Tap):
             system_attributes = list(await device_info.sysmon_system_attributes())
         return cls(dvt, process_attributes, system_attributes, interval_ms=interval)
 
-    async def iter_processes(self):
+    async def iter_processes(self) -> AsyncGenerator[list[dict[str, Any]], None]:
         """
         Iterate per-process samples, decoded into attribute dicts.
 
@@ -78,7 +81,7 @@ class Sysmontap(Tap):
             if "Processes" not in row:
                 continue
 
-            entries = []
+            entries: list[dict[str, Any]] = []
 
             processes = row["Processes"].items()
             for _pid, process_info in processes:

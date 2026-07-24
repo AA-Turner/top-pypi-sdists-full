@@ -312,6 +312,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EnvironmentGetRoles(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentGetRolesRequest, modal_proto.api_pb2.EnvironmentGetRolesResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentList(self, stream: 'grpclib.server.Stream[google.protobuf.empty_pb2.Empty, modal_proto.api_pb2.EnvironmentListResponse]') -> None:
         pass
 
@@ -369,6 +373,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def FunctionCallGetDataOut(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionCallGetDataRequest, modal_proto.api_pb2.DataChunk]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def FunctionCallGetInfo(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionCallGetInfoRequest, modal_proto.api_pb2.FunctionCallGetInfoResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -588,6 +596,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxGetExitSnapshot(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetExitSnapshotRequest, modal_proto.api_pb2.SandboxGetExitSnapshotResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxGetFromName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetFromNameRequest, modal_proto.api_pb2.SandboxGetFromNameResponse]') -> None:
         pass
 
@@ -629,6 +641,14 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxRestore(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxRestoreRequest, modal_proto.api_pb2.SandboxRestoreResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxRestoreV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxRestoreV2Request, modal_proto.api_pb2.SandboxRestoreV2Response]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxSetName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxSetNameRequest, modal_proto.api_pb2.SandboxSetNameResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1371,6 +1391,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EnvironmentGetOrCreateRequest,
                 modal_proto.api_pb2.EnvironmentGetOrCreateResponse,
             ),
+            '/modal.client.ModalClient/EnvironmentGetRoles': grpclib.const.Handler(
+                self.EnvironmentGetRoles,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EnvironmentGetRolesRequest,
+                modal_proto.api_pb2.EnvironmentGetRolesResponse,
+            ),
             '/modal.client.ModalClient/EnvironmentList': grpclib.const.Handler(
                 self.EnvironmentList,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1460,6 +1486,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_STREAM,
                 modal_proto.api_pb2.FunctionCallGetDataRequest,
                 modal_proto.api_pb2.DataChunk,
+            ),
+            '/modal.client.ModalClient/FunctionCallGetInfo': grpclib.const.Handler(
+                self.FunctionCallGetInfo,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FunctionCallGetInfoRequest,
+                modal_proto.api_pb2.FunctionCallGetInfoResponse,
             ),
             '/modal.client.ModalClient/FunctionCallList': grpclib.const.Handler(
                 self.FunctionCallList,
@@ -1785,6 +1817,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
                 modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
             ),
+            '/modal.client.ModalClient/SandboxGetExitSnapshot': grpclib.const.Handler(
+                self.SandboxGetExitSnapshot,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+                modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+            ),
             '/modal.client.ModalClient/SandboxGetFromName': grpclib.const.Handler(
                 self.SandboxGetFromName,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1850,6 +1888,18 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxRestoreRequest,
                 modal_proto.api_pb2.SandboxRestoreResponse,
+            ),
+            '/modal.client.ModalClient/SandboxRestoreV2': grpclib.const.Handler(
+                self.SandboxRestoreV2,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxRestoreV2Request,
+                modal_proto.api_pb2.SandboxRestoreV2Response,
+            ),
+            '/modal.client.ModalClient/SandboxSetName': grpclib.const.Handler(
+                self.SandboxSetName,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxSetNameRequest,
+                modal_proto.api_pb2.SandboxSetNameResponse,
             ),
             '/modal.client.ModalClient/SandboxSnapshot': grpclib.const.Handler(
                 self.SandboxSnapshot,
@@ -2745,6 +2795,12 @@ class ModalClientStub:
             modal_proto.api_pb2.EnvironmentGetOrCreateRequest,
             modal_proto.api_pb2.EnvironmentGetOrCreateResponse,
         )
+        self.EnvironmentGetRoles = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EnvironmentGetRoles',
+            modal_proto.api_pb2.EnvironmentGetRolesRequest,
+            modal_proto.api_pb2.EnvironmentGetRolesResponse,
+        )
         self.EnvironmentList = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EnvironmentList',
@@ -2834,6 +2890,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/FunctionCallGetDataOut',
             modal_proto.api_pb2.FunctionCallGetDataRequest,
             modal_proto.api_pb2.DataChunk,
+        )
+        self.FunctionCallGetInfo = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FunctionCallGetInfo',
+            modal_proto.api_pb2.FunctionCallGetInfoRequest,
+            modal_proto.api_pb2.FunctionCallGetInfoResponse,
         )
         self.FunctionCallList = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -3159,6 +3221,12 @@ class ModalClientStub:
             modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
             modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
         )
+        self.SandboxGetExitSnapshot = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetExitSnapshot',
+            modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+            modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+        )
         self.SandboxGetFromName = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxGetFromName',
@@ -3224,6 +3292,18 @@ class ModalClientStub:
             '/modal.client.ModalClient/SandboxRestore',
             modal_proto.api_pb2.SandboxRestoreRequest,
             modal_proto.api_pb2.SandboxRestoreResponse,
+        )
+        self.SandboxRestoreV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxRestoreV2',
+            modal_proto.api_pb2.SandboxRestoreV2Request,
+            modal_proto.api_pb2.SandboxRestoreV2Response,
+        )
+        self.SandboxSetName = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxSetName',
+            modal_proto.api_pb2.SandboxSetNameRequest,
+            modal_proto.api_pb2.SandboxSetNameResponse,
         )
         self.SandboxSnapshot = grpclib.client.UnaryUnaryMethod(
             channel,

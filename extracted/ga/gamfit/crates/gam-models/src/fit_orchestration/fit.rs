@@ -2040,7 +2040,8 @@ fn optimize_survival_transformation_smoothing(
                     && rho_checkpoint.len() == num_smoothing
                 {
                     log::info!(
-                        "[OUTER] {context}: resuming from refused checkpoint {rho_checkpoint:?}                          with a fresh BFGS metric ({resumes_remaining} resume(s) left)"
+                        "[OUTER] {context}: resuming from refused checkpoint {rho_checkpoint:?} \
+                         with a fresh BFGS metric ({resumes_remaining} resume(s) left)"
                     );
                     carried_iterations = carried_iterations.saturating_add(*iterations);
                     resumes_remaining -= 1;
@@ -2211,6 +2212,8 @@ fn survival_unified_fit_result(
         edf_total,
         smoothing_correction: None,
         smoothing_correction_method: None,
+        smoothing_correction_first_order: None,
+        smoothing_correction_method_first_order: None,
         penalized_hessian: penalized_hessian.clone(),
         reparam_qs: None,
         dispersion: gam_solve::estimate::Dispersion::UNIT,
@@ -2515,12 +2518,14 @@ fn fit_cause_specific_survival_transformation_custom(
     // (`shape = 1`, `scale = time-seed`), so any caller reading
     // `fit.baseline_cfg.scale/shape` to reconstruct `H = (t/scale)^shape`
     // would build the CIF from the uninitialized baseline and collapse it to
-    // null. For Weibull-without-timewiggle the time basis is the 2-column
-    // `[1, log t]` linear basis whose per-cause coefficients carry the full
-    // log-cumulative-hazard. Because the basis is anchor-centered the constant
-    // column (and thus `beta[0]`) is unidentified, so the fitted scale is the
-    // identified anchor (`scale = anchor`, `shape = beta[1]`), not `beta[0]`
-    // (issue #899). The shared `SurvivalBaselineConfig` holds a
+    // null. For Weibull-without-timewiggle the time basis is the single-column
+    // `log t` linear basis whose per-cause coefficient carries the
+    // log-cumulative-hazard slope. #2301 dropped the redundant `[1, ·]` constant
+    // column (it was exactly confounded with the covariate intercept, which
+    // absorbs the Weibull location, and left the penalized Hessian singular), so
+    // the fitted scale is the identified anchor (`scale = anchor`) and the shape
+    // is the sole slope coefficient `beta[0]` (issue #899). The shared
+    // `SurvivalBaselineConfig` holds a
     // single (scale, shape), so we report the first cause's fitted baseline as
     // the representative shared value — the same pooled-baseline convention the
     // seed used, but post-fit rather than uninitialized.

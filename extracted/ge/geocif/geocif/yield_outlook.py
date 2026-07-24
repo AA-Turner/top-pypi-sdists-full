@@ -747,12 +747,63 @@ def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
         country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
     )
     df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
-    dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+    # Case-INSENSITIVE country filter. ``countries_display`` is built with
+    # ``str.title()`` ("United States Of America"), but the shapefile stores
+    # the natural-English form ("United States of America"). A case-sensitive
+    # ``.isin`` matched zero rows there, so the choropleth drew an empty
+    # country (outline + colorbar only, no filled regions). Lower-casing both
+    # sides fixes every country with a lowercase connector word (of/and/the).
+    _cd_lower = {c.lower() for c in countries_display}
+    dg_sub = dg[dg["ADM0_NAME"].str.lower().isin(_cd_lower)].copy()
     logger.info(f"Map GeoDataFrame: {len(dg_sub)} rows, geom types: {dg_sub.geometry.type.unique()}")
     diag.mape_choropleth(
         dg_sub, df_mape, countries_display, False,
         dir_maps, f"mape_map_{country}_{crop}_{model}{stage_suffix}.png",
     )
+
+    # Per-region RMSE and R² choropleths (companions to the MAPE map). Both
+    # are computed across the historical years present in `df` for this stage:
+    # RMSE = sqrt(mean((pred-obs)^2)); R² via sklearn (needs >=2 years and
+    # >1 distinct observed value, else NaN → region grayed out). Same merge
+    # key and dg_sub as the MAPE map so the fix above covers them too.
+    from sklearn.metrics import r2_score
+    _metric_rows = []
+    for _region, _g in df.groupby("Region"):
+        _g = _g.dropna(subset=[obs_col, pred_col])
+        if _g.empty:
+            continue
+        _err = _g[pred_col].to_numpy() - _g[obs_col].to_numpy()
+        _rmse = float(np.sqrt(np.mean(_err ** 2)))
+        _r2 = np.nan
+        if len(_g) >= 2 and _g[obs_col].nunique() > 1:
+            try:
+                _r2 = float(r2_score(_g[obs_col], _g[pred_col]))
+            except ValueError:
+                _r2 = np.nan
+        _metric_rows.append({"Region": _region, "RMSE": _rmse, "R2": _r2})
+    if _metric_rows:
+        df_metrics = pd.DataFrame(_metric_rows)
+        df_metrics["Country Region"] = (
+            country.lower().replace("_", " ") + " " + df_metrics["Region"].str.lower()
+        )
+        df_metrics.to_csv(
+            dir_csvs / f"metric_map_{country}_{crop}_{model}{stage_suffix}.csv",
+            index=False,
+        )
+        # RMSE: lower is better → same reversed Bamako as MAPE (low = light).
+        diag.metric_choropleth(
+            dg_sub, df_metrics, countries_display, False,
+            dir_maps, f"rmse_map_{country}_{crop}_{model}{stage_suffix}.png",
+            col="RMSE", label=f"RMSE ({yield_units})", vmin=0.0,
+        )
+        # R²: higher is better → non-reversed Bamako (high = light). Cap the
+        # top of the scale at 1.0 (perfect); negative-skill regions keep their
+        # data-driven floor.
+        diag.metric_choropleth(
+            dg_sub, df_metrics, countries_display, False,
+            dir_maps, f"r2_map_{country}_{crop}_{model}{stage_suffix}.png",
+            col="R2", label="R²", vmax=1.0, higher_is_better=True,
+        )
 
     # Combined: predicted yield map + MAPE bar chart
     _plot_combined_map_mape(
@@ -1357,6 +1408,90 @@ def _plot_metric_progression(df, stages_sorted, metric_col, ylabel, title,
         plt.close(fig)
 
 
+def _plot_national_progression(df, stages_sorted, metric_col, ylabel, title,
+                               dir_out, fname, has_area,
+                               df_for_national=None, clip_zero=True):
+    """National-only progression plot: one line + a gray ±1 std band.
+
+    A decluttered companion to :func:`_plot_metric_progression`. Instead of
+    one line per region, it draws only the national metric (from
+    :func:`_compute_national_metric`) and shades ±1 standard deviation of the
+    per-region metric values across regions at each stage — the gray band
+    conveys the regional spread the individual state lines used to show.
+
+    ``clip_zero`` floors the lower band at 0 for non-negative metrics
+    (MAPE/RMSE/RRMSE); pass False for R² (can be negative).
+    """
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+
+    region_vals = _compute_region_metric(df, stages_sorted, metric_col)
+    # Mirror the MAPE>100 outlier exclusion of the full progression plot so
+    # the national line + band match between the two figures.
+    if metric_col == "MAPE":
+        median_by_region = region_vals.groupby("Region")[metric_col].median()
+        keep_regions = set(median_by_region[median_by_region <= 100].index)
+        excluded = set(region_vals["Region"].unique()) - keep_regions
+        region_vals = region_vals[region_vals["Region"].isin(keep_regions)]
+    else:
+        excluded = set()
+
+    std_by_stage = (
+        region_vals.groupby("Stage Name")[metric_col].std()
+        .reindex(stages_sorted)
+    )
+
+    df_nat_src = df_for_national if df_for_national is not None else df
+    if excluded and "Region" in df_nat_src.columns:
+        df_nat_src = df_nat_src[~df_nat_src["Region"].isin(excluded)]
+    df_national = (
+        _compute_national_metric(df_nat_src, stages_sorted, metric_col, has_area)
+        .set_index("Stage Name").reindex(stages_sorted)
+    )
+
+    nat = df_national["National"].to_numpy(dtype=float)
+    std = std_by_stage.to_numpy(dtype=float)
+    lower = nat - std
+    upper = nat + std
+    if clip_zero:
+        lower = np.maximum(lower, 0.0)
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(len(stages_sorted))
+
+        # Gray ±1 std band (only where both the value and std are finite).
+        band_mask = np.isfinite(nat) & np.isfinite(std)
+        if band_mask.any():
+            ax.fill_between(
+                x, lower, upper, where=band_mask, color="gray", alpha=0.25,
+                linewidth=0, label="±1 std across regions",
+            )
+        ax.plot(x, nat, color="black", linewidth=3, marker="o", markersize=7,
+                label="National", zorder=10)
+
+        friendly_labels = [friendly_stage_label(s) for s in stages_sorted]
+        ax.set_xticks(x)
+        ax.set_xticklabels(friendly_labels, rotation=45, ha="right", fontsize=8)
+
+        n_pre = sum(1 for s in stages_sorted if s.startswith("Pre-Season"))
+        if 0 < n_pre < len(stages_sorted):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--",
+                       linewidth=1.2, zorder=5)
+            ax.text(n_pre - 0.5, ax.get_ylim()[1] * 0.97, " Start of planting",
+                    fontsize=7, color="gray", ha="left", va="top")
+
+        ax.set_xlabel("")
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.legend(loc="best", fontsize=8)
+        plt.tight_layout()
+
+        os.makedirs(dir_out, exist_ok=True)
+        fig.savefig(dir_out / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
 def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="Mg/ha"):
     """Plot MAPE, R², and RMSE progression across time steps."""
     from sklearn.metrics import r2_score
@@ -1395,6 +1530,13 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
         f"mape_progression_{country}_{crop}_{model}.png",
         prod_pct, has_area,
     )
+    _plot_national_progression(
+        df, stages_sorted, "MAPE", "MAPE (%)",
+        f"National MAPE Progression — {base_title}",
+        dir_progression,
+        f"mape_progression_national_{country}_{crop}_{model}.png",
+        has_area,
+    )
     df[["Region", "Stage Name", "Harvest Year", "MAPE"]].to_csv(
         dir_csvs_prog / f"mape_progression_{country}_{crop}_{model}.csv", index=False)
 
@@ -1424,6 +1566,13 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
             prod_pct, has_area,
             df_for_national=df,
         )
+        _plot_national_progression(
+            df_rmse, stages_sorted, "RMSE", f"RMSE ({yield_units})",
+            f"National RMSE Progression — {base_title}",
+            dir_progression,
+            f"rmse_progression_national_{country}_{crop}_{model}.png",
+            has_area, df_for_national=df,
+        )
         df_rmse.to_csv(dir_csvs_prog / f"rmse_progression_{country}_{crop}_{model}.csv", index=False)
 
     # R² — compute per (Stage Name, Region)
@@ -1449,6 +1598,13 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
             f"r2_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
             df_for_national=df,
+        )
+        _plot_national_progression(
+            df_r2, stages_sorted, "R2", "R²",
+            f"National R² Progression — {base_title}",
+            dir_progression,
+            f"r2_progression_national_{country}_{crop}_{model}.png",
+            has_area, df_for_national=df, clip_zero=False,
         )
         df_r2.to_csv(dir_csvs_prog / f"r2_progression_{country}_{crop}_{model}.csv", index=False)
 
@@ -1477,6 +1633,13 @@ def _plot_all_progressions(df, country, crop, model, dir_outlook, yield_units="M
             f"rrmse_progression_{country}_{crop}_{model}.png",
             prod_pct, has_area,
             df_for_national=df,
+        )
+        _plot_national_progression(
+            df_rrmse, stages_sorted, "RRMSE", "RRMSE (%)",
+            f"National RRMSE Progression — {base_title}",
+            dir_progression,
+            f"rrmse_progression_national_{country}_{crop}_{model}.png",
+            has_area, df_for_national=df,
         )
         df_rrmse.to_csv(dir_csvs_prog / f"rrmse_progression_{country}_{crop}_{model}.csv", index=False)
 

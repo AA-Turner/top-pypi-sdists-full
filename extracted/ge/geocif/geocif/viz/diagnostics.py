@@ -1452,6 +1452,67 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
     )
 
 
+def metric_choropleth(dg, df, countries, annotate_regions, dir_out, fname,
+                      *, col, label, vmin=None, vmax=None,
+                      higher_is_better=False):
+    """Choropleth map of an arbitrary per-region metric via plot.plot_map().
+
+    Generalises :func:`mape_choropleth` to any metric column (RMSE, R², …).
+
+    Args:
+        dg: GeoDataFrame of boundaries (with a "Country Region" merge column).
+        df: DataFrame with "Country Region" plus the metric column ``col``.
+        countries: list of display-format country names.
+        annotate_regions: bool.
+        dir_out: output directory; fname: output filename.
+        col: name of the metric column in ``df`` to color by.
+        label: colorbar label.
+        vmin/vmax: color-scale bounds. ``None`` → derived from the data
+            (vmin = min, vmax = 95th percentile).
+        higher_is_better: when True, use the non-reversed Bamako ramp so high
+            values (good, e.g. R²) render light — matching the "good = light"
+            convention of the reversed ramp used for MAPE/RMSE (low = good).
+    """
+    import palettable as pal
+    from . import plot
+
+    if df is None or df.empty or col not in df.columns:
+        return
+    df = df.copy()
+    vals = df[col].dropna()
+    if vals.empty:
+        return
+
+    if vmin is None:
+        vmin = float(vals.min())
+    if vmax is None:
+        vmax = (float(vals.quantile(0.95))
+                if vals.shape[0] > 1 else float(vals.max()))
+    if vmin == vmax:  # degenerate scale (single region / identical values)
+        vmax = vmin + 1e-6
+
+    cmap = (pal.scientific.sequential.Bamako_20 if higher_is_better
+            else pal.scientific.sequential.Bamako_20_r)
+
+    Path(dir_out).mkdir(parents=True, exist_ok=True)
+    plot.plot_map(
+        dg,
+        df,
+        merge_col="Country Region",
+        name_country=countries,
+        name_col=col,
+        dir_out=dir_out,
+        fname=fname,
+        label=label,
+        vmin=vmin,
+        vmax=vmax,
+        cmap=cmap,
+        series="sequential",
+        annotate_regions=annotate_regions,
+        loc_legend="lower left",
+    )
+
+
 # ---------------------------------------------------------------------------
 # CID-vs-yield diagnostic scatters (full-season span, one PNG per CID)
 # ---------------------------------------------------------------------------

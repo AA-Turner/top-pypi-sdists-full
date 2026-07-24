@@ -315,6 +315,10 @@ class ModalClientStub:
         modal_proto.api_pb2.EnvironmentGetOrCreateRequest,
         modal_proto.api_pb2.EnvironmentGetOrCreateResponse,
     ]
+    EnvironmentGetRoles: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentGetRolesRequest,
+        modal_proto.api_pb2.EnvironmentGetRolesResponse,
+    ]
     EnvironmentList: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.EnvironmentListResponse,
@@ -376,6 +380,10 @@ class ModalClientStub:
     FunctionCallGetDataOut: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.FunctionCallGetDataRequest,
         modal_proto.api_pb2.DataChunk,
+    ]
+    FunctionCallGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionCallGetInfoRequest,
+        modal_proto.api_pb2.FunctionCallGetInfoResponse,
     ]
     FunctionCallList: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionCallListRequest,
@@ -604,6 +612,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
         modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
     ]
+    SandboxGetExitSnapshot: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+        modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+    ]
     SandboxGetFromName: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetFromNameRequest,
         modal_proto.api_pb2.SandboxGetFromNameResponse,
@@ -648,6 +660,14 @@ class ModalClientStub:
     SandboxRestore: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxRestoreRequest,
         modal_proto.api_pb2.SandboxRestoreResponse,
+    ]
+    SandboxRestoreV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxRestoreV2Request,
+        modal_proto.api_pb2.SandboxRestoreV2Response,
+    ]
+    SandboxSetName: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxSetNameRequest,
+        modal_proto.api_pb2.SandboxSetNameResponse,
     ]
     SandboxSnapshot: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxSnapshotRequest,
@@ -1413,6 +1433,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EnvironmentGetOrCreateResponse: ...
     @abc.abstractmethod
+    def EnvironmentGetRoles(
+        self,
+        request: modal_proto.api_pb2.EnvironmentGetRolesRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EnvironmentGetRolesResponse: ...
+    @abc.abstractmethod
     def EnvironmentList(
         self,
         request: google.protobuf.empty_pb2.Empty,
@@ -1504,6 +1530,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.FunctionCallGetDataRequest,
         context: grpc.ServicerContext,
     ) -> collections.abc.Iterator[modal_proto.api_pb2.DataChunk]: ...
+    @abc.abstractmethod
+    def FunctionCallGetInfo(
+        self,
+        request: modal_proto.api_pb2.FunctionCallGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionCallGetInfoResponse: ...
     @abc.abstractmethod
     def FunctionCallList(
         self,
@@ -1840,6 +1872,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse: ...
     @abc.abstractmethod
+    def SandboxGetExitSnapshot(
+        self,
+        request: modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetExitSnapshotResponse: ...
+    @abc.abstractmethod
     def SandboxGetFromName(
         self,
         request: modal_proto.api_pb2.SandboxGetFromNameRequest,
@@ -1906,6 +1944,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SandboxRestoreRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxRestoreResponse: ...
+    @abc.abstractmethod
+    def SandboxRestoreV2(
+        self,
+        request: modal_proto.api_pb2.SandboxRestoreV2Request,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxRestoreV2Response: ...
+    @abc.abstractmethod
+    def SandboxSetName(
+        self,
+        request: modal_proto.api_pb2.SandboxSetNameRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxSetNameResponse: ...
     @abc.abstractmethod
     def SandboxSnapshot(
         self,

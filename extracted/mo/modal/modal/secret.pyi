@@ -432,6 +432,15 @@ class _Secret(modal._object._Object):
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
+    @property
+    def _is_ephemeral(self) -> bool:
+        """Whether this Secret is backed by a locally-resolvable env dict rather than a named deployment.
+
+        True for Secrets created via `from_dict`, `from_dotenv`, or `from_local_environ`, whose contents
+        can be resolved locally and inlined; False for `from_name` references that must be resolved server-side.
+        """
+        ...
+
     @staticmethod
     def from_dict(env_dict: dict[str, typing.Optional[str]] = {}) -> _Secret:
         """Create a Secret from a dictionary of environment variable names to string values.
@@ -588,6 +597,15 @@ class Secret(modal.object.Object):
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.SecretMetadata: ...
+    @property
+    def _is_ephemeral(self) -> bool:
+        """Whether this Secret is backed by a locally-resolvable env dict rather than a named deployment.
+
+        True for Secrets created via `from_dict`, `from_dotenv`, or `from_local_environ`, whose contents
+        can be resolved locally and inlined; False for `from_name` references that must be resolved server-side.
+        """
+        ...
+
     @staticmethod
     def from_dict(env_dict: dict[str, typing.Optional[str]] = {}) -> Secret:
         """Create a Secret from a dictionary of environment variable names to string values.

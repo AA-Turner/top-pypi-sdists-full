@@ -1,43 +1,42 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: Quart
-Version: 0.20.0
+Version: 0.21.0
 Summary: A Python ASGI web framework with the same API as Flask
 Author-email: pgjones <philip.graham.jones@googlemail.com>
 Maintainer-email: Pallets <contact@palletsprojects.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Flask
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
+License-File: LICENSE.txt
 Requires-Dist: aiofiles
 Requires-Dist: blinker>=1.6
 Requires-Dist: click>=8.0
 Requires-Dist: flask>=3.0
 Requires-Dist: hypercorn>=0.11.2
-Requires-Dist: importlib-metadata; python_version < '3.10'
 Requires-Dist: itsdangerous
 Requires-Dist: jinja2
 Requires-Dist: markupsafe
-Requires-Dist: typing-extensions; python_version < '3.10'
 Requires-Dist: werkzeug>=3.0
 Requires-Dist: python-dotenv ; extra == "dotenv"
-Project-URL: Changes, https://quart.palletsprojects.com/en/latest/changes.html
+Project-URL: Changes, https://quart.palletsprojects.com/page/changes/
 Project-URL: Chat, https://discord.gg/pallets
-Project-URL: Documentation, https://quart.palletsprojects.com/
+Project-URL: Documentation, https://quart.palletsprojects.com
 Project-URL: Donate, https://palletsprojects.com/donate
 Project-URL: Source, https://github.com/pallets/quart/
 Provides-Extra: dotenv
 
-# Quart
+<div align="center"><img src="https://raw.githubusercontent.com/pallets/quart/refs/heads/main/docs/_static/quart-name.svg" alt="" height="150"></div>
 
-![](https://raw.githubusercontent.com/pallets/quart/main/artwork/logo.png)
+# Quart
 
 Quart is an async Python web application framework. Using Quart you can,
 
@@ -95,7 +94,7 @@ follow our [contributing guide].
 
 [GitHub]: https://github.com/pallets/quart
 [issue]: https://github.com/pallets/quart/issues
-[contributing guide]: https://github.com/pallets/quart/CONTRIBUTING.rst
+[contributing guide]: https://github.com/pallets/quart/blob/main/CONTRIBUTING.md
 
 ## Help
 

@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
@@ -16,6 +17,41 @@ from abx_plugins.plugins.base.utils import load_config
 
 
 CLAUDECODE_CONFIG_PATH = Path(__file__).with_name("config.json")
+
+
+def _write_text_within_directory(root: Path, path: Path, content: str) -> None:
+    """Write beneath root without following symlinks in the destination path."""
+    root = root.resolve(strict=True)
+    target = path if path.is_absolute() else root / path
+    relative_target = target.absolute().relative_to(root)
+    if not relative_target.parts or relative_target.name in {"", ".", ".."}:
+        raise ValueError(f"Invalid output file path: {path}")
+
+    directory_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for component in relative_target.parts[:-1]:
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=directory_fd)
+            except FileExistsError:
+                pass
+            child_fd = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = child_fd
+
+        file_fd = os.open(
+            relative_target.name,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        with os.fdopen(file_fd, "w", encoding="utf-8") as file:
+            file.write(content)
+    finally:
+        os.close(directory_fd)
 
 
 def _resolve_claude_code_binary(config) -> tuple[str, dict[str, str]]:
@@ -192,12 +228,16 @@ def run_claude_code(
     max_turns: int = 50,
     model: str = "claude-sonnet-4-6",
     allowed_tools: list[str] | None = None,
+    json_schema: dict[str, object] | None = None,
+    isolated: bool = False,
     session_log_path: str | Path | None = None,
 ) -> tuple[str, str, int]:
     """
     Run Claude Code CLI with the given prompt and configuration.
 
     Args:
+        isolated: Run with no settings sources or MCP configuration and with
+            temporary HOME/XDG directories while retaining environment auth.
         session_log_path: If set, save the full session conversation log
             as JSON to this path.
 
@@ -214,6 +254,18 @@ def run_claude_code(
     # Add print flag for non-interactive output
     cmd.extend(["--print"])
 
+    if isolated:
+        cmd.extend(
+            [
+                "--no-session-persistence",
+                "--disable-slash-commands",
+                "--no-chrome",
+                "--setting-sources",
+                "",
+                "--strict-mcp-config",
+            ],
+        )
+
     # Add model
     cmd.extend(["--model", model])
 
@@ -225,7 +277,7 @@ def run_claude_code(
         cmd.extend(["--system-prompt", system_prompt])
 
     # Add allowed tools (restrict to safe tools by default)
-    if allowed_tools:
+    if allowed_tools is not None:
         available_tools = sorted({tool.split("(", 1)[0] for tool in allowed_tools})
         cmd.extend(["--tools", ",".join(available_tools)])
         for tool in allowed_tools:
@@ -244,8 +296,10 @@ def run_claude_code(
 
     # Use JSON output to capture the conversation messages (prompt + responses).
     # Note: this captures the message-level log, not a full tool-use transcript.
-    if session_log_path:
+    if session_log_path or json_schema:
         cmd.extend(["--output-format", "json"])
+    if json_schema:
+        cmd.extend(["--json-schema", json.dumps(json_schema, separators=(",", ":"))])
 
     # Add the prompt
     cmd.extend(["--", prompt])
@@ -291,32 +345,45 @@ def run_claude_code(
         if api_key:
             env["ANTHROPIC_API_KEY"] = api_key
 
-    print(f"[*] Running Claude Code in {work_dir}...", file=sys.stderr)
     print(
         f"[*] Model: {model}, Max turns: {max_turns}, Timeout: {timeout}s",
         file=sys.stderr,
     )
 
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=str(work_dir),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
+        with tempfile.TemporaryDirectory(prefix="archivebox-claude-home-") as home:
+            if isolated:
+                env["HOME"] = home
+                env["XDG_CONFIG_HOME"] = str(Path(home) / "config")
+                env["XDG_CACHE_HOME"] = str(Path(home) / "cache")
+                env["XDG_DATA_HOME"] = str(Path(home) / "data")
+            subprocess_cwd = home if isolated else str(work_dir)
+            print(f"[*] Running Claude Code in {subprocess_cwd}...", file=sys.stderr)
+            result = subprocess.run(
+                cmd,
+                cwd=subprocess_cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
 
         # Save session log if requested
-        if session_log_path and result.stdout:
-            try:
-                session_log = Path(session_log_path)
-                session_log.parent.mkdir(parents=True, exist_ok=True)
-                session_log.write_text(result.stdout, encoding="utf-8")
-                print(f"[+] Session log saved to {session_log_path}", file=sys.stderr)
-                print(result.stdout, file=sys.stderr)
-            except OSError as e:
-                print(f"[!] Failed to save session log: {e}", file=sys.stderr)
+        if (session_log_path or json_schema) and result.stdout:
+            if session_log_path:
+                try:
+                    _write_text_within_directory(
+                        Path(work_dir),
+                        Path(session_log_path),
+                        result.stdout,
+                    )
+                    print(
+                        f"[+] Session log saved to {session_log_path}",
+                        file=sys.stderr,
+                    )
+                    print(result.stdout, file=sys.stderr)
+                except (OSError, ValueError) as e:
+                    print(f"[!] Failed to save session log: {e}", file=sys.stderr)
 
             # When using JSON output format, the text response is embedded in the JSON
             # Extract it for the caller
@@ -343,11 +410,17 @@ def run_claude_code(
                             elif isinstance(content, str):
                                 text_response += content
                 elif isinstance(session_data, dict):
-                    text_response = (
-                        str(session_data["result"])
-                        if "result" in session_data
-                        else result.stdout
-                    )
+                    if json_schema and isinstance(
+                        session_data.get("structured_output"),
+                        dict,
+                    ):
+                        text_response = json.dumps(session_data["structured_output"])
+                    else:
+                        text_response = (
+                            str(session_data["result"])
+                            if "result" in session_data
+                            else result.stdout
+                        )
             except (json.JSONDecodeError, KeyError):
                 text_response = result.stdout
 

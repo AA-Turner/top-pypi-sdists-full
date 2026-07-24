@@ -18,6 +18,8 @@
 
 #include "../simplex.hpp"
 #include "_state.hpp"
+#include "dwave-optimization/common.hpp"
+#include "dwave-optimization/graph.hpp"
 
 namespace dwave::optimization {
 
@@ -43,7 +45,7 @@ struct LinearProgramNodeData : NodeStateData {
 
 LinearProgramFeasibleNode::LinearProgramFeasibleNode(LinearProgramNodeBase* lp_ptr) :
     lp_ptr_(lp_ptr) {
-    add_predecessor(lp_ptr);
+    add_predecessor_(lp_ptr);
 }
 
 void LinearProgramFeasibleNode::initialize_state(State& state) const {
@@ -58,6 +60,12 @@ double LinearProgramFeasibleNode::min() const { return false; }
 
 void LinearProgramFeasibleNode::propagate(State& state) const {
     set_state(state, lp_ptr_->feasible(state));
+}
+
+void LinearProgramFeasibleNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+    lp_ptr_ = dynamic_cast<LinearProgramNodeBase*>(node_ptr);
+    assert(lp_ptr_ != nullptr);
 }
 
 void LinearProgramNodeBase::check_input_arguments(
@@ -193,22 +201,35 @@ LinearProgramNode::LinearProgramNode(
     // Finally, add the nodes (if they were passed in) as predecessors. This does
     // mean that we can't access them by index within the predecessor list, so
     // we save them as ArrayNode* on the class rather than just as Array*.
-    add_predecessor(c_ptr);
-    if (b_lb_ptr) add_predecessor(b_lb_ptr);
-    if (A_ptr) add_predecessor(A_ptr);
-    if (b_ub_ptr) add_predecessor(b_ub_ptr);
-    if (A_eq_ptr) add_predecessor(A_eq_ptr);
-    if (b_eq_ptr) add_predecessor(b_eq_ptr);
-    if (lb_ptr) add_predecessor(lb_ptr);
-    if (ub_ptr) add_predecessor(ub_ptr);
+    add_predecessor_(c_ptr);
+    if (b_lb_ptr) add_predecessor_(b_lb_ptr);
+    if (A_ptr) add_predecessor_(A_ptr);
+    if (b_ub_ptr) add_predecessor_(b_ub_ptr);
+    if (A_eq_ptr) add_predecessor_(A_eq_ptr);
+    if (b_eq_ptr) add_predecessor_(b_eq_ptr);
+    if (lb_ptr) add_predecessor_(lb_ptr);
+    if (ub_ptr) add_predecessor_(ub_ptr);
 }
 
 void LinearProgramNode::commit(State& state) const {};
 
 bool LinearProgramNode::deterministic_state() const { return false; }
 
+bool LinearProgramNode::equal_to(const LinearProgramNode& rhs) const {
+    return (
+        c_ptr_ == rhs.c_ptr_ and        //
+        b_lb_ptr_ == rhs.b_lb_ptr_ and  //
+        A_ptr_ == rhs.A_ptr_ and        //
+        b_ub_ptr_ == rhs.b_ub_ptr_ and  //
+        A_eq_ptr_ == rhs.A_eq_ptr_ and  //
+        b_eq_ptr_ == rhs.b_eq_ptr_ and  //
+        lb_ptr_ == rhs.lb_ptr_ and      //
+        ub_ptr_ == rhs.ub_ptr_          //
+    );
+}
+
 bool LinearProgramNode::feasible(const State& state) const {
-    return data_ptr<LinearProgramNodeData>(state)->result.feasible();
+    return data_ptr_<LinearProgramNodeData>(state)->result.feasible();
 }
 
 std::unordered_map<std::string, ssize_t> LinearProgramNode::get_arguments() const {
@@ -290,7 +311,7 @@ void LinearProgramNode::initialize_state(State& state) const {
         lp.c, lp.b_lb, lp.A, lp.b_ub, lp.A_eq, lp.b_eq, lp.lb, lp.ub, FEASIBILITY_TOLERANCE
     );
 
-    emplace_data_ptr<LinearProgramNodeData>(state, std::move(result));
+    emplace_data_ptr_<LinearProgramNodeData>(state, std::move(result));
 }
 
 void LinearProgramNode::initialize_state(
@@ -314,15 +335,15 @@ void LinearProgramNode::initialize_state(
         FEASIBILITY_TOLERANCE
     );
 
-    emplace_data_ptr<LinearProgramNodeData>(state, std::move(result));
+    emplace_data_ptr_<LinearProgramNodeData>(state, std::move(result));
 }
 
 double LinearProgramNode::objective_value(const dwave::optimization::State& state) const {
-    return data_ptr<LinearProgramNodeData>(state)->result.objective();
+    return data_ptr_<LinearProgramNodeData>(state)->result.objective();
 }
 
 void LinearProgramNode::propagate(State& state) const {
-    auto data = data_ptr<LinearProgramNodeData>(state);
+    auto data = data_ptr_<LinearProgramNodeData>(state);
 
     readout_predecessor_data(state, data->lp);
     data->result = linprog(
@@ -340,12 +361,47 @@ void LinearProgramNode::propagate(State& state) const {
     Node::propagate(state);
 }
 
+void LinearProgramNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+
+    const ArrayNode* array_ptr = dynamic_cast<ArrayNode*>(node_ptr);
+    assert(array_ptr != nullptr);
+
+    auto check_and_replace = [&array_ptr, &index](const ArrayNode*& to_replace) -> bool {
+        if (to_replace == nullptr) return false;  // nothing to replace and no need to re-index
+        if (index-- > 0) return false;  // found a node, but it's not the one we're replacing
+
+        // sanity check the size. There are other things we could check, but this is easy
+        // and simple
+        assert(std::ranges::equal(to_replace->shape(), array_ptr->shape()));
+        to_replace = array_ptr;
+
+        return true;  // we found the one we wanted to replace.
+    };
+
+    assert(c_ptr_ != nullptr);  // never null
+    if (check_and_replace(c_ptr_)) return;
+
+    if (check_and_replace(b_lb_ptr_)) return;
+    if (check_and_replace(A_ptr_)) return;
+    if (check_and_replace(b_ub_ptr_)) return;
+
+    if (check_and_replace(A_eq_ptr_)) return;
+    if (check_and_replace(b_eq_ptr_)) return;
+
+    if (check_and_replace(lb_ptr_)) return;
+    if (check_and_replace(ub_ptr_)) return;
+
+    unreachable();
+    assert(false and "should never get here");
+}
+
 void LinearProgramNode::revert(State& state) const {
     // Nothing to do on revert as all changes are tracked by successor nodes
 }
 
 std::span<const double> LinearProgramNode::solution(const State& state) const {
-    return data_ptr<LinearProgramNodeData>(state)->result.solution();
+    return data_ptr_<LinearProgramNodeData>(state)->result.solution();
 }
 
 std::pair<double, double> LinearProgramNode::variables_minmax() const { return variables_minmax_; }
@@ -354,7 +410,7 @@ std::span<const ssize_t> LinearProgramNode::variables_shape() const { return c_p
 
 LinearProgramObjectiveValueNode::LinearProgramObjectiveValueNode(LinearProgramNodeBase* lp_ptr) :
     lp_ptr_(lp_ptr) {
-    add_predecessor(lp_ptr);
+    add_predecessor_(lp_ptr);
 }
 
 void LinearProgramObjectiveValueNode::initialize_state(State& state) const {
@@ -373,21 +429,27 @@ void LinearProgramObjectiveValueNode::propagate(State& state) const {
     // We could consider setting ourselves to max()
 }
 
+void LinearProgramObjectiveValueNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+    lp_ptr_ = dynamic_cast<LinearProgramNodeBase*>(node_ptr);
+    assert(lp_ptr_ != nullptr);
+}
+
 LinearProgramSolutionNode::LinearProgramSolutionNode(LinearProgramNodeBase* lp_ptr) :
     ArrayOutputMixin(lp_ptr->variables_shape()), lp_ptr_(lp_ptr) {
-    add_predecessor(lp_ptr);
+    add_predecessor_(lp_ptr);
 }
 
 double const* LinearProgramSolutionNode::buff(const State& state) const {
-    return data_ptr<ArrayNodeStateData>(state)->buff();
+    return data_ptr_<ArrayNodeStateData>(state)->buff();
 }
 
 void LinearProgramSolutionNode::commit(State& state) const {
-    return data_ptr<ArrayNodeStateData>(state)->commit();
+    return data_ptr_<ArrayNodeStateData>(state)->commit();
 }
 
 std::span<const Update> LinearProgramSolutionNode::diff(const State& state) const {
-    return data_ptr<ArrayNodeStateData>(state)->diff();
+    return data_ptr_<ArrayNodeStateData>(state)->diff();
 }
 
 void LinearProgramSolutionNode::initialize_state(State& state) const {
@@ -433,14 +495,20 @@ void LinearProgramSolutionNode::propagate(State& state) const {
         auto clipped_view = std::views::transform(sol, [&min_lb, &max_ub](double v) {
             return std::clamp(v, min_lb, max_ub);
         });
-        data_ptr<ArrayNodeStateData>(state)->assign(clipped_view);
+        data_ptr_<ArrayNodeStateData>(state)->assign(clipped_view);
 
         Node::propagate(state);
     }
 }
 
+void LinearProgramSolutionNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+    lp_ptr_ = dynamic_cast<LinearProgramNodeBase*>(node_ptr);
+    assert(lp_ptr_ != nullptr);
+}
+
 void LinearProgramSolutionNode::revert(State& state) const {
-    data_ptr<ArrayNodeStateData>(state)->revert();
+    data_ptr_<ArrayNodeStateData>(state)->revert();
 }
 
 }  // namespace dwave::optimization

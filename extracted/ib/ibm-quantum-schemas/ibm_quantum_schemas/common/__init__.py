@@ -26,11 +26,13 @@ Classes
    :toctree: ../stubs/
    :nosignatures:
 
+   OpenQasm3DataModel
    QpyDataModel
    QpyDataV13ToV17Model
    QpyModel
    QpyModelV13ToV16
    QpyModelV13ToV17
+   CompressedQpyDataModel
    BaseParamsModel
    PauliLindbladMapModel
    SamplexModel
@@ -38,11 +40,15 @@ Classes
    SamplexModelSSV1ToSSV2
    TensorModel
    F64TensorModel
+   CompressedTensorModel
+   F64CompressedTensorModel
 """
 
 from ibm_quantum_schemas.common.base_params import BaseParamsModel
 from ibm_quantum_schemas.common.pauli_lindblad_map import PauliLindbladMapModel
+from ibm_quantum_schemas.common.qasm import OpenQasm3DataModel
 from ibm_quantum_schemas.common.qpy import (
+    CompressedQpyDataModel,
     QpyDataModel,
     QpyDataV13ToV17Model,
     QpyModel,
@@ -56,4 +62,9 @@ from ibm_quantum_schemas.common.samplex import (
     SamplexModelSSV1ToSSV3,
     SamplexModelSSV1ToSSV4,
 )
-from ibm_quantum_schemas.common.tensor import F64TensorModel, TensorModel
+from ibm_quantum_schemas.common.tensor import (
+    CompressedTensorModel,
+    F64CompressedTensorModel,
+    F64TensorModel,
+    TensorModel,
+)

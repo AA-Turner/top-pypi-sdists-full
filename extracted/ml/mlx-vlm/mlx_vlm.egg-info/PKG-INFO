@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.6.6
+Version: 0.6.7
 Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
@@ -19,7 +19,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlx>=0.32.0
 Requires-Dist: transformers>=5.14.0
-Requires-Dist: datasets>=2.19.1
 Requires-Dist: miniaudio>=1.59
 Requires-Dist: tqdm>=4.66.2
 Requires-Dist: Pillow>=10.3.0
@@ -39,6 +38,8 @@ Provides-Extra: cuda
 Requires-Dist: mlx-cuda; extra == "cuda"
 Provides-Extra: cpu
 Requires-Dist: mlx-cpu; extra == "cpu"
+Provides-Extra: train
+Requires-Dist: datasets>=2.19.1; extra == "train"
 Dynamic: license-file
 
 [![Upload Python Package](https://github.com/Blaizzy/mlx-vlm/actions/workflows/python-publish.yml/badge.svg)](https://github.com/Blaizzy/mlx-vlm/actions/workflows/python-publish.yml)
@@ -108,6 +109,16 @@ The easiest way to get started is to install the `mlx-vlm` package using pip:
 ```sh
 pip install -U mlx-vlm
 ```
+
+The [Gradio chat UI](#chat-ui-with-gradio) needs an extra dependency that is not
+part of the base install:
+
+```sh
+pip install -U 'mlx-vlm[ui]'
+```
+
+Quote the package name so that shells which expand square brackets, such as
+`zsh`, do not treat `[ui]` as a glob pattern.
 
 ## Usage
 
@@ -315,7 +326,14 @@ for model-specific conversion and runtime notes.
 
 ### Chat UI with Gradio
 
-Launch a chat interface using Gradio:
+The Gradio chat UI requires the optional `ui` extra, which the base `mlx-vlm`
+install does not include:
+
+```sh
+pip install -U 'mlx-vlm[ui]'
+```
+
+Then launch the chat interface:
 
 ```sh
 mlx_vlm.chat_ui --model mlx-community/Qwen2-VL-2B-Instruct-4bit
@@ -1465,7 +1483,12 @@ See [docs/usage.md](https://github.com/Blaizzy/mlx-vlm/blob/main/docs/usage.md#d
 
 # Fine-tuning
 
-MLX-VLM supports fine-tuning models with LoRA and QLoRA.
+MLX-VLM supports fine-tuning models with LoRA and QLoRA. Fine-tuning (and the
+eval scripts) need the training extra, which is not installed by default:
+
+```bash
+pip install "mlx-vlm[train]"
+```
 
 ## LoRA & QLoRA
 

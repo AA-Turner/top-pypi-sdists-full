@@ -22,6 +22,8 @@ from modal_proto.modal_api_grpc import ModalClientModal
 from ._function_variants import _FunctionOptions, _make_function_variant
 from ._image import _Image
 from ._load_context import LoadContext
+from ._logs import LogsFilters
+from ._logs_manager import _FunctionCallLogsManager, _FunctionLogsManager
 from ._object import _Object, live_method, live_method_gen
 from ._output.pty import get_pty_info
 from ._output.status import FunctionCreationStatus
@@ -32,6 +34,7 @@ from ._serialization import (
     get_callable_schema,
     serialize,
 )
+from ._supports_logs import _LogQueryData
 from ._traceback import print_server_warnings
 from ._utils.async_utils import (
     TaskContext,
@@ -627,6 +630,28 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
     _metadata: api_pb2.FunctionHandleMetadata | None = None
     _options: _FunctionOptions
     _base_function: "_Function | None" = None
+    _app_id: str | None = None
+
+    async def _get_log_query_data(self) -> _LogQueryData:
+        await self.hydrate()
+        if not self._app_id:
+            raise ExecutionError("app_id should have been set during function hydration")
+        return _LogQueryData(self.client, self._app_id, LogsFilters(function_id=self.object_id))
+
+    @property
+    def logs(self) -> _FunctionLogsManager:
+        """Access logs for a `Function`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        return _FunctionLogsManager(self)
 
     @staticmethod
     def from_local(
@@ -671,6 +696,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         # Experimental: Clustered functions
         cluster_size: int | None = None,
         rdma: bool | None = None,
+        fabric_size: int | None = None,
         single_use_containers: bool = False,
         ephemeral_disk: int | None = None,
         include_source: bool = True,
@@ -998,7 +1024,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     untrusted=restrict_modal_access,
                     single_use_containers=single_use_containers,
                     max_inputs=int(single_use_containers),  # TODO(michael) remove after worker rollover
-                    cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts),
+                    cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts)[0],
                     scheduler_placement=scheduler_placement,
                     is_class=info.is_service_class(),
                     class_parameter_info=info.class_parameter_info(),
@@ -1009,6 +1035,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     mount_client_dependencies=mount_client_dependencies,
                     # ---
                     _experimental_group_size=cluster_size or 0,  # Experimental: Clustered functions
+                    _experimental_fabric_size=fabric_size or 0,  # Experimental: Clustered functions
                     _experimental_concurrent_cancellations=True,
                     # --- These are deprecated in favor of autoscaler_settings
                     warm_pool_size=min_containers or 0,
@@ -1051,6 +1078,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                         method_definitions_set=function_definition.method_definitions_set,
                         experimental_options=experimental_options or {},
                         _experimental_group_size=function_definition._experimental_group_size,
+                        _experimental_fabric_size=function_definition._experimental_fabric_size,
                         _experimental_buffer_containers=function_definition._experimental_buffer_containers,
                         _experimental_custom_scaling=function_definition._experimental_custom_scaling,
                         snapshot_debug=function_definition.snapshot_debug,
@@ -1400,6 +1428,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             metadata.max_object_size_bytes if metadata.HasField("max_object_size_bytes") else MAX_OBJECT_SIZE_BYTES
         )
         self._experimental_flash_urls = metadata._experimental_flash_urls
+        self._app_id = metadata.app_id or None
 
         # Invalidate the Function variant cache when we load new metadata, since the base Function handle
         # is now in sync with the server but any previously-cached variants may be stale.
@@ -1409,6 +1438,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         # Overridden concrete implementation of base class method
         assert self._function_name, f"Function name must be set before metadata can be retrieved for {self}"
         return api_pb2.FunctionHandleMetadata(
+            app_id=self._app_id or "",
             function_name=self._function_name,
             function_type=get_function_type(self._is_generator),
             web_url=self._web_url or "",
@@ -1670,6 +1700,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         )
         fc: _FunctionCall[ReturnType] = _FunctionCall._new_hydrated(function_call_id, self.client, None)
         fc._num_inputs = num_inputs  # set the cached value of num_inputs
+        fc._app_id = self._app_id
+        fc._function_id = self.object_id
         return fc
 
     async def _call_function(self, args, kwargs) -> ReturnType:
@@ -1881,6 +1913,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             invocation.function_call_id, invocation.client, None
         )
         fc._is_generator = self._is_generator if self._is_generator else False
+        fc._app_id = self._app_id
+        fc._function_id = self.object_id
         return fc
 
     @synchronizer.no_input_translation
@@ -1904,9 +1938,9 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             **kwargs: Keyword arguments forwarded to the remote function.
 
         Returns:
-            A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
+            A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/FunctionCall) object
             that can later be polled or waited for using
-            [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
+            [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/FunctionCall#get).
         """
         self._check_no_web_url("spawn")
         if self._is_generator:
@@ -1917,6 +1951,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         fc: _FunctionCall[ReturnType] = _FunctionCall._new_hydrated(
             invocation.function_call_id, invocation.client, None
         )
+        fc._app_id = self._app_id
+        fc._function_id = self.object_id
         return fc
 
     def get_raw_f(self) -> Callable[..., Any]:
@@ -1976,9 +2012,40 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
 
     _is_generator: bool = False
     _num_inputs: int | None = None
+    _app_id: str | None = None
+    _function_id: str | None = None
 
     def _invocation(self):
         return _Invocation(self.client.stub, self.object_id, self.client)
+
+    async def _hydrate_from_id_metadata(self) -> None:
+        """Hydrate metadata only when needed for FunctionCall fields."""
+        request = api_pb2.FunctionCallFromIdRequest(function_call_id=self.object_id)
+        resp = await self.client.stub.FunctionCallFromId(request)
+        self._hydrate_metadata(resp)
+
+    async def _get_log_query_data(self) -> _LogQueryData:
+        await self.hydrate()
+        if not self._app_id:
+            await self._hydrate_from_id_metadata()
+        if not self._app_id:
+            raise ExecutionError("app_id should have been set during function call hydration")
+        return _LogQueryData(self.client, self._app_id, LogsFilters(function_call_id=self.object_id))
+
+    @property
+    def logs(self) -> _FunctionCallLogsManager:
+        """Access logs for a single `FunctionCall`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+            CLI access to logs for an App.
+        """
+        return _FunctionCallLogsManager(self)
 
     @live_method
     async def num_inputs(self) -> int:
@@ -1988,9 +2055,8 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
             How many inputs this function call includes (e.g. `1` for `.spawn()`, more for `.spawn_map()`).
         """
         if self._num_inputs is None:
-            request = api_pb2.FunctionCallFromIdRequest(function_call_id=self.object_id)
-            resp = await self.client.stub.FunctionCallFromId(request)
-            self._num_inputs = resp.num_inputs  # cached
+            await self._hydrate_from_id_metadata()
+        assert self._num_inputs is not None
         return self._num_inputs
 
     @live_method
@@ -2054,11 +2120,13 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
 
     @live_method
     async def get_call_graph(self) -> list[InputInfo]:
-        """Returns a structure representing the call graph from a given root
-        call ID, along with the status of execution for each node.
+        """Fetch information about the graph of Inputs this FunctionCall is part of.
 
-        See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
-        for documentation on the structure of the returned `InputInfo` items.
+        Note: the call graph data is not populated in real-time, and its capture is best-effort.
+        We do not recommend relying on this method for critical use cases.
+
+        See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
+        on the return values.
 
         Returns:
             A list of `InputInfo` nodes describing the call graph.
@@ -2069,19 +2137,13 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         return _reconstruct_call_graph(response)
 
     @live_method
-    async def cancel(
-        self,
-        # if true, containers running the inputs are forcibly terminated
-        terminate_containers: bool = False,
-    ):
-        """Cancels the function call, which will stop its execution and mark its inputs as
-        [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
-
-        If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
-        causing any non-cancelled inputs on those containers to be rescheduled in new containers.
+    async def cancel(self, terminate_containers: bool = False):
+        """Cancel the FunctionCall and terminate its inputs without retrying.
 
         Args:
-            terminate_containers: If True, forcibly terminate workers running cancelled inputs.
+            terminate_containers: If True, terminate the containers running the cancelled
+                inputs. Any other inputs running concurrently on those containers will be
+                rescheduled.
         """
         request = api_pb2.FunctionCallCancelRequest(
             function_call_id=self.object_id, terminate_containers=terminate_containers
@@ -2131,6 +2193,13 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
             _load, rep, hydrate_lazily=True, load_context_overrides=LoadContext(client=_client)
         )
         return typing.cast("modal.functions.FunctionCall[Any]", synchronizer._translate_out(impl_instance))
+
+    def _hydrate_metadata(self, metadata: Message | None):
+        # Overridden concrete implementation of base class method
+        if isinstance(metadata, api_pb2.FunctionCallFromIdResponse):
+            self._num_inputs = metadata.num_inputs
+            self._app_id = metadata.metadata.app_id or None
+            self._function_id = metadata.metadata.function_id or None
 
     @staticmethod
     async def gather(*function_calls: "_FunctionCall[T]") -> typing.Sequence[T]:

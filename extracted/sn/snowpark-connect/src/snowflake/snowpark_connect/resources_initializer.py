@@ -3,6 +3,7 @@
 #
 import threading
 import time
+import traceback
 from collections.abc import Callable
 
 from snowflake.snowpark_connect.client.error_utils import attach_custom_error_code
@@ -11,6 +12,7 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.utils.internal_query import collect_without_telemetry
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 SPARK_VERSION = "3.5.6"
 RESOURCE_PATH = "/snowflake/snowpark_connect/resources"
@@ -176,6 +178,15 @@ def ensure_scala_udf_jars_uploaded() -> None:
             raise exception
 
 
+# Warm-up steps whose failure leaves this long-lived JVM unrecoverable.
+# sql_parser() and warm_sql_parser() both force initialization of the JVM class
+# org.apache.spark.sql.internal.SQLConf$. If that static initializer throws even
+# once, the JVM permanently marks the class erroneous, so every later
+# spark.sql() fails with "NoClassDefFoundError: Could not initialize class
+# ...SQLConf$" until the process restarts (SNOW-3585779).
+_CRITICAL_RESOURCES = frozenset({"SQL Parser Init", "SQL Parser Warm Up"})
+
+
 def initialize_resources() -> None:
     """Initialize all expensive resources. We should initialize what we can here, so that actual rpc calls like
     ExecutePlan are as fast as possible."""
@@ -225,9 +236,25 @@ def initialize_resources() -> None:
             resource_func()
             logger.debug(f"Initialized {name} in {time.time() - resource_start:.2f}s")
         except Exception as e:
-            # We will only log the error if it isn't caused by session being closed. Session
-            # closed error happens when the particular run finishes very quickly.
-            if str(e).find("because the session has been closed") == -1:
+            # Session-closed errors are benign: they happen when the run finishes
+            # before warm-up completes. Neither log nor fail on them.
+            if "because the session has been closed" in str(e):
+                continue
+
+            # A poisoned SQLConf$/parser static initializer breaks every later
+            # spark.sql() for the life of this JVM (SNOW-3585779). This primary
+            # error is only ever surfaced here (never in per-request telemetry),
+            # so log the *full* traceback - including the JVM caused-by chain -
+            # and send the same trace to telemetry, then fail fast instead of
+            # serving a permanently broken process.
+            if name in _CRITICAL_RESOURCES:
+                tb = traceback.format_exc()
+                logger.error(
+                    "Failed to initialize critical resource %s: %s\n%s", name, e, tb
+                )
+                telemetry.send_startup_init_failure_telemetry(name, e, tb)
+                raise
+            else:
                 logger.error(f"Failed to initialize {name}: {e}")
 
     logger.info(f"All resources initialized in {time.time() - start_time:.2f}s")

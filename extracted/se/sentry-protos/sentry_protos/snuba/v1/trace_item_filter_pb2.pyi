@@ -93,6 +93,10 @@ class ComparisonFilter(google.protobuf.message.Message):
         """array only"""
         OP_NOT_IN: ComparisonFilter._Op.ValueType  # 10
         """array only"""
+        OP_HAS_ANY: ComparisonFilter._Op.ValueType  # 11
+        """array attribute_key type only"""
+        OP_HAS_ALL: ComparisonFilter._Op.ValueType  # 12
+        """array attribute_key type only"""
 
     class Op(_Op, metaclass=_OpEnumTypeWrapper): ...
     OP_UNSPECIFIED: ComparisonFilter.Op.ValueType  # 0
@@ -110,6 +114,10 @@ class ComparisonFilter(google.protobuf.message.Message):
     """array only"""
     OP_NOT_IN: ComparisonFilter.Op.ValueType  # 10
     """array only"""
+    OP_HAS_ANY: ComparisonFilter.Op.ValueType  # 11
+    """array attribute_key type only"""
+    OP_HAS_ALL: ComparisonFilter.Op.ValueType  # 12
+    """array attribute_key type only"""
 
     KEY_FIELD_NUMBER: builtins.int
     OP_FIELD_NUMBER: builtins.int

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pierre-storage
-Version: 1.16.1
+Version: 1.16.2
 Summary: Pierre Git Storage SDK for Python
 Author-email: Pierre <support@pierre.io>
 License-Expression: MIT
@@ -395,6 +395,8 @@ print(branch_diff["files"])
 # Get commit diff
 commit_diff = await repo.get_commit_diff(
     sha="abc123...",
+    base_sha="def456...",  # optional base commit
+    git_apply_compatible=True,  # generate raw diffs for use with git apply
 )
 print(commit_diff["stats"])
 print(commit_diff["files"])
@@ -1007,6 +1009,7 @@ class Repo:
         *,
         sha: str,
         base_sha: Optional[str] = None,
+        git_apply_compatible: Optional[bool] = None,
         paths: Optional[List[str]] = None,
         ttl: Optional[int] = None,
     ) -> GetCommitDiffResult: ...

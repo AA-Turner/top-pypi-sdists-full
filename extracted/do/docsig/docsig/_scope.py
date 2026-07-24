@@ -31,6 +31,9 @@ class _Children(list[_t.Union["Scope", "Function"]]): ...
 
 _DEFAULT_NAME = "module"
 
+#: decorators marking a method as a property or property method
+_PROPERTY_DECORATORS = "property", "cached_property", "setter", "deleter"
+
 #: astroid node enclosing a function, or None outside any frame
 _Frame: _t.TypeAlias = (
     _ast.nodes.FunctionDef
@@ -73,15 +76,7 @@ class _Walker:
         """Children collected from the walked scope."""
         return self._children
 
-    def walk(
-        self,
-        node: (
-            _ast.nodes.Module
-            | _ast.nodes.ClassDef
-            | _ast.nodes.FunctionDef
-            | _ast.nodes.NodeNG
-        ),
-    ) -> None:
+    def walk(self, node: _ast.nodes.NodeNG) -> None:
         """Collect children from the body of an AST node.
 
         :param node: AST node whose body to walk.
@@ -89,90 +84,99 @@ class _Walker:
         # need to keep track of `comments` as, even though they are
         # resolved in the directive object, they are needed to notify
         # the user in the case that they are invalid
-        scope_comments, scope_disabled = self._directives.get(
-            node.lineno or 0,
-            (_Comments(), _Messages()),
-        )
-        if hasattr(node, "body"):
-            for subnode in node.body:
-                comments, disabled = self._directives.get(
-                    subnode.lineno or 0,
-                    (_Comments(), _Messages()),
-                )
-
-                # astroid sets lineno to the first decorator
-                # inline disable on the def line is at fromlineno
-                fromlineno = getattr(subnode, "fromlineno", 0)
-                if (
-                    isinstance(subnode, _ast.nodes.FunctionDef)
-                    and fromlineno
-                    and fromlineno != (subnode.lineno or 0)
-                ):
-                    more_comments, more_disabled = self._directives.get(
-                        fromlineno,
-                        (_Comments(), _Messages()),
-                    )
-                    comments.extend(more_comments)
-                    disabled.extend(more_disabled)
-
-                comments.extend(scope_comments)
-                disabled.extend(scope_disabled)
-                if isinstance(
-                    subnode,
-                    (_ast.nodes.Import, _ast.nodes.ImportFrom),
-                ):
-                    for name in subnode.names:
-                        original, alias = name
-                        self._imports[original] = alias or original
-                elif isinstance(subnode, _ast.nodes.FunctionDef):
-                    # walk the function body before constructing the
-                    # function, so imports it contains are collected
-                    # before decorators or the signature are resolved
-                    body_walker = _Walker(
+        scope_comments, scope_disabled = self._directives_at(node.lineno or 0)
+        for subnode in getattr(node, "body", []):
+            comments, disabled = self._directives_for(subnode)
+            comments.extend(scope_comments)
+            disabled.extend(scope_disabled)
+            if isinstance(
+                subnode,
+                (_ast.nodes.Import, _ast.nodes.ImportFrom),
+            ):
+                self._collect_imports(subnode)
+            elif isinstance(subnode, _ast.nodes.FunctionDef):
+                self._visit_function(subnode, comments, disabled)
+            elif isinstance(subnode, _ast.nodes.ClassDef):
+                self._children.append(
+                    Scope.from_ast(
+                        subnode,
                         self._directives,
                         self._file,
                         self._config,
                         self._imports,
-                    )
-                    body_walker.walk(subnode)
-                    func = Function(
-                        subnode,
-                        comments,
-                        disabled,
-                        self._config,
-                        self._imports,
-                        body_walker.children,
-                    )
-                    if func.isoverloaded:
-                        if (
-                            func.name not in self._overloads
-                            or self._overloads[
-                                func.name
-                            ].signature.returns.type
-                            == _RetType.NONE
-                        ):
-                            self._overloads[func.name] = func
-                    else:
-                        if func.name in self._overloads:
-                            func.overload(
-                                self._overloads[
-                                    func.name
-                                ].signature.returns.type,
-                            )
+                    ),
+                )
+            else:
+                self.walk(subnode)
 
-                        self._children.append(func)
-                elif isinstance(subnode, _ast.nodes.ClassDef):
-                    self._children.append(
-                        Scope.from_ast(
-                            subnode,
-                            self._directives,
-                            self._file,
-                            self._config,
-                            self._imports,
-                        ),
-                    )
-                else:
-                    self.walk(subnode)
+    def _directives_at(self, lineno: int) -> tuple[_Comments, _Messages]:
+        return self._directives.get(lineno, (_Comments(), _Messages()))
+
+    def _directives_for(
+        self,
+        subnode: _ast.nodes.NodeNG,
+    ) -> tuple[_Comments, _Messages]:
+        comments, disabled = self._directives_at(subnode.lineno or 0)
+
+        # astroid sets lineno to the first decorator
+        # inline disable on the def line is at fromlineno
+        fromlineno = getattr(subnode, "fromlineno", 0)
+        if (
+            isinstance(subnode, _ast.nodes.FunctionDef)
+            and fromlineno
+            and fromlineno != (subnode.lineno or 0)
+        ):
+            more_comments, more_disabled = self._directives_at(fromlineno)
+            comments.extend(more_comments)
+            disabled.extend(more_disabled)
+
+        return comments, disabled
+
+    def _collect_imports(
+        self,
+        subnode: _ast.nodes.Import | _ast.nodes.ImportFrom,
+    ) -> None:
+        for original, alias in subnode.names:
+            self._imports[original] = alias or original
+
+    def _visit_function(
+        self,
+        subnode: _ast.nodes.FunctionDef,
+        comments: _Comments,
+        disabled: _Messages,
+    ) -> None:
+        # walk the function body before constructing the function, so
+        # imports it contains are collected before decorators or the
+        # signature are resolved
+        body_walker = _Walker(
+            self._directives,
+            self._file,
+            self._config,
+            self._imports,
+        )
+        body_walker.walk(subnode)
+        func = Function(
+            subnode,
+            comments,
+            disabled,
+            self._config,
+            self._imports,
+            body_walker.children,
+        )
+        if func.isoverloaded:
+            if (
+                func.name not in self._overloads
+                or self._overloads[func.name].signature.returns.type
+                == _RetType.NONE
+            ):
+                self._overloads[func.name] = func
+        else:
+            if func.name in self._overloads:
+                func.overload(
+                    self._overloads[func.name].signature.returns.type,
+                )
+
+            self._children.append(func)
 
 
 class Scope:
@@ -325,15 +329,14 @@ class Function:  # pylint: disable=too-many-instance-attributes
 
     def _decorated_with(self, name: str) -> bool:
         name = self._imports.get(name, name)
-        if self._decorators is not None:
-            for dec in self._decorators.nodes:
-                if (isinstance(dec, _ast.nodes.Name) and dec.name == name) or (
-                    isinstance(dec, _ast.nodes.Attribute)
-                    and dec.attrname == name
-                ):
-                    return True
+        if self._decorators is None:
+            return False
 
-        return False
+        return any(
+            (isinstance(dec, _ast.nodes.Name) and dec.name == name)
+            or (isinstance(dec, _ast.nodes.Attribute) and dec.attrname == name)
+            for dec in self._decorators.nodes
+        )
 
     @property
     def ismethod(self) -> bool:
@@ -343,9 +346,8 @@ class Function:  # pylint: disable=too-many-instance-attributes
     @property
     def isproperty(self) -> bool:
         """Whether this function is a property or property method."""
-        valid_properties = "property", "cached_property", "setter", "deleter"
         return self.ismethod and any(
-            self._decorated_with(i) for i in valid_properties
+            self._decorated_with(i) for i in _PROPERTY_DECORATORS
         )
 
     @property
@@ -361,20 +363,14 @@ class Function:  # pylint: disable=too-many-instance-attributes
     @property
     def isoverridden(self) -> bool:
         """Whether this function overrides a base class method."""
-        if (
-            self.ismethod
-            and not self.isinit
-            and self._frame is not None
-            and isinstance(self._frame, _ast.nodes.ClassDef)
-        ):
-            for ancestor in self._frame.ancestors():
-                if self.name in ancestor and isinstance(
-                    ancestor[self.name],
-                    _ast.nodes.FunctionDef,
-                ):
-                    return True
+        if not isinstance(self._frame, _ast.nodes.ClassDef) or self.isinit:
+            return False
 
-        return False
+        return any(
+            self.name in ancestor
+            and isinstance(ancestor[self.name], _ast.nodes.FunctionDef)
+            for ancestor in self._frame.ancestors()
+        )
 
     @property
     def isprotected(self) -> bool:

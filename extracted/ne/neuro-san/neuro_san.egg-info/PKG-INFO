@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuro-san
-Version: 0.6.81
+Version: 0.6.83
 Summary: NeuroAI data-driven System for multi-Agent Networks - client, library and server
 Author-email: Dan Fink <Daniel.Fink@cognizant.com>
 License-Expression: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: aiohttp<4.0,>=3.13.0
 Requires-Dist: aiofiles>=25.1.0
 Requires-Dist: ruamel.yaml>=0.18.6
 Requires-Dist: langchain<2.0,>=1.2.0
-Requires-Dist: langchain-core<2.0,>=1.2.5
+Requires-Dist: langchain-core<2.0,>=1.4.0
 Requires-Dist: langchain-classic<2.0,>=1.0.0
 Requires-Dist: langchain-community<1.0,>=0.4
 Requires-Dist: bs4<0.1,>=0.0.2

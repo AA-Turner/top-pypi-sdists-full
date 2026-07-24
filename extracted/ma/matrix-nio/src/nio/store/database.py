@@ -16,7 +16,6 @@ import os
 import sqlite3
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import List, Optional
 
 from peewee import DoesNotExist, SqliteDatabase
 from playhouse.sqliteq import SqliteQueueDatabase
@@ -167,7 +166,7 @@ class MatrixStore:
         except DoesNotExist:
             return None
 
-    def load_account(self) -> Optional[OlmAccount]:
+    def load_account(self) -> OlmAccount | None:
         """Load the Olm account from the database.
 
         Returns:
@@ -180,7 +179,16 @@ class MatrixStore:
         if not account:
             return None
 
-        return OlmAccount.from_pickle(account.account, self.pickle_key, account.shared)
+        olm_account = OlmAccount.from_pickle(
+            account.account, self.pickle_key, account.shared
+        )
+
+        # upgrade account pickle in database to vodozemac format
+        if olm_account.upgrade_pickle:
+            olm_account.upgrade_pickle = False
+            self.save_account(olm_account)
+
+        return olm_account
 
     @use_database
     def save_account(self, account):
@@ -224,6 +232,11 @@ class MatrixStore:
         for s in account.olm_sessions:
             session = Session.from_pickle(s.session, s.creation_time, self.pickle_key)
             session_store.add(s.sender_key, session)
+
+            # upgrade session pickles in database to vodozemac format
+            if session.upgrade_pickle:
+                session.upgrade_pickle = False
+                self.save_session(s.sender_key, session)
 
         return session_store
 
@@ -273,6 +286,11 @@ class MatrixStore:
                 [chain.sender_key for chain in s.forwarded_chains],
             )
             store.add(session)
+
+            # upgrade session pickles in database to vodozemac format
+            if session.upgrade_pickle:
+                session.upgrade_pickle = False
+                self.save_inbound_group_session(session)
 
         return store
 
@@ -459,7 +477,7 @@ class MatrixStore:
         SyncTokens.replace(account=account, token=token).execute()
 
     @use_database
-    def load_sync_token(self) -> Optional[str]:
+    def load_sync_token(self) -> str | None:
         account = self._get_account()
 
         if not account:
@@ -565,7 +583,7 @@ class MatrixStore:
         """
         raise NotImplementedError
 
-    def ignore_devices(self, devices: List[OlmDevice]) -> None:
+    def ignore_devices(self, devices: list[OlmDevice]) -> None:
         """Mark a list of devices as ignored.
 
         This is a more efficient way to mark multiple devices as ignored.
@@ -681,7 +699,7 @@ class DefaultStore(MatrixStore):
 
         return False
 
-    def ignore_devices(self, devices: List[OlmDevice]) -> None:
+    def ignore_devices(self, devices: list[OlmDevice]) -> None:
         keys = [Key.from_olmdevice(device) for device in devices]
 
         self.blacklist_db.remove_many(keys)
@@ -917,7 +935,7 @@ class SqliteStore(MatrixStore):
         return device_ids
 
     @use_database_atomic
-    def ignore_devices(self, devices: List[OlmDevice]) -> None:
+    def ignore_devices(self, devices: list[OlmDevice]) -> None:
         acc = self._get_account()
 
         if not acc:

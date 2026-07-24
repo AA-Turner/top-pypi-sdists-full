@@ -13,6 +13,8 @@ import typing_extensions
 
 def _get_metadata(client_type: int, credentials: typing.Optional[tuple[str, str]], version: str) -> dict[str, str]: ...
 
+T = typing.TypeVar("T")
+
 ReturnType = typing.TypeVar("ReturnType")
 
 RequestType = typing.TypeVar("RequestType", bound="google.protobuf.message.Message")
@@ -31,7 +33,7 @@ class _Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.2"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.3"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -150,7 +152,7 @@ class _Client:
         """
         ...
 
-    async def _call_safely(self, coro, readable_method: str):
+    async def _call_safely(self, coro: typing.Coroutine[typing.Any, typing.Any, T], readable_method: str) -> T:
         """Runs coroutine wrapped in a task that's part of the client's task context
 
         * Raises ClientClosed in case the client is closed while the coroutine is executed
@@ -164,7 +166,7 @@ class _Client:
     async def _call_unary(
         self,
         grpclib_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
-        request: typing.Any,
+        request: RequestType,
         *,
         timeout: typing.Optional[float] = None,
         metadata: typing.Union[
@@ -172,18 +174,18 @@ class _Client:
             collections.abc.Collection[tuple[str, typing.Union[str, bytes]]],
             None,
         ] = None,
-    ) -> typing.Any: ...
+    ) -> ResponseType: ...
     def _call_stream(
         self,
         grpclib_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
-        request: typing.Any,
+        request: RequestType,
         *,
         metadata: typing.Union[
             collections.abc.Mapping[str, typing.Union[str, bytes]],
             collections.abc.Collection[tuple[str, typing.Union[str, bytes]]],
             None,
         ],
-    ) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
+    ) -> collections.abc.AsyncGenerator[ResponseType, None]: ...
 
 class Client:
     _client_from_env: typing.ClassVar[typing.Optional[Client]]
@@ -197,7 +199,7 @@ class Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.2"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.3"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -421,7 +423,7 @@ class Client:
     get_input_plane_metadata: __get_input_plane_metadata_spec
 
     class ___call_safely_spec(typing_extensions.Protocol):
-        def __call__(self, /, coro, readable_method: str):
+        def __call__(self, /, coro: T, readable_method: str) -> T:
             """Runs coroutine wrapped in a task that's part of the client's task context
 
             * Raises ClientClosed in case the client is closed while the coroutine is executed
@@ -430,7 +432,7 @@ class Client:
             """
             ...
 
-        async def aio(self, /, coro, readable_method: str):
+        async def aio(self, /, coro: typing.Coroutine[typing.Any, typing.Any, T], readable_method: str) -> T:
             """Runs coroutine wrapped in a task that's part of the client's task context
 
             * Raises ClientClosed in case the client is closed while the coroutine is executed
@@ -456,7 +458,7 @@ class Client:
     async def _call_unary(
         self,
         grpclib_method: grpclib.client.UnaryUnaryMethod[RequestType, ResponseType],
-        request: typing.Any,
+        request: RequestType,
         *,
         timeout: typing.Optional[float] = None,
         metadata: typing.Union[
@@ -464,18 +466,18 @@ class Client:
             collections.abc.Collection[tuple[str, typing.Union[str, bytes]]],
             None,
         ] = None,
-    ) -> typing.Any: ...
+    ) -> ResponseType: ...
     def _call_stream(
         self,
         grpclib_method: grpclib.client.UnaryStreamMethod[RequestType, ResponseType],
-        request: typing.Any,
+        request: RequestType,
         *,
         metadata: typing.Union[
             collections.abc.Mapping[str, typing.Union[str, bytes]],
             collections.abc.Collection[tuple[str, typing.Union[str, bytes]]],
             None,
         ],
-    ) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
+    ) -> collections.abc.AsyncGenerator[ResponseType, None]: ...
 
 HEARTBEAT_INTERVAL: float
 

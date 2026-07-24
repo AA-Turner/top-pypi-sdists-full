@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: biothings_client
-Version: 0.5.0
+Version: 0.5.1
 Summary: Python Client for BioThings API services.
 Author: Cyrus Afrasiabi, Xinghua Zhou
 Author-email: Everaldo Rodolpho <erodolpho@scripps.edu>, Johnathan Schaff <jschaff@scripps.edu>, Dylan Welzel <dwelzel@scripps.edu>, Chunlei Wu <cwu@scripps.edu>
@@ -32,14 +32,14 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: httpx>=0.25.0; python_version >= "3.8"
-Requires-Dist: httpx>=0.24.0; python_version == "3.7"
+Requires-Dist: httpx<1.0,>=0.25.0; python_version >= "3.8"
+Requires-Dist: httpx<1.0,>=0.24.0; python_version == "3.7"
 Requires-Dist: importlib-metadata; python_version <= "3.7"
 Requires-Dist: typing-extensions; python_version <= "3.7"
 Provides-Extra: caching
 Requires-Dist: anysqlite; python_version >= "3.8" and extra == "caching"
 Requires-Dist: hishel[httpx]==1.1.8; python_version == "3.9" and extra == "caching"
-Requires-Dist: hishel[httpx]>=1.1.9; python_version > "3.9" and extra == "caching"
+Requires-Dist: hishel[httpx]<2,>=1.1.9; python_version > "3.9" and extra == "caching"
 Provides-Extra: dataframe
 Requires-Dist: pandas>=1.2.0; extra == "dataframe"
 Provides-Extra: jsonld

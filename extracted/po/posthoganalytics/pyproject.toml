@@ -1,13 +1,13 @@
 [build-system]
 requires = [
-    "setuptools>=61.0",
+    "setuptools>=83.0.0",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.28.0"
+version = "7.29.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },

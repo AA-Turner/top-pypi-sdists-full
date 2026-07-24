@@ -1,11 +1,17 @@
 Metadata-Version: 2.4
 Name: strands-agents-evals
-Version: 1.0.2
+Version: 1.0.3
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: boto3>=1.26.0
 Requires-Dist: opentelemetry-api>=1.20.0

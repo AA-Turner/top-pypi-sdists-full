@@ -5,7 +5,7 @@ import plistlib
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union, cast
 
 import click
 import inquirer3
@@ -30,7 +30,7 @@ NONCE_CYCLE_INTERVAL = 60 * 5
 
 
 @asynccontextmanager
-async def _aclosing(resource):
+async def _aclosing(resource: Any):
     try:
         yield resource
     finally:
@@ -113,7 +113,7 @@ class MobileActivationService:
             raise MobileActivationException("Activation server response is invalid")
         title = navigation_bar.get("title")
         description = footer.text
-        fields = []
+        fields: list[Field] = []
         for editable in root.findall("page//editableTextRow"):
             fields.append(
                 Field(
@@ -123,7 +123,7 @@ class MobileActivationService:
                     secure=bool(editable.get("secure", False)),
                 )
             )
-        server_info = {}
+        server_info: dict[str, str] = {}
         for k, v in server_info_node.items():
             server_info[k] = v
         return ActivationForm(title=title, description=description, fields=fields, server_info=server_info)
@@ -165,7 +165,7 @@ class MobileActivationService:
                 ACTIVATION_DRM_HANDSHAKE_DEFAULT_URL, data=plistlib.dumps(blob), headers=headers
             )
 
-        activation_request = {}
+        activation_request: dict[str, Any] = {}
         if session_mode:
             activation_info = await self.create_activation_info_with_session(content)
         else:
@@ -189,7 +189,7 @@ class MobileActivationService:
                         activation_request.update({k: lv})
                         continue
                     else:
-                        self.logger.warn(f"Unable to get {k} from lockdownd")
+                        self.logger.warning(f"Unable to get {k} from lockdownd")
                         if k == "MEID" and has_meid:
                             # Something is wrong if both IMEI & MEID is missing
                             raise MobileActivationException("Unable to obtain both IMEI and MEID")
@@ -212,13 +212,13 @@ class MobileActivationService:
             else:
                 click.secho(activation_form.title, bold=True)
                 click.secho(activation_form.description)
-                fields = []
+                fields: list[Any] = []
                 for field in activation_form.fields:
                     if field.secure:
                         fields.append(inquirer3.Password(name=field.id, message=f"{field.label}"))
                     else:
                         fields.append(inquirer3.Text(name=field.id, message=f"{field.label}"))
-                data = inquirer3.prompt(fields)
+                data: dict[str, Any] = cast(Any, inquirer3).prompt(fields)
                 data.update(activation_form.server_info)
                 content, headers = self.post(ACTIVATION_DEFAULT_URL, data=data)
                 content_type = headers["Content-Type"]
@@ -262,7 +262,7 @@ class MobileActivationService:
             raise MobileActivationException(f"Mobile activation can not be done due to: {response}")
         return response["Value"]
 
-    async def create_activation_info_with_session(self, handshake_response):
+    async def create_activation_info_with_session(self, handshake_response: Any):
         """
         Build the device's activation info from a completed DRM handshake.
 
@@ -279,7 +279,7 @@ class MobileActivationService:
             raise MobileActivationException(f"Mobile activation can not be done due to: {response}")
         return response["Value"]
 
-    async def activate_with_lockdown(self, activation_record):
+    async def activate_with_lockdown(self, activation_record: bytes):
         """
         Apply an activation record to the device using the legacy lockdown flow.
 
@@ -300,7 +300,7 @@ class MobileActivationService:
         assert isinstance(self.lockdown, LockdownClient)
         await self.lockdown._request("Activate", {"ActivationRecord": node.get("activation-record")})
 
-    async def activate_with_session(self, activation_record, headers):
+    async def activate_with_session(self, activation_record: Any, headers: CaseInsensitiveDict[str]):
         """
         Apply an activation record to the device using the session-based flow.
 
@@ -312,7 +312,7 @@ class MobileActivationService:
             ``ActivationResponseHeaders``; may be falsy to omit them.
         :returns: the daemon's response to the request.
         """
-        data = {
+        data: dict[str, Any] = {
             "Command": "HandleActivationInfoWithSessionRequest",
             "Value": activation_record,
         }
@@ -339,7 +339,7 @@ class MobileActivationService:
             return await service.send_recv_plist(data)
 
     def post(
-        self, url: str, data: Union[dict, bytes], headers: Optional[dict[str, str]] = None
+        self, url: str, data: Union[dict[str, Any], bytes], headers: Optional[dict[str, str]] = None
     ) -> tuple[bytes, CaseInsensitiveDict[str]]:
         """
         Perform an HTTP POST to an activation server endpoint.

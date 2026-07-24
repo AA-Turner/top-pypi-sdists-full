@@ -11,7 +11,8 @@ from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
-from jwcrypto import jwt
+from jwcrypto import jwk, jwt
+from jwcrypto.common import base64url_encode
 from oauthlib.oauth2.rfc6749 import errors as oauthlib_errors
 
 from oauth2_provider.models import (
@@ -673,6 +674,36 @@ class TestOIDCAuthorizationCodeView(BaseTest):
 
         self.assertNotIn("prompt=login", next)
 
+    def test_prompt_login_unauthenticated_single_redirect(self):
+        """
+        An unauthenticated prompt=login request goes straight to the login
+        page with the prompt stripped from next: logging in satisfies the
+        prompt, so the user must not be bounced to login a second time when
+        they return to the authorization endpoint authenticated.
+        """
+        self.oauth2_settings.PKCE_REQUIRED = False
+
+        query_data = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "state": "random_state_string",
+            "scope": "read write",
+            "redirect_uri": "http://example.org",
+            "prompt": "login",
+        }
+
+        response = self.client.get(reverse("oauth2_provider:authorize"), data=query_data)
+
+        self.assertEqual(response.status_code, 302)
+
+        scheme, netloc, path, params, query, fragment = urlparse(response["Location"])
+        self.assertEqual(path, settings.LOGIN_URL)
+
+        next = parse_qs(query)["next"][0]
+        self.assertNotIn("prompt=login", next)
+        self.assertIn("state=random_state_string", next)
+        self.assertIn(f"client_id={self.application.client_id}", next)
+
     def test_prompt_none_unauthorized(self):
         """
         Test response for redirect when supplied with prompt: none
@@ -699,6 +730,78 @@ class TestOIDCAuthorizationCodeView(BaseTest):
 
         self.assertIn("login_required", parsed_query["error"])
         self.assertIn("random_state_string", parsed_query["state"])
+
+    def test_prompt_none_open_redirect_no_client(self):
+        """
+        Regression test for the prompt=none open redirect.
+
+        An unauthenticated request with prompt=none, an attacker-controlled
+        redirect_uri and *no* client_id must not redirect at all: the missing
+        client_id is a fatal error, so the error page is rendered instead of
+        any Location header being emitted.
+        """
+        query_data = {
+            "prompt": "none",
+            # http is in ALLOWED_REDIRECT_URI_SCHEMES (see BaseTest.setUp), so
+            # pre-fix this request was 302'd to the attacker origin rather than
+            # being rejected by scheme validation.
+            "redirect_uri": "http://attacker.example/cb",
+            "state": "phish-123",
+        }
+
+        response = self.client.get(reverse("oauth2_provider:authorize"), data=query_data)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("Location", response)
+
+    def test_prompt_none_open_redirect_unregistered_redirect_uri(self):
+        """
+        Regression test for the prompt=none open redirect.
+
+        Even with a valid client_id, an unauthenticated prompt=none request
+        with a redirect_uri that is not registered for that client must not
+        redirect at all: the mismatching redirect_uri is a fatal error, so the
+        error page is rendered instead of any Location header being emitted.
+        """
+        query_data = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "scope": "openid",
+            "prompt": "none",
+            "redirect_uri": "http://attacker.example/cb",
+            "state": "phish-123",
+        }
+
+        response = self.client.get(reverse("oauth2_provider:authorize"), data=query_data)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("Location", response)
+
+    def test_prompt_none_combined_with_other_values_is_rejected(self):
+        """
+        prompt is a space-delimited list, and none is mutually exclusive with
+        the other values (OIDC Core 1.0 section 3.1.2.1): the combination is
+        rejected as invalid_request rather than falling through to an
+        interactive login redirect (which would display UI that prompt=none
+        forbids).
+        """
+        self.oauth2_settings.PKCE_REQUIRED = False
+
+        query_data = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "state": "random_state_string",
+            "scope": "openid",
+            "prompt": "none login",
+            "redirect_uri": "http://example.org",
+        }
+
+        response = self.client.get(reverse("oauth2_provider:authorize"), data=query_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response["Location"].startswith("http://example.org"))
+        parsed_query = parse_qs(urlparse(response["Location"]).query)
+        self.assertIn("invalid_request", parsed_query["error"])
 
 
 class BaseAuthorizationCodeTokenView(BaseTest):
@@ -819,6 +922,88 @@ class TestAuthorizationCodeTokenView(BaseAuthorizationCodeTokenView):
         self.assertEqual(response.status_code, 400)
         content = json.loads(response.content.decode("utf-8"))
         self.assertTrue("invalid_grant" in content.values())
+
+    def test_refresh_with_long_token(self):
+        """
+        Request an access token using a refresh token longer than 255 characters,
+        as issued by e.g. Microsoft. Long tokens are looked up via their SHA-256
+        checksum, see issue #1601.
+        """
+        self.oauth2_settings.REFRESH_TOKEN_GENERATOR = lambda request: "x" * 300 + get_random_string(32)
+        self.client.login(username="test_user", password="123456")
+        authorization_code = self.get_auth()
+
+        token_request_data = {
+            "grant_type": "authorization_code",
+            "code": authorization_code,
+            "redirect_uri": "http://example.org",
+        }
+        auth_headers = get_basic_auth_header(self.application.client_id, CLEARTEXT_SECRET)
+
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertTrue("refresh_token" in content)
+        self.assertGreater(len(content["refresh_token"]), 255)
+
+        token_request_data = {
+            "grant_type": "refresh_token",
+            "refresh_token": content["refresh_token"],
+            "scope": content["scope"],
+        }
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertTrue("access_token" in content)
+        self.assertGreater(len(content["refresh_token"]), 255)
+
+        # check refresh token cannot be used twice
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 400)
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertTrue("invalid_grant" in content.values())
+
+    def test_refresh_with_grace_period_long_token(self):
+        """
+        The grace period returns the previously issued (plaintext) refresh token,
+        which must survive the round trip for tokens longer than 255 characters.
+        """
+        self.oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS = 120
+        self.oauth2_settings.REFRESH_TOKEN_GENERATOR = lambda request: "x" * 300 + get_random_string(32)
+        self.client.login(username="test_user", password="123456")
+        authorization_code = self.get_auth()
+
+        token_request_data = {
+            "grant_type": "authorization_code",
+            "code": authorization_code,
+            "redirect_uri": "http://example.org",
+        }
+        auth_headers = get_basic_auth_header(self.application.client_id, CLEARTEXT_SECRET)
+
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertTrue("refresh_token" in content)
+        self.assertGreater(len(content["refresh_token"]), 255)
+
+        token_request_data = {
+            "grant_type": "refresh_token",
+            "refresh_token": content["refresh_token"],
+            "scope": content["scope"],
+        }
+
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        content = json.loads(response.content.decode("utf-8"))
+        first_access_token = content["access_token"]
+        first_refresh_token = content["refresh_token"]
+
+        # within the grace period the same tokens are returned
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data, **auth_headers)
+        self.assertEqual(response.status_code, 200)
+        content = json.loads(response.content.decode("utf-8"))
+        self.assertEqual(content["access_token"], first_access_token)
+        self.assertEqual(content["refresh_token"], first_refresh_token)
 
     def test_refresh_with_grace_period(self):
         """
@@ -1853,6 +2038,10 @@ class TestOIDCAuthorizationCodeHSAlgorithm(BaseAuthorizationCodeTokenView):
     def setUpTestData(cls):
         super().setUpTestData()
         cls.application.algorithm = Application.HS256_ALGORITHM
+        # HS256 uses the client secret as the HMAC signing key, so it must be stored
+        # unhashed for the relying party to be able to verify the ID token.
+        cls.application.hash_client_secret = False
+        cls.application.client_secret = CLEARTEXT_SECRET
         cls.application.save()
 
     def setUp(self):
@@ -1891,7 +2080,14 @@ class TestOIDCAuthorizationCodeHSAlgorithm(BaseAuthorizationCodeTokenView):
         assert key.kty == "oct"
         jwt_token = jwt.JWT(key=key, jwt=content["id_token"])
         claims = json.loads(jwt_token.claims)
-        assert claims["sub"] == "1"
+        assert claims["sub"] == str(self.test_user.pk)
+
+        # The ID token must be verifiable by a relying party holding the *plaintext* client
+        # secret (the shared HS256 key), not just by the server's own jwk_key. This fails if
+        # the token was signed with a hashed secret.
+        rp_key = jwk.JWK(kty="oct", k=base64url_encode(CLEARTEXT_SECRET))
+        rp_verified = jwt.JWT(key=rp_key, jwt=content["id_token"])
+        assert json.loads(rp_verified.claims)["sub"] == str(self.test_user.pk)
 
 
 @pytest.mark.oauth2_settings(presets.DEFAULT_SCOPES_RW)
@@ -2033,3 +2229,94 @@ class TestDefaultScopes(BaseTest):
         self.assertEqual(form["state"].value(), "random_state_string")
         self.assertEqual(form["scope"].value(), "read")
         self.assertEqual(form["client_id"].value(), self.application.client_id)
+
+
+@pytest.mark.usefixtures("oauth2_settings")
+class TestResourceIndicators(BaseTest):
+    """Test RFC 8707 Resource Indicators support"""
+
+    def test_authorization_code_stores_resource(self):
+        """Test that authorization code grant stores resource parameter in Grant"""
+        self.client.login(username="test_user", password="123456")
+
+        # Authorization request with resource
+        auth_params = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "state": "random_state_string",
+            "redirect_uri": "http://example.org",
+            "scope": "read write",
+            "resource": "https://api.example.com/resource",
+            "allow": True,
+        }
+
+        response = self.client.post(reverse("oauth2_provider:authorize"), data=auth_params)
+        self.assertEqual(response.status_code, 302)
+
+        # Extract code from redirect
+        redirect_url = response["Location"]
+        code = parse_qs(urlparse(redirect_url).query)["code"][0]
+
+        # Verify Grant has resource stored as list
+        grant = Grant.objects.get(code=code)
+        self.assertEqual(grant.resource, ["https://api.example.com/resource"])
+
+    def test_authorization_form_rejects_invalid_resource(self):
+        """A tampered hidden resource form field is rejected with invalid_target"""
+        self.client.login(username="test_user", password="123456")
+
+        auth_params = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "state": "random_state_string",
+            "redirect_uri": "http://example.org",
+            "scope": "read write",
+            "resource": "/not/absolute",
+            "allow": True,
+        }
+
+        response = self.client.post(reverse("oauth2_provider:authorize"), data=auth_params)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("error=invalid_target", response["Location"])
+        # RFC 6749: the error redirect must echo the client's state
+        self.assertIn("state=random_state_string", response["Location"])
+        self.assertEqual(Grant.objects.count(), 0)
+
+    def test_token_exchange_propagates_resource(self):
+        """Test that token exchange propagates resource from Grant to AccessToken"""
+        self.client.login(username="test_user", password="123456")
+
+        # Authorization request with resource
+        auth_params = {
+            "client_id": self.application.client_id,
+            "response_type": "code",
+            "state": "random_state_string",
+            "redirect_uri": "http://example.org",
+            "scope": "read write",
+            "resource": "https://api.example.com/resource",
+            "allow": True,
+        }
+
+        response = self.client.post(reverse("oauth2_provider:authorize"), data=auth_params)
+        self.assertEqual(response.status_code, 302)
+
+        # Extract code from redirect
+        redirect_url = response["Location"]
+        code = parse_qs(urlparse(redirect_url).query)["code"][0]
+
+        # Exchange code for token
+        token_request_data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": "http://example.org",
+            "client_id": self.application.client_id,
+            "client_secret": CLEARTEXT_SECRET,
+        }
+
+        response = self.client.post(reverse("oauth2_provider:token"), data=token_request_data)
+        self.assertEqual(response.status_code, 200)
+
+        # Verify AccessToken has resource from Grant
+        response_data = response.json()
+        token = AccessToken.objects.get(token=response_data["access_token"])
+        self.assertEqual(token.resource, ["https://api.example.com/resource"])

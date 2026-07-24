@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit
-Version: 2.5.0
+Version: 2.5.1
 Summary: An open-source SDK for working with quantum computers at the level of extended quantum circuits, operators, and primitives.
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License-Expression: Apache-2.0

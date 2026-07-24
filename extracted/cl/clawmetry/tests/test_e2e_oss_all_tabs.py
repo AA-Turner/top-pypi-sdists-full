@@ -168,6 +168,117 @@ def test_canonical_tabs_cover_all_templates():
     )
 
 
+def test_pr_screenshot_tabs_match_canonical():
+    """PR_SCREENSHOT_TABS in pr-screenshots.yml must equal CANONICAL_TABS exactly.
+
+    Closes a silent-drift gap: a tab added to CANONICAL_TABS (so the
+    post-auth overlay sweep covers it) but NOT added to PR_SCREENSHOT_TABS
+    would never appear in the visual-diff screenshot run, meaning a login-
+    overlay regression on that tab would pass CI undetected.
+
+    When this test fails it names the diverging entries and the three files
+    that must be kept in sync.
+    """
+    import re
+
+    workflow_path = (
+        pathlib.Path(__file__).parent.parent
+        / ".github"
+        / "workflows"
+        / "pr-screenshots.yml"
+    )
+    if not workflow_path.exists():
+        pytest.skip(
+            f"pr-screenshots.yml not found at {workflow_path} -- not a source checkout"
+        )
+
+    content = workflow_path.read_text()
+    m = re.search(r'PR_SCREENSHOT_TABS:\s+"([^"]+)"', content)
+    if not m:
+        pytest.fail(
+            "Could not find PR_SCREENSHOT_TABS: \"...\" in "
+            ".github/workflows/pr-screenshots.yml. "
+            "Ensure the env var uses double-quoted value on one line."
+        )
+
+    pr_tabs = [t.strip() for t in m.group(1).split(",") if t.strip()]
+    canonical_set = set(CANONICAL_TABS)
+    pr_set = set(pr_tabs)
+
+    errors = []
+    only_in_canonical = canonical_set - pr_set
+    only_in_pr = pr_set - canonical_set
+    if only_in_canonical:
+        errors.append(
+            f"In CANONICAL_TABS but NOT in PR_SCREENSHOT_TABS: {sorted(only_in_canonical)}"
+        )
+    if only_in_pr:
+        errors.append(
+            f"In PR_SCREENSHOT_TABS but NOT in CANONICAL_TABS: {sorted(only_in_pr)}"
+        )
+
+    assert not errors, (
+        "Tab list mismatch -- these three sources must be identical:\n"
+        "  CANONICAL_TABS in tests/test_e2e_oss_all_tabs.py\n"
+        "  PR_SCREENSHOT_TABS in .github/workflows/pr-screenshots.yml\n"
+        "  DEFAULT_TABS in .github/scripts/visual-diff.mjs\n"
+        + "\n".join(errors)
+    )
+
+
+def test_visual_diff_default_tabs_match_canonical():
+    """DEFAULT_TABS in visual-diff.mjs must equal CANONICAL_TABS exactly.
+
+    Closes a silent-drift gap: a tab added to CANONICAL_TABS but NOT to
+    DEFAULT_TABS would never be screenshotted in the visual-diff run, so a
+    login-overlay regression on that tab would pass CI undetected.
+    """
+    import re
+
+    script_path = (
+        pathlib.Path(__file__).parent.parent
+        / ".github"
+        / "scripts"
+        / "visual-diff.mjs"
+    )
+    if not script_path.exists():
+        pytest.skip(
+            f"visual-diff.mjs not found at {script_path} -- not a source checkout"
+        )
+
+    content = script_path.read_text()
+    m = re.search(r'const DEFAULT_TABS\s*=\s*"([^"]+)"', content)
+    if not m:
+        pytest.fail(
+            "Could not find `const DEFAULT_TABS = \"...\"` in "
+            ".github/scripts/visual-diff.mjs."
+        )
+
+    vd_tabs = [t.strip() for t in m.group(1).split(",") if t.strip()]
+    canonical_set = set(CANONICAL_TABS)
+    vd_set = set(vd_tabs)
+
+    errors = []
+    only_in_canonical = canonical_set - vd_set
+    only_in_vd = vd_set - canonical_set
+    if only_in_canonical:
+        errors.append(
+            f"In CANONICAL_TABS but NOT in DEFAULT_TABS: {sorted(only_in_canonical)}"
+        )
+    if only_in_vd:
+        errors.append(
+            f"In DEFAULT_TABS but NOT in CANONICAL_TABS: {sorted(only_in_vd)}"
+        )
+
+    assert not errors, (
+        "Tab list mismatch -- these three sources must be identical:\n"
+        "  CANONICAL_TABS in tests/test_e2e_oss_all_tabs.py\n"
+        "  PR_SCREENSHOT_TABS in .github/workflows/pr-screenshots.yml\n"
+        "  DEFAULT_TABS in .github/scripts/visual-diff.mjs\n"
+        + "\n".join(errors)
+    )
+
+
 class TestAllTabsPostAuth:
     """Every canonical OSS dashboard tab must render without auth overlay post-login.
 
@@ -202,13 +313,35 @@ class TestAllTabsPostAuth:
         only calls switchTab() and checks the overlay state. Re-navigating
         to "/" per test caused 33 sequential page loads that saturated the
         waitress WSGI queue and produced spurious TimeoutErrors.
+
+        If this test fails with AssertionError containing 'window.switchTab()
+        not available', the root cause is not the overlay itself but that
+        app.js failed to load or parse (e.g. syntax error shipped in the
+        bundle) or that auth is still blocking script execution on load.
+        Check the server log and /api/auth/check before investigating tabs.
         """
         page = _overlay_page
 
         if tab != "overview":
-            page.evaluate(
-                "typeof window.switchTab === 'function' && "
-                f"window.switchTab({json.dumps(tab)})"
+            # Use an explicit return value instead of the short-circuit bool
+            # guard ("typeof ... === 'function' && switchTab()") so that a
+            # missing switchTab fails loudly rather than silently checking the
+            # overview tab for every parametrized case.
+            result = page.evaluate(
+                "(tab) => {"
+                "  if (typeof window.switchTab !== 'function') return 'no-switchtab';"
+                "  window.switchTab(tab);"
+                "  return 'ok';"
+                "}",
+                tab,
+            )
+            assert result == "ok", (
+                f"Tab '{tab}': window.switchTab() not available on the loaded page. "
+                f"Root causes: (1) app.js failed to parse or load (404/syntax error); "
+                f"(2) auth overlay is still blocking JS execution; "
+                f"(3) page has not finished initialising. "
+                f"Ensure OPENCLAW_GATEWAY_TOKEN={TOKEN!r} matches CLAWMETRY_TOKEN "
+                f"and that {BASE_URL!r} is reachable."
             )
 
         page.wait_for_timeout(500)

@@ -328,8 +328,8 @@ pub struct GlobalArgs {
     ///
     /// Use comma-separated values or pass multiple times to enable multiple features.
     ///
-    /// The following features are available: `python-install-default`, `python-upgrade`,
-    /// `json-output`, `pylock`, `add-bounds`.
+    /// The following features are available: `python-install-default`, `json-output`, `pylock`,
+    /// `add-bounds`.
     #[arg(
         global = true,
         long = "preview-features",
@@ -5263,6 +5263,24 @@ pub struct FormatArgs {
 
 #[derive(Args)]
 pub struct CheckArgs {
+    /// Check all packages in the workspace.
+    ///
+    /// The workspace's environment is synchronized to include all workspace members, and files in
+    /// every member are checked.
+    #[arg(long, conflicts_with_all = ["package", "script", "no_project"])]
+    pub all_packages: bool,
+
+    /// Check specific packages in the workspace.
+    ///
+    /// The workspace's environment is synchronized to include the selected members and their
+    /// dependencies. Only files owned by the selected members are checked.
+    #[arg(
+        long,
+        conflicts_with_all = ["all_packages", "script", "no_project"],
+        value_hint = ValueHint::Other
+    )]
+    pub package: Vec<PackageName>,
+
     /// Run checks for the specified PEP 723 Python script, rather than the current project.
     ///
     /// If provided, uv will use the dependencies based on the script's inline metadata table, in
@@ -5282,6 +5300,8 @@ pub struct CheckArgs {
         conflicts_with = "only_group",
         conflicts_with = "all_groups",
         conflicts_with = "no_project",
+        conflicts_with = "all_packages",
+        conflicts_with = "package",
         value_hint = ValueHint::FilePath,
     )]
     pub script: Option<PathBuf>,
@@ -6580,8 +6600,7 @@ pub enum PythonCommand {
     /// The Python installation directory may be overridden with `$UV_PYTHON_INSTALL_DIR`.
     ///
     /// To view the directory where uv installs Python executables instead, use the `--bin` flag.
-    /// The Python executable directory may be overridden with `$UV_PYTHON_BIN_DIR`. Note that
-    /// Python executables are only installed when preview mode is enabled.
+    /// The Python executable directory may be overridden with `$UV_PYTHON_BIN_DIR`.
     Dir(PythonDirArgs),
 
     /// Uninstall Python versions.
@@ -6656,8 +6675,6 @@ pub struct PythonListArgs {
 #[derive(Args)]
 pub struct PythonDirArgs {
     /// Show the directory into which `uv python` will install Python executables.
-    ///
-    /// Note that this directory is only used when installing Python with preview mode enabled.
     ///
     /// The Python executable directory is determined according to the XDG standard and is derived
     /// from the following environment variables, in order of preference:

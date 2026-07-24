@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bce-python-sdk
-Version: 0.9.72
+Version: 0.9.76
 Summary: BCE SDK for python
 Home-page: http://bce.baidu.com
 Author: 
@@ -11,8 +11,11 @@ Requires-Dist: pycryptodome>=3.8.0
 Requires-Dist: future>=0.6.0
 Requires-Dist: six>=1.4.0
 Requires-Dist: crc32c>=2.2.post0
+Provides-Extra: dumemory
+Requires-Dist: hindsight-client>=0.8.3; extra == "dumemory"
 Dynamic: home-page
 Dynamic: license
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

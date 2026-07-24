@@ -13,11 +13,16 @@ import asyncio
 import json
 import logging
 import os
-import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+from plato.utils.fuse_binary import (
+    PLATO_FUSE_INSTALL_PATH,
+    PLATO_FUSE_S3_BUCKET,
+    PLATO_FUSE_S3_KEY,
+    ensure_plato_fuse,
+)
 from plato.worlds.dvc_models import (
     DVCManifest,
     LazyDVCMount,
@@ -25,11 +30,15 @@ from plato.worlds.dvc_models import (
     _env_flag_enabled,
 )
 
-logger = logging.getLogger(__name__)
+__all__ = [
+    "PLATO_FUSE_INSTALL_PATH",
+    "PLATO_FUSE_S3_BUCKET",
+    "PLATO_FUSE_S3_KEY",
+    "mount_lazy",
+    "unmount_lazy",
+]
 
-PLATO_FUSE_S3_BUCKET = "plato-public-static"
-PLATO_FUSE_S3_KEY = "plato-fuse"
-PLATO_FUSE_INSTALL_PATH = "/usr/local/bin/plato-fuse"
+logger = logging.getLogger(__name__)
 
 
 async def _forward_worker_logs(
@@ -49,42 +58,8 @@ async def _forward_worker_logs(
 
 async def _ensure_plato_fuse() -> str:
     """Return path to plato-fuse binary, downloading from S3 if not found."""
-    override = os.environ.get("PLATO_FUSE_BINARY")
-    if override:
-        override_path = Path(override)
-        if override_path.is_file():
-            logger.debug("Using PLATO_FUSE_BINARY override: %s", override_path)
-            return str(override_path)
-        raise RuntimeError(f"PLATO_FUSE_BINARY does not exist: {override}")
-
-    binary = shutil.which("plato-fuse")
-    if binary:
-        logger.debug("Using plato-fuse from PATH: %s", binary)
-        return binary
-
-    logger.debug(
-        "plato-fuse not found on PATH, downloading from s3://%s/%s",
-        PLATO_FUSE_S3_BUCKET,
-        PLATO_FUSE_S3_KEY,
-    )
-
-    proc = await asyncio.create_subprocess_exec(
-        "aws",
-        "s3",
-        "cp",
-        f"s3://{PLATO_FUSE_S3_BUCKET}/{PLATO_FUSE_S3_KEY}",
-        PLATO_FUSE_INSTALL_PATH,
-        "--no-sign-request",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(f"Failed to download plato-fuse from S3: {stderr.decode().strip()}")
-
-    os.chmod(PLATO_FUSE_INSTALL_PATH, 0o755)
-    logger.debug("Installed plato-fuse to %s", PLATO_FUSE_INSTALL_PATH)
-    return PLATO_FUSE_INSTALL_PATH
+    binary, _source = await ensure_plato_fuse()
+    return binary
 
 
 async def mount_lazy(
@@ -178,6 +153,7 @@ async def mount_lazy(
         manifest=manifest,
         worker_proc=proc,
         worker_log_tasks=worker_log_tasks,
+        s3_config=s3_config,
     )
 
 

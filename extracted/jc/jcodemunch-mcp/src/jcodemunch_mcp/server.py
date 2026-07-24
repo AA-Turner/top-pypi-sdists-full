@@ -83,6 +83,8 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
     "suggest_corrections",
+    # Canonical handoff (#374)
+    "finalize_handoff",
     # Agent stand-up briefing
     "digest",
     # Health-radar diff (PR-time diff-grade reports)
@@ -141,7 +143,7 @@ _SNIPPET_TOOL_CATEGORIES: list[tuple[str, list[str]]] = [
                             "get_untested_symbols", "search_ast",
                             "winnow_symbols"]),
     ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
-    ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit", "digest"]),
+    ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit", "digest", "finalize_handoff"]),
     ("Utilities", ["get_session_stats", "analyze_perf", "tune_weights", "check_embedding_drift",
                     "invalidate_cache", "test_summarizer",
                     "audit_agent_config", "suggest_corrections", "get_watch_status"]),
@@ -201,6 +203,8 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     # Utilities
     "invalidate_cache", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
     "suggest_corrections",
+    # Canonical handoff (#374)
+    "finalize_handoff",
     # Agent stand-up briefing
     "digest",
     # Health-radar diff
@@ -264,7 +268,8 @@ def _counter_front_door_tools() -> list:
                 "allow_state_change=true, and execution/file-write verbs are refused. "
                 "For exploration questions ('how does X work'), "
                 "order('get_ranked_context', {repo, query, token_budget}) answers in "
-                "ONE call — prefer it over chained search/outline/source hops. "
+                "ONE call — prefer it over chained search/outline/source hops; add "
+                "compress=true to fit more symbols in the same budget. "
                 "Call 'menu' to discover actions, or 'route' to pick one from a task."
             ),
             inputSchema={
@@ -2134,6 +2139,88 @@ def _build_tools_list() -> list[Tool]:
                     },
                 },
                 "required": ["baseline", "current"],
+            },
+        ),
+        Tool(
+            name="finalize_handoff",
+            description=(
+                "Finalize one canonical Markdown handoff for a completed repository "
+                "audit/analysis (jcodemunch.handoff/v1). The server assembles YOUR "
+                "sections deterministically, validates every evidence_refs entry "
+                "against what this session actually retrieved (symbol ids or file "
+                "paths served by search_symbols / get_ranked_context — unknown refs "
+                "fail closed), persists the result session-scoped, and returns a "
+                "compact receipt {handoff_id, resource_uri, sha256, length, "
+                "canonical:true}. Read the immutable body via the "
+                "munch://handoff/<id> resource; repeated reads are byte-identical. "
+                "Appendices are included exactly once; no character limit; never "
+                "writes to the repository."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier the handoff is about.",
+                    },
+                    "task": {
+                        "type": "string",
+                        "description": "The task/question this handoff answers (becomes the title).",
+                    },
+                    "sections": {
+                        "type": "array",
+                        "description": "Ordered report sections, each {heading, content} (markdown). The caller authors these; the server only assembles. Optional per-section claims[] bind evidence to an individual claim instead of one global list (handoff/v2).",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "heading": {"type": "string"},
+                                "content": {"type": "string"},
+                                "claims": {
+                                    "type": "array",
+                                    "description": "Optional caller-authored claims, each {id, statement, evidence_refs, classification?}. Ids must be unique across the handoff; each claim's refs are attested separately and rendered beside the claim.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "statement": {"type": "string"},
+                                            "evidence_refs": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                            },
+                                            "classification": {"type": "string"},
+                                        },
+                                        "required": ["id", "statement", "evidence_refs"],
+                                    },
+                                },
+                            },
+                            "required": ["heading"],
+                        },
+                    },
+                    "evidence_refs": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Symbol ids or file paths retrieved this session; validated against the session retrieval record.",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "default": "general",
+                        "description": "Handoff profile label (e.g. source_audit).",
+                    },
+                    "appendices": {
+                        "type": "array",
+                        "description": "Optional named appendices, each {name, content, content_type?}; names must be unique.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "content": {"type": "string"},
+                                "content_type": {"type": "string"},
+                            },
+                            "required": ["name", "content"],
+                        },
+                    },
+                },
+                "required": ["repo", "task", "sections", "evidence_refs"],
             },
         ),
         Tool(
@@ -4209,9 +4296,10 @@ def _apply_description_overrides(tools: list) -> None:
 
 @server.list_resources()
 async def list_resources() -> list[Resource]:
-    """Advertise the runtime identity resource (munch.runtime.identity/v1, #371)."""
+    """Advertise the runtime identity resource (munch.runtime.identity/v1, #371)
+    plus any session-finalized canonical handoffs (jcodemunch.handoff/v1, #374)."""
     _signal_handshake()
-    return [
+    resources = [
         Resource(
             uri=runtime_identity.IDENTITY_URI,
             name="runtime-identity",
@@ -4224,6 +4312,17 @@ async def list_resources() -> list[Resource]:
             mimeType="application/json",
         )
     ]
+    from . import handoff as _handoff
+    for row in _handoff.list_handoff_resources():
+        resources.append(
+            Resource(
+                uri=row["uri"],
+                name=row["name"],
+                description=row["description"],
+                mimeType=_handoff.HANDOFF_CONTENT_TYPE,
+            )
+        )
+    return resources
 
 
 @server.read_resource()
@@ -4234,6 +4333,15 @@ async def read_resource(uri) -> "list[ReadResourceContents]":
             ReadResourceContents(
                 content=runtime_identity.identity_json(),
                 mime_type="application/json",
+            )
+        ]
+    from . import handoff as _handoff
+    rec = _handoff.handoff_for_uri(str(uri))
+    if rec is not None:
+        return [
+            ReadResourceContents(
+                content=rec["body"],
+                mime_type=_handoff.HANDOFF_CONTENT_TYPE,
             )
         ]
     raise ValueError(f"Unknown resource: {uri}")
@@ -5311,6 +5419,18 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                     current=arguments["current"],
                 )
             )
+        elif name == "finalize_handoff":
+            from . import handoff as _handoff
+            from .storage import token_tracker as _handoff_tracker
+            result = _handoff.finalize_handoff(
+                repo=arguments["repo"],
+                task=arguments["task"],
+                sections=arguments["sections"],
+                evidence_refs=arguments["evidence_refs"],
+                profile=arguments.get("profile", "general"),
+                appendices=arguments.get("appendices"),
+                served_ids=_handoff_tracker.served_symbol_ids(),
+            )
         elif name == "digest":
             from .tools.digest import compose_digest
             result = await asyncio.to_thread(
@@ -6163,11 +6283,39 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                 result.setdefault("_meta", {})["hint"] = (
                     "Several search/read hops and no bundle call yet this session. "
                     "For exploration questions, get_ranked_context(repo, query, "
-                    "token_budget) returns ranked, budget-packed context in ONE call."
+                    "token_budget) returns ranked, budget-packed context in ONE call. "
+                    "Pass compress=True to fit more symbols in the same budget; "
+                    "repo also accepts '.' or a filesystem path."
                 )
                 _requested_format = "json"
         except Exception:
             logger.debug("Steering attach failed", exc_info=True)
+
+        # Absence evidence (#377 phase 3): record every absence-shaped verdict
+        # so a handoff claim can cite the SCAN when nothing was served, and
+        # hand the caller the citable ref in-band. A ref is only surfaced when
+        # the scan can actually prove absence; otherwise the verdict says so,
+        # rather than offering a token that would be refused at finalization.
+        try:
+            if isinstance(result, dict):
+                _v = (result.get("_meta") or {}).get("verdict")
+                if isinstance(_v, dict):
+                    from . import handoff as _handoff_abs
+                    _ref, _why = _handoff_abs.note_absence(
+                        name,
+                        repo_arg,
+                        arguments.get("query"),
+                        _v,
+                        arguments=arguments,
+                        truncated=bool((result.get("_meta") or {}).get("index_truncated")),
+                    )
+                    if _ref:
+                        _v["evidence_ref"] = _ref
+                    elif _why and _v.get("state") == "absent":
+                        _v["absence_citable"] = False
+                        _v["absence_blocked_by"] = _why
+        except Exception:
+            logger.debug("Absence-evidence record failed", exc_info=True)
 
         # Response-level secret redaction — scrub leaked credentials
         # before they reach the LLM context window. Skipped for tools that

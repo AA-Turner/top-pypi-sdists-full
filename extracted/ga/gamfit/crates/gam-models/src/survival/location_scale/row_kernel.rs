@@ -2,8 +2,8 @@ use super::*;
 
 use crate::outer_subsample::{ARROW_ROW_CHUNK, arrow_row_chunk_count};
 use gam_math::jet_scalar::{
-    DynamicJetArena, DynamicOneSeed, DynamicOrder2, DynamicTwoSeed, JetScalar,
-    MappedOrder2Accumulator, OneSeedBatch, Order2AtomChannels, RuntimeJetScalar,
+    DynamicJetArena, DynamicOneSeed, DynamicOrder2, DynamicTwoSeed, JetScalar, OneSeedBatch,
+    Order2AtomChannels, RuntimeJetScalar,
 };
 use gam_row_macros::row_atom;
 use wide::f64x4;
@@ -580,69 +580,126 @@ pub(crate) fn sls_row_nll<S: JetScalar<SLS_ROW_K>>(
     Ok(nll)
 }
 
-/// Ahead-of-time sparse lowering of [`sls_row_nll`] for the V/G/H consumer.
-/// The scalar index expressions and outer derivative plan above are shared with
-/// every higher-order jet; only the execution representation changes.
-#[inline(always)]
-fn sls_row_vgh_compiled(
-    primary: &[f64; SLS_ROW_K],
+/// Production V/G/H schedule for the location-scale row: the structure-fused
+/// direct evaluation of the SAME three-atom outer plan [`sls_row_vgh_compiled`]
+/// lowers (`u0`/`u1`/`g` index atoms × the kernel's ln-survival / Mills /
+/// log-density stacks). The two `u1` transforms are fused and each index's
+/// live upper-triangle support is visited exactly once, with no accumulator
+/// plumbing between atoms.
+///
+/// This schedule was the retained strongest-hand baseline; it is production
+/// per SPEC line 1 (AD-derived lowerings replace hand schedules only when
+/// measured at-least-as-fast, and the release cell below measures this
+/// schedule faster than the jet-compiled lowering on every acceptance host).
+/// Correctness is pinned by
+/// `survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`
+/// (every channel vs the single-source `sls_row_nll` Tower4 program) and the
+/// release cell's dense-jet parity + NaN-poisoned endpoint pins; the
+/// jet-compiled lowering stays as the mechanical oracle/racer.
+fn sls_row_vgh_fused(
+    p: &[f64; SLS_ROW_K],
     kernel: &SurvivalExactRowKernel,
 ) -> (f64, [f64; SLS_ROW_K], [[f64; SLS_ROW_K]; SLS_ROW_K]) {
-    // These static atoms are symbolically differentiated and CSE'd at build
-    // time from the exact same `row_atom!` expressions used by the generic
-    // high-order jets. Only final live channels exist at runtime.
-    let u0 = sls_index_order2(
-        primary[SLS_U0_AXES[0]],
-        primary[SLS_U0_AXES[1]],
-        primary[SLS_U0_AXES[2]],
-    );
-    let u1 = sls_index_order2(
-        primary[SLS_U1_AXES[0]],
-        primary[SLS_U1_AXES[1]],
-        primary[SLS_U1_AXES[2]],
-    );
-    let g = sls_event_rate_order2(
-        primary[SLS_G_AXES[0]],
-        primary[SLS_G_AXES[1]],
-        primary[SLS_G_AXES[2]],
-        primary[SLS_G_AXES[3]],
-        primary[SLS_G_AXES[4]],
-    );
-    let plan = sls_outer_plan(kernel);
-    let truncate = |stack: [f64; 5]| [stack[0], stack[1], stack[2]];
-    let mut output = MappedOrder2Accumulator::zero();
-    output.add_composed(
-        &u0,
-        SLS_U0_AXES,
-        truncate(plan.u0),
-        false,
-        [false; 3],
-        [false; 6],
-    );
-    if let Some(stack) = plan.u1 {
-        output.add_composed(
-            &u1,
-            SLS_U1_AXES,
-            truncate(stack),
-            true,
-            [false; 3],
-            [false; 6],
-        );
+    let entry_exp = (-p[7]).exp();
+    let exit_exp = (-p[6]).exp();
+
+    let mut value = kernel.w * kernel.log_s0;
+    let u0_first = -kernel.w * kernel.r0;
+    let u0_second = -kernel.w * kernel.dr0;
+
+    let censored_weight = kernel.w * (1.0 - kernel.d);
+    let event_weight = kernel.w * kernel.d;
+    let mut u1_first = 0.0;
+    let mut u1_second = 0.0;
+    if censored_weight != 0.0 {
+        value -= censored_weight * kernel.log_s1;
+        u1_first += censored_weight * kernel.r1;
+        u1_second += censored_weight * kernel.dr1;
     }
-    if let Some(stack) = plan.g {
-        output.add_composed(
-            &g,
-            SLS_G_AXES,
-            truncate(stack),
-            true,
-            [false, true, false, true, false],
-            [
-                false, false, false, false, false, true, false, true, false, false, false, false,
-                true, false, false,
-            ],
-        );
+
+    let mut g_first = 0.0;
+    let mut g_second = 0.0;
+    if event_weight != 0.0 {
+        value -= event_weight * (kernel.logphi1 + kernel.log_g);
+        u1_first -= event_weight * kernel.dlogphi1;
+        u1_second -= event_weight * kernel.d2logphi1;
+        g_first = -event_weight * kernel.d_log_g;
+        g_second = -event_weight * kernel.d2_log_g;
     }
-    output.into_channels()
+
+    let u0_g4 = -entry_exp;
+    let u0_g7 = p[4] * entry_exp;
+    let u1_g3 = -exit_exp;
+    let u1_g6 = p[3] * exit_exp;
+    let inner = p[3] * p[8] - p[5];
+    let g3 = exit_exp * p[8];
+    let g5 = -exit_exp;
+    let g6 = -exit_exp * inner;
+    let g8 = exit_exp * p[3];
+
+    let mut gradient = [0.0; SLS_ROW_K];
+    gradient[0] = u0_first;
+    gradient[4] = u0_first * u0_g4;
+    gradient[7] = u0_first * u0_g7;
+    if censored_weight != 0.0 || event_weight != 0.0 {
+        gradient[1] += u1_first;
+        gradient[3] += u1_first * u1_g3;
+        gradient[6] += u1_first * u1_g6;
+    }
+    if event_weight != 0.0 {
+        gradient[2] += g_first;
+        gradient[3] += g_first * g3;
+        gradient[5] += g_first * g5;
+        gradient[6] += g_first * g6;
+        gradient[8] += g_first * g8;
+    }
+
+    let mut hessian = [[0.0; SLS_ROW_K]; SLS_ROW_K];
+    macro_rules! symmetric {
+        ($i:expr, $j:expr, $value:expr) => {{
+            let channel = $value;
+            hessian[$i][$j] += channel;
+            if $i != $j {
+                hessian[$j][$i] += channel;
+            }
+        }};
+    }
+
+    symmetric!(0, 0, u0_second);
+    symmetric!(0, 4, u0_second * u0_g4);
+    symmetric!(0, 7, u0_second * u0_g7);
+    symmetric!(4, 4, u0_second * u0_g4 * u0_g4);
+    symmetric!(4, 7, u0_second * u0_g4 * u0_g7 + u0_first * entry_exp);
+    symmetric!(7, 7, u0_second * u0_g7 * u0_g7 - u0_first * u0_g7);
+
+    if censored_weight != 0.0 || event_weight != 0.0 {
+        symmetric!(1, 1, u1_second);
+        symmetric!(1, 3, u1_second * u1_g3);
+        symmetric!(1, 6, u1_second * u1_g6);
+        symmetric!(3, 3, u1_second * u1_g3 * u1_g3);
+        symmetric!(3, 6, u1_second * u1_g3 * u1_g6 + u1_first * exit_exp);
+        symmetric!(6, 6, u1_second * u1_g6 * u1_g6 - u1_first * u1_g6);
+    }
+
+    if event_weight != 0.0 {
+        symmetric!(2, 2, g_second);
+        symmetric!(2, 3, g_second * g3);
+        symmetric!(2, 5, g_second * g5);
+        symmetric!(2, 6, g_second * g6);
+        symmetric!(2, 8, g_second * g8);
+        symmetric!(3, 3, g_second * g3 * g3);
+        symmetric!(3, 5, g_second * g3 * g5);
+        symmetric!(3, 6, g_second * g3 * g6 - g_first * exit_exp * p[8]);
+        symmetric!(3, 8, g_second * g3 * g8 + g_first * exit_exp);
+        symmetric!(5, 5, g_second * g5 * g5);
+        symmetric!(5, 6, g_second * g5 * g6 + g_first * exit_exp);
+        symmetric!(5, 8, g_second * g5 * g8);
+        symmetric!(6, 6, g_second * g6 * g6 + g_first * exit_exp * inner);
+        symmetric!(6, 8, g_second * g6 * g8 - g_first * exit_exp * p[3]);
+        symmetric!(8, 8, g_second * g8 * g8);
+    }
+
+    (value, gradient, hessian)
 }
 
 /// Hessian-only lowering of the same build-time symbolic atoms used by
@@ -1145,7 +1202,7 @@ pub fn survival_location_scale_alo_row_geometry(
                 .expect("owned ALO coordinates are contiguous")
                 .try_into()
                 .expect("non-wiggle coordinate count is nine");
-            let (_, score, hessian) = sls_row_vgh_compiled(&primary, &kernel);
+            let (_, score, hessian) = sls_row_vgh_fused(&primary, &kernel);
             (
                 Array1::from_vec(score.to_vec()),
                 Array2::from_shape_vec(
@@ -2074,7 +2131,11 @@ fn sls_row_nll_onesseed_batch(
     // Leading term: the scalar ASSIGNS `nll = zero(u0)? const 0 : u0.compose(..)`,
     // so skipped lanes take the `+0.0` neutral (matching `S::constant(0.0)`).
     let u0_stack = pack(|plan| plan.u0);
-    let mut nll = select_active_term(u0.compose_unary(u0_stack), active_stack_lane_mask(&u0_stack), 0.0);
+    let mut nll = select_active_term(
+        u0.compose_unary(u0_stack),
+        active_stack_lane_mask(&u0_stack),
+        0.0,
+    );
     // The scalar collapses the censored and event `u1` contributions into ONE
     // combined stack (`plan.u1`) and composes it once; mirror that. A
     // homogeneous group's `u1` term is active exactly when a censored or event
@@ -2082,12 +2143,20 @@ fn sls_row_nll_onesseed_batch(
     // add is a bit-exact no-op there (`x + (-0.0) == x`).
     if cens_on || event_on {
         let u1_stack = pack(|plan| plan.u1.expect("homogeneous group has an active u1 stack"));
-        let term = select_active_term(u1.compose_unary(u1_stack), active_stack_lane_mask(&u1_stack), -0.0);
+        let term = select_active_term(
+            u1.compose_unary(u1_stack),
+            active_stack_lane_mask(&u1_stack),
+            -0.0,
+        );
         nll = nll.add(&term);
     }
     if event_on {
         let g_stack = pack(|plan| plan.g.expect("homogeneous group has an active g stack"));
-        let term = select_active_term(g.compose_unary(g_stack), active_stack_lane_mask(&g_stack), -0.0);
+        let term = select_active_term(
+            g.compose_unary(g_stack),
+            active_stack_lane_mask(&g_stack),
+            -0.0,
+        );
         nll = nll.add(&term);
     }
     nll
@@ -2191,16 +2260,15 @@ impl crate::row_kernel::RowKernel<SLS_ROW_K> for SurvivalLsRowKernel<'_> {
         &self,
         row: usize,
     ) -> Result<(f64, [f64; SLS_ROW_K], [[f64; SLS_ROW_K]; SLS_ROW_K]), String> {
-        // #932: value, gradient and Hessian lower the SAME scalar `u0/u1/g`
-        // expressions and outer derivative plan used by `sls_row_nll`. Each
-        // independent index is differentiated at its natural width (3/3/5) and
-        // mapped into the nine primary channels by the universal
-        // `MappedOrder2Accumulator`; no family-specific derivative formula,
-        // runtime dependency mask, or dense 9×9 intermediate exists. The
+        // #932: value, gradient and Hessian consume the SAME scalar `u0/u1/g`
+        // index expressions and outer derivative plan as `sls_row_nll`,
+        // through the structure-fused production schedule (see
+        // [`sls_row_vgh_fused`] for the SPEC-line-1 promotion rationale). The
         // `survival_ls_joint_row_kernel_agrees_with_jet_tower_program_all_channels`
-        // oracle pins this compiled schedule to the full Tower4 source.
+        // oracle pins this schedule to the full Tower4 source, and the release
+        // cell pins it against the jet-compiled lowering and the dense jet.
         match self.row_nll_inputs_opt(row)? {
-            Some((p, kernel)) => Ok(sls_row_vgh_compiled(&p, &kernel)),
+            Some((p, kernel)) => Ok(sls_row_vgh_fused(&p, &kernel)),
             None => Ok((0.0, [0.0; SLS_ROW_K], [[0.0; SLS_ROW_K]; SLS_ROW_K])),
         }
     }
@@ -4703,6 +4771,81 @@ mod index_derivative_lowering_tests {
 #[cfg(test)]
 mod patterned_order2_perf_tests {
     use super::*;
+    use gam_math::jet_scalar::MappedOrder2Accumulator;
+
+    // Ahead-of-time sparse jet lowering of `sls_row_nll` for the V/G/H
+    // channels — the mechanical oracle/racer the release cell measures
+    // production against, not a production consumer (test-only since the
+    // SPEC-line-1 promotion of the fused schedule). Lives in the test module
+    // that consumes it so no `#[cfg(test)]` sits on a src-level item (#780).
+    /// Ahead-of-time sparse jet lowering of [`sls_row_nll`] for the V/G/H
+    /// channels. The scalar index expressions and outer derivative plan above are
+    /// shared with every higher-order jet; only the execution representation
+    /// changes. Since the SPEC-line-1 promotion of [`sls_row_vgh_fused`] this
+    /// lowering is the mechanical oracle/racer the release cell measures
+    /// production against, not a production consumer — hence test-gated.
+    #[inline(always)]
+    fn sls_row_vgh_compiled(
+        primary: &[f64; SLS_ROW_K],
+        kernel: &SurvivalExactRowKernel,
+    ) -> (f64, [f64; SLS_ROW_K], [[f64; SLS_ROW_K]; SLS_ROW_K]) {
+        // These static atoms are symbolically differentiated and CSE'd at build
+        // time from the exact same `row_atom!` expressions used by the generic
+        // high-order jets. Only final live channels exist at runtime.
+        let u0 = sls_index_order2(
+            primary[SLS_U0_AXES[0]],
+            primary[SLS_U0_AXES[1]],
+            primary[SLS_U0_AXES[2]],
+        );
+        let u1 = sls_index_order2(
+            primary[SLS_U1_AXES[0]],
+            primary[SLS_U1_AXES[1]],
+            primary[SLS_U1_AXES[2]],
+        );
+        let g = sls_event_rate_order2(
+            primary[SLS_G_AXES[0]],
+            primary[SLS_G_AXES[1]],
+            primary[SLS_G_AXES[2]],
+            primary[SLS_G_AXES[3]],
+            primary[SLS_G_AXES[4]],
+        );
+        let plan = sls_outer_plan(kernel);
+        let truncate = |stack: [f64; 5]| [stack[0], stack[1], stack[2]];
+        let mut output = MappedOrder2Accumulator::zero();
+        output.add_composed(
+            &u0,
+            SLS_U0_AXES,
+            truncate(plan.u0),
+            false,
+            [false; 3],
+            [false; 6],
+        );
+        if let Some(stack) = plan.u1 {
+            output.add_composed(
+                &u1,
+                SLS_U1_AXES,
+                truncate(stack),
+                true,
+                [false; 3],
+                [false; 6],
+            );
+        }
+        if let Some(stack) = plan.g {
+            output.add_composed(
+                &g,
+                SLS_G_AXES,
+                truncate(stack),
+                true,
+                [false, true, false, true, false],
+                [
+                    false, false, false, false, false, true, false, true, false, false, false, false,
+                    true, false, false,
+                ],
+            );
+        }
+        output.into_channels()
+    }
+
     use gam_math::jet_scalar::Order2;
     use gam_math::nested_dual::JetField;
 
@@ -4940,123 +5083,25 @@ mod patterned_order2_perf_tests {
         (value, gradient, hessian)
     }
 
-    /// Strongest direct row-chain baseline: fuse the two transforms of `u1`,
-    /// visit each index's live upper-triangle support once, and materialize no
-    /// intermediate dense derivative arrays. This is the schedule a successful
-    /// generic compiler must beat; comparison only with [`hand`] would reward
-    /// avoidable repeated 24-pair walks.
+    /// The PRODUCTION structure-fused schedule (promoted from this module's
+    /// strongest-hand baseline per SPEC line 1; see [`sls_row_vgh_fused`]).
+    /// Kept under its historical racer name so every parity, endpoint, and
+    /// timing pin below reads production directly.
     fn hand_fused(
         p: &[f64; SLS_ROW_K],
         kernel: &SurvivalExactRowKernel,
     ) -> (f64, [f64; 9], [[f64; 9]; 9]) {
-        let entry_exp = (-p[7]).exp();
-        let exit_exp = (-p[6]).exp();
-
-        let mut value = kernel.w * kernel.log_s0;
-        let u0_first = -kernel.w * kernel.r0;
-        let u0_second = -kernel.w * kernel.dr0;
-
-        let censored_weight = kernel.w * (1.0 - kernel.d);
-        let event_weight = kernel.w * kernel.d;
-        let mut u1_first = 0.0;
-        let mut u1_second = 0.0;
-        if censored_weight != 0.0 {
-            value -= censored_weight * kernel.log_s1;
-            u1_first += censored_weight * kernel.r1;
-            u1_second += censored_weight * kernel.dr1;
-        }
-
-        let mut g_first = 0.0;
-        let mut g_second = 0.0;
-        if event_weight != 0.0 {
-            value -= event_weight * (kernel.logphi1 + kernel.log_g);
-            u1_first -= event_weight * kernel.dlogphi1;
-            u1_second -= event_weight * kernel.d2logphi1;
-            g_first = -event_weight * kernel.d_log_g;
-            g_second = -event_weight * kernel.d2_log_g;
-        }
-
-        let u0_g4 = -entry_exp;
-        let u0_g7 = p[4] * entry_exp;
-        let u1_g3 = -exit_exp;
-        let u1_g6 = p[3] * exit_exp;
-        let inner = p[3] * p[8] - p[5];
-        let g3 = exit_exp * p[8];
-        let g5 = -exit_exp;
-        let g6 = -exit_exp * inner;
-        let g8 = exit_exp * p[3];
-
-        let mut gradient = [0.0; SLS_ROW_K];
-        gradient[0] = u0_first;
-        gradient[4] = u0_first * u0_g4;
-        gradient[7] = u0_first * u0_g7;
-        if censored_weight != 0.0 || event_weight != 0.0 {
-            gradient[1] += u1_first;
-            gradient[3] += u1_first * u1_g3;
-            gradient[6] += u1_first * u1_g6;
-        }
-        if event_weight != 0.0 {
-            gradient[2] += g_first;
-            gradient[3] += g_first * g3;
-            gradient[5] += g_first * g5;
-            gradient[6] += g_first * g6;
-            gradient[8] += g_first * g8;
-        }
-
-        let mut hessian = [[0.0; SLS_ROW_K]; SLS_ROW_K];
-        macro_rules! symmetric {
-            ($i:expr, $j:expr, $value:expr) => {{
-                let channel = $value;
-                hessian[$i][$j] += channel;
-                if $i != $j {
-                    hessian[$j][$i] += channel;
-                }
-            }};
-        }
-
-        symmetric!(0, 0, u0_second);
-        symmetric!(0, 4, u0_second * u0_g4);
-        symmetric!(0, 7, u0_second * u0_g7);
-        symmetric!(4, 4, u0_second * u0_g4 * u0_g4);
-        symmetric!(4, 7, u0_second * u0_g4 * u0_g7 + u0_first * entry_exp);
-        symmetric!(7, 7, u0_second * u0_g7 * u0_g7 - u0_first * u0_g7);
-
-        if censored_weight != 0.0 || event_weight != 0.0 {
-            symmetric!(1, 1, u1_second);
-            symmetric!(1, 3, u1_second * u1_g3);
-            symmetric!(1, 6, u1_second * u1_g6);
-            symmetric!(3, 3, u1_second * u1_g3 * u1_g3);
-            symmetric!(3, 6, u1_second * u1_g3 * u1_g6 + u1_first * exit_exp);
-            symmetric!(6, 6, u1_second * u1_g6 * u1_g6 - u1_first * u1_g6);
-        }
-
-        if event_weight != 0.0 {
-            symmetric!(2, 2, g_second);
-            symmetric!(2, 3, g_second * g3);
-            symmetric!(2, 5, g_second * g5);
-            symmetric!(2, 6, g_second * g6);
-            symmetric!(2, 8, g_second * g8);
-            symmetric!(3, 3, g_second * g3 * g3);
-            symmetric!(3, 5, g_second * g3 * g5);
-            symmetric!(3, 6, g_second * g3 * g6 - g_first * exit_exp * p[8]);
-            symmetric!(3, 8, g_second * g3 * g8 + g_first * exit_exp);
-            symmetric!(5, 5, g_second * g5 * g5);
-            symmetric!(5, 6, g_second * g5 * g6 + g_first * exit_exp);
-            symmetric!(5, 8, g_second * g5 * g8);
-            symmetric!(6, 6, g_second * g6 * g6 + g_first * exit_exp * inner);
-            symmetric!(6, 8, g_second * g6 * g8 - g_first * exit_exp * p[3]);
-            symmetric!(8, 8, g_second * g8 * g8);
-        }
-
-        (value, gradient, hessian)
+        sls_row_vgh_fused(p, kernel)
     }
 
-    /// #932 release speed gate for the location-scale row. The production
-    /// structure-compiled channels (`compiled`) and the strongest hand schedule
-    /// (`hand_fused`) both consume the same frozen kernel so timing includes row
-    /// arithmetic only. Emits the harness-parsed `hand_over_production` token
-    /// (strongest-hand time over production time) that the MSI release harness
-    /// fails closed on whenever any measured cell is `<= 1`.
+    /// #932 release speed gate for the location-scale row. Production is the
+    /// structure-fused schedule ([`sls_row_vgh_fused`], measured under the
+    /// `hand_fused` racer name) and the strongest alternative is the
+    /// jet-compiled lowering (`compiled`); both consume the same frozen kernel
+    /// so timing includes row arithmetic only. Emits the harness-parsed
+    /// `hand_over_production` token (strongest-alternative time over
+    /// production time) that the MSI release harness fails closed on whenever
+    /// any measured cell is `<= 1`.
     #[test]
     fn release_measure_sls_compiled_vs_strongest_hand_932() {
         let (p, kernel) = fixture();
@@ -5214,19 +5259,414 @@ mod patterned_order2_perf_tests {
         }
 
         let hand_ns = best_secs(iterations, &p, &kernel, hand) * 1e9 / iterations as f64;
-        let hand_fused_ns = best_secs(iterations, &p, &kernel, hand_fused) * 1e9 / iterations as f64;
+        let hand_fused_ns =
+            best_secs(iterations, &p, &kernel, hand_fused) * 1e9 / iterations as f64;
         let dense_ns = best_secs(iterations, &p, &kernel, dense) * 1e9 / iterations as f64;
         let patterned_ns = best_secs(iterations, &p, &kernel, patterned) * 1e9 / iterations as f64;
         let literal_seeds_ns =
             best_secs(iterations, &p, &kernel, patterned_literal_seeds) * 1e9 / iterations as f64;
         let compiled_ns = best_secs(iterations, &p, &kernel, compiled) * 1e9 / iterations as f64;
         eprintln!(
-            "SLS-PATTERNED-932 hand={hand_ns:.2} ns/row fused-hand={hand_fused_ns:.2} ns/row dense={dense_ns:.2} ns/row patterned={patterned_ns:.2} ns/row literal-seeds={literal_seeds_ns:.2} ns/row compiled={compiled_ns:.2} ns/row compiled/fused-hand={:.3} patterned/fused-hand={:.3} literal-seeds/fused-hand={:.3} compiled/dense={:.3} hand_over_production={:.6}",
+            "SLS-PATTERNED-932 hand={hand_ns:.2} ns/row production-fused={hand_fused_ns:.2} ns/row dense={dense_ns:.2} ns/row patterned={patterned_ns:.2} ns/row literal-seeds={literal_seeds_ns:.2} ns/row compiled={compiled_ns:.2} ns/row compiled/fused={:.3} patterned/fused={:.3} literal-seeds/fused={:.3} compiled/dense={:.3} hand_over_production={:.6}",
             compiled_ns / hand_fused_ns,
             patterned_ns / hand_fused_ns,
             literal_seeds_ns / hand_fused_ns,
             compiled_ns / dense_ns,
-            hand_fused_ns / compiled_ns,
+            compiled_ns / hand_fused_ns,
+        );
+    }
+
+    /// #932 release speed gate for the SLS contracted third/fourth towers: the
+    /// specialized directional seedings production consumes (`OneSeed<9>` for
+    /// `contracted_third`, `TwoSeed<9>` for `contracted_fourth`, both through
+    /// the single-source [`sls_row_nll`]) must beat the generic dense tower
+    /// instantiations of the SAME expression (`Tower3<9>` / `Tower4<9>` plus
+    /// dense contraction — the former generic-jet oracle path production never
+    /// materializes). No hand-derived third/fourth tower ever existed for this
+    /// family, so — as in the multinomial / cause-specific / rigid-contracted
+    /// release cells — the honest fail-closed baseline is the generic AD
+    /// tower, and the emitted `hand_over_production` token carries
+    /// `generic_tower_ns / production_ns` for the MSI release harness to fail
+    /// closed on any cell `<= 1`.
+    #[test]
+    fn release_measure_sls_contracted_towers_vs_generic_tower_932() {
+        use gam_math::jet_scalar::{OneSeed, TwoSeed};
+        use gam_math::jet_tower::{Tower3, Tower4};
+        use std::time::Instant;
+
+        let (p, kernel) = fixture();
+        let dir_u: [f64; SLS_ROW_K] = [0.7, -1.3, 0.4, 0.6, -0.5, 0.9, -0.2, 0.3, -0.8];
+        let dir_v: [f64; SLS_ROW_K] = [-0.4, 0.6, 1.1, -0.2, 0.8, -0.7, 0.5, -0.9, 0.1];
+
+        // Parity pins on the exact benchmarked inputs: the specialized
+        // contractions must equal the dense towers' contractions.
+        let one_vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] =
+            std::array::from_fn(|a| OneSeed::seed_direction(p[a], a, dir_u[a]));
+        let third = sls_row_nll(&one_vars, &kernel)
+            .expect("specialized third")
+            .contracted_third();
+        let two_vars: [TwoSeed<SLS_ROW_K>; SLS_ROW_K] =
+            std::array::from_fn(|a| TwoSeed::seed(p[a], a, dir_u[a], dir_v[a]));
+        let fourth = sls_row_nll(&two_vars, &kernel)
+            .expect("specialized fourth")
+            .contracted_fourth();
+        let t3_vars: [Tower3<SLS_ROW_K>; SLS_ROW_K] =
+            std::array::from_fn(|a| Tower3::variable(p[a], a));
+        let dense3 = sls_row_nll(&t3_vars, &kernel).expect("dense Tower3");
+        let t4_vars: [Tower4<SLS_ROW_K>; SLS_ROW_K] =
+            std::array::from_fn(|a| Tower4::variable(p[a], a));
+        let dense4 = sls_row_nll(&t4_vars, &kernel).expect("dense Tower4");
+        let dense_fourth = dense4.fourth_contracted(&dir_u, &dir_v);
+        for a in 0..SLS_ROW_K {
+            for b in 0..SLS_ROW_K {
+                let mut dense_third_ab = 0.0;
+                for c in 0..SLS_ROW_K {
+                    dense_third_ab += dense3.t3[a][b][c] * dir_u[c];
+                }
+                let band = 1e-11 * third[a][b].abs().max(dense_third_ab.abs()).max(1.0);
+                assert!(
+                    (third[a][b] - dense_third_ab).abs() <= band,
+                    "third[{a}][{b}]: specialized {:+.15e} vs dense {dense_third_ab:+.15e}",
+                    third[a][b],
+                );
+                let band = 1e-11 * fourth[a][b].abs().max(dense_fourth[a][b].abs()).max(1.0);
+                assert!(
+                    (fourth[a][b] - dense_fourth[a][b]).abs() <= band,
+                    "fourth[{a}][{b}]: specialized {:+.15e} vs dense {:+.15e}",
+                    fourth[a][b],
+                    dense_fourth[a][b],
+                );
+            }
+        }
+
+        // Feedback-coupled timing barrier (no `std::hint::black_box`), same
+        // recurrence as the compiled-vs-hand gate above.
+        fn best_ns<F: FnMut(f64) -> f64>(iterations: usize, base: f64, mut evaluate: F) -> f64 {
+            let mut best = f64::INFINITY;
+            for _ in 0..5 {
+                let mut checksum = 0.0_f64;
+                let started = Instant::now();
+                for _ in 0..iterations {
+                    checksum += evaluate(base + checksum * 1e-18);
+                }
+                assert!(
+                    checksum.is_finite(),
+                    "SLS contracted release-measure checksum must stay finite"
+                );
+                best = best.min(started.elapsed().as_secs_f64());
+            }
+            best * 1e9 / iterations as f64
+        }
+
+        let iterations = 100_000usize;
+        let third_production_ns = best_ns(iterations, p[0], |p0| {
+            let mut perturbed = p;
+            perturbed[0] = p0;
+            let vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] =
+                std::array::from_fn(|a| OneSeed::seed_direction(perturbed[a], a, dir_u[a]));
+            let t = sls_row_nll(&vars, &kernel)
+                .expect("specialized third")
+                .contracted_third();
+            t[0][0] + t[8][8]
+        });
+        let third_generic_ns = best_ns(iterations, p[0], |p0| {
+            let mut perturbed = p;
+            perturbed[0] = p0;
+            let vars: [Tower3<SLS_ROW_K>; SLS_ROW_K] =
+                std::array::from_fn(|a| Tower3::variable(perturbed[a], a));
+            let dense = sls_row_nll(&vars, &kernel).expect("dense Tower3");
+            let mut t00 = 0.0;
+            let mut t88 = 0.0;
+            for c in 0..SLS_ROW_K {
+                t00 += dense.t3[0][0][c] * dir_u[c];
+                t88 += dense.t3[8][8][c] * dir_u[c];
+            }
+            t00 + t88
+        });
+        eprintln!(
+            "SLS-CONTRACTED-932 order=3 production={third_production_ns:.2} ns/row \
+             generic_tower={third_generic_ns:.2} ns/row hand_over_production={:.6}",
+            third_generic_ns / third_production_ns,
+        );
+
+        let fourth_production_ns = best_ns(iterations, p[0], |p0| {
+            let mut perturbed = p;
+            perturbed[0] = p0;
+            let vars: [TwoSeed<SLS_ROW_K>; SLS_ROW_K] =
+                std::array::from_fn(|a| TwoSeed::seed(perturbed[a], a, dir_u[a], dir_v[a]));
+            let t = sls_row_nll(&vars, &kernel)
+                .expect("specialized fourth")
+                .contracted_fourth();
+            t[0][0] + t[8][8]
+        });
+        let fourth_generic_ns = best_ns(iterations, p[0], |p0| {
+            let mut perturbed = p;
+            perturbed[0] = p0;
+            let vars: [Tower4<SLS_ROW_K>; SLS_ROW_K] =
+                std::array::from_fn(|a| Tower4::variable(perturbed[a], a));
+            let t = sls_row_nll(&vars, &kernel)
+                .expect("dense Tower4")
+                .fourth_contracted(&dir_u, &dir_v);
+            t[0][0] + t[8][8]
+        });
+        eprintln!(
+            "SLS-CONTRACTED-932 order=4 production={fourth_production_ns:.2} ns/row \
+             generic_tower={fourth_generic_ns:.2} ns/row hand_over_production={:.6}",
+            fourth_generic_ns / fourth_production_ns,
+        );
+    }
+
+    /// #932 release speed gate for the runtime-width SLS link/time-wiggle kernel
+    /// ([`SurvivalLsWiggleRowKernel`], primary width `KW = SLS_ROW_K + pw`). The
+    /// three ungated production lowerings over `sls_row_nll_wiggle` — the order-2
+    /// joint Hessian (`DynamicOrder2`, consumed by `hessian_dense`), the
+    /// directional third (`DynamicOneSeed`, consumed by
+    /// `directional_derivative_dense`), and the second-directional fourth
+    /// (`DynamicTwoSeed`, consumed by `second_directional_derivative_dense`) —
+    /// all run at RUNTIME width and reuse one arena across the row fold
+    /// (`acc.arena.reset()` per row).
+    ///
+    /// RACER CHOICE (documented per the #932 release-cell contract). The wiggle
+    /// family width is `pw`-runtime, so production STRUCTURALLY cannot lower into
+    /// a compile-time tower — that impossibility is the very premise of the
+    /// runtime packed jet. A padded fixed-width tower is only realizable here by
+    /// pinning `pw`, and racing `static_ns / dynamic_ns` would certify a
+    /// monomorphization production can never take (and whose inequality direction
+    /// is not a production property). The genuine engineering win the runtime
+    /// lowering carries over a naive dynamic implementation is arena
+    /// AMORTIZATION: `DynamicJetArena::reset` retains a single high-water chunk
+    /// so equal-or-smaller later rows need zero allocator traffic, whereas a
+    /// straightforward implementation allocates a fresh multi-chunk order-2 tape
+    /// every row. So the fail-closed racer is amortized reused-arena production
+    /// vs allocation-naive fresh-`DynamicJetArena::new()`-per-row, and the
+    /// emitted `hand_over_production = fresh_ns / reused_ns` (> 1 iff the
+    /// production amortization pays off; the MSI harness fails closed on `<= 1`).
+    ///
+    /// The padded fixed-width tower is NOT discarded — it is the PARITY ORACLE.
+    /// `FixedRuntimeJet<Order2/OneSeed/TwoSeed<KW>, KW>` instantiates the SAME
+    /// generic `sls_row_nll_wiggle` at compile-time width `KW`, and the runtime
+    /// packed jet (production) must reproduce it channel-for-channel to `1e-11`
+    /// relative — proving the runtime-width lowering is numerically exact before
+    /// its speed is certified.
+    #[test]
+    fn release_measure_sls_wiggle_dynamic_jets_vs_padded_static_tower_932() {
+        use gam_math::jet_scalar::{FixedRuntimeJet, OneSeed, TwoSeed};
+        use std::time::Instant;
+
+        // Small runtime wiggle width so the padded static parity tower is a
+        // clean fixed `KW`; production runs this same expression at runtime `pw`.
+        const PW: usize = 3;
+        const KW: usize = SLS_ROW_K + PW;
+
+        let (p9, kernel) = fixture();
+        let betaw = [0.13_f64, -0.21, 0.07];
+        let mut p: [f64; KW] = [0.0; KW];
+        p[..SLS_ROW_K].copy_from_slice(&p9);
+        p[SLS_ROW_K..].copy_from_slice(&betaw);
+
+        // Per-row warp basis stacks `[B, B', B'', B''']` at the base entry (`b_u0`)
+        // and exit (`b_u1`) indices, one entry per wiggle column. Synthetic but
+        // finite; the parity oracle certifies the lowering, not these numbers.
+        let b_u0_0 = [0.20_f64, -0.15, 0.09];
+        let b_u0_1 = [-0.11_f64, 0.22, -0.07];
+        let b_u0_2 = [0.05_f64, -0.03, 0.14];
+        let b_u0_3 = [-0.08_f64, 0.06, -0.02];
+        let b_u1_0 = [0.17_f64, 0.12, -0.19];
+        let b_u1_1 = [-0.09_f64, 0.04, 0.13];
+        let b_u1_2 = [0.06_f64, -0.11, 0.03];
+        let b_u1_3 = [-0.04_f64, 0.08, -0.05];
+        let basis = SlsWiggleRowBasis {
+            b_u0: [&b_u0_0, &b_u0_1, &b_u0_2, &b_u0_3],
+            b_u1: [&b_u1_0, &b_u1_1, &b_u1_2, &b_u1_3],
+        };
+
+        let dir_u: [f64; KW] = [
+            0.7, -1.3, 0.4, 0.6, -0.5, 0.9, -0.2, 0.3, -0.8, 0.5, -0.6, 0.2,
+        ];
+        let dir_v: [f64; KW] = [
+            -0.4, 0.6, 1.1, -0.2, 0.8, -0.7, 0.5, -0.9, 0.1, -0.3, 0.4, -0.5,
+        ];
+
+        let band = |a: f64, b: f64| 1e-11 * a.abs().max(b.abs()).max(1.0);
+
+        // --- Parity oracle, order 2: runtime packed Hessian == padded static. ---
+        let arena2 = DynamicJetArena::new();
+        let dyn2_vars =
+            arena2.alloc_slice_fill_with(KW, |a| DynamicOrder2::variable(p[a], a, KW, &arena2));
+        let dyn2 = sls_row_nll_wiggle(dyn2_vars, &kernel, PW, &basis);
+        let fix2_vars: Vec<FixedRuntimeJet<Order2<KW>, KW>> = (0..KW)
+            .map(|a| FixedRuntimeJet::from_inner(Order2::variable(p[a], a)))
+            .collect();
+        let fix2 = sls_row_nll_wiggle(&fix2_vars, &kernel, PW, &basis).into_inner();
+        assert!(
+            (dyn2.value() - fix2.value()).abs() <= band(dyn2.value(), fix2.value()),
+            "wiggle order-2 value: dynamic {:+.15e} vs padded-static {:+.15e}",
+            dyn2.value(),
+            fix2.value(),
+        );
+        for a in 0..KW {
+            for b in 0..KW {
+                let d = dyn2.h()[a * KW + b];
+                let s = fix2.h()[a][b];
+                assert!(
+                    (d - s).abs() <= band(d, s),
+                    "wiggle order-2 H[{a}][{b}]: dynamic {d:+.15e} vs padded-static {s:+.15e}"
+                );
+            }
+        }
+
+        // --- Parity oracle, order 3: directional third contraction. ---
+        let arena3 = DynamicJetArena::new();
+        let dyn3_vars = arena3.alloc_slice_fill_with(KW, |a| {
+            DynamicOneSeed::seed_direction(p[a], a, dir_u[a], KW, &arena3)
+        });
+        let dyn3 = sls_row_nll_wiggle(dyn3_vars, &kernel, PW, &basis);
+        let dyn3_third = dyn3.contracted_third();
+        let fix3_vars: Vec<FixedRuntimeJet<OneSeed<KW>, KW>> = (0..KW)
+            .map(|a| FixedRuntimeJet::from_inner(OneSeed::seed_direction(p[a], a, dir_u[a])))
+            .collect();
+        let fix3_third = sls_row_nll_wiggle(&fix3_vars, &kernel, PW, &basis)
+            .into_inner()
+            .contracted_third();
+        for a in 0..KW {
+            for b in 0..KW {
+                let d = dyn3_third[a * KW + b];
+                let s = fix3_third[a][b];
+                assert!(
+                    (d - s).abs() <= band(d, s),
+                    "wiggle order-3 T[{a}][{b}]: dynamic {d:+.15e} vs padded-static {s:+.15e}"
+                );
+            }
+        }
+
+        // --- Parity oracle, order 4: second-directional fourth contraction. ---
+        let arena4 = DynamicJetArena::new();
+        let dyn4_vars = arena4.alloc_slice_fill_with(KW, |a| {
+            DynamicTwoSeed::seed(p[a], a, dir_u[a], dir_v[a], KW, &arena4)
+        });
+        let dyn4 = sls_row_nll_wiggle(dyn4_vars, &kernel, PW, &basis);
+        let dyn4_fourth = dyn4.contracted_fourth();
+        let fix4_vars: Vec<FixedRuntimeJet<TwoSeed<KW>, KW>> = (0..KW)
+            .map(|a| FixedRuntimeJet::from_inner(TwoSeed::seed(p[a], a, dir_u[a], dir_v[a])))
+            .collect();
+        let fix4_fourth = sls_row_nll_wiggle(&fix4_vars, &kernel, PW, &basis)
+            .into_inner()
+            .contracted_fourth();
+        for a in 0..KW {
+            for b in 0..KW {
+                let d = dyn4_fourth[a * KW + b];
+                let s = fix4_fourth[a][b];
+                assert!(
+                    (d - s).abs() <= band(d, s),
+                    "wiggle order-4 F[{a}][{b}]: dynamic {d:+.15e} vs padded-static {s:+.15e}"
+                );
+            }
+        }
+
+        // Feedback-coupled timing barrier (no `std::hint::black_box`), the same
+        // loop-carried recurrence as the sibling release gates: iteration `n`'s
+        // input depends on iteration `n-1`'s folded output, so the compiler can
+        // neither hoist the row call out of the loop nor drop it, and the `1e-18`
+        // scale keeps the perturbed primary bit-adjacent to the fixture.
+        fn best_ns<F: FnMut(f64) -> f64>(iterations: usize, base: f64, mut evaluate: F) -> f64 {
+            let mut best = f64::INFINITY;
+            for _ in 0..5 {
+                let mut checksum = 0.0_f64;
+                let started = Instant::now();
+                for _ in 0..iterations {
+                    checksum += evaluate(base + checksum * 1e-18);
+                }
+                assert!(
+                    checksum.is_finite(),
+                    "SLS wiggle release-measure checksum must stay finite"
+                );
+                best = best.min(started.elapsed().as_secs_f64());
+            }
+            best * 1e9 / iterations as f64
+        }
+
+        let iterations = 30_000usize;
+
+        // Order 2: amortized reused arena (production) vs fresh arena per row.
+        let mut prod_arena2 = DynamicJetArena::new();
+        let reused2_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            prod_arena2.reset();
+            let vars = prod_arena2
+                .alloc_slice_fill_with(KW, |a| DynamicOrder2::variable(pp[a], a, KW, &prod_arena2));
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.g()[0] + out.h()[0]
+        });
+        let fresh2_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            let fresh = DynamicJetArena::new();
+            let vars =
+                fresh.alloc_slice_fill_with(KW, |a| DynamicOrder2::variable(pp[a], a, KW, &fresh));
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.g()[0] + out.h()[0]
+        });
+        eprintln!(
+            "SLS-WIGGLE-DYN-932 order=2 production={reused2_ns:.2} ns/row \
+             fresh_arena={fresh2_ns:.2} ns/row hand_over_production={:.6}",
+            fresh2_ns / reused2_ns,
+        );
+
+        // Order 3: directional third.
+        let mut prod_arena3 = DynamicJetArena::new();
+        let reused3_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            prod_arena3.reset();
+            let vars = prod_arena3.alloc_slice_fill_with(KW, |a| {
+                DynamicOneSeed::seed_direction(pp[a], a, dir_u[a], KW, &prod_arena3)
+            });
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.contracted_third()[0]
+        });
+        let fresh3_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            let fresh = DynamicJetArena::new();
+            let vars = fresh.alloc_slice_fill_with(KW, |a| {
+                DynamicOneSeed::seed_direction(pp[a], a, dir_u[a], KW, &fresh)
+            });
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.contracted_third()[0]
+        });
+        eprintln!(
+            "SLS-WIGGLE-DYN-932 order=3 production={reused3_ns:.2} ns/row \
+             fresh_arena={fresh3_ns:.2} ns/row hand_over_production={:.6}",
+            fresh3_ns / reused3_ns,
+        );
+
+        // Order 4: second-directional fourth.
+        let mut prod_arena4 = DynamicJetArena::new();
+        let reused4_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            prod_arena4.reset();
+            let vars = prod_arena4.alloc_slice_fill_with(KW, |a| {
+                DynamicTwoSeed::seed(pp[a], a, dir_u[a], dir_v[a], KW, &prod_arena4)
+            });
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.contracted_fourth()[0]
+        });
+        let fresh4_ns = best_ns(iterations, p[0], |p0| {
+            let mut pp = p;
+            pp[0] = p0;
+            let fresh = DynamicJetArena::new();
+            let vars = fresh.alloc_slice_fill_with(KW, |a| {
+                DynamicTwoSeed::seed(pp[a], a, dir_u[a], dir_v[a], KW, &fresh)
+            });
+            let out = sls_row_nll_wiggle(vars, &kernel, PW, &basis);
+            out.value() + out.contracted_fourth()[0]
+        });
+        eprintln!(
+            "SLS-WIGGLE-DYN-932 order=4 production={reused4_ns:.2} ns/row \
+             fresh_arena={fresh4_ns:.2} ns/row hand_over_production={:.6}",
+            fresh4_ns / reused4_ns,
         );
     }
 }
@@ -5516,8 +5956,8 @@ mod simd_batch_bit_identity_tests {
             OneSeedBatch::seed_direction(value, c, dir)
         });
         let kernel_refs: [&SurvivalExactRowKernel; 4] = std::array::from_fn(|lane| &kernels[lane]);
-        let batched = sls_row_nll_onesseed_batch(&batch_vars, &kernel_refs, true, false)
-            .contracted_third();
+        let batched =
+            sls_row_nll_onesseed_batch(&batch_vars, &kernel_refs, true, false).contracted_third();
 
         for lane in 0..4 {
             let scalar_vars: [OneSeed<SLS_ROW_K>; SLS_ROW_K] = std::array::from_fn(|c| {
@@ -5531,7 +5971,10 @@ mod simd_batch_bit_identity_tests {
                     let b = batched[x][y].to_array()[lane];
                     let s = scalar[x][y];
                     if s.is_nan() {
-                        assert!(b.is_nan(), "scalar NaN but SIMD finite at lane={lane} x={x} y={y}");
+                        assert!(
+                            b.is_nan(),
+                            "scalar NaN but SIMD finite at lane={lane} x={x} y={y}"
+                        );
                     } else {
                         assert_eq!(
                             b.to_bits(),

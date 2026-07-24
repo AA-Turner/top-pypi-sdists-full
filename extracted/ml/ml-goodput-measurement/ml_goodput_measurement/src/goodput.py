@@ -643,8 +643,8 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     self._interval_end_time = None
     self._number_of_interruptions = 0
     self._gcm_last_recorded_timestamp = None
-    self._last_disruption_time = None
-    self._last_disrupted_step = None
+    self._last_disruption_time = None  # pyrefly: ignore[bad-assignment]
+    self._last_disrupted_step = None  # pyrefly: ignore[bad-assignment]
 
   def _get_total_productive_and_unproductive_time(
       self, new_entries: list[dict[str, Any]]
@@ -1565,7 +1565,25 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
     """
     # Get the logs for the interval and validate the interval window.
     self._get_interval_log_entries(interval_start, interval_end)
+    return self._compute_job_goodput_interval_metrics(
+        interval_start, interval_end
+    )
 
+  def _compute_job_goodput_interval_metrics(
+      self, interval_start: datetime.datetime, interval_end: datetime.datetime
+  ) -> tuple[
+      float,
+      UnproductiveTimeDict,
+      int,
+      float,
+      int,
+  ]:
+    """Computes Goodput and Badput metrics from the currently loaded self._interval_entries.
+
+    Callers are responsible for populating self._interval_entries (e.g. via
+    _get_interval_log_entries) with entries bounded to
+    [interval_start, interval_end] before calling this method.
+    """
     total_job_time = self._get_total_job_time_from_interval(
         interval_start, interval_end
     )
@@ -1961,3 +1979,4 @@ class GoodputCalculator(goodput_exclusion.GoodputExclusion):
               (interval_end - interval_start).total_seconds()
           ),
       }
+

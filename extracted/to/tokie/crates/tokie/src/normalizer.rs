@@ -17,7 +17,10 @@
 //! ```
 
 use std::borrow::Cow;
+use std::sync::Arc;
 use unicode_general_category::{get_general_category, GeneralCategory};
+
+use crate::charsmap::PrecompiledCharsmap;
 
 /// Lookup table for ASCII bytes that need cleaning in clean_text.
 /// true = problematic byte (control char, DEL, or high bit set)
@@ -38,10 +41,35 @@ static NEEDS_CLEANING: [bool; 256] = {
     table
 };
 
+/// How the SentencePiece metaspace `▁` prefix is applied to a text segment.
+///
+/// HuggingFace splits text at added-token boundaries first, then applies
+/// either a `Prepend("▁")` *normalizer* (per segment, unconditional) or a
+/// `Metaspace` *pre-tokenizer* (conditional on the segment's shape and
+/// position). The three schemes produce different tokens around specials:
+///
+/// - `Unconditional`: HF normalizer `Prepend("▁") + Replace(" "→"▁")`
+///   (Llama-2, TinyLlama, Phi-3, voyage-2 family). Every segment gets `▁`,
+///   even space-leading ones ("` world`" → "`▁▁world`").
+/// - `IfNotSpaceLed`: HF pre-tokenizer `Metaspace(prepend_scheme=always)`
+///   (bge-m3-style Unigram exports). `▁` is prepended only when the segment
+///   does not already start with a space or `▁` after replacement.
+/// - `FirstSegment`: HF pre-tokenizer `Metaspace(prepend_scheme=first)`
+///   (Mistral-7B-v0.1). Like `IfNotSpaceLed`, but only for the segment at
+///   byte offset 0 of the original input — segments after a special token
+///   are never prepended.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MetaspacePrepend {
+    #[default]
+    Unconditional,
+    IfNotSpaceLed,
+    FirstSegment,
+}
+
 /// Text normalizer configuration.
 ///
 /// Normalizers transform input text before pre-tokenization and encoding.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Normalizer {
     /// No normalization (GPT-2, RoBERTa, Llama, etc.)
     #[default]
@@ -80,7 +108,11 @@ pub enum Normalizer {
     /// - Replaces all spaces with `▁`
     ///
     /// Example: "Hello world" → "▁Hello▁world"
-    Metaspace,
+    ///
+    /// The [`MetaspacePrepend`] scheme controls when the leading `▁` is
+    /// added — see its docs. `Unconditional` matches the HF `Prepend`
+    /// normalizer; the other two match the HF `Metaspace` pre-tokenizer.
+    Metaspace(MetaspacePrepend),
 
     /// SentencePiece normalization with NFKC.
     ///
@@ -112,6 +144,47 @@ pub enum Normalizer {
     ///
     /// Example: "Hello world" → "Hello▁world"
     MetaspaceReplace,
+
+    /// SentencePiece normalization driven by the model's exact
+    /// `precompiled_charsmap` blob (XLM-RoBERTa, T5, bge-m3, ...).
+    ///
+    /// This implements the model's own charsmap transform (NFKC-style
+    /// rewrites, exact per-character keep/map/drop decisions) followed by the
+    /// metaspace step matching the model's pre-tokenizer chain:
+    ///
+    /// - `whitespace_split: true` (XLM-R, T5 — WhitespaceSplit + Metaspace):
+    ///   collapse whitespace, strip leading/trailing, prepend `▁`, spaces → `▁`
+    /// - `whitespace_split: false` (bge-m3 family — Replace `" {2,}"` +
+    ///   Metaspace only): collapse space runs, no strip (a trailing space
+    ///   becomes a real `▁` token), prepend `▁`, spaces → `▁`
+    ///
+    /// Unlike [`Normalizer::SentencePiece`], which approximates the charsmap
+    /// with Unicode-category rules, this reproduces HF byte-for-byte (the real
+    /// xlm-roberta charsmap keeps U+00AD and C1 controls that category rules
+    /// would strip).
+    SentencePiecePrecompiled {
+        charsmap: Arc<PrecompiledCharsmap>,
+        whitespace_split: bool,
+    },
+
+    /// SentencePiece normalization with ASCII-punctuation padding
+    /// (minishlab/potion-multilingual-128M).
+    ///
+    /// Mirrors the HF normalizer chain
+    /// `[Precompiled, Replace(" {2,}"→" "), 32× Replace(p → " p "),
+    /// Replace(\s+→" "), Strip]` followed by a
+    /// `Metaspace(prepend_scheme=always, split=false)` pre-tokenizer,
+    /// fused into one pass:
+    ///
+    /// 1. charsmap transform
+    /// 2. every ASCII punctuation char is padded with spaces
+    /// 3. whitespace runs collapse to a single space, edges stripped
+    /// 4. prepend `▁` (unless the text starts with a literal `▁`), spaces → `▁`
+    ///
+    /// Example: "a.b  c" → "▁a▁.▁b▁c"
+    SentencePiecePunctPad {
+        charsmap: Arc<PrecompiledCharsmap>,
+    },
 }
 
 impl Normalizer {
@@ -119,17 +192,37 @@ impl Normalizer {
     ///
     /// Returns `Cow::Borrowed` when no changes are needed (zero allocation).
     /// Returns `Cow::Owned` when text was modified.
+    ///
+    /// Equivalent to [`Normalizer::normalize_segment`] with
+    /// `first_segment = true` — correct for whole inputs and for the first
+    /// segment of an added-token split.
     #[inline]
     pub fn normalize<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        self.normalize_segment(text, true)
+    }
+
+    /// Normalize one segment of an added-token split.
+    ///
+    /// `first_segment` is true only for the segment that starts at byte 0 of
+    /// the original input; [`MetaspacePrepend::FirstSegment`] uses it to skip
+    /// the `▁` prefix on segments that follow an added token.
+    #[inline]
+    pub fn normalize_segment<'a>(&self, text: &'a str, first_segment: bool) -> Cow<'a, str> {
         match self {
             Normalizer::None => Cow::Borrowed(text),
             Normalizer::BertCased => clean_text(text),
             Normalizer::BertUncased => bert_uncased_normalize(text),
             Normalizer::Nfc => normalize_nfc(text),
-            Normalizer::Metaspace => metaspace_normalize(text),
+            Normalizer::Metaspace(prepend) => metaspace_normalize_with(text, *prepend, first_segment),
             Normalizer::SentencePiece => sentencepiece_normalize(text),
             Normalizer::SentencePieceLowercase => sentencepiece_lowercase_normalize(text),
             Normalizer::MetaspaceReplace => metaspace_replace_normalize(text),
+            Normalizer::SentencePiecePrecompiled { charsmap, whitespace_split } => {
+                sentencepiece_precompiled_normalize(charsmap, *whitespace_split, text)
+            }
+            Normalizer::SentencePiecePunctPad { charsmap } => {
+                sentencepiece_punct_pad_normalize(charsmap, text)
+            }
         }
     }
 
@@ -157,41 +250,60 @@ fn normalize_nfc<'a>(text: &'a str) -> Cow<'a, str> {
 /// Metaspace normalization for SentencePiece tokenizers.
 ///
 /// Transforms text for SentencePiece-style tokenization:
-/// - Prepends `▁` (U+2581) at the start IF text doesn't start with whitespace
+/// - Prepends `▁` (U+2581) at the start
 /// - Replaces all spaces with `▁`
 ///
-/// This matches HuggingFace's Metaspace with `prepend_scheme: "first"`:
+/// This matches HuggingFace's `Prepend("▁")` + `Replace(" " → "▁")`
+/// normalizer sequence (Llama, Mistral, TinyLlama), which prepends
+/// unconditionally — even when the text starts with a space:
 /// - "Hello world" → "▁Hello▁world"
-/// - "  spaces" → "▁▁spaces" (no extra prepend, spaces become ▁)
+/// - " spaces" → "▁▁spaces"
+///
+/// Added-token splitting normalizes each text segment independently, so
+/// a segment like " world" in "Hello </s> world" must keep both the
+/// prepended `▁` and the space-derived `▁`, exactly as HF emits them.
 ///
 /// # Performance
 ///
 /// Uses SIMD-accelerated `fnr` for fast space replacement.
 #[inline]
 pub fn metaspace_normalize(text: &str) -> Cow<'_, str> {
-    // Check if text starts with whitespace
-    let starts_with_space = text.starts_with(' ') || text.starts_with('\t');
+    metaspace_normalize_with(text, MetaspacePrepend::Unconditional, true)
+}
 
-    // Use fnr for efficient space -> ▁ replacement
-    let replaced = fnr(text, " ", "▁");
-
-    if starts_with_space {
-        // Don't prepend when text starts with space (space→▁ handles it)
-        match replaced {
-            Cow::Borrowed(_) => {
-                // No spaces were replaced, but we checked starts_with_space
-                // This shouldn't happen if starts_with_space is true
-                replaced
-            }
-            Cow::Owned(s) => Cow::Owned(s),
-        }
-    } else {
-        // Prepend ▁ to the result
-        let mut result = String::with_capacity(replaced.len() + 3);
-        result.push('▁');
-        result.push_str(&replaced);
-        Cow::Owned(result)
+/// Metaspace normalization with an explicit prepend scheme.
+///
+/// See [`MetaspacePrepend`] for the per-scheme semantics. The
+/// `IfNotSpaceLed`/`FirstSegment` schemes mirror HF's Metaspace
+/// pre-tokenizer, which checks `starts_with(replacement)` after replacing
+/// spaces — a leading space (or a literal `▁` in the input) suppresses the
+/// extra prefix.
+#[inline]
+pub fn metaspace_normalize_with(
+    text: &str,
+    prepend: MetaspacePrepend,
+    first_segment: bool,
+) -> Cow<'_, str> {
+    // HF's Prepend normalizer and Metaspace pre-tokenizer are no-ops on
+    // empty input (the empty split is dropped).
+    if text.is_empty() {
+        return Cow::Borrowed(text);
     }
+    let do_prepend = match prepend {
+        MetaspacePrepend::Unconditional => true,
+        MetaspacePrepend::IfNotSpaceLed => !(text.starts_with(' ') || text.starts_with('▁')),
+        MetaspacePrepend::FirstSegment => {
+            first_segment && !(text.starts_with(' ') || text.starts_with('▁'))
+        }
+    };
+    let replaced = fnr(text, " ", "▁");
+    if !do_prepend {
+        return replaced;
+    }
+    let mut result = String::with_capacity(replaced.len() + 3);
+    result.push('▁');
+    result.push_str(&replaced);
+    Cow::Owned(result)
 }
 
 /// Metaspace replace normalization (no prepend).
@@ -249,6 +361,129 @@ pub fn sentencepiece_normalize(text: &str) -> Cow<'_, str> {
         }
     }
 
+    Cow::Owned(result)
+}
+
+/// SentencePiece normalization using the model's exact `precompiled_charsmap`.
+///
+/// Applies the charsmap transform (grapheme-wise, HF-identical — see
+/// [`PrecompiledCharsmap`]) followed by the metaspace step matching the
+/// model's pre-tokenizer chain:
+///
+/// - `whitespace_split: true` — WhitespaceSplit + Metaspace (XLM-R, T5):
+///   whitespace runs of any kind separate words and are dropped, edges
+///   stripped, every word prefixed with `▁`.
+/// - `whitespace_split: false` — Replace `" {2,}"` → `" "` + Metaspace
+///   (bge-m3, snowflake-arctic-v2): only space runs collapse, nothing is
+///   stripped (e.g. a trailing space survives as a lone `▁`), and `▁` is
+///   prepended unless the text already starts with a space or `▁`.
+pub fn sentencepiece_precompiled_normalize<'a>(
+    charsmap: &PrecompiledCharsmap,
+    whitespace_split: bool,
+    text: &'a str,
+) -> Cow<'a, str> {
+    if text.is_empty() {
+        return Cow::Borrowed(text);
+    }
+
+    // Step 1: exact charsmap transform
+    let mut transformed = String::with_capacity(text.len());
+    charsmap.normalize_into(text, &mut transformed);
+
+    if whitespace_split {
+        // Step 2: collapse whitespace and strip (WhitespaceSplit)
+        let collapsed = collapse_and_strip_whitespace(&transformed);
+
+        // Step 3: apply metaspace (prepend ▁ and replace spaces)
+        let mut result = String::with_capacity(collapsed.len() + 3);
+        result.push('▁');
+        for c in collapsed.chars() {
+            if c == ' ' {
+                result.push('▁');
+            } else {
+                result.push(c);
+            }
+        }
+        Cow::Owned(result)
+    } else {
+        // Step 2-3 fused: collapse space runs (Replace " {2,}" → " ") and
+        // replace with ▁; prepend ▁ unless the text starts with space/▁
+        // (HF Metaspace checks starts_with(replacement) after replacing).
+        let mut result = String::with_capacity(transformed.len() + 3);
+        if !(transformed.starts_with(' ') || transformed.starts_with('▁')) {
+            result.push('▁');
+        }
+        let mut prev_space = false;
+        for c in transformed.chars() {
+            if c == ' ' {
+                if !prev_space {
+                    result.push('▁');
+                }
+                prev_space = true;
+            } else {
+                result.push(c);
+                prev_space = false;
+            }
+        }
+        Cow::Owned(result)
+    }
+}
+
+/// SentencePiece normalization with ASCII-punctuation padding
+/// (minishlab/potion-multilingual-128M).
+///
+/// Fuses the HF chain `[Precompiled, Replace(" {2,}"→" "),
+/// 32× Replace(p → " p "), Replace(\s+→" "), Strip]` plus the
+/// `Metaspace(prepend_scheme=always, split=false)` pre-tokenizer into a
+/// single scan. The intermediate space-collapse is subsumed by the final
+/// `\s+ → " "` rule, so one pass over the charsmap output suffices:
+/// punctuation is emitted as `▁p▁`, whitespace runs collapse to one `▁`,
+/// and edges are stripped.
+pub fn sentencepiece_punct_pad_normalize<'a>(
+    charsmap: &PrecompiledCharsmap,
+    text: &'a str,
+) -> Cow<'a, str> {
+    if text.is_empty() {
+        return Cow::Borrowed(text);
+    }
+
+    let mut transformed = String::with_capacity(text.len());
+    charsmap.normalize_into(text, &mut transformed);
+
+    // Single pass: pad ASCII punctuation, collapse whitespace runs to one
+    // separator, strip edges. `pending_sep` defers the separator until the
+    // next non-space char so trailing whitespace is stripped for free.
+    let mut result = String::with_capacity(transformed.len() + transformed.len() / 4 + 3);
+    // HF Metaspace(always) skips the prefix when the (stripped) text already
+    // starts with the replacement char — only possible via a literal ▁.
+    let stripped = transformed.trim_matches(|c: char| c.is_whitespace());
+    if !stripped.starts_with('▁') && !stripped.is_empty() {
+        result.push('▁');
+    }
+    let mut pending_sep = false;
+    let mut emitted_any = false;
+    for c in stripped.chars() {
+        if c.is_whitespace() {
+            pending_sep = true;
+        } else if c.is_ascii_punctuation() {
+            // " p " padding: a separator on each side, collapsed with
+            // neighboring whitespace and stripped at the edges.
+            if emitted_any {
+                result.push('▁');
+            }
+            result.push(c);
+            emitted_any = true;
+            // The trailing pad space merges into the next separator.
+            pending_sep = true;
+        } else {
+            if pending_sep {
+                result.push('▁');
+                pending_sep = false;
+            }
+            result.push(c);
+            emitted_any = true;
+        }
+    }
     Cow::Owned(result)
 }
 

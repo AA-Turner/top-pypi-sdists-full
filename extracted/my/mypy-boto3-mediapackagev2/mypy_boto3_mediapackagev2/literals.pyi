@@ -47,6 +47,8 @@ __all__ = (
     "ListOriginEndpointsPaginatorName",
     "Mediapackagev2ServiceName",
     "MssManifestLayoutType",
+    "OutputLockingModeType",
+    "OutputTimestampModeType",
     "PaginatorName",
     "PresetSpeke20AudioType",
     "PresetSpeke20VideoType",
@@ -92,6 +94,8 @@ ListChannelsPaginatorName = Literal["list_channels"]
 ListHarvestJobsPaginatorName = Literal["list_harvest_jobs"]
 ListOriginEndpointsPaginatorName = Literal["list_origin_endpoints"]
 MssManifestLayoutType = Literal["COMPACT", "FULL"]
+OutputLockingModeType = Literal["EPOCH_LOCKED", "NON_EPOCH_LOCKED"]
+OutputTimestampModeType = Literal["PASSTHROUGH", "REBASED_TO_CHANNEL_START"]
 PresetSpeke20AudioType = Literal[
     "PRESET_AUDIO_1", "PRESET_AUDIO_2", "PRESET_AUDIO_3", "SHARED", "UNENCRYPTED"
 ]
@@ -327,8 +331,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -355,6 +357,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -422,10 +426,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -508,7 +512,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -529,6 +532,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

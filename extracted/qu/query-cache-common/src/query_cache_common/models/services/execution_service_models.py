@@ -49,6 +49,7 @@ class SQLExecution(BaseSerDeModel):
     labels: t.Dict[str, str] = field(default_factory=dict)
     dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
     default_schema: t.Optional[str] = None
+    from_speculative_submit: bool = False
 
     @classmethod
     def from_submit_sql_request(

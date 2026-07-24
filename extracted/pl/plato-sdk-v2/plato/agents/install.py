@@ -7,6 +7,7 @@ import shlex
 import time
 from pathlib import Path
 
+from plato.utils.fuse_binary import ENSURE_FUSE3_COMMAND as ENSURE_FUSE3_COMMAND
 from plato.utils.pypi_index import plato_token_simple_index
 from plato.utils.subprocess import VM_PATH_EXPORT, VM_VENV_PYTHON, run_ssh
 
@@ -71,9 +72,10 @@ def build_editable_install_commands(editable_paths: list[str]) -> list[str]:
 
 
 # VM setup commands shared by the chronos dev and test runners.
-ENSURE_FUSE3_COMMAND = (
-    "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1"
-)
+# ENSURE_FUSE3_COMMAND lives in plato.utils.fuse_binary (also used by the
+# direct agent-VM fuse transport, which cannot import plato.agents) and is
+# re-exported here for the runners that historically imported it from this
+# module.
 DISCOVER_WORLD_PACKAGES_COMMAND = (
     'python3 -c "import importlib.metadata; '
     "eps = importlib.metadata.entry_points(group='plato.worlds'); "

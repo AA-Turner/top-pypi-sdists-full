@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 2.0.4.post1
+Version: 2.0.5
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -42,64 +42,108 @@ Requires-Dist: aiofiles
 Requires-Dist: tree_sitter
 Requires-Dist: tree_sitter_bash
 Requires-Dist: jsonschema
-Provides-Extra: gemini
-Requires-Dist: google-genai; extra == "gemini"
-Provides-Extra: ollama
-Requires-Dist: ollama>=0.5.4; extra == "ollama"
-Provides-Extra: xai
-Requires-Dist: xai-sdk; extra == "xai"
+Requires-Dist: tzdata
+Provides-Extra: model-gemini
+Requires-Dist: google-genai; extra == "model-gemini"
+Provides-Extra: model-ollama
+Requires-Dist: ollama>=0.5.4; extra == "model-ollama"
+Provides-Extra: model-xai
+Requires-Dist: xai-sdk; extra == "model-xai"
 Provides-Extra: models
-Requires-Dist: agentscope[ollama]; extra == "models"
-Requires-Dist: agentscope[gemini]; extra == "models"
-Requires-Dist: agentscope[xai]; extra == "models"
+Requires-Dist: agentscope[model-gemini]; extra == "models"
+Requires-Dist: agentscope[model-ollama]; extra == "models"
+Requires-Dist: agentscope[model-xai]; extra == "models"
 Provides-Extra: service
 Requires-Dist: fastapi; extra == "service"
 Requires-Dist: uvicorn; extra == "service"
 Requires-Dist: apscheduler; extra == "service"
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == "service"
-Provides-Extra: storage
-Requires-Dist: redis; extra == "storage"
-Provides-Extra: k8s
-Requires-Dist: kubernetes-asyncio; extra == "k8s"
+Provides-Extra: storage-redis
+Requires-Dist: redis; extra == "storage-redis"
+Provides-Extra: storage-sql
+Requires-Dist: sqlalchemy[asyncio]>=2.0; extra == "storage-sql"
+Requires-Dist: alembic>=1.13; extra == "storage-sql"
+Provides-Extra: storage-s3
+Requires-Dist: aioboto3; extra == "storage-s3"
+Provides-Extra: workspace-docker
+Requires-Dist: aiodocker; extra == "workspace-docker"
+Provides-Extra: workspace-e2b
+Requires-Dist: e2b; extra == "workspace-e2b"
+Provides-Extra: workspace-daytona
+Requires-Dist: daytona; extra == "workspace-daytona"
+Provides-Extra: workspace-k8s
+Requires-Dist: kubernetes-asyncio; extra == "workspace-k8s"
+Provides-Extra: workspace-opensandbox
+Requires-Dist: opensandbox; extra == "workspace-opensandbox"
 Provides-Extra: workspace
-Requires-Dist: aiodocker; extra == "workspace"
-Requires-Dist: e2b; extra == "workspace"
-Requires-Dist: agentscope[k8s]; extra == "workspace"
-Requires-Dist: daytona; extra == "workspace"
-Requires-Dist: opensandbox; extra == "workspace"
+Requires-Dist: agentscope[workspace-docker]; extra == "workspace"
+Requires-Dist: agentscope[workspace-e2b]; extra == "workspace"
+Requires-Dist: agentscope[workspace-daytona]; extra == "workspace"
+Requires-Dist: agentscope[workspace-k8s]; extra == "workspace"
+Requires-Dist: agentscope[workspace-opensandbox]; extra == "workspace"
 Provides-Extra: tools
 Requires-Dist: ripgrep; extra == "tools"
+Provides-Extra: vdb-qdrant
+Requires-Dist: qdrant-client; extra == "vdb-qdrant"
+Provides-Extra: vdb-milvus
+Requires-Dist: pymilvus>=2.4.0; extra == "vdb-milvus"
+Requires-Dist: milvus-lite>=3.1.0; extra == "vdb-milvus"
+Provides-Extra: vdb-mongodb
+Requires-Dist: pymongo>=4.7; extra == "vdb-mongodb"
+Provides-Extra: vdb-elasticsearch
+Requires-Dist: elasticsearch[async]>=8.12; extra == "vdb-elasticsearch"
 Provides-Extra: rag
-Requires-Dist: qdrant-client; extra == "rag"
 Requires-Dist: pypdf; extra == "rag"
 Requires-Dist: python-pptx; extra == "rag"
 Requires-Dist: python-docx; extra == "rag"
 Requires-Dist: openpyxl>=3.1.5; extra == "rag"
 Requires-Dist: xlrd>=2.0; extra == "rag"
 Requires-Dist: pandas; extra == "rag"
-Provides-Extra: milvuslite
-Requires-Dist: pymilvus>=2.4.0; extra == "milvuslite"
-Requires-Dist: milvus-lite>=3.1.0; extra == "milvuslite"
-Provides-Extra: mongodb
-Requires-Dist: pymongo>=4.7; extra == "mongodb"
+Provides-Extra: memory-mem0
+Requires-Dist: mem0ai>=2.0.0; extra == "memory-mem0"
+Provides-Extra: memory-reme
+Requires-Dist: reme-ai>=0.4.0.6; extra == "memory-reme"
+Provides-Extra: memory
+Requires-Dist: agentscope[memory-mem0]; extra == "memory"
+Requires-Dist: agentscope[memory-reme]; extra == "memory"
+Provides-Extra: gemini
+Requires-Dist: agentscope[model-gemini]; extra == "gemini"
+Provides-Extra: ollama
+Requires-Dist: agentscope[model-ollama]; extra == "ollama"
+Provides-Extra: xai
+Requires-Dist: agentscope[model-xai]; extra == "xai"
+Provides-Extra: storage
+Requires-Dist: agentscope[storage-redis]; extra == "storage"
+Provides-Extra: sql
+Requires-Dist: agentscope[storage-sql]; extra == "sql"
 Provides-Extra: s3
-Requires-Dist: aioboto3; extra == "s3"
+Requires-Dist: agentscope[storage-s3]; extra == "s3"
+Provides-Extra: k8s
+Requires-Dist: agentscope[workspace-k8s]; extra == "k8s"
+Provides-Extra: milvuslite
+Requires-Dist: agentscope[vdb-milvus]; extra == "milvuslite"
+Provides-Extra: mongodb
+Requires-Dist: agentscope[vdb-mongodb]; extra == "mongodb"
+Provides-Extra: elasticsearch
+Requires-Dist: agentscope[vdb-elasticsearch]; extra == "elasticsearch"
 Provides-Extra: mem0
-Requires-Dist: mem0ai>=2.0.0; extra == "mem0"
+Requires-Dist: agentscope[memory-mem0]; extra == "mem0"
 Provides-Extra: reme
-Requires-Dist: reme-ai>=0.4.0.6; extra == "reme"
+Requires-Dist: agentscope[memory-reme]; extra == "reme"
 Provides-Extra: full
 Requires-Dist: agentscope[models]; extra == "full"
 Requires-Dist: agentscope[service]; extra == "full"
-Requires-Dist: agentscope[storage]; extra == "full"
+Requires-Dist: agentscope[storage-redis]; extra == "full"
+Requires-Dist: agentscope[storage-sql]; extra == "full"
+Requires-Dist: agentscope[storage-s3]; extra == "full"
 Requires-Dist: agentscope[workspace]; extra == "full"
 Requires-Dist: agentscope[tools]; extra == "full"
 Requires-Dist: agentscope[rag]; extra == "full"
-Requires-Dist: agentscope[milvuslite]; extra == "full"
-Requires-Dist: agentscope[mongodb]; extra == "full"
-Requires-Dist: agentscope[s3]; extra == "full"
-Requires-Dist: agentscope[mem0]; extra == "full"
-Requires-Dist: agentscope[reme]; extra == "full"
+Requires-Dist: agentscope[vdb-qdrant]; extra == "full"
+Requires-Dist: agentscope[vdb-milvus]; extra == "full"
+Requires-Dist: agentscope[vdb-mongodb]; extra == "full"
+Requires-Dist: agentscope[vdb-elasticsearch]; extra == "full"
+Requires-Dist: agentscope[memory]; extra == "full"
 Provides-Extra: dev
 Requires-Dist: agentscope[full]; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
@@ -108,8 +152,8 @@ Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: myst_parser; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: fakeredis; extra == "dev"
+Requires-Dist: aiosqlite; extra == "dev"
 Requires-Dist: moto[s3,server]; extra == "dev"
-Requires-Dist: aioboto3; extra == "dev"
 Requires-Dist: boto3; extra == "dev"
 Requires-Dist: reportlab; extra == "dev"
 Dynamic: license-file

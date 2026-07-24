@@ -15,6 +15,7 @@
 #pragma once
 
 #include <optional>
+#include <random>
 #include <vector>
 
 #include "dwave-optimization/array.hpp"
@@ -22,7 +23,7 @@
 
 namespace dwave::optimization {
 
-class ArrayValidationNode : public Node {
+class ArrayValidationNode : public EqualityMixin<Node> {
  public:
     explicit ArrayValidationNode(ArrayNode* node_ptr);
 
@@ -31,6 +32,11 @@ class ArrayValidationNode : public Node {
     void initialize_state(State& state) const override;
     void propagate(State& state) const override;
     void revert(State& state) const override;
+
+ protected:
+    void replace_predecessor_(ssize_t index, Node* node_ptr) override {
+        assert(false and "ArrayValidationNode cannot have its predecessor replaced");
+    }
 
  private:
     const ArrayNode* array_ptr;

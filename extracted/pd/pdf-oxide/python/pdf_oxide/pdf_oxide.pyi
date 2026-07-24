@@ -1099,7 +1099,8 @@ class PdfDocument:
         page: Zero-based page index.
         region: Optional (x, y, w, h) bounding box to restrict extraction.
         reading_order: Optional reading order strategy. One of "top_to_bottom"
-        (default) or "column_aware" (XY-Cut column detection).
+        (default), "column_aware" (XY-Cut column detection), or "structure"
+        (follow the tagged structure tree for table cells).
         """
 
     def extract_page_text(self, page: int, reading_order: str | None = None) -> t.Any:
@@ -1112,7 +1113,7 @@ class PdfDocument:
         Args:
         page (int): Zero-based page index.
         reading_order (str, optional): Reading order strategy. One of
-        "top_to_bottom" (default) or "column_aware".
+        "top_to_bottom" (default), "column_aware", or "structure".
 
         Returns:
         dict: ``{"spans": [...], "chars": [...], "page_width": float, "page_height": float}``
@@ -1618,6 +1619,16 @@ class TextSpan:
         during the Tj/TJ walk, so two spans with adjacent `sequence`
         values were drawn consecutively, distinguishing that from spans
         that are merely spatially close.
+        """
+
+    @property
+    def provenance(self) -> str | None:
+        """
+        Which ISO 32000-1 §9.10.2 mapping tier the span's font offered:
+        `"to_unicode"`, `"encoding"`, `"predefined_cmap"`, `"embedded_cmap"`,
+        `"actual_text"`, or `"fallback"` — the last meaning the font carried no
+        mapping resource, so the text is a fabricated glyph-index echo rather
+        than read from the file. `None` when the font could not be resolved.
         """
 
 @t.final

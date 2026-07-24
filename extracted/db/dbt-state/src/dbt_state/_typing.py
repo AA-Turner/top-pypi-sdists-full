@@ -20,6 +20,13 @@ SQLSubmitResponse = t.Union[
     clone_service_models.ReadyToCloneResponse,
 ]
 
+SpeculativeSubmitResponse = t.Union[
+    sql_service_models.ReadyToExecuteUntrackedResponse,
+    sql_service_models.SkipExecutionResponse,
+    clone_service_models.ReadyToCloneResponse,
+    sql_service_models.UndecidedResponse,
+]
+
 
 ModelOrSnapshotNode = t.Union[ModelNode, SnapshotNode]
 ModelOrSnapshotOrTestNode = t.Union[ModelNode, SnapshotNode, GenericTestNode, SingularTestNode]

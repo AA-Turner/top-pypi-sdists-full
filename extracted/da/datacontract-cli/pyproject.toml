@@ -1,6 +1,6 @@
 [project]
 name = "datacontract-cli"
-version = "1.0.13"
+version = "1.0.14"
 description = "The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library."
 license = "MIT"
 readme = "README.md"
@@ -15,7 +15,7 @@ classifiers = [
 ]
 requires-python = ">=3.10,<3.15"
 dependencies = [
-  "typer>=0.18.0,<0.27",
+  "typer>=0.18.0,<0.28",
   "click>=8.1.0,<9.0.0",
   "pydantic>=2.8.2,<2.14.0",
   "pyyaml~=6.0.1",
@@ -59,7 +59,7 @@ excel = [
 databricks = [
   "ibis-framework[databricks,pyspark]>=10.0.0,<13.0.0",
   "databricks-sql-connector>=3.7.0,<4.4.0",
-  "databricks-sdk<0.121.0",
+  "databricks-sdk<0.122.0",
   # Not capped to Spark 3.5.x like older builds were: the databricks path uses a
   # caller-provided Spark session (or the databricks SQL connector) and never
   # loads the Kafka/Avro connector jars, so it isn't tied to a Scala/Spark line.
@@ -93,6 +93,8 @@ postgres = [
   # psycopg's binary wheels bundle libpq, so the extra works without
   # PostgreSQL client libraries installed on the system.
   "psycopg[binary]>=3.1,<4.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 redshift = [
@@ -101,6 +103,8 @@ redshift = [
   # psycopg's binary wheels bundle libpq, so the extra works without
   # PostgreSQL client libraries installed on the system.
   "psycopg[binary]>=3.1,<4.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 # DuckDB extension wheels are bundled for air-gapped installs. The 1.5.x line
@@ -125,28 +129,38 @@ azure = [
 ]
 
 snowflake = [
-  "snowflake-connector-python[pandas]>=3.6,<4.7",
+  "snowflake-connector-python[pandas]>=3.6,<4.8",
   "ibis-framework[snowflake]>=10.0.0,<13.0.0"
 ]
 
 sqlserver = [
-  "ibis-framework[mssql]>=10.0.0,<13.0.0"
+  "ibis-framework[mssql]>=10.0.0,<13.0.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 oracle = [
-  "ibis-framework[oracle]>=10.0.0,<13.0.0"
+  "ibis-framework[oracle]>=10.0.0,<13.0.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 athena = [
-  "ibis-framework[athena]>=10.0.0,<13.0.0"
+  "ibis-framework[athena]>=10.0.0,<13.0.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 trino = [
-  "ibis-framework[trino]>=10.0.0,<13.0.0"
+  "ibis-framework[trino]>=10.0.0,<13.0.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 impala = [
-  "ibis-framework[impala]>=10.0.0,<13.0.0"
+  "ibis-framework[impala]>=10.0.0,<13.0.0",
+  # ibis loads its datafusion compiler (needs packaging) but omits it from this extra.
+  "packaging>=21.3,<27.0",
 ]
 
 dbml = [
@@ -200,7 +214,7 @@ dev = [
   # psycopg v3 and DuckDB's mysql extension respectively).
   "psycopg2-binary>=2.9,<3.0",
   "mysql-connector-python>=8.0.30,<9.7.0",
-  "ruff==0.15.21",
+  "ruff==0.15.22",
   "testcontainers[minio,postgres,kafka,mssql,mysql]==4.14.2",
   "trino==0.338.0",
 ]

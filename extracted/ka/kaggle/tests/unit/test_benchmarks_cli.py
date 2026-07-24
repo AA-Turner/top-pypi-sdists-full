@@ -48,13 +48,13 @@ DEFAULT_TASK_CONTENT = '@task(name="my-task")\ndef evaluate(): pass\n'
 def api():
     """A KaggleApi with mocked auth and client — no network calls."""
     a = KaggleApi()
-    a.authenticate = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
     mock_client = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
     # Expose internals so helpers can wire up responses.
-    a._mock_client = mock_client
-    a._mock_benchmarks = mock_client.benchmarks.benchmark_tasks_api_client
+    a._mock_client = mock_client  # type: ignore[attr-defined]
+    a._mock_benchmarks = mock_client.benchmarks.benchmark_tasks_api_client  # type: ignore[attr-defined]
     return a
 
 
@@ -1768,6 +1768,92 @@ class TestDownloadFile:
         # Should succeed without ValueError about size mismatch
         assert os.path.isfile(outfile)
 
+    def test_download_file_retry_on_error(self, api, tmp_path):
+        """Test that download_file retries on network error and resumes correctly."""
+        import requests
+
+        content1 = b"123"
+        content2 = b"4567890"
+        total_size = len(content1) + len(content2)
+
+        resp = self._make_response(
+            content=content1, headers={"Content-Length": str(total_size), "Accept-Ranges": "bytes"}
+        )
+
+        def iter_with_error(chunk_size):
+            yield content1
+            raise requests.exceptions.ConnectionError("Simulated network failure")
+
+        resp.iter_content = MagicMock(side_effect=iter_with_error)
+        resp.request.headers = {"Authorization": "Bearer initial_token"}
+
+        retry_resp = self._make_response(
+            content=content2,
+            headers={
+                "Content-Length": str(len(content2)),
+                "Content-Range": f"bytes={len(content1)}-{total_size-1}/{total_size}",
+            },
+        )
+        retry_resp.status_code = 206  # real range responses return 206 Partial Content
+
+        outfile = str(tmp_path / "retry_out.bin")
+
+        with patch("requests.request", return_value=retry_resp) as mock_request:
+            api.download_file(resp, outfile, MagicMock(), quiet=True)
+
+            mock_request.assert_called_once()
+            call_args = mock_request.call_args
+            assert call_args[0][0] == "GET"
+            assert call_args[0][1] == resp.url
+            headers = call_args[1]["headers"]
+            assert headers["Range"] == f"bytes={len(content1)}-"
+            assert headers["Authorization"] == "Bearer initial_token"
+
+        assert os.path.isfile(outfile)
+        with open(outfile, "rb") as f:
+            assert f.read() == content1 + content2
+
+    def test_download_file_resume_existing(self, api, tmp_path):
+        """Test that download_file resumes correctly from an existing partial file."""
+        import requests
+
+        content_existing = b"already_here"
+        content_remaining = b"_and_more"
+        total_size = len(content_existing) + len(content_remaining)
+
+        outfile = str(tmp_path / "resume_existing_out.bin")
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+        with open(outfile, "wb") as f:
+            f.write(content_existing)
+        # Cross-invocation resume now requires a marker proving the local partial
+        # belongs to the current object (validator = Last-Modified here, no ETag).
+        api._write_resume_marker(outfile, "Mon, 01 Jan 2024 00:00:00 GMT", total_size)
+
+        resp = self._make_response(headers={"Content-Length": str(total_size), "Accept-Ranges": "bytes"})
+        resp.request.headers = {"Authorization": "Bearer token"}
+
+        resume_resp = self._make_response(
+            content=content_remaining,
+            headers={
+                "Content-Length": str(len(content_remaining)),
+                "Content-Range": f"bytes={len(content_existing)}-{total_size-1}/{total_size}",
+            },
+        )
+        resume_resp.status_code = 206  # real range responses return 206 Partial Content
+
+        with patch("requests.request", return_value=resume_resp) as mock_request:
+            api.download_file(resp, outfile, MagicMock(), resume=True, quiet=True)
+
+            mock_request.assert_called_once()
+            call_args = mock_request.call_args
+            headers = call_args[1]["headers"]
+            assert headers["Range"] == f"bytes={len(content_existing)}-"
+            assert headers["Authorization"] == "Bearer token"
+
+        assert os.path.isfile(outfile)
+        with open(outfile, "rb") as f:
+            assert f.read() == content_existing + content_remaining
+
 
 # ============================================================
 # Model Slug Normalization
@@ -1853,6 +1939,97 @@ class TestModelSlugNormalization:
             api.benchmarks_tasks_download_cli("my-task", model="xai/grok-4.3")
         request = api._mock_benchmarks.list_benchmark_task_runs.call_args[0][0]
         assert request.model_version_slugs == ["grok-4.3"]
+
+
+# ============================================================
+# Task Slug Normalization
+# ============================================================
+
+
+class TestTaskSlugNormalization:
+    """Tests for ``_slugify_task`` and ``_make_task_slug``."""
+
+    # -- _slugify_task --
+
+    @pytest.mark.parametrize(
+        "input_task, expected",
+        [
+            # Bare task name — no owner
+            ("my-task", "my-task"),
+            # Owner/task format preserved
+            ("owner/my-task", "owner/my-task"),
+            # Normalization: uppercase, underscores, spaces
+            ("My Task", "my-task"),
+            ("Owner/My Task", "owner/my-task"),
+            ("my_task", "my-task"),
+            ("OWNER/TASK_NAME", "owner/task-name"),
+            # Extra slashes after the first are merged by slugify
+            ("owner/task/extra", "owner/task-extra"),
+            # Unicode transliteration
+            ("café/naïve-task", "cafe/naive-task"),
+        ],
+        ids=[
+            "bare_task",
+            "owner_task",
+            "uppercase_bare",
+            "uppercase_owner_task",
+            "underscore_bare",
+            "uppercase_underscore_owner",
+            "extra_slashes",
+            "unicode",
+        ],
+    )
+    def test_slugify_task(self, input_task, expected):
+        assert KaggleApi._slugify_task(input_task) == expected
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            "/task",
+            "owner/",
+            "/",
+        ],
+        ids=[
+            "missing_owner",
+            "missing_task",
+            "bare_slash",
+        ],
+    )
+    def test_slugify_task_rejects_empty_segments(self, invalid_input):
+        with pytest.raises(ValueError, match="Invalid task format"):
+            KaggleApi._slugify_task(invalid_input)
+
+    # -- _make_task_slug --
+
+    def test_make_task_slug_bare(self):
+        slug = KaggleApi._make_task_slug("my-task")
+        assert slug.task_slug == "my-task"
+        assert not slug.owner_slug
+
+    def test_make_task_slug_with_owner(self):
+        slug = KaggleApi._make_task_slug("owner/my-task")
+        assert slug.owner_slug == "owner"
+        assert slug.task_slug == "my-task"
+
+    # -- End-to-end: owner/task propagates to API requests --
+
+    def test_status_sends_owner_slug(self, api, capsys):
+        """``status owner/task`` should set owner_slug on the API request."""
+        _setup_completed_task(api)
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(runs=[], next_page_token="")
+        api.benchmarks_tasks_status_cli("someuser/my-task")
+        request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
+        assert request.slug.owner_slug == "someuser"
+        assert request.slug.task_slug == "my-task"
+
+    def test_status_bare_task_omits_owner_slug(self, api, capsys):
+        """``status my-task`` should not set owner_slug."""
+        _setup_completed_task(api)
+        api._mock_benchmarks.list_benchmark_task_runs.return_value = MagicMock(runs=[], next_page_token="")
+        api.benchmarks_tasks_status_cli("my-task")
+        request = api._mock_benchmarks.get_benchmark_task.call_args[0][0]
+        assert not request.slug.owner_slug
+        assert request.slug.task_slug == "my-task"
 
 
 # ============================================================
@@ -2227,7 +2404,7 @@ class TestBenchmarksInit:
         assert "LLM_DEFAULT=google/gemini-3-flash-preview\n" in content
         assert "LLM_DEFAULT_EVAL=google/gemini-3-flash-preview\n" in content
         assert (
-            "LLMS_AVAILABLE=anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5\n"
+            "LLMS_AVAILABLE=anthropic/claude-sonnet-5@default,deepseek-ai/deepseek-r1-0528,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,ibm/granite-4.0-h-small,openai/gpt-5.4-nano-2026-03-17,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct\n"
             in content
         )
         out = capsys.readouterr().out

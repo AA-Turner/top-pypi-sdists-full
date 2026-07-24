@@ -1,10 +1,10 @@
 """
-bingo Rollback System — Claude Code처럼 실행 전 스냅샷 저장, /undo로 복원.
+bingo Rollback System — 실행 전 스냅샷 저장, /undo로 복원.
 
 동작:
   - 에이전트 루프 시작 전 agent_state + history 자동 스냅샷
   - /undo 명령으로 최대 20단계 복원
-  - 스냅샷은 ~/.config/bingo/snapshots/ 에 저장
+  - 스냅샷은 Bingo workspace snapshots directory 에 저장
 """
 from __future__ import annotations
 import json, time, shutil
@@ -12,8 +12,10 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 
+from .local_state import workspace_state_dir
 
-_SNAPSHOTS_DIR = Path.home() / ".config" / "bingo" / "snapshots"
+
+_SNAPSHOTS_DIR = workspace_state_dir() / "snapshots"
 _MAX_SNAPSHOTS = 20
 
 
@@ -51,7 +53,7 @@ class Snapshot:
 
 class RollbackManager:
     """
-    Claude Code의 git 스냅샷 방식과 유사한 롤백 매니저.
+    Git-style state snapshot rollback manager.
     agent_state + conversation history를 실행 전 자동 저장.
     """
 

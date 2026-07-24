@@ -494,7 +494,7 @@ class _App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -683,7 +683,7 @@ class _App:
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal._partial_function._PartialFunction]], CLS_T]:
-        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
+        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -751,6 +751,7 @@ class _App:
         scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         startup_timeout: int = 30,
+        name: typing.Optional[str] = None,
         port: int = 8000,
         unauthenticated: bool = False,
         h2_enabled: bool = False,
@@ -797,6 +798,7 @@ class _App:
             scaleup_window: Seconds of sustained demand required before scaling up new containers.
             scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
             startup_timeout: Maximum container startup time in seconds.
+            name: Sets the Modal name of the function within the app, defaults to class name.
             port: Port the HTTP server listens on.
             unauthenticated: Whether the endpoint requires proxy authentication; required by default.
             h2_enabled: Enable HTTP/2.
@@ -1498,7 +1500,7 @@ class App:
         Modal functions can also be used as CLI entrypoints, but unlike `local_entrypoint`,
         those functions are executed remotely directly.
 
-        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/modal.App#run) is not needed, as an
+        Note that an explicit [`app.run()`](https://modal.com/docs/sdk/py/latest/App#run) is not needed, as an
         [app](https://modal.com/docs/guide/apps) is automatically created for you.
 
         Args:
@@ -1687,7 +1689,7 @@ class App:
         _experimental_restrict_output: bool = False,
         max_inputs: typing.Optional[int] = None,
     ) -> collections.abc.Callable[[typing.Union[CLS_T, modal.partial_function.PartialFunction]], CLS_T]:
-        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/modal.Cls) with this App.
+        """Decorator to register a new Modal [Cls](https://modal.com/docs/sdk/py/latest/Cls) with this App.
 
         Args:
             image: The image to run as the container for the class service.
@@ -1755,6 +1757,7 @@ class App:
         scaleup_window: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         startup_timeout: int = 30,
+        name: typing.Optional[str] = None,
         port: int = 8000,
         unauthenticated: bool = False,
         h2_enabled: bool = False,
@@ -1799,6 +1802,7 @@ class App:
             scaleup_window: Seconds of sustained demand required before scaling up new containers.
             scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
             startup_timeout: Maximum container startup time in seconds.
+            name: Sets the Modal name of the function within the app, defaults to class name.
             port: Port the HTTP server listens on.
             unauthenticated: Whether the endpoint requires proxy authentication; required by default.
             h2_enabled: Enable HTTP/2.

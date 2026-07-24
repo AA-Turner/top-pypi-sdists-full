@@ -211,8 +211,8 @@ class _Mount(modal._object._Object):
     @staticmethod
     def _description(entries: list[_MountEntry]) -> str: ...
     @staticmethod
-    def _get_files(
-        entries: list[_MountEntry],
+    def _batched_get_missing_files(
+        entries: list[_MountEntry], client: modal.client._Client, *, n_concurrent_checksums: int, batch_size: int
     ) -> collections.abc.AsyncGenerator[modal._utils.blob_utils.FileUploadSpec, None]: ...
     async def _load_mount(
         self: _Mount,
@@ -337,15 +337,27 @@ class Mount(modal.object.Object):
     @staticmethod
     def _description(entries: list[_MountEntry]) -> str: ...
 
-    class ___get_files_spec(typing_extensions.Protocol):
+    class ___batched_get_missing_files_spec(typing_extensions.Protocol):
         def __call__(
-            self, /, entries: list[_MountEntry]
+            self,
+            /,
+            entries: list[_MountEntry],
+            client: modal.client.Client,
+            *,
+            n_concurrent_checksums: int,
+            batch_size: int,
         ) -> typing.Generator[modal._utils.blob_utils.FileUploadSpec, None, None]: ...
         def aio(
-            self, /, entries: list[_MountEntry]
+            self,
+            /,
+            entries: list[_MountEntry],
+            client: modal.client.Client,
+            *,
+            n_concurrent_checksums: int,
+            batch_size: int,
         ) -> collections.abc.AsyncGenerator[modal._utils.blob_utils.FileUploadSpec, None]: ...
 
-    _get_files: typing.ClassVar[___get_files_spec]
+    _batched_get_missing_files: typing.ClassVar[___batched_get_missing_files_spec]
 
     class ___load_mount_spec(typing_extensions.Protocol):
         def __call__(

@@ -22,28 +22,43 @@ import httpx
 import typer
 import yaml
 
-from plato.chronos.api.sessions import get_session_workspace_download_url, get_session_workspace_upload_url
+from plato.chronos.api.sessions import (
+    complete_session,
+    create_session,
+    get_session_workspace_download_url,
+    get_session_workspace_upload_url,
+)
 from plato.chronos.api.workspace_repos import (
     create_workspace_ref,
     get_workspace_repo_credentials,
     list_workspace_refs,
     resolve_workspace_repo,
 )
-from plato.chronos.models import CreateWorkspaceRefRequest, WorkspaceRefResponse, WorkspaceRepoResolveRequest
+from plato.chronos.models import (
+    CompleteSessionRequest,
+    CreateSessionRequest,
+    CreateWorkspaceRefRequest,
+    Status1,
+    WorkspaceRefResponse,
+    WorkspaceRepoResolveRequest,
+)
 from plato.cli.chronos.settings import get_settings
 from plato.cli.utils import console
 from plato.git_ops.repo import trust_git_directory
 from plato.markers import WorkspaceMarker
 from plato.worlds.dvc_models import (
     DVCManifest,
+    LazyDVCMount,
     S3Config,
     _archive_s3_key,
     _build_ignore_matchers,
     credential_refresh_config,
     dvc_file_key,
+    dvc_files_size_summary,
     parse_dvc_format,
     s3_download_batch_sync,
     s3_download_bytes_sync,
+    smart_commit,
     smart_commit_archive,
 )
 
@@ -1040,3 +1055,204 @@ def upload_git(
     finally:
         if archive is not None and output is None and not keep_archive and not dry_run:
             archive.path.unlink(missing_ok=True)
+
+
+def upload_data_workspace_via_manifest(
+    data_dir: Path,
+    *,
+    repo_name: str,
+    dir_name: str = _DEFAULT_DIR_NAME,
+    chronos_url: str,
+    api_key: str,
+    ignore_patterns: list[str] | None = None,
+    timeout: float = 60.0,
+) -> tuple[str, str]:
+    """Upload a plain local directory as a DVC *manifest* (lazy-loadable) ref.
+
+    Runs the same ``smart_commit`` the world runtime uses, against a
+    synthetic ``LazyDVCMount`` with an empty base manifest whose overlay is
+    the source directory — every file is treated as created, hashed, and
+    batch-uploaded content-addressed via s5cmd. Unlike the archive path,
+    the resulting ref restores lazily (FUSE streams only bytes read).
+    """
+    s3_config = _build_s3_config(repo_name, chronos_url=chronos_url, api_key=api_key, timeout=timeout)
+    source = data_dir.expanduser().resolve()
+    cache_dir = Path(tempfile.mkdtemp(prefix="plato-manifest-upload-"))
+    try:
+        (cache_dir / "overlay").symlink_to(source)
+        mount = LazyDVCMount(
+            mountpoint=source,
+            cache_dir=cache_dir,
+            manifest=DVCManifest(entries_list=[], manifest_md5=""),
+        )
+        return asyncio.run(smart_commit(mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns))
+    finally:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+
+
+def _create_synthetic_session(
+    *,
+    world_name: str,
+    tags: list[str],
+    chronos_url: str,
+    api_key: str,
+) -> str:
+    """Create a synthetic Chronos session to host a manual dataset ref."""
+    with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=30.0, headers={"X-API-Key": api_key}) as client:
+        resp = create_session.sync(client, body=CreateSessionRequest(world_name=world_name, tags=tags))
+        return resp.public_id
+
+
+def _complete_synthetic_session(
+    *,
+    session_id: str,
+    chronos_url: str,
+    api_key: str,
+    failed: bool = False,
+    error_message: str | None = None,
+) -> None:
+    with httpx.Client(base_url=chronos_url.rstrip("/"), timeout=30.0, headers={"X-API-Key": api_key}) as client:
+        complete_session.sync(
+            client,
+            public_id=session_id,
+            body=CompleteSessionRequest(
+                status=Status1.failed if failed else Status1.completed,
+                exit_code=1 if failed else 0,
+                error_message=error_message[:500] if error_message else None,
+            ),
+        )
+
+
+@workspace_upload_app.command("data")
+def upload_data(
+    source: Annotated[
+        Path,
+        typer.Argument(
+            help="Local directory to upload as the workspace's data payload.",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+        ),
+    ],
+    repo_name: Annotated[
+        str,
+        typer.Option("--repo", "-r", help="Chronos workspace repo name (auto-created if missing)."),
+    ],
+    step_name: Annotated[
+        str | None,
+        typer.Option("--step", "-s", help="Checkpoint (workspace ref step) name to register under."),
+    ] = None,
+    session_id: Annotated[
+        str | None,
+        typer.Option(
+            "--session",
+            help="Chronos session to record the ref under. Omit to create a synthetic session "
+            "(tagged 'synthetic'/'dataset-upload', completed after the upload).",
+        ),
+    ] = None,
+    world_name: Annotated[
+        str,
+        typer.Option("--world-name", help="World name recorded on a created synthetic session."),
+    ] = "workflow",
+    dir_name: Annotated[
+        str,
+        typer.Option("--dir-name", help="DVC dir name / restore target inside the workspace."),
+    ] = _DEFAULT_DIR_NAME,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the pre-upload confirmation prompt")] = False,
+    chronos_url: Annotated[
+        str | None, typer.Option("--url", "-u", envvar="CHRONOS_URL", help="Chronos API URL")
+    ] = None,
+    api_key: Annotated[
+        str | None,
+        typer.Option("--api-key", "-k", envvar="PLATO_API_KEY", help="Plato API key for authentication"),
+    ] = None,
+) -> None:
+    """Upload a plain local directory as a lazy-loadable (manifest) workspace ref.
+
+    The dataset counterpart of ``upload git``: no git layer, no tarball. Files
+    are hashed and uploaded content-addressed (the world runtime's
+    ``smart_commit``), so restores FUSE-mount from S3 and stream only the
+    bytes agents actually read — the right format for large datasets consumed
+    via ``datasets``/``data`` mounts.
+    """
+    resolved_api_key = api_key or os.environ.get("PLATO_API_KEY")
+    if not resolved_api_key:
+        console.print("[red]No API key provided[/red]")
+        console.print("Set PLATO_API_KEY environment variable or use --api-key")
+        raise typer.Exit(1)
+    resolved_chronos_url = chronos_url or get_settings().chronos_url
+    resolved_step = step_name or _generate_manual_step_name()
+    ignore_patterns = _read_dvcignore(source)
+
+    console.print("[bold]Upload[/bold]")
+    console.print(f"  Source:    {source.expanduser().resolve()}")
+    console.print(f"  Session:   {session_id or '(new synthetic session)'}")
+    console.print(f"  Repo:      {repo_name}")
+    console.print(f"  Step:      {resolved_step}")
+    console.print(f"  Dir name:  {dir_name}")
+    console.print("  Format:    manifest (lazy-loadable)")
+    if not yes and not typer.confirm("Proceed with upload?", default=True):
+        console.print("[yellow]Aborted.[/yellow]")
+        raise typer.Exit(0)
+
+    created_session = False
+    try:
+        if session_id is None:
+            session_id = _create_synthetic_session(
+                world_name=world_name,
+                tags=["synthetic", "dataset-upload", repo_name],
+                chronos_url=resolved_chronos_url,
+                api_key=resolved_api_key,
+            )
+            created_session = True
+            console.print(f"[dim]Created synthetic session: {session_id}[/dim]")
+
+        _manifest_md5, dvc_yaml = upload_data_workspace_via_manifest(
+            source,
+            repo_name=repo_name,
+            dir_name=dir_name,
+            chronos_url=resolved_chronos_url,
+            api_key=resolved_api_key,
+            ignore_patterns=ignore_patterns,
+        )
+        total_bytes, nfiles = dvc_files_size_summary({dir_name: dvc_yaml})
+        console.print(
+            f"[green]Uploaded manifest workspace[/green] "
+            f"({nfiles} files, {total_bytes / 1e9:.2f} GB, manifest {_manifest_md5[:12]})"
+        )
+
+        ref = register_git_workspace_ref(
+            session_id=session_id,
+            repo_name=repo_name,
+            head_sha="",
+            dvc_files={dir_name: dvc_yaml},
+            step_name=resolved_step,
+            chronos_url=resolved_chronos_url,
+            api_key=resolved_api_key,
+        )
+        console.print(f"[dim]Ref ID: {ref.ref_public_id}[/dim]")
+
+        if created_session:
+            _complete_synthetic_session(
+                session_id=session_id, chronos_url=resolved_chronos_url, api_key=resolved_api_key
+            )
+
+        console.print("\nPin in your config:")
+        console.print(f'  "{repo_name}": "{session_id}:{resolved_step}"')
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        if created_session and session_id is not None:
+            try:
+                _complete_synthetic_session(
+                    session_id=session_id,
+                    chronos_url=resolved_chronos_url,
+                    api_key=resolved_api_key,
+                    failed=True,
+                    error_message=str(exc),
+                )
+            except Exception:
+                console.print(f"[yellow]Could not mark synthetic session {session_id} as failed[/yellow]")
+        console.print(f"[red]Failed: {exc}[/red]")
+        raise typer.Exit(1) from exc

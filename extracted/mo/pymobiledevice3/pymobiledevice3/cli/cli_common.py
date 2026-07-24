@@ -9,7 +9,7 @@ from collections.abc import Coroutine
 from contextlib import suppress
 from functools import wraps
 from textwrap import dedent
-from typing import Annotated, Any, Callable, Optional, TypeVar
+from typing import Annotated, Any, Callable, Optional, TypeVar, cast
 
 import coloredlogs
 import hexdump
@@ -57,7 +57,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def default_json_encoder(obj):
+def default_json_encoder(obj: Any) -> str:
     if isinstance(obj, bytes):
         return f"<{obj.hex()}>"
     if isinstance(obj, datetime.datetime):
@@ -67,13 +67,18 @@ def default_json_encoder(obj):
     raise TypeError()
 
 
-def print_json(buf, colored: Optional[bool] = None, default=default_json_encoder) -> str:
+def print_json(buf: Any, colored: Optional[bool] = None, default: Callable[[Any], Any] = default_json_encoder) -> str:
     if colored is None:
         colored = user_requested_colored_output()
     formatted_json = json.dumps(buf, sort_keys=True, indent=4, default=default)
     if colored and os.isatty(sys.stdout.fileno()):
-        colorful_json = highlight(
-            formatted_json, lexers.JsonLexer(), formatters.Terminal256Formatter(style="stata-dark")
+        colorful_json = cast(
+            str,
+            highlight(
+                formatted_json,
+                cast(Any, lexers).JsonLexer(),
+                cast(Any, formatters).Terminal256Formatter(style="stata-dark"),
+            ),
         )
         print(colorful_json)
         return colorful_json
@@ -82,17 +87,21 @@ def print_json(buf, colored: Optional[bool] = None, default=default_json_encoder
         return formatted_json
 
 
-def print_hex(data, colored=True) -> None:
-    hex_dump = hexdump.hexdump(data, result="return")
+def print_hex(data: bytes, colored: bool = True) -> None:
+    hex_dump = cast(Any, hexdump).hexdump(data, result="return")
     assert isinstance(hex_dump, str)  # result='return' always yields a str
     if colored:
-        print(highlight(hex_dump, lexers.HexdumpLexer(), formatters.Terminal256Formatter(style="native")))
+        print(
+            highlight(
+                hex_dump, cast(Any, lexers).HexdumpLexer(), cast(Any, formatters).Terminal256Formatter(style="native")
+            )
+        )
     else:
         print(hex_dump, end="\n\n")
 
 
 def set_verbosity(level: int) -> None:
-    coloredlogs.set_level(logging.INFO - (level * 10))
+    cast(Any, coloredlogs).set_level(logging.INFO - (level * 10))
     # DTX message traffic is very chatty -- require -vv to see it
     logging.getLogger("pymobiledevice3.dtx").setLevel(logging.DEBUG if level >= 2 else logging.INFO)
 
@@ -114,9 +123,9 @@ def get_last_used_terminal_formatting(buf: str) -> str:
     return "\x1b" + buf.rsplit("\x1b", 1)[1].split("m")[0] + "m"
 
 
-def sudo_required(func):
+def sudo_required(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> None:
         if not OSUTILS.is_admin:
             raise AccessDeniedError()
         else:
@@ -128,14 +137,16 @@ def sudo_required(func):
 def prompt_selection(choices: list[Any], message: str, idx: bool = False) -> Any:
     question = [inquirer3.List("selection", message=message, choices=choices, carousel=True)]
     try:
-        result = inquirer3.prompt(question, theme=GreenPassion(), raise_keyboard_interrupt=True)
+        result = cast(
+            dict[str, Any], cast(Any, inquirer3).prompt(question, theme=GreenPassion(), raise_keyboard_interrupt=True)
+        )
     except KeyboardInterrupt:
         typer.echo(typer.style("No selection was made", fg="red"))
         raise typer.Exit(code=1) from None
     return result["selection"] if not idx else choices.index(result["selection"])
 
 
-def prompt_device_list(device_list: list):
+def prompt_device_list(device_list: list[Any]) -> Any:
     return prompt_selection(device_list, "Choose device")
 
 

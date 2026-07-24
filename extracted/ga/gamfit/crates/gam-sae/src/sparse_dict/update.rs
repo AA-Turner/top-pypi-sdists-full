@@ -23,6 +23,7 @@
 use super::codes::{SparseCode, solve_row_codes};
 use super::scoring::{ScoreRoutePath, ScoreRouteStats, TileScorer};
 use super::{SparseDictConfig, SparseDictConvergence, SparseDictFit};
+use gam_linalg::pcg::{CpuPcgBlockBackend, PcgCoreResult, PcgStop, pcg_multi_core};
 use ndarray::{Array2, ArrayView2, Axis};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -143,7 +144,6 @@ pub(crate) struct SparseDictIterate {
     pub(crate) decoder: Array2<f32>,
     pub(crate) indices: Array2<u32>,
     pub(crate) codes: Array2<f32>,
-    pub(crate) explained_variance: f64,
     pub(crate) epochs: usize,
     pub(crate) active: usize,
     pub(crate) score_route_stats: ScoreRouteStats,
@@ -152,6 +152,17 @@ pub(crate) struct SparseDictIterate {
     decoder_fixed_point_residual: f64,
     routing_residual: f64,
     inner_tolerance: f64,
+    /// Whether the decoder AND routing fixed-point residuals ALSO closed to
+    /// `inner_tolerance` (arm 1). `false` marks a **best-effort** iterate returned
+    /// at `K` above the intrinsic rank, where the `>rank` spurious support
+    /// directions rotate freely in the equivalent-optima manifold and the routing
+    /// residual legitimately cannot close (#2275) — the objective (EV) has
+    /// plateaued but the discrete routing keeps churning. Convergence itself is
+    /// decided by the gauge-invariant EV plateau, so both certified and open
+    /// iterates are returned; only a still-climbing objective (or a failed linear
+    /// subsolve) is a genuine non-convergence error. Mirrors
+    /// [`super::block::BlockSparseConvergence::certified`].
+    certified: bool,
 }
 
 /// Route + sparse-code every row of `x`, processing the rows in minibatches of
@@ -372,6 +383,48 @@ fn routing_fixed_point_residual(
     code_residual.max(reconstruction_residual)
 }
 
+/// Scale-free EV-plateau fraction for the linear trainer's best-effort arm
+/// (#2275), mirroring [`super::block`]'s `BLOCK_EV_PLATEAU_FRACTION`: a round is
+/// stationary when it captured less than this fraction of the total EV
+/// improvement achieved since entry, so it fires at the achievable plateau
+/// wherever it sits (~1e-6 well-posed, ~1e-4 over-complete).
+const LINEAR_EV_PLATEAU_FRACTION: f64 = 1.0e-3;
+/// Stationary rounds required (within the trailing [`LINEAR_EV_PLATEAU_WINDOW`])
+/// before returning a best-effort open iterate — prevents a transient early flat
+/// from exiting a still-climbing fit, and sets the confirmation horizon (a budget
+/// too short to accumulate this many stationary rounds cannot confirm a plateau,
+/// so it stays a typed non-convergence).
+const LINEAR_EV_PLATEAU_MIN_ROUNDS: usize = 3;
+/// Trailing window over which [`LINEAR_EV_PLATEAU_MIN_ROUNDS`] stationary rounds
+/// confirm the plateau (#2396). At K >> rank the discrete top-s routing is a limit
+/// cycle: the objective oscillates within a band while its mean creeps to the
+/// achievable plateau, so a STRICT consecutive-round counter is reset by every
+/// up-swing and can miss a genuinely-bounded objective (surfaced on real OLMO
+/// activations, where the fit reaches two-in-a-row repeatedly but an up-swing
+/// resets it before three). Requiring MIN_ROUNDS stationary rounds within a window
+/// of `MIN_ROUNDS + 1` tolerates exactly one such up-swing — a minimal debounce
+/// that is a strict superset of the consecutive rule (three in a row ⇒ three in the
+/// last four), so it only ever confirms MORE, never exits a still-climbing fit
+/// (whose rounds are non-stationary and never fill the window), and keeps the
+/// confirmation horizon (a budget shorter than the window cannot confirm).
+const LINEAR_EV_PLATEAU_WINDOW: usize = LINEAR_EV_PLATEAU_MIN_ROUNDS + 1;
+/// Per-term rounding scale for the fixed-point convergence floor (#2396).
+///
+/// The certified arm compares three O(1)-normalized residuals — the EV change
+/// (`explained_variance ∈ [0, 1]`), the unit-normed decoder fixed-point residual,
+/// and the normalized routing residual — against `config.tolerance`. No
+/// floating-point fixed-point iteration can drive such a residual below the
+/// rounding error accumulated in computing it (a reduction over up to
+/// `max(n, k, p)` terms, each carrying ~`EPSILON` relative error), so the
+/// effective convergence tolerance floors at `SPARSE_DICT_FIXED_POINT_ROUNDING *
+/// max(n, k, p)`. This makes a `config.tolerance` of exactly `0.0` — "converge as
+/// tightly as the arithmetic allows" — certify a machine-precision fixed point
+/// (residuals at the ~1e-15 rounding floor) instead of rejecting it as
+/// non-convergent. The floor stays many orders of magnitude below any genuine
+/// non-convergence residual (~1e-4 and up), so a still-moving objective can never
+/// be laundered as converged.
+const SPARSE_DICT_FIXED_POINT_ROUNDING: f64 = 32.0 * f64::EPSILON;
+
 pub(super) fn run(
     x: ArrayView2<'_, f32>,
     config: &SparseDictConfig,
@@ -431,6 +484,23 @@ pub(super) fn run(
         fit_start.elapsed().as_secs_f64(),
     );
     let mut current_ev = explained_variance(x, &codes, decoder.view());
+    // Effective fixed-point tolerance: never demand tighter closure than the
+    // arithmetic can express (#2396). A `config.tolerance` of `0.0` asks for the
+    // tightest achievable fixed point, which in floating point is the rounding
+    // floor of the residual reductions, not literal zero.
+    let fixed_point_tol =
+        config.tolerance.max(SPARSE_DICT_FIXED_POINT_ROUNDING * (n.max(k).max(p) as f64));
+    // Anchor for the captured-fraction EV-plateau detector (arm 2 best-effort):
+    // the denominator of "how much of the total climb since entry did this round
+    // capture". Stationary rounds within a trailing window mark the achievable
+    // plateau; the window (not a strict consecutive run) is what makes the signal
+    // robust to the K>>rank routing limit cycle (#2396).
+    let entry_ev = current_ev;
+    // Trailing window of per-round stationary flags; a majority-with-one-tolerance
+    // of these confirms a best-effort plateau, robust to the K>>rank routing limit
+    // cycle (#2396). See [`LINEAR_EV_PLATEAU_WINDOW`].
+    let mut plateau_flags: std::collections::VecDeque<bool> =
+        std::collections::VecDeque::with_capacity(LINEAR_EV_PLATEAU_WINDOW);
 
     for epoch in 0..config.max_epochs {
         epochs_run = epoch + 1;
@@ -458,7 +528,8 @@ pub(super) fn run(
             &normal_eq,
             config.decoder_ridge as f64,
             sigma,
-        );
+            config.score_mode,
+        )?;
         decoder_solve_stats = stats;
         let refresh_secs = epoch_start.elapsed().as_secs_f64();
 
@@ -545,42 +616,93 @@ pub(super) fn run(
         // and the CG certificate (giant component size, the a-priori κ bound,
         // any typed non-convergence) is on the same line.
         log::warn!(
-            "[SAE epoch {}/{}] ev={:.6} improve={:.3e} revived={} refresh_s={:.2} \
-             route_s={:.2} elapsed_s={:.1} max_component={} cg_columns={} cg_nonconverged={} \
-             cg_kappa_bound={:?} cg_relative_residual={:.3e}",
+            "[SAE epoch {}/{}] ev={:.6} improve={:.3e} ev_resid={:.3e} decoder_resid={:.3e} \
+             routing_resid={:.3e} births={} revived={} refresh_s={:.2} \
+             route_s={:.2} elapsed_s={:.1} max_component={} cg_columns={} device_cols={} \
+             cg_nonconverged={} cg_kappa_bound={:?} cg_relative_residual={:.3e}",
             epochs_run,
             config.max_epochs,
             next_ev,
             improve,
+            ev_residual,
+            decoder_residual,
+            routing_residual,
+            accepted_births,
             revived_atoms.len(),
             refresh_secs,
             route_secs,
             fit_start.elapsed().as_secs_f64(),
             decoder_solve_stats.max_component_size,
             decoder_solve_stats.cg_columns,
+            decoder_solve_stats.device_refresh_columns,
             decoder_solve_stats.cg_nonconverged_columns,
             decoder_solve_stats.cg_kappa_bound,
             decoder_solve_stats.cg_relative_residual,
         );
-        // A proposed dead-atom birth is work only when it entered the canonical
-        // routing. Couple that test to full-map state residuals and the linear
-        // subsolve evidence. Raw normal-equation convergence alone cannot certify
-        // a model because unit projection and rerouting happen afterward.
-        if accepted_births == 0
-            && decoder_solve_stats.cg_nonconverged_columns == 0
+        // #2275/#2023 trichotomy (mirrors `super::block`): a fit is returned when
+        // the OBJECTIVE has settled — either at the absolute fixed point (arm 1,
+        // certified) or at the achievable EV plateau with the discrete routing
+        // still churning (arm 2, best-effort open at K >> rank). Only a
+        // still-climbing objective — or a failed linear subsolve — is a genuine
+        // non-convergence error (arm 3, below).
+        //
+        // Structure must be settled and the subsolve sound for BOTH arms: a
+        // proposed dead-atom birth is work only when it entered the canonical
+        // routing, and raw normal-equation convergence alone cannot certify a
+        // model because unit projection and rerouting happen afterward.
+        let numerically_sound = decoder_solve_stats.cg_nonconverged_columns == 0
             && decoder_solve_stats.dense_factorization_failures == 0
             && decoder_solve_stats.cg_relative_residual
-                <= decoder_solve_stats.cg_residual_stop.max(f64::MIN_POSITIVE)
-            && ev_residual <= config.tolerance
-            && decoder_residual <= config.tolerance
-            && routing_residual <= config.tolerance
-        {
+                <= decoder_solve_stats.cg_residual_stop.max(f64::MIN_POSITIVE);
+        let structure_settled = accepted_births == 0;
+
+        // Arm 1 CERTIFIED: EV, decoder AND routing residuals all closed. Checked
+        // first so an exactly-determined fit is certified, never demoted.
+        let certified_fixed_point = structure_settled
+            && numerically_sound
+            && ev_residual <= fixed_point_tol
+            && decoder_residual <= fixed_point_tol
+            && routing_residual <= fixed_point_tol;
+
+        // Arm 2 book-keeping: captured-fraction EV plateau. A round is stationary
+        // when it captured a negligible fraction of the total EV climb since entry
+        // (scale-free, so it fires wherever the achievable plateau sits). The
+        // gauge-invariant OBJECTIVE is the convergence criterion; the decoder-gauge
+        // and routing residuals are recorded, not gated on — at K >> rank the
+        // spurious support directions rotate freely and the routing residual
+        // legitimately cannot close. Reset on any non-stationary / unsettled /
+        // numerically-unsound round so a still-climbing objective can never be
+        // laundered as a plateau.
+        let round_improvement = improve.max(0.0);
+        let total_improvement = (next_ev - entry_ev).max(0.0);
+        let captured_fraction = if total_improvement > f64::MIN_POSITIVE {
+            round_improvement / total_improvement
+        } else {
+            0.0
+        };
+        let objective_plateaued = ev_residual <= fixed_point_tol
+            || captured_fraction < LINEAR_EV_PLATEAU_FRACTION;
+        // A round is STATIONARY when the structure is settled, the subsolve sound,
+        // and the objective plateaued. Confirm a best-effort plateau on MIN_ROUNDS
+        // stationary rounds within the trailing window (tolerating one up-swing of
+        // the routing limit cycle; see LINEAR_EV_PLATEAU_WINDOW). `epoch > 0` skips
+        // the first post-entry round, whose captured fraction is against a
+        // still-forming denominator.
+        let stationary =
+            epoch > 0 && structure_settled && numerically_sound && objective_plateaued;
+        plateau_flags.push_back(stationary);
+        while plateau_flags.len() > LINEAR_EV_PLATEAU_WINDOW {
+            plateau_flags.pop_front();
+        }
+        let best_effort_open =
+            plateau_flags.iter().filter(|&&s| s).count() >= LINEAR_EV_PLATEAU_MIN_ROUNDS;
+
+        if certified_fixed_point || best_effort_open {
             let (indices, code_mat) = pack_codes(&certified_codes, n, s);
             return Ok(SparseDictIterate {
                 decoder: certified_decoder,
                 indices,
                 codes: code_mat,
-                explained_variance: certified_ev,
                 epochs: epochs_run,
                 active: s,
                 score_route_stats,
@@ -589,6 +711,7 @@ pub(super) fn run(
                 decoder_fixed_point_residual: decoder_residual,
                 routing_residual,
                 inner_tolerance: config.tolerance,
+                certified: certified_fixed_point,
             });
         }
         codes = std::mem::take(&mut next_codes);
@@ -854,6 +977,15 @@ fn hutchinson_gram_edof(
         }
         let result = cg_solve(&matvec, &z, residual_tolerance, cap);
         if result.stop != CgStop::Converged {
+            // Failure-path diagnostic only — never logged on the converged hot
+            // path. (The Lanczos condition estimate now rides the production
+            // block path's stats, not this scalar solve.)
+            log::warn!(
+                "sparse-dict Hutchinson trace probe {probe} CG non-convergence: \
+                 iterations={} residual={:.3e}",
+                result.iterations,
+                result.relative_residual,
+            );
             return Err(SparseDictionaryError::TraceNonConvergence {
                 rho,
                 probe,
@@ -986,16 +1118,35 @@ fn linear_block_reml_stats_from_parts(
     rho: f64,
 ) -> Result<LinearBlockRemlStats, SparseDictionaryError> {
     let k = decoder.nrows();
+    let n = x.nrows();
+    let p = x.ncols();
     let (diag, off) = code_gram_from_routing(indices, codes, k);
-    let gram_edof = hutchinson_gram_edof(&diag, &off, rho, k)?;
+    let raw_gram_edof = hutchinson_gram_edof(&diag, &off, rho, k)?;
+    // The true effective dof γ = tr(A(A+ρI)⁻¹) = Σ λ_i/(λ_i+ρ) is STRICTLY below
+    // rank(A) ≤ min(K, N): each eigenterm is < 1 for ρ > 0, and the code Gram
+    // A = CᵀC has rank ≤ rank(C) ≤ min(N, K). The internal estimate is already
+    // clamped to [0, K]. The extra constraint that matters for the shared-ρ evidence
+    // is that the pooled dof γ_tot = P·γ leave positive residual dof, i.e. γ < N.
+    // When K ≥ N (the interpolating regime, γ → N) the Hutchinson estimate can
+    // overshoot N by its sampling error, making γ_tot > N·P and tripping
+    // `linear_shared_rho_fs_step`'s "pooled dof inside (0, N·P)" guard on pure
+    // estimator noise (#2396: real OLMO fit at K=512 > N=508 read γ_tot = 32524.8 >
+    // 32512). Cap γ at `N − 1/P`, so γ_tot stays strictly inside (0, N·P) and
+    // σ̂² = RSS/(N·P − γ_tot) is well-posed — the interpolating fit then drives ρ
+    // toward the identifiability boundary via the schedule's existing handling
+    // instead of hard-erroring on a sampling overshoot. The cap is keyed to N, NOT
+    // min(K, N): a non-interpolating fit (K < N) already has γ < K < N − 1/P via the
+    // internal [0, K] clamp, so this NEVER binds there and its evidence is unchanged.
+    let edof_ceiling = ((n as f64) - 1.0 / (p.max(1) as f64)).max(0.0);
+    let gram_edof = raw_gram_edof.min(edof_ceiling);
     let penalty_energy: f64 = decoder.iter().map(|&d| (d as f64) * (d as f64)).sum();
     let rss = reconstruction_rss_from_parts(x, decoder, indices, codes);
     Ok(LinearBlockRemlStats {
         gram_edof,
-        p_cols: x.ncols(),
+        p_cols: p,
         penalty_energy,
         rss,
-        n_obs: x.nrows(),
+        n_obs: n,
     })
 }
 
@@ -1006,6 +1157,20 @@ fn linear_block_reml_stats_from_parts(
 fn reml_schedule_rho_log_tol(inner_tolerance: f64) -> f64 {
     inner_tolerance.sqrt().max(f64::EPSILON.sqrt())
 }
+
+/// Hard cap on the shared-ρ REML schedule's outer Fellner–Schall iterations
+/// (#2396). The FS map ρ ↦ ρ_new is a contraction toward its fixed point for a
+/// CERTIFIED inner solve, but a best-effort inner solve (certified = false, the
+/// K >> rank routing limit cycle) makes the map NOISY: ρ oscillates within a band
+/// about its interior fixed point and the per-step log-change is floored by the
+/// inner EV-plateau noise. Without a cap the loop — which otherwise stops only at
+/// `log_change ≤ tol` or the ρ→0 identifiability boundary — would not terminate on
+/// non-interpolating over-complete data, whose ρ fixed point is INTERIOR (never
+/// reaches the boundary) and whose step never falls below the machine-precision
+/// band. The cap is a backstop: a well-behaved schedule settles within its
+/// (best-effort-aware) band far sooner, so the cap is reached only when the FS map
+/// is genuinely noise-floored, at which point the best-effort iterate is returned.
+const REML_SCHEDULE_MAX_OUTER_ITERS: usize = 64;
 
 /// The shared-ρ REML schedule (design gam#2232, Increment 2, plug 4): the outer
 /// evidence loop that SELECTS the ONE shared linear-block ridge instead of taking
@@ -1061,6 +1226,7 @@ pub fn run_linear_reml_schedule(
                 outer_tolerance: tolerance,
                 selected_rho: f64::INFINITY,
                 outer_iterations: 0,
+                certified: true,
             },
             active,
             score_route_stats: ScoreRouteStats::default(),
@@ -1069,19 +1235,71 @@ pub fn run_linear_reml_schedule(
     }
     // Warm start at the caller's shared ridge; from here ρ is REML-selected.
     let mut rho = config.decoder_ridge as f64;
+    // The caller's seed ridge is the interior anchor for the #2275 ρ-boundary
+    // diagnosis (see the trace-failure arm below): a trace solve that fails only
+    // AFTER Fellner–Schall has driven ρ STRICTLY below it is on the descent to the
+    // identifiability edge, not an interior numerical failure.
+    let initial_ridge = rho;
     let mut fit = run_linear_fast_kernel(x, config, rho)?;
     let tol = reml_schedule_rho_log_tol(config.tolerance);
     let mut outer_iterations = 0usize;
 
     loop {
         outer_iterations += 1;
-        let stats = linear_block_reml_stats_from_parts(
+        let stats = match linear_block_reml_stats_from_parts(
             x,
             fit.decoder.view(),
             fit.indices.view(),
             fit.codes.view(),
             rho,
-        )?;
+        ) {
+            Ok(stats) => stats,
+            Err(SparseDictionaryError::TraceNonConvergence { .. }) if rho < initial_ridge => {
+                // #2275 OUTER ρ-BOUNDARY — a DERIVED identifiability-edge diagnosis,
+                // not a rescue of a failed solve.
+                //
+                // The Fellner–Schall step is ρ_new = γ·σ² / ‖penalty‖ with
+                // σ² = RSS / (N·P − γ). For an over-complete fit (K ≫ intrinsic
+                // rank) the atoms interpolate, so RSS → 0 ⇒ σ² → 0 ⇒ ρ_new → 0:
+                // the FS recursion on a rank-deficient design has NO interior fixed
+                // point, it monotonically drives ρ to the zero boundary. That is a
+                // property of the evidence on this data, not a transient.
+                //
+                // The edof γ = tr(A(A+ρI)⁻¹) of the code Gram A = CᵀC is estimated
+                // by a Hutchinson trace CG. Over-complete ⇒ A is rank-deficient
+                // (λ_min = 0), so cond(A+ρI) ≈ λ_max/ρ → ∞ as ρ → 0 and the CG,
+                // which needs ≈ √cond iterations, cannot converge within its cap
+                // once ρ ≲ λ_max / cap². So the trace becoming UNRESOLVABLE below
+                // the seed ridge is the exact numerical signature of ρ having
+                // reached the identifiability edge — the ρ-space image of the same
+                // open frame the inner arm reports.
+                //
+                // best-effort OPEN is the honest classification here: the fit's
+                // OBJECTIVE quantities are already converged (the inner run at this
+                // ρ RETURNED — EV, decoder and routing residuals are all recorded);
+                // the only thing that cannot be resolved is the edof trace, which is
+                // a ρ-SELECTION diagnostic, not part of the reconstruction. There is
+                // no interior ρ fixed point to certify, so we return the last
+                // resolvable fit as open (certified = false, outer residual left at
+                // ∞) instead of hard-erroring a converged reconstruction.
+                //
+                // `rho < initial_ridge` scopes this strictly to the descent to the
+                // boundary; a trace failure AT OR ABOVE the seed ridge is off the
+                // boundary (interior ρ) and remains a genuine numerical error that
+                // still propagates.
+                return schedule_fit_from_iterate(
+                    x,
+                    config,
+                    fit,
+                    false,
+                    rho,
+                    f64::INFINITY,
+                    tol,
+                    outer_iterations,
+                );
+            }
+            Err(err) => return Err(err),
+        };
         let rho_new = linear_shared_rho_fs_step(&stats, rho)?;
         let log_change = (rho_new.ln() - rho.ln()).abs();
         // Per-iteration heartbeat on the warn channel (survives RUST_LOG=warn
@@ -1098,37 +1316,128 @@ pub fn run_linear_reml_schedule(
             stats.penalty_energy,
             tol,
         );
-        if log_change <= tol {
-            // The current `fit` was produced at `rho`, which is within `tol` of
+        // Best-effort-aware stopping band (#2396). A CERTIFIED inner fixed point
+        // pins ρ to the machine-precision band `tol = √(config.tolerance)`. But a
+        // best-effort inner iterate (certified = false, K >> rank) carries an
+        // EV-plateau residual `inner_ev_residual ≫ config.tolerance` that the FS map
+        // amplifies into the ρ step, so ρ cannot be resolved tighter than
+        // `√(inner_ev_residual)`. Widen the band to that HONEST floor for an open
+        // fit — the same √ objective-to-ρ relationship, evaluated at the ACHIEVED
+        // inner precision rather than the requested one — so the schedule settles at
+        // the achievable ρ precision instead of grinding a noise-floored step.
+        let effective_tol = if fit.certified {
+            tol
+        } else {
+            tol.max(reml_schedule_rho_log_tol(fit.inner_ev_residual))
+        };
+        if log_change <= effective_tol {
+            // The current `fit` was produced at `rho`, which is within the band of
             // `rho_new`: it already reflects the fixed point. Stop without a
-            // redundant refit.
-            let convergence = SparseDictConvergence {
-                inner_ev_residual: fit.inner_ev_residual,
-                inner_tolerance: fit.inner_tolerance,
-                decoder_residual: fit.decoder_fixed_point_residual,
-                decoder_tolerance: fit.inner_tolerance,
-                routing_residual: fit.routing_residual,
-                routing_tolerance: fit.inner_tolerance,
-                outer_rho_residual: log_change,
-                outer_tolerance: tol,
-                selected_rho: rho,
+            // redundant refit. The inner fit's certificate propagates: a
+            // best-effort-open inner iterate (#2275, K >> rank) yields a
+            // best-effort-open schedule fit.
+            let certified = fit.certified;
+            return schedule_fit_from_iterate(
+                x,
+                config,
+                fit,
+                certified,
+                rho,
+                log_change,
+                effective_tol,
                 outer_iterations,
-            };
-            return Ok(SparseDictFit {
-                decoder: fit.decoder,
-                indices: fit.indices,
-                codes: fit.codes,
-                explained_variance: fit.explained_variance,
-                epochs: fit.epochs,
-                convergence,
-                active: fit.active,
-                score_route_stats: fit.score_route_stats,
-                decoder_solve_stats: fit.decoder_solve_stats,
-            });
+            );
+        }
+        if outer_iterations >= REML_SCHEDULE_MAX_OUTER_ITERS {
+            // Termination guarantee (#2396): a best-effort inner solve makes the FS
+            // map noisy, so ρ oscillates within a band about its interior fixed
+            // point and even the widened band may never be met on a single step.
+            // Return the current best-effort iterate with its ρ residual recorded
+            // honestly (open certificate), rather than looping unboundedly. A
+            // CERTIFIED schedule cannot reach here — its map contracts and meets the
+            // band first.
+            return schedule_fit_from_iterate(
+                x,
+                config,
+                fit,
+                false,
+                rho,
+                log_change,
+                effective_tol,
+                outer_iterations,
+            );
         }
         rho = rho_new;
         fit = run_linear_fast_kernel(x, config, rho)?;
     }
+}
+
+/// Assemble the public [`SparseDictFit`] from a settled inner iterate and the
+/// outer REML schedule's certificate. Shared by the schedule's two exits — the
+/// converged ρ fixed point (`certified` carries the inner arm's verdict) and the
+/// #2275 ρ-boundary best-effort return (`certified = false`, `outer_rho_residual`
+/// left open at `∞`).
+///
+/// API honesty (#2275): the returned EV must be the EV of the returned MODEL, and
+/// the returned codes must be exactly what a caller reconstructs by routing the
+/// returned decoder at the code ridge THEY passed — which is how held-out
+/// prediction routes (see `held_out_ev`). But the inner REML runs override the
+/// code ridge with the shared variance ρ (`run_linear_fast_kernel`: one ρ drives
+/// both the code and decoder ridge, so the evidence sees a single variance), so
+/// the inner iterate's packed codes and cached EV are at ρ, not at the caller's
+/// `config.code_ridge`; the dead-atom nulling can stale them further. Re-route the
+/// codes ONCE against the returned decoder at the caller's `config.code_ridge` and
+/// report THAT model's EV, so the returned artifact is self-consistent with how it
+/// will be used. One route + one EV, at the schedule's single exit — never per
+/// epoch, so not on the hot path.
+fn schedule_fit_from_iterate(
+    x: ArrayView2<'_, f32>,
+    config: &SparseDictConfig,
+    fit: SparseDictIterate,
+    certified: bool,
+    selected_rho: f64,
+    outer_rho_residual: f64,
+    outer_tolerance: f64,
+    outer_iterations: usize,
+) -> Result<SparseDictFit, SparseDictionaryError> {
+    let n = x.nrows();
+    let s = fit.active;
+    let scorer = TileScorer::new(s, config.score_tile);
+    let final_codes = route_and_code_all(
+        x,
+        fit.decoder.view(),
+        &scorer,
+        s,
+        config.code_ridge,
+        config.minibatch,
+        config.score_mode,
+        None,
+    )?;
+    let final_ev = explained_variance(x, &final_codes, fit.decoder.view());
+    let (indices, codes) = pack_codes(&final_codes, n, s);
+    Ok(SparseDictFit {
+        convergence: SparseDictConvergence {
+            inner_ev_residual: fit.inner_ev_residual,
+            inner_tolerance: fit.inner_tolerance,
+            decoder_residual: fit.decoder_fixed_point_residual,
+            decoder_tolerance: fit.inner_tolerance,
+            routing_residual: fit.routing_residual,
+            routing_tolerance: fit.inner_tolerance,
+            outer_rho_residual,
+            outer_tolerance,
+            selected_rho,
+            outer_iterations,
+            certified,
+        },
+        decoder: fit.decoder,
+        indices,
+        codes,
+        explained_variance: final_ev,
+        epochs: fit.epochs,
+        active: fit.active,
+        score_route_stats: fit.score_route_stats,
+        decoder_solve_stats: fit.decoder_solve_stats,
+    })
 }
 
 fn validate(
@@ -1288,9 +1597,9 @@ impl DecoderNormalEq {
     /// independent), so the streaming decoder refresh equals the full-batch one.
     pub(super) fn accumulate(&mut self, x: ArrayView2<'_, f32>, codes: &[SparseCode]) {
         let p = self.b.ncols();
-        for (row_idx, code) in codes.iter().enumerate() {
-            let xi = x.row(row_idx);
-            let xi_slice = xi.as_slice();
+        // Scalar and coupling statistics: one serial walk (cheap relative to
+        // the `O(N·s·P)` right-hand-side accumulation below).
+        for code in codes.iter() {
             for a in 0..code.indices.len() {
                 let ca = code.codes[a] as f64;
                 if ca == 0.0 {
@@ -1300,20 +1609,6 @@ impl DecoderNormalEq {
                 self.firings[ka as usize] += 1;
                 self.amplitude_sum[ka as usize] += ca.abs();
                 self.diag[ka as usize] += ca * ca;
-                let brow = ka as usize;
-                let mut brow_view = self.b.row_mut(brow);
-                match (brow_view.as_slice_mut(), xi_slice) {
-                    (Some(bs), Some(xs)) => {
-                        for (bref, &xv) in bs.iter_mut().zip(xs.iter()) {
-                            *bref += ca * xv as f64;
-                        }
-                    }
-                    _ => {
-                        for c in 0..p {
-                            brow_view[c] += ca * xi[c] as f64;
-                        }
-                    }
-                }
                 for bsel in (a + 1)..code.indices.len() {
                     let cb = code.codes[bsel] as f64;
                     if cb == 0.0 {
@@ -1329,6 +1624,59 @@ impl DecoderNormalEq {
                 }
             }
         }
+        // `B += CᵀX`, parallelized over DISJOINT atom-row blocks of `B`: each
+        // task owns a contiguous block of atom rows and replays the full
+        // (row, atom) walk in the same ascending order the serial loop used,
+        // touching only the atoms in its block. Every `B[k][c]` entry
+        // therefore accumulates its contributions in exactly the historical
+        // order — bit-identical regardless of the partition — while the
+        // epoch's dominant `O(N·s·P)` flops use every core (#1017: this pass
+        // was part of the serial epoch wall next to the idle accelerator).
+        // The re-walked code indices are `O(N·s)` per block, noise against
+        // the `O(N·s·P)` right-hand-side arithmetic they gate.
+        if p == 0 {
+            return;
+        }
+        let k_atoms = self.diag.len();
+        let atom_block = k_atoms.div_ceil(ACCUMULATE_ATOM_BLOCKS).max(1);
+        let b_slice = self
+            .b
+            .as_slice_mut()
+            .expect("normal-equation rhs is standard layout");
+        b_slice
+            .par_chunks_mut(atom_block * p)
+            .enumerate()
+            .for_each(|(block_idx, bchunk)| {
+                let k0 = block_idx * atom_block;
+                let k1 = k0 + bchunk.len() / p;
+                for (row_idx, code) in codes.iter().enumerate() {
+                    let xi = x.row(row_idx);
+                    let xi_slice = xi.as_slice();
+                    for a in 0..code.indices.len() {
+                        let ca = code.codes[a] as f64;
+                        if ca == 0.0 {
+                            continue;
+                        }
+                        let ka = code.indices[a] as usize;
+                        if ka < k0 || ka >= k1 {
+                            continue;
+                        }
+                        let brow = &mut bchunk[(ka - k0) * p..(ka - k0 + 1) * p];
+                        match xi_slice {
+                            Some(xs) => {
+                                for (bref, &xv) in brow.iter_mut().zip(xs.iter()) {
+                                    *bref += ca * xv as f64;
+                                }
+                            }
+                            None => {
+                                for (c, bref) in brow.iter_mut().enumerate() {
+                                    *bref += ca * xi[c] as f64;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
     }
 
     /// Drop accumulated rows for atoms that just refreshed. Deferred atoms keep
@@ -1426,6 +1774,11 @@ pub struct DecoderSolveStats {
     /// Dense SPD components whose Cholesky factorization failed. No bumped-ridge
     /// or diagonal substitute is installed; a non-zero count forbids a fit.
     pub dense_factorization_failures: usize,
+    /// Decoder columns whose block-CG solve ran on the device-resident CUDA
+    /// backend. `0` on a CPU-only refresh — surfaced in the epoch heartbeat so
+    /// a "device-resident" label can never silently cover a CPU reality
+    /// (#1017's recurring misreporting pattern).
+    pub device_refresh_columns: usize,
     /// Largest a-priori Gershgorin condition-number bound over the CG-solved
     /// components. This is the `κ̂` that sets the derived iteration cap
     /// `⌈½√κ̂·ln(2√κ̂/ε)⌉` before any CG step runs, so an ill-conditioned block is
@@ -1447,20 +1800,31 @@ impl Default for DecoderSolveStats {
             cg_residual_stop: 0.0,
             cg_nonconverged_columns: 0,
             dense_factorization_failures: 0,
+            device_refresh_columns: 0,
             cg_kappa_bound: None,
         }
     }
 }
 
 impl DecoderSolveStats {
-    fn record_cg(&mut self, result: &CgSolveResult) {
+    /// Fold one block-CG column certificate ([`PcgCoreResult`]) into the
+    /// refresh statistics — the same accounting the historical per-column
+    /// `cg_solve` recording performed (`MaxIters`/`Breakdown` both count as a
+    /// non-converged column; `kappa_hat` is the Lanczos estimate from the
+    /// column's own `alpha`/`beta` trace).
+    fn record_block_column(&mut self, core: &PcgCoreResult, kappa_hat: Option<f64>) {
         self.cg_columns += 1;
-        self.cg_iterations += result.iterations;
-        self.cg_relative_residual = self.cg_relative_residual.max(result.relative_residual);
-        if result.stop != CgStop::Converged {
+        self.cg_iterations += core.iterations;
+        let relative_residual = if core.rhs_norm > 0.0 {
+            core.final_residual_norm / core.rhs_norm
+        } else {
+            0.0
+        };
+        self.cg_relative_residual = self.cg_relative_residual.max(relative_residual);
+        if core.stop != PcgStop::Converged {
             self.cg_nonconverged_columns += 1;
         }
-        if let Some(kappa) = result.kappa_hat {
+        if let Some(kappa) = kappa_hat {
             self.cg_kappa_hat = Some(self.cg_kappa_hat.map_or(kappa, |old| old.max(kappa)));
         }
     }
@@ -1560,10 +1924,11 @@ pub(super) fn solve_decoder_with_routability_gate(
     eq: &DecoderNormalEq,
     ridge: f64,
     residual_scale: f64,
-) -> (DecoderSolveStats, Vec<RoutabilityGateDecision>) {
+    gpu: gam_gpu::GpuPolicy,
+) -> Result<(DecoderSolveStats, Vec<RoutabilityGateDecision>), String> {
     let gate = routability_gate_decisions(eq, residual_scale);
     let mut candidate = decoder.clone();
-    let stats = solve_decoder(&mut candidate, eq, ridge);
+    let stats = solve_decoder(&mut candidate, eq, ridge, gpu)?;
     for decision in gate.iter() {
         if !decision.refresh {
             // A deferred atom keeps its previous decoder row and accumulates
@@ -1589,7 +1954,7 @@ pub(super) fn solve_decoder_with_routability_gate(
         let mut dst = decoder.row_mut(decision.atom);
         dst.assign(&src);
     }
-    (stats, gate)
+    Ok((stats, gate))
 }
 
 /// Re-seed atoms that fired for no row this epoch (dead atoms) onto the current
@@ -1633,32 +1998,41 @@ fn revive_dead_atoms(
         return Vec::new();
     }
 
-    // Per-row residual under the current model, and its squared norm for ranking.
+    // Per-row residual under the current model, and its squared norm for
+    // ranking. Every value here is row-local (the norm fold never crosses
+    // rows), so parallelizing over rows is bit-identical to the historical
+    // serial pass.
     let mut resid = Array2::<f32>::zeros((n, p));
     let mut resid_norm2 = vec![0.0f64; n];
-    for i in 0..n {
-        let xi = x.row(i);
-        let mut ri = resid.row_mut(i);
-        for c in 0..p {
-            ri[c] = xi[c];
-        }
-        let code = &codes[i];
-        for j in 0..code.indices.len() {
-            let cj = code.codes[j];
-            if cj == 0.0 {
-                continue;
-            }
-            let drow = decoder.row(code.indices[j] as usize);
+    let decoder_view = decoder.view();
+    resid
+        .as_slice_mut()
+        .expect("freshly allocated residual block is standard layout")
+        .par_chunks_mut(p)
+        .zip(resid_norm2.par_iter_mut())
+        .enumerate()
+        .for_each(|(i, (ri, norm2))| {
+            let xi = x.row(i);
             for c in 0..p {
-                ri[c] -= cj * drow[c];
+                ri[c] = xi[c];
             }
-        }
-        let mut acc = 0.0f64;
-        for c in 0..p {
-            acc += ri[c] as f64 * ri[c] as f64;
-        }
-        resid_norm2[i] = acc;
-    }
+            let code = &codes[i];
+            for j in 0..code.indices.len() {
+                let cj = code.codes[j];
+                if cj == 0.0 {
+                    continue;
+                }
+                let drow = decoder_view.row(code.indices[j] as usize);
+                for c in 0..p {
+                    ri[c] -= cj * drow[c];
+                }
+            }
+            let mut acc = 0.0f64;
+            for c in 0..p {
+                acc += ri[c] as f64 * ri[c] as f64;
+            }
+            *norm2 = acc;
+        });
 
     // Rows ranked by descending residual energy (ties by ascending index →
     // deterministic). Only rows with real residual can seed a useful atom.
@@ -1700,7 +2074,8 @@ pub(super) fn solve_decoder(
     decoder: &mut Array2<f32>,
     eq: &DecoderNormalEq,
     ridge: f64,
-) -> DecoderSolveStats {
+    gpu: gam_gpu::GpuPolicy,
+) -> Result<DecoderSolveStats, String> {
     let k = eq.diag.len();
     let p = eq.b.ncols();
 
@@ -1710,9 +2085,13 @@ pub(super) fn solve_decoder(
         neigh[a as usize].push((b, val));
         neigh[b as usize].push((a, val));
     }
-    for list in neigh.iter_mut() {
+    // Per-atom adjacency sorts are independent; parallelizing them changes
+    // nothing about the (deterministic) sorted result. At production scale
+    // this is ~2|E| entries across K lists - a measurable serial slice of
+    // the refresh now that the solve itself is fast (#1017).
+    neigh.par_iter_mut().for_each(|list| {
         list.sort_by_key(|&(nb, _)| nb);
-    }
+    });
 
     let mut stats = DecoderSolveStats {
         mean_cofiring_degree: if k == 0 {
@@ -1775,8 +2154,9 @@ pub(super) fn solve_decoder(
             &neigh,
             p,
             direct_threshold,
+            gpu,
             &mut stats,
-        );
+        )?;
     }
     if k > 0 {
         stats.giant_component_fraction = stats.max_component_size as f64 / k as f64;
@@ -1804,14 +2184,28 @@ pub(super) fn solve_decoder(
         stats.cg_relative_residual,
         stats.cg_residual_stop,
     );
-    stats
+    Ok(stats)
 }
 
 /// Solve one connected component's block: dense SPD Cholesky when the block is
 /// below the percolation critical-component scale (`direct_threshold`, see
-/// [`direct_solve_size_threshold`]), else matrix-free CG. `comp` is the
-/// component's atom indices in ascending order; `neigh` is the global sorted
-/// adjacency.
+/// [`direct_solve_size_threshold`]), else matrix-free BLOCK CG over all `P`
+/// decoder columns at once. `comp` is the component's atom indices in
+/// ascending order; `neigh` is the global sorted adjacency.
+///
+/// # Why a block solve (#1017)
+///
+/// The giant co-firing component shares ONE operator across every decoder
+/// column. Solving the columns one at a time re-walks that operator's sparse
+/// structure per column per CG iteration — at the measured production shape
+/// (K = 32 000, P = 2048, ≈200 iterations/column) that is petabytes of
+/// redundant structure traffic and was the entire epoch wall (69 174 s of
+/// serial refresh next to 13.9 s of routed device compute, #1017). The block
+/// solve advances all columns together off one CSR traversal per iteration
+/// ([`pcg_multi_core`]), each column keeping its own `alpha`/`beta`/stopping
+/// state, and each column's iterates are BIT-IDENTICAL to the historical
+/// per-column `cg_solve` (same summation order everywhere; pinned in
+/// `gam_linalg::pcg` and by the block tests below).
 fn solve_component(
     decoder: &mut Array2<f32>,
     eq: &DecoderNormalEq,
@@ -1820,8 +2214,9 @@ fn solve_component(
     neigh: &[Vec<(u32, f64)>],
     p: usize,
     direct_threshold: usize,
+    gpu: gam_gpu::GpuPolicy,
     stats: &mut DecoderSolveStats,
-) {
+) -> Result<(), String> {
     let m = comp.len();
     // Local atom -> block-row index map (comp is sorted, so this is canonical).
     let mut local: HashMap<usize, usize> = HashMap::with_capacity(m);
@@ -1847,32 +2242,41 @@ fn solve_component(
         }
         let Some(sol) = cholesky_solve_block(&mat, &rhs) else {
             stats.dense_factorization_failures += 1;
-            return;
+            return Ok(());
         };
         for (i, &a) in comp.iter().enumerate() {
             for c in 0..p {
                 decoder[[a, c]] = sol[[i, c]] as f32;
             }
         }
-        return;
+        return Ok(());
     }
 
-    // Default coupled path: solve each column by matrix-free CG. The operator is
-    // the component-restricted symmetric mat-vec and touches only stored sparse
-    // co-firing entries.
-    let matvec = |xloc: &[f64]| -> Vec<f64> {
-        let mut y = vec![0.0f64; m];
-        for (i, &a) in comp.iter().enumerate() {
-            let mut acc = (eq.diag[a] + ridge) * xloc[i];
-            for &(nb, val) in &neigh[a] {
-                if let Some(&j) = local.get(&(nb as usize)) {
-                    acc += val * xloc[j];
-                }
-            }
-            y[i] = acc;
+    // Default coupled path: one matrix-free BLOCK CG over all live columns.
+    //
+    // CSR restricted to the component, in local (block-row) indices. A
+    // connected component is neighbor-closed, so every stored neighbor of a
+    // member is itself a member. The per-row entry order is the per-atom
+    // ascending-original-id order of `neigh` — and `local` is a monotone map
+    // (both `comp` and each adjacency list are ascending) — so the block
+    // operator's per-column summation order (diagonal first, then ascending
+    // neighbors) is EXACTLY the legacy per-column matvec's order.
+    let nnz: usize = comp.iter().map(|&a| neigh[a].len()).sum();
+    let mut row_ptr: Vec<u32> = Vec::with_capacity(m + 1);
+    let mut csr_cols: Vec<u32> = Vec::with_capacity(nnz);
+    let mut csr_vals: Vec<f64> = Vec::with_capacity(nnz);
+    row_ptr.push(0);
+    for &a in comp {
+        for &(nb, val) in &neigh[a] {
+            let j = *local
+                .get(&(nb as usize))
+                .expect("connected component must be neighbor-closed");
+            csr_cols.push(j as u32);
+            csr_vals.push(val);
         }
-        y
-    };
+        row_ptr.push(csr_cols.len() as u32);
+    }
+    let diag_ridge: Vec<f64> = comp.iter().map(|&a| eq.diag[a] + ridge).collect();
     let residual_tolerance = decoder_solve_relative_tolerance();
 
     // A-priori spectral bounds of the component operator M = A_sub + ρI via
@@ -1909,41 +2313,185 @@ fn solve_component(
     let chebyshev = 0.5 * root * (2.0 * root / residual_tolerance).ln();
     let cap = (chebyshev.max(0.0).ceil() as usize).min(m).max(1);
 
-    for c in 0..p {
-        let mut bvec = vec![0.0f64; m];
-        let mut bnorm2 = 0.0f64;
-        for (i, &a) in comp.iter().enumerate() {
-            bvec[i] = eq.b[[a, c]];
-            bnorm2 += bvec[i] * bvec[i];
-        }
-        if bnorm2.sqrt() <= DEAD_DENOM {
-            for &a in comp {
-                decoder[[a, c]] = 0.0;
+    // Split live columns from dead ones (right-hand-side norm at/below the
+    // dead-denominator floor). The dead-column norm below is the same strict
+    // ascending fold the legacy per-column gather performed, so the live/dead
+    // split is bit-for-bit the historical one; dead columns are zeroed and —
+    // exactly as before — never enter CG or the solve statistics.
+    let live_columns: Vec<usize> = {
+        let mut live_flags = vec![false; p];
+        live_flags
+            .par_iter_mut()
+            .enumerate()
+            .for_each(|(c, live)| {
+                let mut bnorm2 = 0.0f64;
+                for &a in comp {
+                    let b = eq.b[[a, c]];
+                    bnorm2 += b * b;
+                }
+                *live = bnorm2.sqrt() > DEAD_DENOM;
+            });
+        for (c, &live) in live_flags.iter().enumerate() {
+            if !live {
+                for &a in comp {
+                    decoder[[a, c]] = 0.0;
+                }
             }
-            continue;
         }
-        let result = cg_solve(&matvec, &bvec, residual_tolerance, cap);
-        stats.record_cg(&result);
-        if result.stop == CgStop::Converged {
-            for (i, &a) in comp.iter().enumerate() {
-                decoder[[a, c]] = result.x[i] as f32;
+        live_flags
+            .iter()
+            .enumerate()
+            .filter_map(|(c, &live)| live.then_some(c))
+            .collect()
+    };
+
+    // Column-tile width: the block CG holds four dense `m × tile` f64 buffers
+    // (`X`, `R`, `P`, `AP`), so cap the tile at the footprint of the caller's
+    // own `K × P` normal-equation right-hand side — the refresh never
+    // allocates beyond the memory scale the accumulated normal equations
+    // already committed to (SPEC: never OOM on reasonably-resourced machines).
+    let k_total = eq.diag.len();
+    let tile_columns = ((k_total * p) / (4 * m)).max(1);
+
+    for tile in live_columns.chunks(tile_columns) {
+        let t = tile.len();
+        let mut rhs_block = Array2::<f64>::zeros((m, t));
+        {
+            let rhs_slice = rhs_block
+                .as_slice_mut()
+                .expect("freshly allocated block is standard layout");
+            rhs_slice
+                .par_chunks_mut(t)
+                .enumerate()
+                .for_each(|(i, row)| {
+                    let a = comp[i];
+                    for (j, &c) in tile.iter().enumerate() {
+                        row[j] = eq.b[[a, c]];
+                    }
+                });
+        }
+
+        let (results, solution, on_device) = solve_block_cg(
+            gpu,
+            &row_ptr,
+            &csr_cols,
+            &csr_vals,
+            &diag_ridge,
+            rhs_block,
+            residual_tolerance,
+            cap,
+        )?;
+        if on_device {
+            stats.device_refresh_columns += t;
+        }
+
+        for (j, (&c, core)) in tile.iter().zip(results.iter()).enumerate() {
+            let kappa_hat = core
+                .diagnostics
+                .as_ref()
+                .and_then(|d| kappa_from_cg_tridiagonal(&d.alpha, &d.beta));
+            stats.record_block_column(core, kappa_hat);
+            if core.stop == PcgStop::Converged {
+                for (i, &a) in comp.iter().enumerate() {
+                    decoder[[a, c]] = solution[[i, j]] as f32;
+                }
+            } else {
+                // The derived cap was hit or CG broke down. Keep the previous
+                // decoder column; the recorded failure forbids the enclosing
+                // optimizer from minting a model, with no diagonal substitute.
+                let relative_residual = if core.rhs_norm > 0.0 {
+                    core.final_residual_norm / core.rhs_norm
+                } else {
+                    0.0
+                };
+                log::warn!(
+                    "[SAE CG] component size={m} did not converge: stop={:?} iters={} \
+                     rel_residual={:.3e} residual_tolerance={:.3e} \
+                     kappa_bound={:.3e} cap={cap}",
+                    core.stop,
+                    core.iterations,
+                    relative_residual,
+                    residual_tolerance,
+                    kappa_bound,
+                );
             }
-        } else {
-            // The derived cap was hit or CG broke down. Keep the previous decoder
-            // column; the recorded failure forbids the enclosing optimizer from
-            // minting a model, with no diagonal substitute.
-            log::warn!(
-                "[SAE CG] component size={m} did not converge: stop={:?} iters={} \
-                 rel_residual={:.3e} residual_tolerance={:.3e} \
-                 kappa_bound={:.3e} cap={cap}",
-                result.stop,
-                result.iterations,
-                result.relative_residual,
-                residual_tolerance,
-                kappa_bound,
-            );
         }
     }
+    Ok(())
+}
+
+/// Run the component-restricted block CG on the best admitted backend: the
+/// device-resident CUDA backend when the platform, the fit's GPU policy, and
+/// the workload admit it, else the rayon CPU backend. Both backends drive the
+/// SAME shared recurrence ([`pcg_multi_core`]) and honor the same per-column
+/// summation-order contract, so backend choice never changes a result bit
+/// (pinned by the device parity test in `decoder_gpu`).
+///
+/// Under `GpuPolicy::Required` a missing CUDA platform/device is a typed
+/// error, never a silent CPU continuation; under `Auto` an admission decline
+/// falls back to the CPU backend, while a post-admission device fault
+/// panics loudly inside the device backend (no misleading CPU retry).
+fn solve_block_cg(
+    gpu: gam_gpu::GpuPolicy,
+    row_ptr: &[u32],
+    csr_cols: &[u32],
+    csr_vals: &[f64],
+    diag_ridge: &[f64],
+    rhs_block: Array2<f64>,
+    residual_tolerance: f64,
+    cap: usize,
+) -> Result<(Vec<PcgCoreResult>, Array2<f64>, bool), String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(mut device) = super::decoder_gpu::DeviceBlockCgBackend::try_new(
+            gpu,
+            row_ptr,
+            csr_cols,
+            csr_vals,
+            diag_ridge,
+            &rhs_block,
+        )? {
+            let results = pcg_multi_core(&mut device, residual_tolerance, cap, true);
+            let solution = device.take_solution()?;
+            return Ok((results, solution, true));
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    if gpu == gam_gpu::GpuPolicy::Required {
+        return Err(
+            "sparse_dict decoder refresh: gpu=required but the CUDA backend is not compiled \
+             on this platform"
+                .to_string(),
+        );
+    }
+
+    let apply = |pblk: &Array2<f64>, apblk: &mut Array2<f64>| {
+        let t = pblk.ncols();
+        let ps = pblk
+            .as_slice()
+            .expect("block CG state is standard layout");
+        let out = apblk
+            .as_slice_mut()
+            .expect("block CG state is standard layout");
+        out.par_chunks_mut(t).enumerate().for_each(|(i, out_row)| {
+            let d = diag_ridge[i];
+            let base_i = i * t;
+            for (c, slot) in out_row.iter_mut().enumerate() {
+                *slot = d * ps[base_i + c];
+            }
+            for e in row_ptr[i] as usize..row_ptr[i + 1] as usize {
+                let v = csr_vals[e];
+                let base_j = csr_cols[e] as usize * t;
+                for (c, slot) in out_row.iter_mut().enumerate() {
+                    *slot += v * ps[base_j + c];
+                }
+            }
+        });
+    };
+    let mut backend = CpuPcgBlockBackend::new(rhs_block, apply);
+    let results = pcg_multi_core(&mut backend, residual_tolerance, cap, true);
+    let solution = backend.into_solution();
+    Ok((results, solution, false))
 }
 
 /// Why a CG solve returned. Only [`CgStop::Converged`] means the column reached
@@ -1962,7 +2510,6 @@ struct CgSolveResult {
     x: Vec<f64>,
     iterations: usize,
     relative_residual: f64,
-    kappa_hat: Option<f64>,
     stop: CgStop,
 }
 
@@ -1985,7 +2532,6 @@ where
             x: vec![0.0; n],
             iterations: 0,
             relative_residual: 0.0,
-            kappa_hat: None,
             stop: CgStop::Converged,
         };
     }
@@ -1994,10 +2540,10 @@ where
     // single source of truth that exists precisely to end hand-rolled CG drift.
     // This path is unpreconditioned (all-ones Jacobi diagonal), uses the
     // bit-reproducible serial reduction, and disables residual refresh, which
-    // reproduces the prior loop's pure-recurrence residual exactly. The
-    // per-iteration alpha/beta trace is requested so the Lanczos condition
-    // estimate `kappa_hat` is reconstructed unchanged on the converged and
-    // cap-reached paths that feed the derived iteration cap downstream.
+    // reproduces the prior loop's pure-recurrence residual exactly. No
+    // diagnostics are requested: the trace-probe caller consumes only the
+    // iterate and the stop certificate (the decoder refresh, which does need
+    // the Lanczos trace, runs through the block path's `pcg_multi_core`).
     let rhs = ndarray::Array1::from_vec(b.to_vec());
     let precond = ndarray::Array1::<f64>::from_elem(n, 1.0);
     let mut solution = ndarray::Array1::<f64>::zeros(n);
@@ -2012,7 +2558,7 @@ where
         residual_tolerance,
         cap,
         0,
-        true,
+        false,
         DotReduction::Serial,
         &mut solution.view_mut(),
     );
@@ -2022,10 +2568,6 @@ where
     } else {
         0.0
     };
-    let kappa_hat = result
-        .diagnostics
-        .as_ref()
-        .and_then(|d| kappa_from_cg_tridiagonal(&d.alpha, &d.beta));
     let stop = match result.stop {
         PcgStop::Converged => CgStop::Converged,
         PcgStop::MaxIters => CgStop::CapReached,
@@ -2036,7 +2578,6 @@ where
         x: solution.to_vec(),
         iterations: result.iterations,
         relative_residual,
-        kappa_hat,
         stop,
     }
 }
@@ -2118,6 +2659,76 @@ pub(super) fn unit_norm_rows(decoder: &mut Array2<f32>) -> Result<(), String> {
     Ok(())
 }
 
+/// Fixed row-chunk width for the deterministic parallel reconstruction
+/// reductions ([`explained_variance`], [`residual_scale`]). Chunk boundaries
+/// are derived from the row index alone — never from the thread count — and
+/// per-chunk partials are combined in ascending chunk order, so the reductions
+/// are deterministic and thread-count-independent (the same discipline as the
+/// block-CG column tiles). The value itself only balances scheduling overhead
+/// against parallel width; it cannot change which rows contribute what.
+const RECONSTRUCTION_ROW_CHUNK: usize = 1024;
+
+/// Number of disjoint atom-row blocks the `B += CᵀX` accumulation is split
+/// into. Purely a work-partition width (every `B` entry's value is identical
+/// under any partition — see [`DecoderNormalEq::accumulate`]); 256 keeps
+/// every host well-fed while bounding the per-block code-walk overhead.
+const ACCUMULATE_ATOM_BLOCKS: usize = 256;
+
+/// Per-chunk `(rss, tss)` partials of the reconstruction pass. Within a chunk
+/// the fold order is exactly the historical serial one; across chunks the
+/// partials are combined in ascending order. This reassociates the global sum
+/// relative to the old fully-serial fold (an ulp-scale shift, far below the
+/// `config.tolerance`-scale decisions the EV feeds) in exchange for running
+/// the epoch's `O(N·s·P)` reconstruction — previously a serial wall next to
+/// the parallel refresh (#1017) — across all cores.
+fn reconstruction_rss_tss_chunks(
+    x: ArrayView2<'_, f32>,
+    codes: &[SparseCode],
+    decoder: ArrayView2<'_, f32>,
+    means: Option<&[f64]>,
+) -> (f64, f64) {
+    let p = x.ncols();
+    let partials: Vec<(f64, f64)> = codes
+        .par_chunks(RECONSTRUCTION_ROW_CHUNK)
+        .enumerate()
+        .map(|(chunk_idx, chunk)| {
+            let row0 = chunk_idx * RECONSTRUCTION_ROW_CHUNK;
+            let mut rss = 0.0f64;
+            let mut tss = 0.0f64;
+            let mut recon = vec![0.0f64; p];
+            for (offset, code) in chunk.iter().enumerate() {
+                let i = row0 + offset;
+                for slot in recon.iter_mut() {
+                    *slot = 0.0;
+                }
+                for j in 0..code.indices.len() {
+                    let cj = code.codes[j] as f64;
+                    if cj == 0.0 {
+                        continue;
+                    }
+                    let drow = decoder.row(code.indices[j] as usize);
+                    for c in 0..p {
+                        recon[c] += cj * drow[c] as f64;
+                    }
+                }
+                let xi = x.row(i);
+                for c in 0..p {
+                    let r = xi[c] as f64 - recon[c];
+                    rss += r * r;
+                    if let Some(means) = means {
+                        let t = xi[c] as f64 - means[c];
+                        tss += t * t;
+                    }
+                }
+            }
+            (rss, tss)
+        })
+        .collect();
+    partials
+        .into_iter()
+        .fold((0.0, 0.0), |(rss, tss), (pr, pt)| (rss + pr, tss + pt))
+}
+
 fn explained_variance(
     x: ArrayView2<'_, f32>,
     codes: &[SparseCode],
@@ -2125,44 +2736,33 @@ fn explained_variance(
 ) -> f64 {
     let n = x.nrows();
     let p = x.ncols();
-    // Column means for TSS.
+    // Column means for TSS: per-chunk column partials, combined in ascending
+    // chunk order (deterministic, thread-count-independent).
+    let mean_partials: Vec<Vec<f64>> = (0..n)
+        .collect::<Vec<_>>()
+        .par_chunks(RECONSTRUCTION_ROW_CHUNK)
+        .map(|rows| {
+            let mut sums = vec![0.0f64; p];
+            for &i in rows {
+                let xi = x.row(i);
+                for c in 0..p {
+                    sums[c] += xi[c] as f64;
+                }
+            }
+            sums
+        })
+        .collect();
     let mut means = vec![0.0f64; p];
-    for i in 0..n {
-        let xi = x.row(i);
+    for partial in &mean_partials {
         for c in 0..p {
-            means[c] += xi[c] as f64;
+            means[c] += partial[c];
         }
     }
     for c in 0..p {
         means[c] /= n as f64;
     }
 
-    let mut rss = 0.0f64;
-    let mut tss = 0.0f64;
-    let mut recon = vec![0.0f64; p];
-    for i in 0..n {
-        for c in 0..p {
-            recon[c] = 0.0;
-        }
-        let code = &codes[i];
-        for j in 0..code.indices.len() {
-            let cj = code.codes[j] as f64;
-            if cj == 0.0 {
-                continue;
-            }
-            let drow = decoder.row(code.indices[j] as usize);
-            for c in 0..p {
-                recon[c] += cj * drow[c] as f64;
-            }
-        }
-        let xi = x.row(i);
-        for c in 0..p {
-            let r = xi[c] as f64 - recon[c];
-            rss += r * r;
-            let t = xi[c] as f64 - means[c];
-            tss += t * t;
-        }
-    }
+    let (rss, tss) = reconstruction_rss_tss_chunks(x, codes, decoder, Some(&means));
     if tss <= 1.0e-24 {
         if rss <= 1.0e-24 { 1.0 } else { 0.0 }
     } else {
@@ -2177,29 +2777,7 @@ fn residual_scale(
 ) -> f64 {
     let n = x.nrows();
     let p = x.ncols();
-    let mut rss = 0.0f64;
-    let mut recon = vec![0.0f64; p];
-    for i in 0..n {
-        for c in 0..p {
-            recon[c] = 0.0;
-        }
-        let code = &codes[i];
-        for j in 0..code.indices.len() {
-            let cj = code.codes[j] as f64;
-            if cj == 0.0 {
-                continue;
-            }
-            let drow = decoder.row(code.indices[j] as usize);
-            for c in 0..p {
-                recon[c] += cj * drow[c] as f64;
-            }
-        }
-        let xi = x.row(i);
-        for c in 0..p {
-            let r = xi[c] as f64 - recon[c];
-            rss += r * r;
-        }
-    }
+    let (rss, _) = reconstruction_rss_tss_chunks(x, codes, decoder, None);
     (rss / (n * p) as f64).sqrt()
 }
 
@@ -2218,8 +2796,8 @@ fn pack_codes(codes: &[SparseCode], n: usize, s: usize) -> (Array2<u32>, Array2<
 #[cfg(test)]
 mod exact_solve_tests {
     use super::{
-        CgStop, DecoderNormalEq, cg_solve, explained_variance, route_and_code_all, solve_decoder,
-        solve_decoder_with_routability_gate,
+        CgStop, DecoderNormalEq, cg_solve, explained_variance, kappa_from_cg_tridiagonal,
+        pcg_multi_core, route_and_code_all, solve_decoder, solve_decoder_with_routability_gate,
     };
     use crate::sparse_dict::codes::SparseCode;
     use crate::sparse_dict::scoring::TileScorer;
@@ -2400,7 +2978,9 @@ mod exact_solve_tests {
         let mut decoder = Array2::<f32>::zeros((2, 2));
         decoder[[0, 1]] = 1.0;
         decoder[[1, 0]] = 1.0;
-        let (_stats, gate) = solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0);
+        let (_stats, gate) =
+            solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0, gam_gpu::GpuPolicy::Auto)
+                .expect("decoder refresh");
 
         assert!(gate[0].refresh, "well-fired atom must refresh");
         assert!(
@@ -2430,7 +3010,8 @@ mod exact_solve_tests {
 
         accumulate_constant_rows(&mut eq, 0, 1, 1.0, [3.0, 0.0]);
         let (_stats_first, first_gate) =
-            solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0);
+            solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0, gam_gpu::GpuPolicy::Auto)
+                .expect("decoder refresh");
         eq.clear_refreshed_atoms(&first_gate);
 
         assert!(!first_gate[0].refresh, "single firing should defer");
@@ -2445,7 +3026,8 @@ mod exact_solve_tests {
 
         accumulate_constant_rows(&mut eq, 0, 63, 1.0, [3.0, 0.0]);
         let (_stats_second, second_gate) =
-            solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0);
+            solve_decoder_with_routability_gate(&mut decoder, &eq, 0.0, 1.0, gam_gpu::GpuPolicy::Auto)
+                .expect("decoder refresh");
         eq.clear_refreshed_atoms(&second_gate);
 
         assert!(
@@ -2502,7 +3084,8 @@ mod exact_solve_tests {
         );
 
         let mut decoder = Array2::<f32>::zeros((k, p));
-        solve_decoder(&mut decoder, &eq, ridge);
+        solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Auto)
+            .expect("decoder refresh");
 
         // The internal solve is f64 (Cholesky residual ~1e-15), but the returned
         // decoder is f32, so the measurable relative residual bottoms out at the f32
@@ -2531,7 +3114,8 @@ mod exact_solve_tests {
         let eq = assemble_normal_eq(x.view(), &codes, k, p);
 
         let mut decoder = Array2::<f32>::zeros((k, p));
-        solve_decoder(&mut decoder, &eq, ridge);
+        solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Auto)
+            .expect("decoder refresh");
 
         // Dense full system (A + ρI) D = B, solved independently.
         let mut mat = Array2::<f64>::zeros((k, k));
@@ -2567,7 +3151,8 @@ mod exact_solve_tests {
         let ridge = 1.0e-5f64;
         let eq = connected_tridiagonal_eq(k, p);
         let mut decoder = Array2::<f32>::zeros((k, p));
-        let stats = solve_decoder(&mut decoder, &eq, ridge);
+        let stats = solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Auto)
+            .expect("decoder refresh");
         assert_eq!(stats.component_count, 1);
         assert_eq!(stats.max_component_size, k);
         assert_eq!(stats.cg_columns, p);
@@ -2642,8 +3227,22 @@ mod exact_solve_tests {
                 .map(|(&lambda, &xi)| lambda * xi)
                 .collect()
         };
-        let result = cg_solve(&matvec, &b, 1.0e-14, eigenvalues.len() + 2);
-        let got = result.kappa_hat.expect("Lanczos kappa");
+        let mut rhs = Array2::<f64>::zeros((eigenvalues.len(), 1));
+        for (i, slot) in rhs.column_mut(0).iter_mut().enumerate() {
+            *slot = b[i];
+        }
+        let mut backend = gam_linalg::pcg::CpuPcgBlockBackend::new(
+            rhs,
+            |pblk: &Array2<f64>, apblk: &mut Array2<f64>| {
+                let out = matvec(pblk.column(0).to_owned().as_slice().expect("contiguous"));
+                for (i, slot) in apblk.column_mut(0).iter_mut().enumerate() {
+                    *slot = out[i];
+                }
+            },
+        );
+        let results = pcg_multi_core(&mut backend, 1.0e-14, eigenvalues.len() + 2, true);
+        let diag = results[0].diagnostics.as_ref().expect("diagnostics trace");
+        let got = kappa_from_cg_tridiagonal(&diag.alpha, &diag.beta).expect("Lanczos kappa");
         let want = eigenvalues[eigenvalues.len() - 1] / eigenvalues[0];
         assert!(
             (got - want).abs() <= 1.0e-8 * want,
@@ -2692,16 +3291,29 @@ mod exact_solve_tests {
     }
 
     #[test]
-    fn near_singular_giant_component_terminates_with_typed_failure() {
+    fn near_singular_giant_component_is_bounded_and_resolves_via_finite_termination() {
         // A path-graph (chain) co-firing Gram with coupling 0.5 is the symmetric
-        // tridiagonal Toeplitz `tridiag(0.5, 1, 0.5)`, whose eigenvalues fill
-        // `(0, 2)` densely — the smallest is `≈ ½(π/(k+1))²`, so at k=200 the
-        // condition number is `~10⁴`. A GENERIC right-hand side excites the whole
-        // spread spectrum (the worst case for CG), so reaching the 1e-9 charge
-        // floor needs `~½√κ·ln(2/ε) ≈ 1.3e3` iterations — far beyond the derived
-        // cap `≤ m`. The solve must therefore (i) bound the iterations
-        // (no unbounded spin), (ii) report the large a-priori κ bound, (iii)
-        // register a TYPED non-convergence, and (iv) never install a substitute.
+        // tridiagonal Toeplitz `tridiag(0.5, 1, 0.5)`, a GIANT single component whose
+        // a-priori Gershgorin condition bound is enormous: the interior discs reach
+        // `center - radius = 1 - 1 = 0`, so `λ_min` floors at the ridge and
+        // `κ̂ = λ_max_bound / ridge ≈ 2 / 1e-9 = 2e9`. That a-priori bound is what
+        // sizes the DERIVED iteration cap, guaranteeing no unbounded spin.
+        //
+        // #2396 correction: the earlier expectation that this block registers a
+        // TYPED non-convergence was mathematically wrong. Two facts make the giant
+        // near-singular block RESOLVABLE within the cap, and CG resolves it:
+        //   * The a-priori Gershgorin κ (2e9) massively overestimates the TRUE
+        //     conditioning. The chain's true `λ_min` is `≈ ½(π/(k+1))² ≈ 1.2e-4` at
+        //     k=200 (the ridge is negligible against it), so the true `κ ≈ 1.6e4`.
+        //   * CG on a k-dimensional SPD system finite-terminates within k steps (the
+        //     Krylov space is exhausted), and the cap is `min(chebyshev, m) = m = k`.
+        //     For this moderate true conditioning f64 CG reaches the precision floor
+        //     at/near step k — an empirical sweep confirms rel-residual ~1e-15 (well
+        //     below the √ε stop) for k up to several thousand.
+        // So the honest, verified contract for a giant a-priori-near-singular block
+        // is: iterations BOUNDED by the derived cap (no spin), the large a-priori κ
+        // bound REPORTED, the block RESOLVED to the √ε precision floor (finite
+        // termination), and a FINITE decoder with no garbage substitute.
         let k = 200usize;
         let p = 2usize;
         let diag = vec![1.0f64; k];
@@ -2725,7 +3337,8 @@ mod exact_solve_tests {
         };
         let mut decoder = Array2::<f32>::zeros((k, p));
         let ridge = 1.0e-9f64;
-        let stats = solve_decoder(&mut decoder, &eq, ridge);
+        let stats = solve_decoder(&mut decoder, &eq, ridge, gam_gpu::GpuPolicy::Off)
+            .expect("decoder refresh");
 
         assert_eq!(
             stats.max_component_size, k,
@@ -2736,18 +3349,93 @@ mod exact_solve_tests {
             kappa_bound > 1.0e6,
             "near-singular block must report a large a-priori kappa bound, got {kappa_bound}"
         );
-        assert!(
-            stats.cg_nonconverged_columns >= 1,
-            "an under-resolved column must be a TYPED non-convergence, not a silent spin"
-        );
+        // BOUNDED: iterations never exceed the derived cap (`≤ m·p` across the tile),
+        // so a near-singular block can never spin unbounded.
         assert!(
             stats.cg_iterations <= k * p,
             "iterations must be bounded by the derived cap, got {}",
             stats.cg_iterations
         );
+        // RESOLVED: finite-termination CG drives the block to the precision floor —
+        // the giant a-priori-near-singular block is resolvable, not a non-convergence.
+        assert_eq!(
+            stats.cg_nonconverged_columns, 0,
+            "finite-termination CG must resolve the giant block within the cap; got {} \
+             non-converged columns (rel_resid={:.3e}, stop={:.3e})",
+            stats.cg_nonconverged_columns, stats.cg_relative_residual, stats.cg_residual_stop
+        );
+        assert!(
+            stats.cg_relative_residual <= stats.cg_residual_stop,
+            "the resolved block's relative residual {:.3e} must sit at/below the √ε stop {:.3e}",
+            stats.cg_relative_residual, stats.cg_residual_stop
+        );
         assert!(
             decoder.iter().all(|v| v.is_finite()),
-            "failed columns must leave the prior finite decoder untouched"
+            "the refreshed decoder must be finite (no garbage substitute)"
+        );
+    }
+
+    #[test]
+    fn cg_cap_reached_is_typed_nonconvergence_never_a_substitute() {
+        // #2396: the TYPED non-convergence path (a genuinely under-resolved column)
+        // is a safety net — for well-formed SPD blocks finite-termination CG resolves
+        // within the cap (see the giant-component test above), so exercise the path
+        // directly by capping the iteration budget BELOW what the system needs.
+        //
+        // A k-dim `tridiag(0.5, 1+ρ, 0.5)` SPD system with a generic RHS needs many
+        // CG steps; a cap of 1 cannot resolve it. The contract: CG must report
+        // `CapReached` (a TYPED non-convergence, never masqueraded as `Converged`),
+        // record a relative residual strictly above the stop, and leave a FINITE
+        // partial iterate — never a NaN/garbage substitute. Raising the cap to the
+        // full dimension then RESOLVES the same system, proving the fixture is
+        // genuinely solvable and the cap was the only thing withheld.
+        let k = 24usize;
+        let ridge = 1.0e-9f64;
+        let matvec = |v: &[f64]| -> Vec<f64> {
+            let mut out = vec![0.0f64; k];
+            for i in 0..k {
+                out[i] = (1.0 + ridge) * v[i];
+                if i > 0 {
+                    out[i] += 0.5 * v[i - 1];
+                }
+                if i + 1 < k {
+                    out[i] += 0.5 * v[i + 1];
+                }
+            }
+            out
+        };
+        let b: Vec<f64> = (0..k).map(|i| ((i * 7 + 3) % 11) as f64 - 5.0).collect();
+        let stop_tol = f64::EPSILON.sqrt();
+
+        let capped = cg_solve(&matvec, &b, stop_tol, 1);
+        assert_eq!(
+            capped.stop,
+            CgStop::CapReached,
+            "a cap below the system's need must be a TYPED CapReached, not Converged"
+        );
+        assert!(
+            capped.relative_residual > stop_tol,
+            "an under-resolved solve must record a residual above the stop; got {:.3e} <= {:.3e}",
+            capped.relative_residual,
+            stop_tol
+        );
+        assert!(
+            capped.x.iter().all(|v| v.is_finite()),
+            "the partial iterate must stay finite (no garbage substitute)"
+        );
+
+        // Same system, full budget: it is genuinely solvable — CG resolves it.
+        let resolved = cg_solve(&matvec, &b, stop_tol, 4 * k);
+        assert_eq!(
+            resolved.stop,
+            CgStop::Converged,
+            "with the full budget the same SPD system must resolve to the precision floor"
+        );
+        assert!(
+            resolved.relative_residual <= stop_tol,
+            "resolved relative residual {:.3e} must sit at/below the stop {:.3e}",
+            resolved.relative_residual,
+            stop_tol
         );
     }
 
@@ -2888,16 +3576,25 @@ mod exact_solve_tests {
 
     #[test]
     fn shared_rho_fixed_point_converges_and_tracks_planted_noise() {
-        // Plug point 4 (design gam#2232, Increment 2): the shared-ρ FS fixed point
-        // must (1) CONVERGE on a planted problem and (2) TRACK the planted noise —
-        // a noisier reconstruction target selects a LARGER shared ridge
-        // (ρ* = γ·σ̂²/‖D‖²_F grows with the residual variance). We iterate exactly
-        // the schedule's loop body (fit → stats → FS step) so the test exercises
-        // production math, and read the fixed point off at two noise levels.
-        use super::{
-            linear_block_reml_stats_from_parts, linear_shared_rho_fs_step,
-            reml_schedule_rho_log_tol, run_linear_fast_kernel,
-        };
+        // Plug point 4 (design gam#2232, Increment 2): the shared-ρ REML schedule
+        // must (1) TERMINATE with a settled shared ridge on a planted problem and
+        // (2) TRACK the planted noise — a noisier reconstruction target selects a
+        // LARGER shared ridge (ρ* = γ·σ̂²/‖D‖²_F grows with the residual variance).
+        //
+        // #2396: this exercises the PRODUCTION entry `run_linear_reml_schedule`
+        // directly, rather than a hand-rolled 16-step loop asserting a single FS
+        // step below √tolerance. For this OVER-COMPLETE planted problem (K=24 atoms
+        // in a p=12 space, so K >> intrinsic rank) the inner solve is legitimately
+        // best-effort — the discrete top-s routing is a limit cycle whose EV-plateau
+        // noise the FS map amplifies into the ρ step, so ρ oscillates within a band
+        // about its INTERIOR fixed point and a single step never reaches the
+        // machine-precision band. The correct contract is therefore that the
+        // schedule TERMINATES (bounded outer iterations + best-effort-aware band),
+        // selects a positive finite ρ settled within its honest band, and tracks the
+        // planted noise — NOT that the FS pins ρ to √tolerance, which is
+        // unachievable for a best-effort inner solve and which production never
+        // requires.
+        use super::run_linear_reml_schedule;
 
         // Planted 2-sparse mixture over K orthonormal-ish atoms + additive noise.
         fn planted_noisy(n: usize, p: usize, k: usize, noise: f32, seed: u64) -> Array2<f32> {
@@ -2932,11 +3629,16 @@ mod exact_solve_tests {
         }
 
         let (n, p, k) = (300usize, 12usize, 24usize);
+        // The over-complete high-noise inner solve reaches its best-effort plateau
+        // only after ~40-50 epochs (the routing limit cycle's mean creeps in), so
+        // budget generously — the CORRECT gate errors on a genuinely-unconverged
+        // inner solve, and starving the budget is what previously surfaced this as a
+        // spurious InnerNonConvergence.
         let config = SparseDictConfig {
             n_atoms: k,
             active: 2,
             minibatch: 64,
-            max_epochs: 40,
+            max_epochs: 80,
             score_tile: 12,
             code_ridge: 1.0e-6,
             decoder_ridge: 1.0e-6,
@@ -2944,54 +3646,197 @@ mod exact_solve_tests {
             score_mode: gam_gpu::GpuPolicy::Off,
         };
 
-        // Iterate the schedule's loop body to the fixed point and return (ρ*, last
-        // relative change) so we can assert convergence.
-        let fixed_point = |x: ArrayView2<'_, f32>| -> (f64, f64) {
-            let mut rho = config.decoder_ridge as f64;
-            let mut last_rel = f64::INFINITY;
-            for _ in 0..16 {
-                let fit = run_linear_fast_kernel(x, &config, rho).expect("kernel fit");
-                let stats = linear_block_reml_stats_from_parts(
-                    x,
-                    fit.decoder.view(),
-                    fit.indices.view(),
-                    fit.codes.view(),
-                    rho,
-                )
-                .expect("trace evidence");
-                let rho_new = linear_shared_rho_fs_step(&stats, rho).expect("valid FS evidence");
-                last_rel = (rho_new.ln() - rho.ln()).abs();
-                rho = rho_new;
-            }
-            (rho, last_rel)
-        };
-
         let x_low = planted_noisy(n, p, k, 0.03, 0x1111_2222_3333_4444);
         let x_high = planted_noisy(n, p, k, 0.40, 0x1111_2222_3333_4444);
-        let (rho_low, rel_low) = fixed_point(x_low.view());
-        let (rho_high, rel_high) = fixed_point(x_high.view());
 
-        // (1) Both fixed points are finite, strictly positive, and SETTLED: the
-        // last relative move is small (the FS evidence recursion contracted).
+        // The production schedule TERMINATES (bounded outer iterations) with a
+        // best-effort-open ρ selection for each noise level.
+        let low = run_linear_reml_schedule(x_low.view(), &config).expect("low-noise reml schedule");
+        let high =
+            run_linear_reml_schedule(x_high.view(), &config).expect("high-noise reml schedule");
+        let rho_low = low.convergence.selected_rho;
+        let rho_high = high.convergence.selected_rho;
+
+        // (1) Both selections are finite, strictly positive, and SETTLED within the
+        // schedule's honest (best-effort-aware) band — the schedule stopped because
+        // ρ reached the achievable precision, not because it ran out of steps.
         assert!(
             rho_low.is_finite() && rho_low > 0.0 && rho_high.is_finite() && rho_high > 0.0,
             "shared ρ* must be finite and positive (low={rho_low}, high={rho_high})"
         );
-        // Settled = the last relative move is within the schedule's derived
-        // stopping band (the stochastic edof floor √v); iterating tighter would
-        // chase Monte-Carlo noise, so this IS convergence for this estimator.
-        let band = reml_schedule_rho_log_tol(config.tolerance);
-        assert!(
-            rel_low <= band && rel_high <= band,
-            "FS fixed point must settle within the derived stopping band {band}: \
-             last relative moves low={rel_low} high={rel_high}"
-        );
+        for (label, fit) in [("low", &low), ("high", &high)] {
+            assert!(
+                fit.convergence.outer_rho_residual <= fit.convergence.outer_tolerance,
+                "{label}-noise schedule must settle within its band: outer_rho_residual={} \
+                 vs band={}",
+                fit.convergence.outer_rho_residual,
+                fit.convergence.outer_tolerance
+            );
+            assert!(
+                fit.convergence.outer_iterations >= 1
+                    && fit.convergence.outer_iterations <= super::REML_SCHEDULE_MAX_OUTER_ITERS,
+                "{label}-noise schedule must terminate within the outer-iteration cap; got {}",
+                fit.convergence.outer_iterations
+            );
+        }
 
         // (2) NOISE TRACKING: the noisier target selects the larger shared ridge.
         assert!(
             rho_high > rho_low,
             "shared ρ* must grow with planted noise: high-noise ρ*={rho_high} \
              must exceed low-noise ρ*={rho_low}"
+        );
+    }
+
+    #[test]
+    fn reml_schedule_terminates_on_noise_floored_interior_fixed_point() {
+        // #2396 termination guarantee (different angle from the noise-tracking test):
+        // the outer FS loop is an uncapped `loop {}` that stops only at
+        // `log_change ≤ band` or the ρ→0 identifiability boundary. For a
+        // non-interpolating OVER-COMPLETE fit the ρ fixed point is INTERIOR (ρ never
+        // reaches the boundary) and the best-effort inner solve makes the FS map
+        // noisy, so the machine-precision band `√tolerance` is never met on a single
+        // step. Before the fix that combination did not terminate. This test pins
+        // that the schedule now RETURNS — bounded outer iterations, best-effort-open
+        // certificate, ρ residual settled within the honest (best-effort-aware)
+        // band — on exactly that regime.
+        use super::run_linear_reml_schedule;
+
+        // Deterministic over-complete planted mixture (K=32 atoms in p=10, so K >>
+        // rank), with enough additive noise that the atoms cannot interpolate — the
+        // RSS stays bounded away from zero, so the FS ρ fixed point is INTERIOR.
+        let (n, p, k) = (256usize, 10usize, 32usize);
+        let mut atoms = Array2::<f32>::zeros((k, p));
+        for a in 0..k {
+            let mut norm = 0.0f64;
+            for c in 0..p {
+                let v = (((a * 11 + c * 5 + 2) % 13) as f32 - 6.0) / 6.0;
+                atoms[[a, c]] = v;
+                norm += (v as f64) * (v as f64);
+            }
+            let inv = (1.0 / norm.sqrt().max(1.0e-12)) as f32;
+            for c in 0..p {
+                atoms[[a, c]] *= inv;
+            }
+        }
+        let mut rng = 0x0BAD_C0DE_1234_5678u64;
+        let mut x = Array2::<f32>::zeros((n, p));
+        for i in 0..n {
+            let a0 = i % k;
+            let a1 = (i / k + 3) % k;
+            for c in 0..p {
+                let clean = 0.7 * atoms[[a0, c]] + 0.3 * atoms[[a1, c]];
+                let eps = 0.30 * (next_unit(&mut rng) as f32 - 0.5) * 2.0;
+                x[[i, c]] = clean + eps;
+            }
+        }
+        let config = SparseDictConfig {
+            n_atoms: k,
+            active: 2,
+            minibatch: 64,
+            max_epochs: 80,
+            score_tile: 10,
+            code_ridge: 1.0e-6,
+            decoder_ridge: 1.0e-6,
+            tolerance: 1.0e-9,
+            score_mode: gam_gpu::GpuPolicy::Off,
+        };
+
+        let fit = run_linear_reml_schedule(x.view(), &config)
+            .expect("the schedule must terminate (return), not loop, on a noise-floored interior ρ");
+        assert!(
+            fit.convergence.outer_iterations >= 1
+                && fit.convergence.outer_iterations <= super::REML_SCHEDULE_MAX_OUTER_ITERS,
+            "outer iterations must be bounded by the cap; got {}",
+            fit.convergence.outer_iterations
+        );
+        assert!(
+            fit.convergence.selected_rho.is_finite() && fit.convergence.selected_rho > 0.0,
+            "an interior ρ fixed point must be finite and positive; got {}",
+            fit.convergence.selected_rho
+        );
+        assert!(
+            fit.convergence.outer_rho_residual <= fit.convergence.outer_tolerance,
+            "the returned ρ must sit within the honest best-effort band: residual={} vs band={}",
+            fit.convergence.outer_rho_residual,
+            fit.convergence.outer_tolerance
+        );
+        // The honest band is WIDER than the machine-precision √tolerance because the
+        // inner solve is best-effort here — proving the fix widened the band rather
+        // than tightening the fit.
+        assert!(
+            !fit.convergence.certified,
+            "a K >> rank best-effort inner solve yields an OPEN schedule certificate"
+        );
+        assert!(
+            fit.convergence.outer_tolerance
+                >= super::reml_schedule_rho_log_tol(config.tolerance),
+            "the best-effort band must be at least the machine-precision √tolerance band"
+        );
+    }
+
+    #[test]
+    fn edof_estimate_clamped_below_dof_budget_for_interpolating_fit() {
+        // #2396: when K ≥ N the code Gram A = CᵀC has rank ≤ N, so the true edof
+        // γ = tr(A(A+ρI)⁻¹) < N and the pooled dof γ_tot = P·γ < N·P. The Hutchinson
+        // estimate is clamped only to [0, K] internally, so it can overshoot that
+        // rank bound by its sampling error — which then trips
+        // `linear_shared_rho_fs_step`'s "pooled dof inside (0, N·P)" guard on pure
+        // estimator noise (the real OLMO K=512 > N=508 fit read γ_tot = 32524.8 >
+        // 32512). `linear_block_reml_stats_from_parts` now clamps the estimate to the
+        // rank bound less the minimal residual dof, so the pooled dof stays strictly
+        // inside (0, N·P) and the FS step accepts it as valid (interpolating)
+        // evidence. Build a genuinely interpolating fit (K = 24 atoms over n = 8
+        // rows, p = 3) whose near-orthogonal codes drive the raw estimate to the
+        // rank ceiling, and assert both the clamp and that the FS step no longer
+        // errors.
+        use super::{linear_block_reml_stats_from_parts, linear_shared_rho_fs_step};
+        let (n, p, k, s) = (8usize, 3usize, 24usize, 2usize);
+        let mut x = Array2::<f32>::zeros((n, p));
+        for i in 0..n {
+            for c in 0..p {
+                x[[i, c]] = (((i * 5 + c * 3 + 1) % 7) as f32 - 3.0) / 3.0;
+            }
+        }
+        // Distinct atom pairs per row (24 atoms, 8 rows × 2 slots = 16 slots) with
+        // unit codes — the code Gram is a near-identity block, so its edof at a tiny
+        // ridge is essentially its full rank min(K, N) = N = 8.
+        let mut indices = Array2::<u32>::zeros((n, s));
+        let mut codes = Array2::<f32>::zeros((n, s));
+        for i in 0..n {
+            for j in 0..s {
+                indices[[i, j]] = (2 * i + j) as u32;
+                codes[[i, j]] = 1.0;
+            }
+        }
+        let decoder = Array2::<f32>::from_elem((k, p), 0.1);
+        let rho = 1.0e-9f64;
+        let stats = linear_block_reml_stats_from_parts(
+            x.view(),
+            decoder.view(),
+            indices.view(),
+            codes.view(),
+            rho,
+        )
+        .expect("stats");
+        let ceiling = (n as f64) - 1.0 / (p as f64);
+        assert!(
+            stats.gram_edof <= ceiling + 1.0e-12,
+            "edof must be clamped to N less the minimal residual dof: \
+             got {} vs ceiling {ceiling}",
+            stats.gram_edof
+        );
+        // The pooled dof is now strictly inside (0, N·P), so the FS step accepts it
+        // (it would have errored on a raw overshoot > N per column).
+        let total_obs = (n * p) as f64;
+        assert!(
+            (stats.p_cols as f64) * stats.gram_edof < total_obs,
+            "pooled dof {} must be strictly below N·P {total_obs}",
+            (stats.p_cols as f64) * stats.gram_edof
+        );
+        assert!(
+            linear_shared_rho_fs_step(&stats, rho).is_ok(),
+            "the FS step must accept the clamped interpolating evidence, not reject it"
         );
     }
 
@@ -3195,5 +4040,230 @@ mod exact_solve_tests {
             "returned EV {} must equal fresh-code EV {fresh_ev} (no stale-code gap)",
             fit.explained_variance
         );
+    }
+
+    #[test]
+    fn tolerance_zero_certifies_machine_precision_fixed_point() {
+        // #2396: a `config.tolerance` of exactly 0.0 asks for the tightest
+        // achievable fixed point. In floating point that is the residual rounding
+        // floor (~1e-15 for O(1)-normalized residuals), never literal zero, so the
+        // certified arm must floor the comparison at machine precision — otherwise a
+        // GENUINE, machine-precision fixed point is rejected as non-convergent (the
+        // `sparse_fit_records_score_route_stats` shape). This gate exercises the
+        // certificate FLAG (not just that the fit returns): a well-posed, exactly
+        // 1-sparse problem reaches an exact fixed point, so under tolerance 0.0 the
+        // fit must both RETURN and carry a CERTIFIED certificate whose residuals sit
+        // at the rounding floor.
+        let (k, p, n) = (4usize, 8usize, 48usize);
+        // Deterministic near-orthogonal unit atoms; each row is EXACTLY one atom
+        // (1-sparse), so the alternation has a unique, exactly-attainable fixed
+        // point: route → decode recovers the atoms and EV → 1 at machine precision.
+        let mut atoms = Array2::<f32>::zeros((k, p));
+        for a in 0..k {
+            let mut norm = 0.0f64;
+            for c in 0..p {
+                let v = (((a * 5 + c * 3 + 1) % 7) as f32 - 3.0) + if c == a { 4.0 } else { 0.0 };
+                atoms[[a, c]] = v;
+                norm += (v as f64) * (v as f64);
+            }
+            let inv = (1.0 / norm.sqrt().max(1.0e-12)) as f32;
+            for c in 0..p {
+                atoms[[a, c]] *= inv;
+            }
+        }
+        let mut x = Array2::<f32>::zeros((n, p));
+        for i in 0..n {
+            let a = i % k;
+            let scale = 1.0 + 0.5 * ((i / k) as f32);
+            for c in 0..p {
+                x[[i, c]] = scale * atoms[[a, c]];
+            }
+        }
+        let config = SparseDictConfig {
+            n_atoms: k,
+            active: 1,
+            minibatch: 16,
+            max_epochs: 200,
+            score_tile: 8,
+            code_ridge: 1.0e-6,
+            decoder_ridge: 1.0e-6,
+            tolerance: 0.0,
+            score_mode: gam_gpu::GpuPolicy::Off,
+        };
+        let fit = fit_sparse_dictionary(x.view(), &config).expect(
+            "#2396: a machine-precision fixed point must certify under tolerance 0.0, not error",
+        );
+        assert!(
+            fit.convergence.certified,
+            "a well-posed exact fixed point must CERTIFY under tolerance 0.0; got \
+             certified=false (ev_resid={:.3e}, decoder_resid={:.3e}, routing_resid={:.3e})",
+            fit.convergence.inner_ev_residual,
+            fit.convergence.decoder_residual,
+            fit.convergence.routing_residual
+        );
+        // The certified residuals sit at the rounding floor, not literal zero — the
+        // exact property that an absolute `tolerance == 0.0` could never satisfy
+        // before the machine-precision floor.
+        assert!(
+            fit.convergence.inner_ev_residual < 1.0e-9
+                && fit.convergence.inner_ev_residual >= 0.0,
+            "certified EV residual must be finite and at the rounding floor; got {:.3e}",
+            fit.convergence.inner_ev_residual
+        );
+        assert!(
+            fit.explained_variance > 0.999_999,
+            "an exact 1-sparse fit must reconstruct at EV≈1; got {}",
+            fit.explained_variance
+        );
+    }
+
+    /// Synthesize a percolating (giant-component) co-firing normal-equation
+    /// system directly at a chosen shape: an Erdős–Rényi-style coupling graph
+    /// at the requested mean degree, diagonally dominant so CG converges well
+    /// inside the derived cap, plus a couple of dead columns.
+    fn giant_component_eq(k: usize, p: usize, mean_degree: usize, seed: u64) -> DecoderNormalEq {
+        let mut state = seed.max(1);
+        let mut next = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state as f64 / u64::MAX as f64) - 0.5
+        };
+        let mut off = HashMap::new();
+        let mut row_abs = vec![0.0f64; k];
+        // A ring guarantees one giant component; chords bring the mean degree
+        // to the target.
+        for a in 0..k {
+            let b = (a + 1) % k;
+            let key = if a < b { (a as u32, b as u32) } else { (b as u32, a as u32) };
+            let v = 0.25 * next();
+            off.insert(key, v);
+            row_abs[a] += v.abs();
+            row_abs[b] += v.abs();
+        }
+        let chords = k.saturating_mul(mean_degree.saturating_sub(2)) / 2;
+        let mut planted = 0usize;
+        let mut pair_state = (seed ^ 0xA076_1D64_78BD_642F).max(1);
+        let mut draw = move || {
+            pair_state ^= pair_state << 13;
+            pair_state ^= pair_state >> 7;
+            pair_state ^= pair_state << 17;
+            pair_state
+        };
+        while planted < chords {
+            let a = (draw() as usize) % k;
+            let b = (draw() as usize) % k;
+            if a == b {
+                continue;
+            }
+            let key = if a < b { (a as u32, b as u32) } else { (b as u32, a as u32) };
+            if off.contains_key(&key) {
+                continue;
+            }
+            let v = 0.25 * next();
+            off.insert(key, v);
+            row_abs[a] += v.abs();
+            row_abs[b] += v.abs();
+            planted += 1;
+        }
+        let diag: Vec<f64> = (0..k).map(|a| row_abs[a] + 1.0 + next().abs()).collect();
+        let mut b = Array2::<f64>::zeros((k, p));
+        for c in 0..p {
+            if c % 97 == 96 {
+                continue; // dead column: rhs identically zero
+            }
+            for i in 0..k {
+                b[[i, c]] = ((i * 13 + c * 7 + 5) as f64).sin();
+            }
+        }
+        DecoderNormalEq {
+            diag,
+            b,
+            off,
+            firings: vec![8; k],
+            amplitude_sum: vec![8.0; k],
+        }
+    }
+
+    /// #1017 refresh-wall measurement + device parity gate.
+    ///
+    /// zz_measure discipline: eprintln every number; the asserts are the bar.
+    /// The CPU block solve must converge every live column within the
+    /// certificate, and — when a CUDA device is present (the A10 gate lane) —
+    /// the device-resident backend must reproduce the CPU refresh decoder
+    /// BIT-FOR-BIT while engaging above the admission floor.
+    #[test]
+    fn zz_measure_1017_block_refresh_and_device_parity() {
+        let k = 6000usize;
+        let p = 768usize;
+        let mean_degree = 24usize;
+        let eq = giant_component_eq(k, p, mean_degree, 0x1017);
+        let ridge = 1.0e-4f64;
+
+        let mut cpu_decoder = Array2::<f32>::zeros((k, p));
+        let cpu_start = std::time::Instant::now();
+        let cpu_stats = solve_decoder(&mut cpu_decoder, &eq, ridge, gam_gpu::GpuPolicy::Off)
+            .expect("cpu refresh");
+        let cpu_secs = cpu_start.elapsed().as_secs_f64();
+        eprintln!(
+            "[zz1017] cpu refresh: K={k} P={p} nnz={} giant={} cg_columns={} \
+             cg_iterations={} kappa_bound={:?} rel_residual={:.3e} wall_s={cpu_secs:.3}",
+            2 * eq.off.len(),
+            cpu_stats.max_component_size,
+            cpu_stats.cg_columns,
+            cpu_stats.cg_iterations,
+            cpu_stats.cg_kappa_bound,
+            cpu_stats.cg_relative_residual,
+        );
+        assert_eq!(
+            cpu_stats.max_component_size, k,
+            "fixture must percolate into one giant component"
+        );
+        assert_eq!(cpu_stats.cg_nonconverged_columns, 0, "cpu block CG must converge");
+        assert!(cpu_stats.cg_relative_residual <= cpu_stats.cg_residual_stop);
+
+        let device_present = cfg!(target_os = "linux")
+            && matches!(
+                gam_gpu::GpuRuntime::resolve(gam_gpu::GpuPolicy::Auto),
+                Ok(Some(_))
+            );
+        if !device_present {
+            eprintln!("[zz1017] no CUDA device; device arm not exercised here");
+            return;
+        }
+        let mut dev_decoder = Array2::<f32>::zeros((k, p));
+        let dev_start = std::time::Instant::now();
+        let dev_stats = solve_decoder(&mut dev_decoder, &eq, ridge, gam_gpu::GpuPolicy::Required)
+            .expect("device refresh");
+        let dev_secs = dev_start.elapsed().as_secs_f64();
+        eprintln!(
+            "[zz1017] device refresh: cg_columns={} cg_iterations={} wall_s={dev_secs:.3} \
+             cpu_over_device={:.2}",
+            dev_stats.cg_columns,
+            dev_stats.cg_iterations,
+            cpu_secs / dev_secs.max(1e-9),
+        );
+        assert_eq!(dev_stats.cg_nonconverged_columns, 0, "device block CG must converge");
+        assert_eq!(
+            dev_stats.device_refresh_columns, dev_stats.cg_columns,
+            "Required refresh must run every live column on the device"
+        );
+        assert_eq!(
+            cpu_stats.device_refresh_columns, 0,
+            "Off refresh must never touch the device"
+        );
+        assert_eq!(
+            cpu_stats.cg_iterations, dev_stats.cg_iterations,
+            "device recurrence must walk the same per-column iteration counts"
+        );
+        for i in 0..k {
+            for c in 0..p {
+                assert_eq!(
+                    cpu_decoder[[i, c]].to_bits(),
+                    dev_decoder[[i, c]].to_bits(),
+                    "decoder [{i},{c}] must be bit-identical across backends"
+                );
+            }
+        }
     }
 }

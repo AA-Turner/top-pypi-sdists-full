@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.8.0
+Version: 2.8.1
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -418,7 +418,7 @@ Requires-Dist: reportlab; extra == "reportlab"
 Provides-Extra: salesforce
 Requires-Dist: simple-salesforce; extra == "salesforce"
 Provides-Extra: scavio
-Requires-Dist: scavio; extra == "scavio"
+Requires-Dist: scavio>=0.4.0; extra == "scavio"
 Provides-Extra: scrapegraph
 Requires-Dist: scrapegraph-py>=2.0.0; extra == "scrapegraph"
 Provides-Extra: seltz

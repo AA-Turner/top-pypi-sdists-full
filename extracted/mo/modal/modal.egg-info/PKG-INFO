@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 1.5.2
+Version: 1.5.3
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
 License-Expression: Apache-2.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ml_goodput_measurement
-Version: 0.2.0
+Version: 0.2.1
 Summary: Package to monitor Goodput, Badput and other metrics of ML workloads.
 Keywords: 
 Author-email: Cloud TPU Team <cloud-tpu-eng@google.com>
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+License-File: LICENSE
 Requires-Dist: google-api-core>=2.24.1
 Requires-Dist: google-cloud-logging>=3.5.0
 Requires-Dist: google-cloud-monitoring>=2.20.0

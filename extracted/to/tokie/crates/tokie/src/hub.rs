@@ -150,6 +150,24 @@ impl Tokenizer {
     ) -> Result<Self, HubError> {
         let repo_id = repo_id.as_ref();
 
+        // Fast path: a fully-local load with zero network round-trips.
+        // If the hub disk cache already has tokenizer.json for this repo, load
+        // the compiled .tkz we stored next to it (~5ms), or compile and store
+        // it now. Network resolution below costs >100ms even fully warm
+        // (etag checks plus a 404 probe for tokenizer.tkz).
+        if options.revision.is_none() {
+            let cache = match &options.cache_dir {
+                Some(dir) => hf_hub::Cache::new(dir.clone()),
+                None => hf_hub::Cache::default(),
+            };
+            let repo = hf_hub::Repo::model(repo_id.to_string());
+            if let Some(local_json) = cache.repo(repo).get("tokenizer.json") {
+                if let Some(tok) = load_or_build_compiled(&local_json) {
+                    return Ok(tok);
+                }
+            }
+        }
+
         // Build the API client
         let mut api_builder = hf_hub::api::sync::ApiBuilder::new();
 
@@ -172,12 +190,18 @@ impl Tokenizer {
 
         let repo_api = api.repo(repo);
 
-        // Try tokenizer.tkz first (faster to load, smaller to download)
+        // Try tokenizer.tkz first (faster to load, smaller to download).
+        // An unreadable .tkz (e.g. produced by a newer format version) falls
+        // through to tokenizer.json instead of failing the whole load — old
+        // clients must keep working when hub artifacts move ahead of them.
         if let Ok(tkz_path) = repo_api.get("tokenizer.tkz") {
-            let mut tokenizer = Self::from_file(tkz_path).map_err(HubError::LoadBinary)?;
-            // .tkz doesn't store added tokens — try to get them from tokenizer.json
-            load_added_tokens_from_json(&mut tokenizer, &repo_api);
-            return Ok(tokenizer);
+            if let Ok(mut tokenizer) = Self::from_file(tkz_path) {
+                // v13+ .tkz stores added tokens; older files need tokenizer.json
+                if !tokenizer.added_tokens_serialized() {
+                    load_added_tokens_from_json(&mut tokenizer, &repo_api);
+                }
+                return Ok(tokenizer);
+            }
         }
 
         // Try pre-built .tkz from tokiers/ org (covers 60+ popular models)
@@ -185,17 +209,103 @@ impl Tokenizer {
             let tokiers_repo = Repo::model(format!("tokiers/{tokiers_name}"));
             let tokiers_api = api.repo(tokiers_repo);
             if let Ok(tkz_path) = tokiers_api.get("tokenizer.tkz") {
-                let mut tokenizer = Self::from_file(tkz_path).map_err(HubError::LoadBinary)?;
-                // Try original repo's tokenizer.json for added tokens
-                load_added_tokens_from_json(&mut tokenizer, &repo_api);
-                return Ok(tokenizer);
+                if let Ok(mut tokenizer) = Self::from_file(tkz_path) {
+                    // v13+ .tkz stores added tokens; older files need tokenizer.json
+                    if !tokenizer.added_tokens_serialized() {
+                        load_added_tokens_from_json(&mut tokenizer, &repo_api);
+                    }
+                    return Ok(tokenizer);
+                }
             }
         }
 
-        // Fall back to tokenizer.json
+        // Fall back to tokenizer.json (and leave a compiled artifact behind so
+        // the next load takes the fast path)
         let tokenizer_path = repo_api.get("tokenizer.json").map_err(HubError::Download)?;
+        if let Some(tok) = load_or_build_compiled(&tokenizer_path) {
+            return Ok(tok);
+        }
         Self::from_json(tokenizer_path).map_err(HubError::Load)
     }
+}
+
+/// Added/special token metadata extracted from tokenizer.json while building
+/// the compiled .tkz.
+#[derive(Default)]
+struct CompiledMeta {
+    added: Vec<crate::tokenizer::AddedTokenSpec>,
+    special: Vec<(String, crate::types::TokenId)>,
+}
+
+/// Basename of the compiled artifact cached next to a downloaded
+/// tokenizer.json. The key must change whenever the artifact contents could:
+/// crate version, .tkz format version, and — for builds from a git checkout —
+/// a hash of this crate's sources (TOKIE_BUILD_DISCRIMINATOR, emitted by
+/// build.rs; empty for crates.io builds, whose version already changes).
+fn compiled_cache_basename() -> String {
+    format!(
+        "tokenizer.compiled-v{}-f{}{}",
+        env!("CARGO_PKG_VERSION"),
+        crate::serde::VERSION,
+        env!("TOKIE_BUILD_DISCRIMINATOR"),
+    )
+}
+
+/// TOKIE_NO_COMPILED_CACHE disables reading and writing compiled artifacts
+/// (loads still work, straight from tokenizer.json). Unset, "" and "0" mean
+/// enabled.
+fn compiled_cache_disabled() -> bool {
+    disables_compiled_cache(std::env::var("TOKIE_NO_COMPILED_CACHE").ok().as_deref())
+}
+
+fn disables_compiled_cache(value: Option<&str>) -> bool {
+    matches!(value, Some(v) if !v.is_empty() && v != "0")
+}
+
+/// Load the compiled cache stored next to `json_path`, or build it from the
+/// json and store it. Returns None if the json can't be loaded (caller falls
+/// back to the network path). Cache writes are best-effort: a read-only cache
+/// dir just means the fast path stays cold.
+fn load_or_build_compiled(json_path: &std::path::Path) -> Option<Tokenizer> {
+    let cache_disabled = compiled_cache_disabled();
+    let tkz = json_path.with_file_name(format!("{}.tkz", compiled_cache_basename()));
+
+    // v13 .tkz is self-contained (added/special tokens included)
+    if !cache_disabled {
+        if let Ok(tok) = Tokenizer::from_file(&tkz) {
+            return Some(tok);
+        }
+    }
+
+    // Build from json; extract added/special tokens from the same parse.
+    let json_bytes = std::fs::read(json_path).ok()?;
+    let mut tok = Tokenizer::from_json(json_path).ok()?;
+    let mut m = CompiledMeta::default();
+    if let Ok(data) = serde_json::from_slice::<serde_json::Value>(&json_bytes) {
+        m.added = crate::hf::extract_added_token_specs(&data);
+        m.special = m
+            .added
+            .iter()
+            .filter(|t| t.special)
+            .filter_map(|t| String::from_utf8(t.bytes.clone()).ok().map(|s| (s, t.id)))
+            .collect();
+    }
+    if !m.added.is_empty() {
+        tok.set_added_tokens(&m.added);
+    }
+    if !m.special.is_empty() {
+        tok.set_special_tokens(m.special);
+    }
+
+    // Persist for next time (best effort, atomic-ish via temp + rename)
+    if !cache_disabled {
+        let tmp = tkz.with_extension("tkz.tmp");
+        if tok.to_file(&tmp).is_ok() {
+            let _ = std::fs::rename(&tmp, &tkz);
+        }
+    }
+
+    Some(tok)
 }
 
 /// Try to load added tokens from tokenizer.json and set them on the tokenizer.
@@ -206,28 +316,16 @@ fn load_added_tokens_from_json(tokenizer: &mut Tokenizer, repo_api: &hf_hub::api
     let Ok(json_bytes) = std::fs::read(&json_path) else { return };
     let Ok(data) = serde_json::from_slice::<serde_json::Value>(&json_bytes) else { return };
 
-    let Some(added) = data["added_tokens"].as_array() else { return };
-    let tokens: Vec<(crate::types::TokenId, Vec<u8>)> = added.iter().filter_map(|token| {
-        let id = token["id"].as_u64()? as crate::types::TokenId;
-        let content = token["content"].as_str()?;
-        if content.len() < 2 {
-            return None;
-        }
-        Some((id, content.as_bytes().to_vec()))
-    }).collect();
+    let tokens = crate::hf::extract_added_token_specs(&data);
+    let special: Vec<(String, crate::types::TokenId)> = tokens
+        .iter()
+        .filter(|t| t.special)
+        .filter_map(|t| String::from_utf8(t.bytes.clone()).ok().map(|s| (s, t.id)))
+        .collect();
 
     if !tokens.is_empty() {
         tokenizer.set_added_tokens(&tokens);
     }
-
-    // Also load special token metadata
-    let special: Vec<(String, crate::types::TokenId)> = added.iter().filter_map(|token| {
-        let special = token["special"].as_bool().unwrap_or(false);
-        if !special { return None; }
-        let id = token["id"].as_u64()? as crate::types::TokenId;
-        let content = token["content"].as_str()?;
-        Some((content.to_string(), id))
-    }).collect();
     if !special.is_empty() {
         tokenizer.set_special_tokens(special);
     }
@@ -309,6 +407,29 @@ fn tokiers_repo_name(repo_id: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_compiled_cache_basename() {
+        let base = compiled_cache_basename();
+        let expected_prefix =
+            format!("tokenizer.compiled-v{}-f{}", env!("CARGO_PKG_VERSION"), crate::serde::VERSION);
+        assert!(base.starts_with(&expected_prefix), "unexpected basename: {base}");
+        // The optional build discriminator is the only allowed suffix.
+        let suffix = &base[expected_prefix.len()..];
+        assert!(
+            suffix.is_empty() || (suffix.starts_with("-b") && suffix.len() == 18),
+            "unexpected discriminator suffix: {suffix:?}"
+        );
+    }
+
+    #[test]
+    fn test_disables_compiled_cache() {
+        assert!(!disables_compiled_cache(None));
+        assert!(!disables_compiled_cache(Some("")));
+        assert!(!disables_compiled_cache(Some("0")));
+        assert!(disables_compiled_cache(Some("1")));
+        assert!(disables_compiled_cache(Some("true")));
+    }
 
     #[test]
     fn test_tokiers_repo_name() {

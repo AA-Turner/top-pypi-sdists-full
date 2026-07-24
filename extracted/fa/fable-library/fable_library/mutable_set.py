@@ -126,17 +126,17 @@ def HashSet__TryFindIndex_2B595[T](this: HashSet[T], k: T) -> tuple[bool, int32,
     def _arrow14(__unit: Unit = UNIT) -> list[T]:
         return out_arg
 
-    def _arrow16(v: list[T]) -> None:
+    def _arrow15(v: list[T]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow14, _arrow16)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef_1(_arrow14, _arrow15)), out_arg)
     if match_value[0]:
 
-        def _arrow19(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
+        def _arrow18(v_1: T = UNIT, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, v_1)
 
-        return (True, h, find_index(_arrow19, match_value[1]))
+        return (True, h, find_index(_arrow18, match_value[1]))
 
     else:
         return (False, h, int32.NEG_ONE)

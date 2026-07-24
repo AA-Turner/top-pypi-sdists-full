@@ -31,7 +31,7 @@ from construct import (
 )
 from pykdebugparser.kd_buf_parser import RAW_VERSION2_BYTES
 
-from pymobiledevice3.dtx import DTXQueue, DTXService, dtx_method, dtx_on_data, dtx_on_notification
+from pymobiledevice3.dtx import DTXContext, DTXQueue, DTXService, dtx_method, dtx_on_data, dtx_on_notification
 from pymobiledevice3.dtx_service import DtxService
 from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.exceptions import ConnectionTerminatedError, DvtException, ExtractingStackshotError
@@ -520,7 +520,7 @@ exclave_textlayout_segments = Struct(
     ),
 )
 
-kcdata_types_structures = {
+kcdata_types_structures: dict[typing.Any, typing.Any] = {
     kcdata_types_enum.KCDATA_TYPE_UINT32_DESC: uint32_desc,
     kcdata_types_enum.KCDATA_TYPE_UINT64_DESC: uint64_desc,
     kcdata_types_enum.STACKSHOT_KCTYPE_JETSAM_LEVEL: jetsam_level,
@@ -576,16 +576,20 @@ kcdata_item = Struct(
 kcdata = GreedyRange(kcdata_item)
 
 
-def clean(d):
+def clean(d: typing.Any) -> typing.Any:
     if isinstance(d, dict):
-        return {k: clean(v) for k, v in d.items() if not k.startswith("_")}
+        typed_dict = typing.cast(dict[typing.Any, typing.Any], d)
+        return {k: clean(v) for k, v in typed_dict.items() if not k.startswith("_")}
     elif isinstance(d, list):
-        return [clean(v) for v in d]
+        typed_list = typing.cast(list[typing.Any], d)
+        return [clean(v) for v in typed_list]
     else:
         return d
 
 
-def jsonify_parsed_stackshot(stackshot, root: typing.Optional[dict] = None, index: int = 0) -> typing.Optional[int]:
+def jsonify_parsed_stackshot(
+    stackshot: typing.Any, root: typing.Optional[dict[str, typing.Any]] = None, index: int = 0
+) -> typing.Optional[int]:
     assert root is not None
     current_index = index
     while True:
@@ -621,17 +625,17 @@ STACKSHOT_HEADER = Int32ul.build(int(kcdata_types_enum.KCDATA_BUFFER_BEGIN_STACK
 
 
 class KdBufStream:
-    def __init__(self, chunk_queue: queue.Queue):
+    def __init__(self, chunk_queue: queue.Queue[typing.Any]):
         self.chunk_queue = chunk_queue
         self.current_chunk = BytesIO()
 
     def tell(self):
         return self.current_chunk.tell()
 
-    def seek(self, offset, whence):
+    def seek(self, offset: int, whence: int):
         return self.current_chunk.seek(offset, whence)
 
-    def read(self, size):
+    def read(self, size: int):
         while size > len(self.current_chunk.getbuffer()) - self.current_chunk.tell():
             data = self.chunk_queue.get()
             if isinstance(data, Exception):
@@ -651,7 +655,7 @@ class KdBufStream:
 class CoreProfileSessionTapService(DTXService):
     IDENTIFIER = "com.apple.instruments.server.services.coreprofilesessiontap"
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: DTXContext):
         super().__init__(ctx)
         self.messages: DTXQueue[bytes] = DTXQueue()
 
@@ -660,7 +664,7 @@ class CoreProfileSessionTapService(DTXService):
         super().on_closed(reason)
 
     @dtx_method("setConfig:", expects_reply=False)
-    async def set_config_(self, config: dict) -> None: ...
+    async def set_config_(self, config: dict[str, typing.Any]) -> None: ...
 
     @dtx_method("start", expects_reply=False)
     async def start(self) -> None: ...
@@ -715,7 +719,9 @@ class CoreProfileSessionTap:
 
     IDENTIFIER = CoreProfileSessionTapService.IDENTIFIER
 
-    def __init__(self, dvt: DtxServiceProvider, time_config: dict, filters: typing.Optional[set] = None):
+    def __init__(
+        self, dvt: DtxServiceProvider, time_config: dict[str, typing.Any], filters: typing.Optional[set[int]] = None
+    ):
         """
         :param dvt: Instruments service proxy.
         :param time_config: Timing information - numer, denom, mach_absolute_time and matching usecs_since_epoch,
@@ -725,12 +731,12 @@ class CoreProfileSessionTap:
         self._provider = dvt
         self._channel: typing.Optional[CoreProfileSessionTapChannel] = None
         self.channel: typing.Optional[TapMessageChannel] = None
-        self.stack_shot = None
+        self.stack_shot: typing.Optional[dict[str, typing.Any]] = None
         self.uuid = str(uuid.uuid4())
 
         if filters is None:
             filters = {0xFFFFFFFF}
-        config = {
+        config: dict[str, typing.Any] = {
             "tc": [
                 {
                     "csd": 128,  # Callstack frame depth.
@@ -768,7 +774,7 @@ class CoreProfileSessionTap:
         await service.messages.get()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: typing.Any, exc_val: typing.Any, exc_tb: typing.Any):
         await (await self._service_ref()).stop()
 
     @staticmethod
@@ -784,6 +790,7 @@ class CoreProfileSessionTap:
         if not isinstance(decoded, dict):
             return
 
+        decoded = typing.cast(dict[typing.Any, typing.Any], decoded)
         notice = decoded.get("notice")
         status = decoded.get("status")
         if not notice:
@@ -793,7 +800,7 @@ class CoreProfileSessionTap:
         if isinstance(status, int) and status != 0:
             raise DvtException(str(notice))
 
-    async def get_stackshot(self, timeout: typing.Optional[float] = 10.0) -> dict:
+    async def get_stackshot(self, timeout: typing.Optional[float] = 10.0) -> dict[str, typing.Any]:
         """
         Wait for and parse the stackshot the device emits once per tap creation.
 
@@ -830,8 +837,8 @@ class CoreProfileSessionTap:
 
         dsc_map = get_dsc_map(str(stackshot["shared_cache_dyld_load_info"]["imageUUID"]))
 
-        for _pid, snapshot in stackshot["task_snapshots"].items():
-            for loaded_image in snapshot.get("dyld_load_info", []):
+        for _pid, snapshot in typing.cast(dict[typing.Any, typing.Any], stackshot["task_snapshots"]).items():
+            for loaded_image in typing.cast(list[typing.Any], snapshot.get("dyld_load_info", [])):
                 image_uuid = str(loaded_image["imageUUID"])
                 if isinstance(dsc_map, dict) and image_uuid in dsc_map:
                     loaded_image["imagePath"] = dsc_map[image_uuid]
@@ -859,7 +866,7 @@ class CoreProfileSessionTap:
             out.write(data)
             out.flush()
 
-    async def pump_kdbuf_chunks(self, chunk_queue: queue.Queue) -> None:
+    async def pump_kdbuf_chunks(self, chunk_queue: queue.Queue[typing.Any]) -> None:
         """
         Continuously forward received messages into a queue for consumption by a `KdBufStream`.
 
@@ -882,7 +889,7 @@ class CoreProfileSessionTap:
         finally:
             chunk_queue.put(None)
 
-    def get_kdbuf_stream(self, chunk_queue: queue.Queue):
+    def get_kdbuf_stream(self, chunk_queue: queue.Queue[typing.Any]):
         """
         Wrap a chunk queue in a file-like `KdBufStream` for reading the kd_buf trace.
 
@@ -892,7 +899,7 @@ class CoreProfileSessionTap:
         return KdBufStream(chunk_queue)
 
     @staticmethod
-    def parse_stackshot(data):
+    def parse_stackshot(data: bytes) -> dict[str, typing.Any]:
         """
         Parse raw KCDATA stackshot bytes into a nested dictionary.
 
@@ -903,12 +910,12 @@ class CoreProfileSessionTap:
         parsed = kcdata.parse(data)
         # Required for removing streams from construct output.
         stackshot = clean(parsed)
-        parsed_stack_shot = {}
+        parsed_stack_shot: dict[str, typing.Any] = {}
         jsonify_parsed_stackshot(stackshot, parsed_stack_shot)
         return parsed_stack_shot[predefined_names[kcdata_types_enum.KCDATA_BUFFER_BEGIN_STACKSHOT]]
 
     @staticmethod
-    async def get_time_config(dvt: DtxServiceProvider):
+    async def get_time_config(dvt: DtxServiceProvider) -> dict[str, typing.Any]:
         """
         Build the `time_config` mapping required to construct a `CoreProfileSessionTap`.
 
@@ -920,7 +927,7 @@ class CoreProfileSessionTap:
             `timezone`.
         """
         async with DeviceInfo(dvt) as device_info:
-            time_info = await device_info.mach_time_info()
+            time_info = typing.cast(list[typing.Any], await device_info.mach_time_info())
         mach_absolute_time = time_info[0]
         numer = time_info[1]
         denom = time_info[2]

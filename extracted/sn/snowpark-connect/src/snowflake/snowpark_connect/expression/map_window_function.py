@@ -6,6 +6,9 @@ import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 
 from snowflake import snowpark
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
+from snowflake.snowpark_connect.config import (
+    is_collect_list_window_order_by_direction_enabled,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import (
     SparkException,
@@ -36,6 +39,21 @@ SPARK_RANKING_FUNCTIONS = frozenset(
 RANGE_BASED_WINDOW_FRAME_ONLY_SNOWFLAKE_FUNCTIONS = frozenset(["percent_rank"])
 
 CAPITAL_FUNCTION_NAMES = frozenset(["rank()", "dense_rank()", "percent_rank()"])
+
+# Spark window aggregates whose *result order* depends on the window ORDER BY and
+# that map to a Snowflake function supporting the WITHIN GROUP form. For the
+# whole-partition frame Snowflake drops the OVER ORDER BY direction, so we rewrite
+# these to ARRAY_AGG(x) WITHIN GROUP (ORDER BY ...) OVER (PARTITION BY ...), which
+# honors it (see _array_agg_within_group_over and SNOW-3680715).
+#
+# Keep this gate narrow. WITHIN GROUP is rejected by most window functions
+# (SUM/AVG/COUNT/MIN/MAX, ranking, first/last/nth_value), so applying the rewrite
+# unconditionally would emit invalid SQL. It is also unnecessary for
+# order-insensitive aggregates (their whole-partition result is already correct)
+# and for PERCENTILE_* (supports WITHIN GROUP, but its result does not depend on
+# ORDER BY direction). collect_set is intentionally excluded: Spark leaves set
+# order unspecified and Snowflake's ARRAY_UNIQUE_AGG rejects WITHIN GROUP.
+ORDER_SENSITIVE_ARRAY_AGG_FUNCTIONS = frozenset(["collect_list", "array_agg"])
 
 
 def try_eval_foldable_boundary_int(
@@ -101,6 +119,27 @@ def try_eval_foldable_boundary_int(
         return left // right
 
     return None
+
+
+def _array_agg_within_group_over(
+    window_func: TypedColumn,
+    orders: list[snowpark.Column],
+    partitions: list[snowpark.Column],
+) -> snowpark.Column:
+    """Build ARRAY_AGG(x) WITHIN GROUP (ORDER BY ...) OVER (PARTITION BY ...).
+
+    Used only for the whole-partition frame, where ARRAY_AGG(x) OVER (... ORDER BY
+    ...) ignores the ORDER BY direction but the WITHIN GROUP form honors it.
+    ``window_func.col`` is the raw ARRAY_AGG (its ArrayType cast is deferred by
+    TypedColumnWithDeferredCast), so re-apply the cast here. ``partitions`` may be
+    empty, in which case ``over(None)`` emits ``OVER ()``.
+    """
+    partition_window = snowpark.Window.partition_by(partitions) if partitions else None
+    return (
+        window_func.col.within_group(*orders)
+        .over(partition_window)
+        .cast(window_func.typ)
+    )
 
 
 def map_window_function(
@@ -317,6 +356,12 @@ def map_window_function(
                     f"{frame_type_string} BETWEEN {lower_name} AND {upper_name}"
                 )
 
+        has_order_spec = len(exp.window.order_spec) > 0
+        is_whole_partition_frame = (
+            lower == snowpark.Window.UNBOUNDED_PRECEDING
+            and upper == snowpark.Window.UNBOUNDED_FOLLOWING
+        )
+
         # build window
         window = snowpark.Window
         if len(partitions) > 0:
@@ -337,6 +382,20 @@ def map_window_function(
         window_parts.extend(frame_name)
         spark_col_name = f"{function_name} OVER ({' '.join(window_parts)})"
 
-        result_exp = window_func.over(window)
+        # SNOW-3680715: for the whole-partition frame, ARRAY_AGG(x) OVER (... ORDER
+        # BY ...) ignores the ORDER BY direction (returns table scan order) while
+        # Spark's collect_list preserves it. The WITHIN GROUP form honors it.
+        # Other frames already match Spark and cannot use WITHIN GROUP (it cannot
+        # carry a frame, nor coexist with an OVER ORDER BY). Gated by a BCR revert
+        # flag (default on); set it false to restore the pre-BCR emission.
+        if (
+            proto_func_name in ORDER_SENSITIVE_ARRAY_AGG_FUNCTIONS
+            and has_order_spec
+            and is_whole_partition_frame
+            and is_collect_list_window_order_by_direction_enabled()
+        ):
+            result_exp = _array_agg_within_group_over(window_func, orders, partitions)
+        else:
+            result_exp = window_func.over(window)
 
         return spark_col_name, TypedColumn(result_exp, lambda: window_func.field_types)

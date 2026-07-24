@@ -339,7 +339,7 @@ class Responses(APIResource):
         timeout = kwargs.pop("timeout", None)
 
         if stream is True:
-            return self.openai_client.responses.retrieve(
+            return self.openai_client.responses.retrieve(  # type: ignore[return-value]
                 response_id=response_id,
                 stream=stream,
                 include=include,
@@ -1134,7 +1134,7 @@ class AsyncResponses(AsyncAPIResource):
         timeout = kwargs.pop("timeout", None)
 
         if stream is True:
-            return await self.openai_client.responses.retrieve(
+            return await self.openai_client.responses.retrieve(  # type: ignore[return-value]
                 response_id=response_id,
                 stream=stream,
                 include=include,

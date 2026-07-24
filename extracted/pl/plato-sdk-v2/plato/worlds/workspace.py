@@ -8,6 +8,7 @@ tracking refs/metadata.
 from __future__ import annotations
 
 import asyncio
+import gzip
 import json
 import logging
 import os
@@ -24,6 +25,7 @@ from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
 from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
 from plato.runtimes.base import RuntimeInfo
 from plato.transports.base import Transport
+from plato.transports.fuse import FuseDirectTransport
 from plato.transports.nfs import NFSTransport
 from plato.transports.rsync import RsyncTransport
 from plato.transports.sshfs import SSHFSTransport
@@ -92,6 +94,22 @@ class Workspace:
         self._last_changed_ref_step: str = ""
         self._lazy_mounts: dict[str, Any] = {}
         self._commit_lock = asyncio.Lock()
+        # Gzipped agent-VM fuse worker configs, keyed by (manifest_md5,
+        # credentials expiry, mountpoint, cache_dir, manifest_by_ref): the
+        # manifest JSON for a large dataset is ~100 MB, so serialize+gzip once
+        # per credential window instead of once per agent VM. The by-ref flag
+        # keys the config SHAPE so mixed fleets (old + new binaries) each get
+        # the right one.
+        self._fuse_agent_config_cache: dict[tuple[str, int | None, str, str, bool], bytes] = {}
+        # Singleflight for build_agent_fuse_config: a large-fan-out mount has
+        # every agent VM request the config near-simultaneously; without the
+        # lock each caller misses the cache and serializes+gzips the ~100 MB
+        # manifest independently (and a slow builder holding stale credentials
+        # could evict a fresher cached entry when it finished last).
+        self._fuse_agent_config_lock = asyncio.Lock()
+        # Fresh STS credentials for the SOURCE repo of a cross-repo restored
+        # mount, keyed by repo_id: (credentials, expires_at_epoch).
+        self._agent_fuse_source_creds: dict[str, tuple[dict[str, str], int]] = {}
 
     @property
     def repo_path(self) -> Path:
@@ -256,11 +274,38 @@ class Workspace:
 
         effective_mode = marker_transport or transport_mode
 
-        if readonly and effective_mode != "nfs_kernel":
+        if readonly and effective_mode not in ("nfs_kernel", "fuse"):
             raise ValueError(
-                f"Workspace '{self.name}': readonly=True is only supported for the NFS transport, "
-                f"got transport '{effective_mode}'"
+                f"Workspace '{self.name}': readonly=True is only supported for the NFS and fuse "
+                f"transports, got transport '{effective_mode}'"
             )
+
+        if effective_mode == "fuse":
+            # Direct per-agent-VM plato-fuse mount of this workspace's
+            # immutable manifest. Read-only datasets only: per-agent mounts
+            # have no cross-VM coherence, so a writable fuse workspace would
+            # silently fork state per agent.
+            if not self.tracked:
+                raise ValueError(
+                    f"Workspace '{self.name}': the fuse transport requires a tracked workspace "
+                    "(the agent VM mounts the committed manifest)"
+                )
+            if not readonly:
+                raise ValueError(
+                    f"Workspace '{self.name}': the fuse transport is read-only — per-agent "
+                    "mounts have no cross-VM coherence. Use NFS/git/rsync for writable workspaces."
+                )
+            t = FuseDirectTransport(
+                str(self.path),
+                ssh_key,
+                self.build_agent_fuse_config,
+                mount_path=self.mount_path,
+                workspace_name=self.name,
+                readonly=True,
+            )
+            await t.initialize()
+            self.transport = t
+            return nfs_server
 
         if effective_mode == "git":
             from plato.transports.git import GitTransport
@@ -791,6 +836,156 @@ class Workspace:
             credentials_expires_at=self._sts_credentials_expires_at,
             credential_refresh=self._credential_refresh_config(),
         )
+
+    async def _agent_fuse_s3_config_dict(self) -> dict[str, Any]:
+        """S3 config dict for direct agent-VM fuse mounts of this workspace.
+
+        Load-bearing for cross-repo restores: after ``restore()`` the
+        workspace's own repo identity is swapped back in, but the mounted
+        content's blobs live under the SOURCE repo's prefix — so the agent
+        config must reuse the S3 config captured on the lazy mount (bucket,
+        prefix, credential_refresh) with freshly fetched STS credentials for
+        that source repo.
+        """
+        lazy_mount = self._lazy_mounts.get(self.path.name)
+        source = lazy_mount.s3_config if lazy_mount is not None else None
+        if source is None:
+            await self._ensure_credentials()
+            return self._s3_config().to_dict()
+
+        refresh = source.credential_refresh
+        if not refresh:
+            # No Chronos-backed refresh (e.g. unit tests / untracked overlay
+            # mounts): pass through the captured credentials as-is.
+            return source.to_dict()
+
+        repo_id = str(refresh["repo_id"])
+        cached = self._agent_fuse_source_creds.get(repo_id)
+        if cached is None or time.time() >= cached[1] - 300:
+            resp = await self._chronos_request(
+                "POST",
+                f"/api/workspace-repos/{repo_id}/credentials",
+            )
+            data = resp.json()
+            credentials = {
+                "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
+                "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
+                "AWS_SESSION_TOKEN": data["aws_session_token"],
+                "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
+            }
+            expires_at = int(datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00")).timestamp())
+            cached = (credentials, expires_at)
+            self._agent_fuse_source_creds[repo_id] = cached
+            logger.debug("Refreshed agent-fuse STS credentials for source repo id '%s'", repo_id)
+
+        return S3Config(
+            bucket=source.bucket,
+            prefix=source.prefix,
+            credentials=cached[0],
+            credentials_expires_at=cached[1],
+            credential_refresh=refresh,
+        ).to_dict()
+
+    async def build_agent_fuse_config(self, mountpoint: str, cache_dir: str, manifest_by_ref: bool = False) -> bytes:
+        """Gzipped plato-fuse worker config for a direct agent-VM mount.
+
+        Same shape ``mount_lazy`` writes for the world-side mount — the
+        restored manifest plus an :class:`S3Config` dict carrying STS
+        credentials, ``credentials_expires_at``, and the ``credential_refresh``
+        block (chronos_url/repo_id/api_key) so the agent-side fuse process can
+        refresh its own credentials for long runs. Serves the committed
+        manifest only: world-side overlay writes are NOT visible to agent VMs
+        (datasets are read-only, so this only matters if someone mutates the
+        workspace world-side — warned about below).
+
+        With ``manifest_by_ref`` the manifest is sent as a content-hash
+        reference (``manifest_ref``) instead of inline and the fuse worker
+        fetches the blob from the S3 dvc-cache itself — shrinking the
+        per-agent config push from ~30 MB gz to ~1 KB for large datasets.
+        Only pass it after probing that the remote binary advertises the
+        ``manifest-ref`` capability; empty manifests always go inline (there
+        is no blob to reference).
+        """
+        self._require_tracked()
+
+        dir_name = self.path.name
+        lazy_mount = self._lazy_mounts.get(dir_name)
+        manifest_ref_md5 = ""
+        manifest_dict: dict[str, Any] | None = None
+        manifest_md5 = ""
+        if lazy_mount is not None:
+            manifest_md5 = lazy_mount.manifest.manifest_md5
+            if manifest_by_ref and manifest_md5:
+                manifest_ref_md5 = manifest_md5
+            else:
+                # Inline fallback: serializing 835k entries costs seconds and
+                # ~100 MB, so skip it entirely when sending by reference.
+                manifest_dict = lazy_mount.manifest.to_dict()
+            overlay_dir = lazy_mount.overlay_dir
+            if overlay_dir.exists() and any(overlay_dir.iterdir()):
+                logger.warning(
+                    "Workspace '%s': world-side overlay changes exist but agent-VM fuse "
+                    "mounts serve the committed manifest only — agents will not see them",
+                    self.name,
+                )
+        elif self.path.exists() and any(self.path.iterdir()):
+            # Archive-format restores extract files directly (no lazy manifest
+            # mount), so there is no committed manifest to serve — a direct
+            # agent-VM fuse mount would silently present an EMPTY dataset
+            # (NFS, by contrast, exports the materialized directory). Fail
+            # loudly at setup instead.
+            raise RuntimeError(
+                f"Workspace '{self.name}' has materialized files at {self.path} but no lazy "
+                "manifest mount (archive-format restore) — a direct agent-VM fuse mount would "
+                'serve an empty dataset. Use mount: "nfs" for this dataset, or re-commit its '
+                "ref with the manifest strategy."
+            )
+        else:
+            manifest_dict = {"entries": [], "manifest_md5": ""}
+
+        # Singleflight: serialize builds so concurrent agent mounts share one
+        # serialize+gzip pass, and the credential expiry that keys the cache
+        # is always read at build time (a slower builder can never insert a
+        # config from an older credential window over a fresher one).
+        async with self._fuse_agent_config_lock:
+            s3_config_dict = await self._agent_fuse_s3_config_dict()
+
+            cache_key = (
+                manifest_md5,
+                s3_config_dict.get("credentials_expires_at"),
+                mountpoint,
+                cache_dir,
+                bool(manifest_ref_md5),
+            )
+            cached_config = self._fuse_agent_config_cache.get(cache_key)
+            if cached_config is not None:
+                return cached_config
+
+            def _serialize() -> bytes:
+                payload: dict[str, Any] = {
+                    "s3_config": s3_config_dict,
+                    "mountpoint": mountpoint,
+                    "cache_dir": cache_dir,
+                }
+                if manifest_ref_md5:
+                    payload["manifest_ref"] = {"manifest_md5": manifest_ref_md5}
+                else:
+                    payload["manifest"] = (
+                        manifest_dict if manifest_dict is not None else {"entries": [], "manifest_md5": ""}
+                    )
+                config_json = json.dumps(payload)
+                # Fast compression: the manifest JSON is highly repetitive, so
+                # level 1 already shrinks it ~5x and keeps setup latency low.
+                return gzip.compress(config_json.encode(), compresslevel=1)
+
+            config_gz = await asyncio.to_thread(_serialize)
+            # Evict entries from previous credential windows / manifests; keep
+            # sibling mountpoints of the current window (orchestrator + agents).
+            for key in list(self._fuse_agent_config_cache):
+                if key[0] != cache_key[0] or key[1] != cache_key[1]:
+                    del self._fuse_agent_config_cache[key]
+            self._fuse_agent_config_cache[cache_key] = config_gz
+            return config_gz
 
     async def _ensure_credentials(self) -> None:
         if self.chronos_url and self.repo_id:

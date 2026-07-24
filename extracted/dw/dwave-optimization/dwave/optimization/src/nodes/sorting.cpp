@@ -58,21 +58,21 @@ ArgSortNode::ArgSortNode(ArrayNode* arr_ptr) :
         )
     ),
     sizeinfo_(arr_ptr_->sizeinfo()) {
-    add_predecessor(arr_ptr);
+    add_predecessor_(arr_ptr);
 }
 
 double const* ArgSortNode::buff(const State& state) const {
-    return data_ptr<ArgSortNodeData>(state)->buff();
+    return data_ptr_<ArgSortNodeData>(state)->buff();
 }
 
-void ArgSortNode::commit(State& state) const { data_ptr<ArgSortNodeData>(state)->commit(); }
+void ArgSortNode::commit(State& state) const { data_ptr_<ArgSortNodeData>(state)->commit(); }
 
 std::span<const Update> ArgSortNode::diff(const State& state) const {
-    return data_ptr<ArgSortNodeData>(state)->diff();
+    return data_ptr_<ArgSortNodeData>(state)->diff();
 }
 
 void ArgSortNode::initialize_state(State& state) const {
-    emplace_data_ptr<ArgSortNodeData>(
+    emplace_data_ptr_<ArgSortNodeData>(
         state, std::vector<double>{arr_ptr_->begin(state), arr_ptr_->end(state)}
     );
 }
@@ -84,7 +84,7 @@ double ArgSortNode::min() const { return minmax_.first; }
 double ArgSortNode::max() const { return minmax_.second; }
 
 void ArgSortNode::propagate(State& state) const {
-    auto node_data = data_ptr<ArgSortNodeData>(state);
+    auto node_data = data_ptr_<ArgSortNodeData>(state);
 
     auto pred_diff = arr_ptr_->diff(state);
 
@@ -112,8 +112,19 @@ void ArgSortNode::propagate(State& state) const {
     );
 }
 
+void ArgSortNode::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+
+    ArrayNode* array_ptr = dynamic_cast<ArrayNode*>(node_ptr);
+    assert(array_ptr != nullptr);
+    assert(std::ranges::equal(arr_ptr_->shape(), array_ptr->shape()));
+
+    assert(index == 0);
+    arr_ptr_ = array_ptr;
+}
+
 void ArgSortNode::revert(State& state) const {
-    auto node_data = data_ptr<ArgSortNodeData>(state);
+    auto node_data = data_ptr_<ArgSortNodeData>(state);
 
     // Revert the changes to `order` by going over the predecessor's previous updates in reverse
     for (const Update& update : node_data->predecessor_updates | std::views::reverse) {
@@ -134,11 +145,11 @@ std::span<const ssize_t> ArgSortNode::shape(const State& state) const {
 }
 
 ssize_t ArgSortNode::size(const State& state) const {
-    return data_ptr<ArgSortNodeData>(state)->size();
+    return data_ptr_<ArgSortNodeData>(state)->size();
 }
 
 ssize_t ArgSortNode::size_diff(const State& state) const {
-    return data_ptr<ArgSortNodeData>(state)->size_diff();
+    return data_ptr_<ArgSortNodeData>(state)->size_diff();
 }
 
 SizeInfo ArgSortNode::sizeinfo() const { return this->sizeinfo_; }

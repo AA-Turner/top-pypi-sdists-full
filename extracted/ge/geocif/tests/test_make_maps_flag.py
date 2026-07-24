@@ -72,10 +72,13 @@ class TestMakeMapsWiring:
         assert getattr(first.test.operand, "id", "") == "_MAKE_MAPS"
         assert any(isinstance(s, ast.Return) for s in first.body)
 
-    def test_diagnostics_call_is_gated(self):
+    def test_diagnostics_call_not_gated(self):
+        # Diagnostic plots (scatter, MAPE/RMSE/R² boxes + maps, progressions,
+        # model-comparison) ALWAYS render — they are cheap relative to the
+        # slow per-stage choropleths, which are the only figures make_maps now
+        # gates. So the top-level `_generate_diagnostics` call must NOT sit
+        # under an `if` whose test references make_maps.
         run = _func(_TREE, "run")
-        # the _generate_diagnostics call must sit under an `if` whose test
-        # references make_maps
         for node in ast.walk(run):
             if isinstance(node, ast.If):
                 names = {
@@ -87,9 +90,17 @@ class TestMakeMapsWiring:
                         for c in ast.walk(node)
                         if isinstance(c, ast.Call)
                     }
-                    if "_generate_diagnostics" in calls:
-                        return
-        pytest.fail("_generate_diagnostics call must be gated by make_maps")
+                    assert "_generate_diagnostics" not in calls, (
+                        "_generate_diagnostics must render unconditionally, not "
+                        "be gated by make_maps"
+                    )
+        # And it must actually be called somewhere in run().
+        all_calls = {
+            getattr(c.func, "id", "")
+            for c in ast.walk(run)
+            if isinstance(c, ast.Call)
+        }
+        assert "_generate_diagnostics" in all_calls
 
 
 class TestMakeMapsBehavior:

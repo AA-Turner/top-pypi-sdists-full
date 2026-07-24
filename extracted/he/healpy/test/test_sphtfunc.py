@@ -335,9 +335,15 @@ class TestSphtFunc(unittest.TestCase):
         lmax = 64
         nalm = hp.Alm.getsize(lmax)
         alm = np.zeros([3, nalm], dtype=complex)
+        # Initialize every a_lm from ell == 2 upward, including the m == ell
+        # diagonal (hence range(ell + 1)). The monopole and dipole (ell < 2)
+        # are left at zero, as in the Fortran reference. The original test used
+        # range(ell), which skips the diagonal, so its a_lm never matched the
+        # Fortran reference -- a discrepancy the test hid by overwriting the
+        # computed values with the reference (``mine = np.array(ref)``).
         for i in range(3):
-            for ell in range(lmax + 1):
-                for m in range(ell):
+            for ell in range(2, lmax + 1):
+                for m in range(ell + 1):
                     ind = hp.Alm.getidx(lmax, ell, m)
                     alm[i, ind] = (i + 1) * 10 + ell + 1j * m
         psi = np.pi / 3.0
@@ -397,10 +403,9 @@ class TestSphtFunc(unittest.TestCase):
                 for m in range(0, ell + 1, 21):
                     ind = hp.Alm.getidx(lmax, ell, m)
                     mine.append(alm[i, ind])
+        mine = np.array(mine)
 
-        mine = np.array(ref)
-
-        np.testing.assert_allclose(ref, mine, rtol=1e-10)
+        np.testing.assert_allclose(ref, mine, rtol=1e-6)
 
     def test_accept_ma_allows_only_keywords(self):
         """Test whether 'smoothing' wrapped with accept_ma works with only
@@ -762,3 +767,18 @@ def test_synfast_lmax_with_none():
     np.random.seed(42)
     maps_zeros = hp.sphtfunc.synfast(c_ell_zeros, nside, verbose=False)
     assert maps_zeros.shape == (3, 12*nside**2), "Should work with zeros array"
+
+
+def test_synalm_truncated_cl_uses_zero_beyond_end():
+    lmax = 16
+    cl_storage = np.full(lmax + 1, 1e-5, dtype=np.float64)
+    cl_storage[lmax] = 1e6
+    cl_truncated = cl_storage[:-1]
+
+    np.random.seed(42)
+    alm_truncated = hp.synalm(cl_truncated, lmax=lmax)
+
+    np.random.seed(42)
+    alm_zero_padded = hp.synalm(np.concatenate((cl_truncated, [0.0])), lmax=lmax)
+
+    np.testing.assert_allclose(alm_truncated, alm_zero_padded)

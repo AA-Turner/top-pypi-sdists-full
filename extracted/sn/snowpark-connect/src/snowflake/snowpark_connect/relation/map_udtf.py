@@ -34,6 +34,9 @@ from snowflake.snowpark_connect.type_mapping import (
     proto_to_snowpark_type,
 )
 from snowflake.snowpark_connect.utils.context import push_udtf_context
+from snowflake.snowpark_connect.utils.python_udf_marshal import (
+    encode_native_or_variant_args,
+)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.udtf_helper import (
@@ -236,9 +239,42 @@ def register_udtf(
         return snowpark_udtf
 
     snowpark_udtf = _register_udtf(udtf_proto, spark_column_names)
-    get_spark_session_cache().udtfs.register(
-        function_name.lower(), snowpark_udtf, spark_column_names
-    )
+    cache = get_spark_session_cache()
+    cache.udtfs.register(function_name.lower(), snowpark_udtf, spark_column_names)
+
+    # Register a recreation closure so a later `name(TABLE(...))` call site can re-emit
+    # the physical function with native per-column params (eliminating the VARIANT row
+    # packing). Sproc-mode UDTFs are not re-emitted natively (returns None -> the call
+    # site keeps the existing VARIANT packing).
+    def _recreate_native_udtf(
+        flat_col_types: list, table_arg_layout: list
+    ) -> SnowparkUDTF | None:
+        from snowflake.snowpark_connect.utils.udf_utils import _get_resource_constraint
+
+        if require_creating_udtf_in_sproc(udtf_proto):
+            return None
+        udtf = create_udtf(
+            session=session,
+            udtf_proto=udtf_proto,
+            expected_types=expected_types,
+            output_schema=output_schema,
+            packages=global_config.get("snowpark.connect.udf.packages", ""),
+            imports=get_python_udxf_import_files(session),
+            called_from="register_udtf",
+            is_arrow_enabled=is_arrow_enabled_in_udtf(),
+            is_spark_compatible_udtf_mode_enabled=is_spark_compatible_udtf_mode_enabled(),
+            artifact_repository=get_artifact_repository(),
+            resource_constraint=_get_resource_constraint(),
+            call_site_types=flat_col_types,
+            table_arg_layout=table_arg_layout,
+        )
+        return SnowparkUDTF(
+            name=udtf.name,
+            input_types=udtf._input_types,
+            output_schema=output_schema,
+        )
+
+    cache.udtfs.set_recreate_fn(function_name.lower(), _recreate_native_udtf)
     return snowpark_udtf
 
 
@@ -266,6 +302,27 @@ def map_common_inline_user_defined_table_function(
         spark_column_names,
     ) = process_return_type(python_udft.return_type)
 
+    column_map = ColumnNameMap([], [])
+    snowpark_udtf_typed_args = []
+
+    # Resolve args first so we have call-site types for DDL creation and per-arg encoding.
+    with push_udtf_context():
+        for arg_exp in rel.arguments:
+            (_, snowpark_udtf_arg_tc) = map_single_column_expression(
+                arg_exp, column_map, ExpressionTyper.dummy_typer(session)
+            )
+            snowpark_udtf_typed_args.append(snowpark_udtf_arg_tc)
+
+    call_site_types = [tc.typ for tc in snowpark_udtf_typed_args]
+
+    # INVARIANT: the DDL emitted by _get_udtf depends on ``call_site_types`` (native vs
+    # VARIANT per position), but ``cache_external_udtf_wrapper`` keys the cache purely on
+    # the proto hash. This is safe ONLY because ``call_site_types`` is a deterministic
+    # function of the proto here: args resolve against an EMPTY column map, so column
+    # references never acquire a concrete native type (they fall to VARIANT) and only
+    # literals become native — and a literal's type is encoded in the proto. If a future
+    # change lets an inline arg's type depend on anything outside the proto (e.g. resolving
+    # against a real schema), fold ``repr(call_site_types)`` into the cache key.
     @cache_external_udtf_wrapper(from_register_udtf=False)
     def _get_udtf(
         udtf_proto: relation_proto.CommonInlineUserDefinedTableFunction,
@@ -285,6 +342,7 @@ def map_common_inline_user_defined_table_function(
             "is_spark_compatible_udtf_mode_enabled": is_spark_compatible_udtf_mode_enabled(),
             "artifact_repository": get_artifact_repository(),
             "resource_constraint": _get_resource_constraint(),
+            "call_site_types": call_site_types,
         }
 
         if require_creating_udtf_in_sproc(udtf_proto):
@@ -309,21 +367,16 @@ def map_common_inline_user_defined_table_function(
         return snowpark_udtf
 
     snowpark_udtf = _get_udtf(rel, spark_column_names)
-    column_map = ColumnNameMap([], [])
-    snowpark_udtf_args = []
 
-    # Set UDTF context when processing arguments to enable struct markers
-    with push_udtf_context():
-        for arg_exp in rel.arguments:
-            (_, snowpark_udtf_arg_tc) = map_single_column_expression(
-                arg_exp, column_map, ExpressionTyper.dummy_typer(session)
-            )
-            snowpark_udtf_arg = snowpark_udtf_arg_tc.col
-            snowpark_udtf_args.append(snowpark_udtf_arg)
-
-    df = session.table_function(
-        snowpark_udtf.name, *[arg.cast(VariantType()) for arg in snowpark_udtf_args]
+    # Encode each arg in lockstep with the DDL input_types: native positions pass through,
+    # non-native positions (struct/map/variant/array) are cast to VARIANT.
+    encoded_args = encode_native_or_variant_args(
+        snowpark_udtf_typed_args,
+        snowpark_udtf.input_types,
+        variant_encoder=lambda col: col.cast(VariantType()),
     )
+
+    df = session.table_function(snowpark_udtf.name, *encoded_args)
 
     original_types = {}
     for field in original_output_schema.fields:

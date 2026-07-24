@@ -80,6 +80,7 @@ from rxfoundry.clients.swifty_api.models.patient_message_task_status import Pati
 from rxfoundry.clients.swifty_api.models.patient_message_task_type import PatientMessageTaskType
 from rxfoundry.clients.swifty_api.models.patient_name import PatientName
 from rxfoundry.clients.swifty_api.models.patient_phone_number import PatientPhoneNumber
+from rxfoundry.clients.swifty_api.models.patient_possible_match import PatientPossibleMatch
 from rxfoundry.clients.swifty_api.models.patient_relationship_data import PatientRelationshipData
 from rxfoundry.clients.swifty_api.models.pharmacist import Pharmacist
 from rxfoundry.clients.swifty_api.models.pharmacy import Pharmacy

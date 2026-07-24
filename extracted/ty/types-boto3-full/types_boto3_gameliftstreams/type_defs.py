@@ -59,6 +59,7 @@ __all__ = (
     "DeleteStreamGroupInputTypeDef",
     "DisassociateApplicationsInputTypeDef",
     "DisassociateApplicationsOutputTypeDef",
+    "DisplayConfigurationTypeDef",
     "EmptyResponseMetadataTypeDef",
     "ExportFilesMetadataTypeDef",
     "ExportStreamSessionFilesInputTypeDef",
@@ -93,6 +94,7 @@ __all__ = (
     "PerformanceStatsConfigurationTypeDef",
     "RemoveStreamGroupLocationsInputTypeDef",
     "ReplicationStatusTypeDef",
+    "ResolutionTypeDef",
     "ResponseMetadataTypeDef",
     "RuntimeEnvironmentTypeDef",
     "StartStreamSessionInputTypeDef",
@@ -167,6 +169,11 @@ class DeleteStreamGroupInputTypeDef(TypedDict):
 class DisassociateApplicationsInputTypeDef(TypedDict):
     Identifier: str
     ApplicationIdentifiers: Sequence[str]
+
+
+class ResolutionTypeDef(TypedDict):
+    Width: int
+    Height: int
 
 
 class ExportFilesMetadataTypeDef(TypedDict):
@@ -397,6 +404,10 @@ class StreamGroupSummaryTypeDef(TypedDict):
     ExpiresAt: NotRequired[datetime]
 
 
+class DisplayConfigurationTypeDef(TypedDict):
+    Resolution: NotRequired[ResolutionTypeDef]
+
+
 StreamSessionSummaryTypeDef = TypedDict(
     "StreamSessionSummaryTypeDef",
     {
@@ -439,83 +450,6 @@ class GetStreamSessionInputWaitTypeDef(TypedDict):
     Identifier: str
     StreamSessionIdentifier: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
-
-GetStreamSessionOutputTypeDef = TypedDict(
-    "GetStreamSessionOutputTypeDef",
-    {
-        "Arn": str,
-        "Description": str,
-        "StreamGroupId": str,
-        "UserId": str,
-        "Status": StreamSessionStatusType,
-        "StatusReason": StreamSessionStatusReasonType,
-        "Protocol": Literal["WebRTC"],
-        "Location": str,
-        "SignalRequest": str,
-        "SignalResponse": str,
-        "ConnectionTimeoutSeconds": int,
-        "SessionLengthSeconds": int,
-        "AdditionalLaunchArgs": list[str],
-        "AdditionalEnvironmentVariables": dict[str, str],
-        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
-        "LogFileLocationUri": str,
-        "WebSdkProtocolUrl": str,
-        "LastUpdatedAt": datetime,
-        "CreatedAt": datetime,
-        "ApplicationArn": str,
-        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
-        "RoleArn": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-StartStreamSessionInputTypeDef = TypedDict(
-    "StartStreamSessionInputTypeDef",
-    {
-        "Identifier": str,
-        "Protocol": Literal["WebRTC"],
-        "SignalRequest": str,
-        "ApplicationIdentifier": str,
-        "ClientToken": NotRequired[str],
-        "Description": NotRequired[str],
-        "UserId": NotRequired[str],
-        "Locations": NotRequired[Sequence[str]],
-        "ConnectionTimeoutSeconds": NotRequired[int],
-        "SessionLengthSeconds": NotRequired[int],
-        "AdditionalLaunchArgs": NotRequired[Sequence[str]],
-        "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
-        "PerformanceStatsConfiguration": NotRequired[PerformanceStatsConfigurationTypeDef],
-        "RoleArn": NotRequired[str],
-    },
-)
-StartStreamSessionOutputTypeDef = TypedDict(
-    "StartStreamSessionOutputTypeDef",
-    {
-        "Arn": str,
-        "Description": str,
-        "StreamGroupId": str,
-        "UserId": str,
-        "Status": StreamSessionStatusType,
-        "StatusReason": StreamSessionStatusReasonType,
-        "Protocol": Literal["WebRTC"],
-        "Location": str,
-        "SignalRequest": str,
-        "SignalResponse": str,
-        "ConnectionTimeoutSeconds": int,
-        "SessionLengthSeconds": int,
-        "AdditionalLaunchArgs": list[str],
-        "AdditionalEnvironmentVariables": dict[str, str],
-        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
-        "LogFileLocationUri": str,
-        "WebSdkProtocolUrl": str,
-        "LastUpdatedAt": datetime,
-        "CreatedAt": datetime,
-        "ApplicationArn": str,
-        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
-        "RoleArn": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 
 
 class ListApplicationsInputPaginateTypeDef(TypedDict):
@@ -572,6 +506,86 @@ class ListStreamGroupsOutputTypeDef(TypedDict):
     Items: list[StreamGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+GetStreamSessionOutputTypeDef = TypedDict(
+    "GetStreamSessionOutputTypeDef",
+    {
+        "Arn": str,
+        "Description": str,
+        "StreamGroupId": str,
+        "UserId": str,
+        "Status": StreamSessionStatusType,
+        "StatusReason": StreamSessionStatusReasonType,
+        "Protocol": Literal["WebRTC"],
+        "Location": str,
+        "SignalRequest": str,
+        "SignalResponse": str,
+        "ConnectionTimeoutSeconds": int,
+        "SessionLengthSeconds": int,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
+        "LogFileLocationUri": str,
+        "WebSdkProtocolUrl": str,
+        "LastUpdatedAt": datetime,
+        "CreatedAt": datetime,
+        "ApplicationArn": str,
+        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "RoleArn": str,
+        "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartStreamSessionInputTypeDef = TypedDict(
+    "StartStreamSessionInputTypeDef",
+    {
+        "Identifier": str,
+        "Protocol": Literal["WebRTC"],
+        "SignalRequest": str,
+        "ApplicationIdentifier": str,
+        "ClientToken": NotRequired[str],
+        "Description": NotRequired[str],
+        "UserId": NotRequired[str],
+        "Locations": NotRequired[Sequence[str]],
+        "ConnectionTimeoutSeconds": NotRequired[int],
+        "SessionLengthSeconds": NotRequired[int],
+        "AdditionalLaunchArgs": NotRequired[Sequence[str]],
+        "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
+        "PerformanceStatsConfiguration": NotRequired[PerformanceStatsConfigurationTypeDef],
+        "RoleArn": NotRequired[str],
+        "DisplayConfiguration": NotRequired[DisplayConfigurationTypeDef],
+    },
+)
+StartStreamSessionOutputTypeDef = TypedDict(
+    "StartStreamSessionOutputTypeDef",
+    {
+        "Arn": str,
+        "Description": str,
+        "StreamGroupId": str,
+        "UserId": str,
+        "Status": StreamSessionStatusType,
+        "StatusReason": StreamSessionStatusReasonType,
+        "Protocol": Literal["WebRTC"],
+        "Location": str,
+        "SignalRequest": str,
+        "SignalResponse": str,
+        "ConnectionTimeoutSeconds": int,
+        "SessionLengthSeconds": int,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
+        "LogFileLocationUri": str,
+        "WebSdkProtocolUrl": str,
+        "LastUpdatedAt": datetime,
+        "CreatedAt": datetime,
+        "ApplicationArn": str,
+        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "RoleArn": str,
+        "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class ListStreamSessionsByAccountOutputTypeDef(TypedDict):

@@ -543,7 +543,7 @@ local opts = cmsgpack.unpack(ARGV[3])
 local parentDependenciesKey = args[6]
 local timestamp = args[4]
 if args[2] == "" then
-    jobId = jobCounter
+    jobId = jobCounter .. "" -- convert to string
     jobIdKey = args[1] .. jobId
 else
     jobId = args[2]
@@ -567,4 +567,4 @@ addDelayedJob(jobId, delayedKey, eventsKey, timestamp, maxEvents, KEYS[1], delay
 if parentDependenciesKey ~= nil then
     rcall("SADD", parentDependenciesKey, jobIdKey)
 end
-return jobId .. "" -- convert to string
+return jobId

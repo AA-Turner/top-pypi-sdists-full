@@ -36,7 +36,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -46,7 +46,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v8.2.0
         with:
           activate-environment: true
           version: "latest"
@@ -55,16 +55,21 @@ jobs:
 
       - name: Install core fonts
         run: |
+          set -euo pipefail
           echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-          sudo apt-get install ttf-mscorefonts-installer
-
-      - name: List available fonts
-        run: fc-list | grep -i microsoft || fc-list | grep -i "times new" || echo "Microsoft fonts listing complete"
+          sudo apt-get update -y
+          sudo apt-get install -y ttf-mscorefonts-installer
+          fc-cache -fv
+          if ! fc-list | grep -qi "times new roman"; then
+            echo "ERROR: Times New Roman font not found after installation." >&2
+            exit 1
+          fi
+          echo "Times New Roman font verified successfully."
 
       - name: Install package and documentation dependencies
         run: |
           uv pip install -e ".[all]"
-          uv pip install git+https://github.com/andrzejnovak/mkdocs-matplotlib.git
+          uv pip install git+https://github.com/andrzejnovak/mkdocs-matplotlib.git@e3d9ce14a6f0a1fea9550323439b7db93f220b38
           uv pip list
 
       - name: Delete mike version

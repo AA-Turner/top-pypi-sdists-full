@@ -170,6 +170,7 @@ class TestSearch:
             q="what are the API rate limits",
             aggregate=False,
             container_tag="user_alex",
+            container_tags=["user_alex"],
             filepath="filepath",
             filters={
                 "or_": [
@@ -379,6 +380,7 @@ class TestAsyncSearch:
             q="what are the API rate limits",
             aggregate=False,
             container_tag="user_alex",
+            container_tags=["user_alex"],
             filepath="filepath",
             filters={
                 "or_": [

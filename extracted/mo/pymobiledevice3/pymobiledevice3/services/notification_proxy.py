@@ -1,6 +1,6 @@
 import socket
 from collections.abc import AsyncGenerator
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from pymobiledevice3.exceptions import NotificationTimeoutError
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
@@ -26,7 +26,9 @@ class NotificationProxyService(LockdownService):
     INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy"
     RSD_INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy.shim.remote"
 
-    def __init__(self, lockdown: LockdownServiceProvider, insecure=False, timeout: Optional[Union[float, int]] = None):
+    def __init__(
+        self, lockdown: LockdownServiceProvider, insecure: bool = False, timeout: Optional[Union[float, int]] = None
+    ):
         """
         :param lockdown: service provider used to start the service and reach the device.
         :param insecure: when True, use the insecure notification proxy service instead of the secure one.
@@ -72,7 +74,7 @@ class NotificationProxyService(LockdownService):
         self.logger.info(f"Observing {name}")
         await self.service.send_plist({"Command": "ObserveNotification", "Name": name})
 
-    async def receive_notification(self) -> AsyncGenerator[dict, None]:
+    async def receive_notification(self) -> AsyncGenerator[dict[str, Any], None]:
         """
         Yield notifications relayed from the device for previously observed names.
 

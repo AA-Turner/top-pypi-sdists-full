@@ -14,9 +14,7 @@ def _expand_watch_filter(filter: list[modal.types.FileWatchEventType]) -> list[s
     ...
 
 class _SandboxFilesystem:
-    """mdmd:namespace
-    Namespace for Sandbox filesystem APIs.
-    """
+    """mdmd:namespace"""
 
     _container: typing.Union[modal.sandbox._Sandbox, modal.sandbox._SidecarContainer]
 
@@ -348,10 +346,15 @@ class _SandboxFilesystem:
         """
         ...
 
+    async def _exec_fs_tool_write(self, source: typing.BinaryIO, remote_path: str, op_name: str) -> int:
+        """Exec the FS-tools write command and stream `source` into its stdin.
+
+        Returns the number of bytes streamed.
+        """
+        ...
+
 class SandboxFilesystem:
-    """mdmd:namespace
-    Namespace for Sandbox filesystem APIs.
-    """
+    """mdmd:namespace"""
 
     _container: typing.Union[modal.sandbox.Sandbox, modal.sandbox.SidecarContainer]
 
@@ -1041,3 +1044,20 @@ class SandboxFilesystem:
             ...
 
     write_text: __write_text_spec
+
+    class ___exec_fs_tool_write_spec(typing_extensions.Protocol):
+        def __call__(self, /, source: typing.BinaryIO, remote_path: str, op_name: str) -> int:
+            """Exec the FS-tools write command and stream `source` into its stdin.
+
+            Returns the number of bytes streamed.
+            """
+            ...
+
+        async def aio(self, /, source: typing.BinaryIO, remote_path: str, op_name: str) -> int:
+            """Exec the FS-tools write command and stream `source` into its stdin.
+
+            Returns the number of bytes streamed.
+            """
+            ...
+
+    _exec_fs_tool_write: ___exec_fs_tool_write_spec

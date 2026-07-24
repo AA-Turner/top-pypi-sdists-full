@@ -5,14 +5,14 @@ from typing import Any, Optional
 
 from bpylist2 import archiver
 
-from pymobiledevice3.dtx import DTXQueue, DTXService, dtx_method, dtx_on_data, dtx_on_notification
+from pymobiledevice3.dtx import DTXContext, DTXQueue, DTXService, dtx_method, dtx_on_data, dtx_on_notification
 from pymobiledevice3.dtx_service import DtxService
 from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.exceptions import NotConnectedError
 
 
 class TapService(DTXService):
-    def __init__(self, ctx):
+    def __init__(self, ctx: DTXContext):
         super().__init__(ctx)
         self.messages: DTXQueue[tuple[str, Any]] = DTXQueue()
 
@@ -21,7 +21,7 @@ class TapService(DTXService):
         super().on_closed(reason)
 
     @dtx_method("setConfig:", expects_reply=False)
-    async def set_config_(self, config: dict) -> None: ...
+    async def set_config_(self, config: dict[str, Any]) -> None: ...
 
     @dtx_method("start", expects_reply=False)
     async def start(self) -> None: ...
@@ -85,7 +85,7 @@ class TapMessageChannel:
 class Tap:
     IDENTIFIER: str
 
-    def __init__(self, dvt: DtxServiceProvider, channel_name: str, config: dict) -> None:
+    def __init__(self, dvt: DtxServiceProvider, channel_name: str, config: dict[str, Any]) -> None:
         self._provider = dvt
         self._channel_name = channel_name
         self._config = config
@@ -120,7 +120,7 @@ class Tap:
         await self._message_channel.receive_plist()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
         await (await self._service_ref()).stop()
 
     async def __aiter__(self) -> AsyncGenerator[Any, None]:

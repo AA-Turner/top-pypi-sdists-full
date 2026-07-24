@@ -21,6 +21,15 @@ TASHKEEL_DATA_FILES = [
         "hint_id_map.json",
     )
 ]
+HEBREW_DATA_DIR = MODULE_DIR / "hebrew"
+HEBREW_DATA_FILES = [
+    (HEBREW_DATA_DIR / f_name).relative_to(MODULE_DIR)
+    for f_name in (
+        "nakdimon.onnx",
+        "LICENSE",
+        "SOURCE",
+    )
+]
 # Web page and images for the HTTP server
 HTTP_DATA_FILES = [
     f.relative_to(MODULE_DIR)
@@ -33,7 +42,7 @@ HTTP_DATA_FILES = [
 
 setup(
     name="piper-tts",
-    version="1.5.0",
+    version="1.6.0",
     description="Fast and local neural text-to-speech engine",
     url="http://github.com/OHF-voice/piper1-gpl",
     license="GPL-3.0-or-later",
@@ -96,6 +105,7 @@ setup(
     packages=[
         "piper",
         "piper.tashkeel",
+        "piper.hebrew",
         "piper.train",
         "piper.train.vits",
         "piper.train.vits.monotonic_align",
@@ -109,6 +119,7 @@ setup(
                 PIPER_DATA_FILES,
                 ESPEAK_NG_DATA_FILES,
                 TASHKEEL_DATA_FILES,
+                HEBREW_DATA_FILES,
                 HTTP_DATA_FILES,
             )
         ],

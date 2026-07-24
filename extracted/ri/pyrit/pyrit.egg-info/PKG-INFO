@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrit
-Version: 0.14.0
+Version: 1.0.0
 Summary: The Python Risk Identification Tool for LLMs (PyRIT) is a library used to assess the robustness of LLMs
 Author-email: Microsoft AI Red Team <airedteam@microsoft.com>
 License-Expression: MIT
@@ -15,13 +15,14 @@ Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
-Requires-Dist: aiofiles<25,>=24
+Requires-Dist: aiofiles<26,>=24
 Requires-Dist: alembic>=1.16.0
 Requires-Dist: appdirs>=1.4.0
 Requires-Dist: art>=6.5.0
 Requires-Dist: av>=14.0.0
 Requires-Dist: azure-core>=1.38.0
 Requires-Dist: azure-identity>=1.19.0
+Requires-Dist: azure-keyvault-secrets>=4.9.0
 Requires-Dist: azure-ai-contentsafety>=1.0.0
 Requires-Dist: azure-storage-blob>=12.19.0
 Requires-Dist: base2048>=0.1.3
@@ -58,7 +59,6 @@ Requires-Dist: transformers>=5.0.0rc3
 Requires-Dist: treelib>=1.7.1
 Requires-Dist: uvicorn[standard]>=0.32.0
 Requires-Dist: websockets>=14.0
-Requires-Dist: build>=1.5.0
 Provides-Extra: huggingface
 Requires-Dist: torch>=2.7.0; extra == "huggingface"
 Provides-Extra: gcg
@@ -77,6 +77,8 @@ Provides-Extra: opencv
 Requires-Dist: opencv-python>=4.11.0.86; extra == "opencv"
 Provides-Extra: speech
 Requires-Dist: azure-cognitiveservices-speech>=1.44.0; extra == "speech"
+Provides-Extra: litellm
+Requires-Dist: litellm<1.92.0,>=1.83.0; extra == "litellm"
 Provides-Extra: all
 Requires-Dist: accelerate>=1.7.0; extra == "all"
 Requires-Dist: azure-ai-ml>=1.32.0; extra == "all"
@@ -84,6 +86,7 @@ Requires-Dist: azure-cognitiveservices-speech>=1.44.0; extra == "all"
 Requires-Dist: flask>=3.1.3; extra == "all"
 Requires-Dist: ipykernel>=6.29.5; extra == "all"
 Requires-Dist: jupyter>=1.1.1; extra == "all"
+Requires-Dist: litellm<1.92.0,>=1.83.0; extra == "all"
 Requires-Dist: ollama>=0.5.1; extra == "all"
 Requires-Dist: opencv-python>=4.11.0.86; extra == "all"
 Requires-Dist: playwright>=1.49.0; extra == "all"
@@ -92,7 +95,7 @@ Requires-Dist: spacy!=3.8.14,>=3.8.13; extra == "all"
 Requires-Dist: torch>=2.7.0; extra == "all"
 Dynamic: license-file
 
-<p align="center"><img src="https://raw.githubusercontent.com/microsoft/PyRIT/releases/v0.14.0/doc/roakey.png" width="150"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.0.0/doc/roakey.png" width="150"></p>
 
 # Python Risk Identification Tool for generative AI (PyRIT)
 
@@ -114,4 +117,4 @@ not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's
 policies.
 
-If you use PyRIT in your research, please cite the tool itself following the [`CITATION.cff`](https://raw.githubusercontent.com/microsoft/PyRIT/releases/v0.14.0/CITATION.cff) file in the root of this repository.
+If you use PyRIT in your research, please cite the tool itself following the [`CITATION.cff`](https://raw.githubusercontent.com/microsoft/PyRIT/releases/v1.0.0/CITATION.cff) file in the root of this repository.

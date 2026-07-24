@@ -13,7 +13,34 @@ use chunk::chunk;
 
 use daggrs::{DoubleArrayAhoCorasick, MatchKind, Trie};
 
-use crate::encoder::{Encoder, EncoderIter, EncoderType};
+use crate::encoder::{Encoder, EncoderIter, EncoderType, PretokenCache};
+
+/// Minimum bytes a thread's work chunk must contain before it pays for a
+/// per-thread `PretokenCache` (4 MiB table; zeroing it costs ~100µs).
+const PRETOKEN_CACHE_MIN_BYTES: usize = 256 * 1024;
+
+/// Split `texts` into up to `parts` contiguous runs of roughly equal total
+/// bytes. Count-based chunking lets one oversized document serialize a whole
+/// thread; byte-balancing keeps workers evenly loaded.
+fn byte_balanced_chunks<'a, 'b>(texts: &'b [&'a str], parts: usize) -> Vec<&'b [&'a str]> {
+    let total: usize = texts.iter().map(|t| t.len()).sum();
+    let target = total / parts + 1;
+    let mut chunks = Vec::with_capacity(parts);
+    let mut start = 0;
+    let mut acc = 0usize;
+    for (i, t) in texts.iter().enumerate() {
+        acc += t.len();
+        if acc >= target && chunks.len() + 1 < parts {
+            chunks.push(&texts[start..=i]);
+            start = i + 1;
+            acc = 0;
+        }
+    }
+    if start < texts.len() {
+        chunks.push(&texts[start..]);
+    }
+    chunks
+}
 use crate::decoder::{Decoder, DecoderType};
 use crate::hf::{self, JsonLoadError};
 use crate::normalizer::Normalizer;
@@ -24,6 +51,105 @@ use crate::types::TokenId;
 
 /// Backward-compatible alias for [`Encoding`].
 pub type EncodingPair = Encoding;
+
+/// One added-token entry with its HuggingFace matching flags.
+///
+/// HF's `AddedVocabulary` honors per-token flags when scanning for added
+/// tokens (`tokenizers/src/tokenizer/added_vocabulary.rs`):
+/// - `lstrip`/`rstrip`: the match extends over adjacent whitespace, which is
+///   consumed (e.g. roberta's `<mask>` has `lstrip` and swallows the space
+///   before it).
+/// - `normalized`: the token is matched *after* normalization, against the
+///   normalizer-transformed pattern (voyage-2's `</s>` matches as `▁</s>`).
+///   Non-normalized tokens are matched on the raw input first.
+/// - `single_word`: the match is dropped when adjacent to a word character.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AddedTokenSpec {
+    pub id: TokenId,
+    pub bytes: Vec<u8>,
+    pub special: bool,
+    pub lstrip: bool,
+    pub rstrip: bool,
+    pub normalized: bool,
+    pub single_word: bool,
+}
+
+impl AddedTokenSpec {
+    /// A plain added token with all flags off (pre-flag behavior).
+    pub fn plain(id: TokenId, bytes: Vec<u8>) -> Self {
+        Self { id, bytes, special: false, lstrip: false, rstrip: false, normalized: false, single_word: false }
+    }
+}
+
+/// Split `text` at added-token matches, honoring per-token flags.
+///
+/// Port of HF's `AddedVocabulary::find_matches`: the DAAC yields
+/// leftmost-longest matches; `single_word` drops matches adjacent to word
+/// characters, `lstrip`/`rstrip` extend the match over neighboring
+/// whitespace (which is consumed — the emitted token is just the id).
+/// Returns `(Some(spec_index), byte_range)` for added tokens and
+/// `(None, byte_range)` for the text in between, covering all of `text`.
+fn split_on_added(
+    text: &str,
+    matcher: &DoubleArrayAhoCorasick,
+    specs: &[AddedTokenSpec],
+) -> Vec<(Option<usize>, std::ops::Range<usize>)> {
+    let bytes = text.as_bytes();
+    let mut splits = Vec::new();
+    let mut pos = 0usize;
+
+    for m in matcher.find_iter(bytes) {
+        let spec = &specs[m.pattern_id as usize];
+        let mut start = m.start;
+        let mut stop = m.end;
+
+        if spec.single_word {
+            let start_ok = start == 0
+                || !text[..start].chars().next_back().is_some_and(is_word_char);
+            let stop_ok = stop == text.len()
+                || !text[stop..].chars().next().is_some_and(is_word_char);
+            if !(start_ok && stop_ok) {
+                continue;
+            }
+        }
+        if spec.lstrip {
+            // Leftmost byte of the whitespace run ending at `start`, clamped
+            // so a previous match's consumed whitespace isn't re-consumed.
+            let ws_start = text[..start]
+                .char_indices()
+                .rev()
+                .take_while(|(_, c)| c.is_whitespace())
+                .last()
+                .map_or(start, |(i, _)| i);
+            start = ws_start.max(pos);
+        }
+        if spec.rstrip {
+            let ws_len = text[stop..]
+                .char_indices()
+                .take_while(|(_, c)| c.is_whitespace())
+                .last()
+                .map_or(0, |(i, c)| i + c.len_utf8());
+            stop += ws_len;
+        }
+
+        if pos < start {
+            splits.push((None, pos..start));
+        }
+        splits.push((Some(m.pattern_id as usize), start..stop));
+        pos = stop;
+    }
+
+    if pos < text.len() {
+        splits.push((None, pos..text.len()));
+    }
+    splits
+}
+
+/// Approximation of the regex `\w` class HF uses for `single_word`
+/// boundaries: alphanumerics plus underscore.
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
 
 /// Cached number of available CPU cores.
 fn num_cpus() -> usize {
@@ -59,12 +185,26 @@ pub struct Tokenizer {
     /// Runtime config, not serialized.
     truncation: Option<TruncationParams>,
     reverse_vocab: OnceLock<FoldHashMap<String, TokenId>>,
-    /// DAAC matcher for added tokens (special and non-special).
-    /// HF scans for these BEFORE pretokenization, splitting text at their boundaries.
-    added_tokens_matcher: Option<DoubleArrayAhoCorasick>,
+    /// DAAC matcher for non-normalized added tokens, matched on the raw
+    /// input BEFORE normalization/pretokenization, like HF's `split_trie`.
+    /// Pattern values index into `added_tokens_raw`.
+    raw_added_matcher: Option<DoubleArrayAhoCorasick>,
+    /// DAAC matcher for `normalized: true` added tokens, matched on each
+    /// normalized segment like HF's `split_normalized_trie`. Patterns are the
+    /// normalizer-transformed token contents; values index `added_tokens_raw`.
+    norm_added_matcher: Option<DoubleArrayAhoCorasick>,
     /// Special token metadata: maps token string -> token ID.
     /// Populated from the `added_tokens` array in tokenizer.json where `special: true`.
     special_tokens: Vec<(String, TokenId)>,
+    /// Added-token list backing the matchers, kept for serialization
+    /// (.tkz v13+ stores added tokens in the file).
+    added_tokens_raw: Vec<AddedTokenSpec>,
+    /// True when this tokenizer was loaded from a .tkz that carries the
+    /// added-tokens section — loaders can skip the tokenizer.json fetch.
+    added_tokens_serialized: bool,
+    /// Process-unique id tagging pooled pretoken-cache contents (see
+    /// `crate::pool`).
+    cache_generation: u64,
 }
 
 impl Tokenizer {
@@ -87,24 +227,128 @@ impl Tokenizer {
             padding: None,
             truncation: None,
             reverse_vocab: OnceLock::new(),
-            added_tokens_matcher: None,
+            raw_added_matcher: None,
+            norm_added_matcher: None,
             special_tokens: Vec::new(),
+            added_tokens_raw: Vec::new(),
+            added_tokens_serialized: false,
+            cache_generation: crate::pool::next_generation(),
         }
     }
 
-    /// Set added tokens matcher. These are matched BEFORE pretokenization, like HuggingFace does.
-    pub fn set_added_tokens(&mut self, tokens: &[(TokenId, Vec<u8>)]) {
+    /// Byte-balanced work-stealing scaffold for batch calls: split `texts`
+    /// into fine-grained chunks, run one worker per CPU with a leased
+    /// long-lived pretoken cache, workers claim chunks as they finish
+    /// (fast P-cores keep working instead of idling on the slowest
+    /// E-core's tail), and return per-chunk results in input order.
+    fn steal_batches<'a, 'b, R, F>(&self, texts: &'b [&'a str], work: F) -> Vec<R>
+    where
+        R: Send,
+        F: Fn(&'b [&'a str], &mut PretokenCache) -> R + Sync,
+    {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let cpus = num_cpus();
+        let chunks = byte_balanced_chunks(texts, cpus * 4);
+        let next = AtomicUsize::new(0);
+        let mut results: Vec<Option<R>> = Vec::new();
+        results.resize_with(chunks.len(), || None);
+        let generation = self.cache_generation;
+        thread::scope(|s| {
+            let handles: Vec<_> = (0..cpus.min(chunks.len()))
+                .map(|_| {
+                    let chunks = &chunks;
+                    let next = &next;
+                    let work = &work;
+                    s.spawn(move || {
+                        let mut lease = crate::pool::CacheLease::checkout(generation);
+                        let mut out: Vec<(usize, R)> = Vec::new();
+                        loop {
+                            let i = next.fetch_add(1, Ordering::Relaxed);
+                            if i >= chunks.len() {
+                                break;
+                            }
+                            out.push((i, work(chunks[i], lease.cache())));
+                        }
+                        out
+                    })
+                })
+                .collect();
+            for h in handles {
+                for (i, r) in h.join().unwrap() {
+                    results[i] = Some(r);
+                }
+            }
+        });
+        results.into_iter().map(|r| r.unwrap()).collect()
+    }
+
+    /// Set added tokens. Non-normalized tokens are matched on the raw input
+    /// before pretokenization; `normalized: true` tokens are matched on each
+    /// normalized segment against their normalizer-transformed pattern, both
+    /// like HuggingFace. Call this after the normalizer is in place — the
+    /// normalized patterns are computed with `self.normalizer`.
+    pub fn set_added_tokens(&mut self, tokens: &[AddedTokenSpec]) {
         if tokens.is_empty() {
             return;
         }
-        let mut trie = Trie::new();
-        for (id, bytes) in tokens {
-            if !bytes.is_empty() {
-                trie.add(bytes, *id);
+        self.added_tokens_raw = tokens.to_vec();
+        let mut raw_trie = Trie::new();
+        let mut norm_trie = Trie::new();
+        let (mut raw_count, mut norm_count) = (0usize, 0usize);
+        for (idx, tok) in tokens.iter().enumerate() {
+            if tok.bytes.is_empty() {
+                continue;
+            }
+            // Skip single-byte tokens that plain encoding already maps to
+            // the same id — matching them in the DAAC would add overhead
+            // with no benefit. Single-byte tokens that encode differently
+            // (out-of-vocab remaps) must stay in the matcher.
+            if tok.bytes.len() == 1 && self.encoder.encode(&tok.bytes) == [tok.id] {
+                continue;
+            }
+            if tok.normalized {
+                // HF builds the normalized trie from normalizer(content).
+                // Non-UTF-8 contents can't be normalized; match them raw.
+                match std::str::from_utf8(&tok.bytes) {
+                    Ok(s) => {
+                        let pattern = self.normalizer.normalize(s);
+                        if !pattern.is_empty() {
+                            norm_trie.add(pattern.as_ref().as_bytes(), idx as u32);
+                            norm_count += 1;
+                        }
+                    }
+                    Err(_) => {
+                        raw_trie.add(&tok.bytes, idx as u32);
+                        raw_count += 1;
+                    }
+                }
+            } else {
+                raw_trie.add(&tok.bytes, idx as u32);
+                raw_count += 1;
             }
         }
-        trie.build(MatchKind::LeftmostLongest);
-        self.added_tokens_matcher = Some(trie.compile());
+        self.raw_added_matcher = (raw_count > 0).then(|| {
+            raw_trie.build(MatchKind::LeftmostLongest);
+            raw_trie.compile()
+        });
+        self.norm_added_matcher = (norm_count > 0).then(|| {
+            norm_trie.build(MatchKind::LeftmostLongest);
+            norm_trie.compile()
+        });
+    }
+
+    /// The added-token list backing the matchers.
+    pub fn added_tokens_raw(&self) -> &[AddedTokenSpec] {
+        &self.added_tokens_raw
+    }
+
+    /// Whether this tokenizer came from a .tkz that stores added tokens (v13+).
+    pub fn added_tokens_serialized(&self) -> bool {
+        self.added_tokens_serialized
+    }
+
+    pub(crate) fn mark_added_tokens_serialized(&mut self) {
+        self.added_tokens_serialized = true;
     }
 
     /// Set special token metadata (token string -> ID mapping).
@@ -118,7 +362,7 @@ impl Tokenizer {
     }
 
     pub fn pretokenizer_type(&self) -> PretokType { self.pretokenizer_type }
-    pub fn normalizer(&self) -> Normalizer { self.normalizer }
+    pub fn normalizer(&self) -> &Normalizer { &self.normalizer }
     pub fn post_processor(&self) -> &PostProcessor { &self.post_processor }
     pub fn encoder_type(&self) -> EncoderType { self.encoder.encoder_type() }
     pub fn decoder_type(&self) -> DecoderType { self.decoder.decoder_type() }
@@ -237,7 +481,49 @@ impl Tokenizer {
     /// println!("{:?}", enc.ids);
     /// ```
     pub fn encode(&self, text: &str, add_special_tokens: bool) -> Encoding {
-        let mut tokens = self.encode_raw(text);
+        self.encode_inner(text, add_special_tokens, None)
+    }
+
+    /// Encode to bare token ids (truncation + special tokens applied, no
+    /// Encoding struct, no attention/type-id buffers). The low-latency path
+    /// for callers that only consume ids.
+    pub fn encode_ids(&self, text: &str, add_special_tokens: bool) -> Vec<TokenId> {
+        self.encode_ids_ctx(text, add_special_tokens, None)
+    }
+
+    /// [`Self::encode_ids`] with an optional per-thread pretoken cache
+    /// (batch hot path).
+    fn encode_ids_ctx(
+        &self,
+        text: &str,
+        add_special_tokens: bool,
+        cache: Option<&mut PretokenCache>,
+    ) -> Vec<TokenId> {
+        let mut tokens = self.encode_raw_ctx(text, cache);
+        if let Some(ref trunc) = self.truncation {
+            let special = if add_special_tokens {
+                self.post_processor.num_special_tokens_single()
+            } else {
+                0
+            };
+            let max_content = trunc.max_length.saturating_sub(special);
+            truncate_ids(&mut tokens, max_content, trunc.direction);
+        }
+        if add_special_tokens {
+            self.post_processor.process(&tokens)
+        } else {
+            tokens
+        }
+    }
+
+    /// Encode with an optional per-thread pretoken cache (batch hot path).
+    fn encode_inner(
+        &self,
+        text: &str,
+        add_special_tokens: bool,
+        cache: Option<&mut PretokenCache>,
+    ) -> Encoding {
+        let mut tokens = self.encode_raw_ctx(text, cache);
 
         if let Some(ref trunc) = self.truncation {
             let special = if add_special_tokens {
@@ -372,43 +658,108 @@ impl Tokenizer {
 
     /// Core encoding path: normalize + pretokenize + encode. No special tokens.
     fn encode_raw(&self, text: &str) -> Vec<TokenId> {
-        // If there are non-special added tokens, split the text at their boundaries first.
+        self.encode_raw_ctx(text, None)
+    }
+
+    fn encode_raw_ctx(&self, text: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+        // If there are added tokens, split the text at their boundaries first.
         // HuggingFace scans for added tokens BEFORE pretokenization.
-        if let Some(ref matcher) = self.added_tokens_matcher {
-            return self.encode_with_added_tokens(text, matcher);
+        if self.raw_added_matcher.is_some() || self.norm_added_matcher.is_some() {
+            return self.encode_with_added_tokens(text, cache);
         }
 
-        self.encode_raw_inner(text)
+        self.encode_raw_inner(text, cache)
     }
 
     /// Encode text after splitting at added token boundaries.
-    fn encode_with_added_tokens(&self, text: &str, matcher: &DoubleArrayAhoCorasick) -> Vec<TokenId> {
-        let bytes = text.as_bytes();
+    ///
+    /// Mirrors HF's `AddedVocabulary::extract_and_normalize` two-stage split:
+    /// 1. the raw input is split on non-normalized added tokens;
+    /// 2. each remaining segment is normalized (position-aware for the
+    ///    metaspace prepend) and split on the normalized-token patterns;
+    ///    the leftover pieces are encoded without being normalized again.
+    fn encode_with_added_tokens(
+        &self,
+        text: &str,
+        mut cache: Option<&mut PretokenCache>,
+    ) -> Vec<TokenId> {
         let mut result = Vec::new();
-        let mut pos = 0;
 
-        for m in matcher.find_iter(bytes) {
-            // Encode text before this added token
-            if m.start > pos {
-                let segment = &text[pos..m.start];
-                result.extend(self.encode_raw_inner(segment));
+        let raw_splits = match &self.raw_added_matcher {
+            Some(matcher) => split_on_added(text, matcher, &self.added_tokens_raw),
+            None => vec![(None, 0..text.len())],
+        };
+
+        for (spec_idx, range) in raw_splits {
+            if let Some(idx) = spec_idx {
+                result.push(self.added_tokens_raw[idx].id);
+                continue;
             }
-            // Insert the added token directly
-            result.push(m.pattern_id);
-            pos = m.end;
-        }
+            let segment = &text[range.clone()];
+            if segment.is_empty() {
+                continue;
+            }
+            // Only the segment at byte 0 of the original input counts as
+            // "first" (HF Metaspace prepend_scheme=first checks the
+            // original offset).
+            let first_segment = range.start == 0;
 
-        // Encode remaining text after last added token
-        if pos < text.len() {
-            let segment = &text[pos..];
-            result.extend(self.encode_raw_inner(segment));
+            match &self.norm_added_matcher {
+                None => {
+                    result.extend(self.encode_segment(segment, first_segment, cache.as_deref_mut()));
+                }
+                Some(matcher) => {
+                    let normalized = self.normalizer.normalize_segment(segment, first_segment);
+                    for (nidx, nrange) in
+                        split_on_added(normalized.as_ref(), matcher, &self.added_tokens_raw)
+                    {
+                        if let Some(idx) = nidx {
+                            result.push(self.added_tokens_raw[idx].id);
+                            continue;
+                        }
+                        let piece = &normalized[nrange];
+                        if !piece.is_empty() {
+                            result.extend(self.encode_prenormalized(piece, cache.as_deref_mut()));
+                        }
+                    }
+                }
+            }
         }
 
         result
     }
 
+    /// Encode one raw segment of an added-token split, normalizing it with
+    /// segment-position awareness.
+    fn encode_segment(
+        &self,
+        segment: &str,
+        first_segment: bool,
+        cache: Option<&mut PretokenCache>,
+    ) -> Vec<TokenId> {
+        if self.pretokenizer.is_none() {
+            let normalized = self.normalizer.normalize_segment(segment, first_segment);
+            return self.encoder.encode(normalized.as_ref().as_bytes());
+        }
+        // Models with a pretokenizer never use position-aware metaspace
+        // prepending, so the standard path (with its parallel branch for
+        // large segments) is equivalent.
+        self.encode_raw_inner(segment, cache)
+    }
+
+    /// Encode an already-normalized piece (stage 2 of the added-token split).
+    fn encode_prenormalized(&self, piece: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+        if self.pretokenizer.is_none() {
+            return self.encoder.encode(piece.as_bytes());
+        }
+        // Pretokenizer models pair with idempotent normalizers (None, NFC,
+        // Bert clean-text), so re-normalizing in the standard path is a
+        // no-op and keeps the parallel branch for large pieces.
+        self.encode_raw_inner(piece, cache)
+    }
+
     /// Inner encoding without added token splitting.
-    fn encode_raw_inner(&self, text: &str) -> Vec<TokenId> {
+    fn encode_raw_inner(&self, text: &str, cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
         // For models without pretokenizer (SentencePiece, Unigram), normalize the full
         // text first and pass directly to the encoder. The encoder handles its own
         // chunking at safe boundaries (metaspace). We must NOT use encode_parallel here
@@ -424,7 +775,7 @@ impl Tokenizer {
             self.encode_parallel(text)
         } else {
             let normalized = self.normalizer.normalize(text);
-            self.encode_sequential(normalized.as_ref())
+            self.encode_sequential(normalized.as_ref(), cache)
         }
     }
 
@@ -517,11 +868,12 @@ impl Tokenizer {
     }
 
     #[inline]
-    fn encode_sequential(&self, text: &str) -> Vec<TokenId> {
-        self.pretokenizer.as_ref().unwrap()
-            .split(text)
-            .flat_map(|piece| self.encoder.encode(piece.as_bytes()))
-            .collect()
+    fn encode_sequential(&self, text: &str, mut cache: Option<&mut PretokenCache>) -> Vec<TokenId> {
+        let mut out = Vec::with_capacity(text.len() / 3);
+        for piece in self.pretokenizer.as_ref().unwrap().split(text) {
+            self.encoder.encode_into(piece.as_bytes(), cache.as_deref_mut(), &mut out);
+        }
+        out
     }
 
     /// Split text into chunks at whitespace, encode each in parallel.
@@ -538,7 +890,7 @@ impl Tokenizer {
 
         if chunks.len() <= 1 {
             let normalized = self.normalizer.normalize(text);
-            return self.encode_sequential(normalized.as_ref());
+            return self.encode_sequential(normalized.as_ref(), None);
         }
 
         let encoder = &self.encoder;
@@ -552,9 +904,13 @@ impl Tokenizer {
                         // SAFETY: Input was valid UTF-8, split at ASCII whitespace.
                         let chunk_str = unsafe { std::str::from_utf8_unchecked(chunk_bytes) };
                         let normalized = normalizer.normalize(chunk_str);
-                        pretok.split(normalized.as_ref())
-                            .flat_map(|piece| encoder.encode(piece.as_bytes()))
-                            .collect()
+                        let mut cache = (chunk_bytes.len() >= PRETOKEN_CACHE_MIN_BYTES)
+                            .then(PretokenCache::new);
+                        let mut out = Vec::with_capacity(chunk_bytes.len() / 3);
+                        for piece in pretok.split(normalized.as_ref()) {
+                            encoder.encode_into(piece.as_bytes(), cache.as_mut(), &mut out);
+                        }
+                        out
                     })
                 })
                 .collect::<Vec<_>>()
@@ -574,6 +930,19 @@ impl Tokenizer {
     /// Encode raw bytes directly (bypasses pretokenizer and normalizer).
     pub fn encode_bytes(&self, bytes: &[u8]) -> Vec<TokenId> {
         self.encoder.encode(bytes)
+    }
+
+    /// Split `text` at added-token matches, honoring per-token flags.
+    /// Exposed for tests; see [`split_on_added`].
+    #[doc(hidden)]
+    pub fn debug_split_added(&self, text: &str) -> Vec<(Option<TokenId>, std::ops::Range<usize>)> {
+        match &self.raw_added_matcher {
+            Some(m) => split_on_added(text, m, &self.added_tokens_raw)
+                .into_iter()
+                .map(|(idx, r)| (idx.map(|i| self.added_tokens_raw[i].id), r))
+                .collect(),
+            None => vec![(None, 0..text.len())],
+        }
     }
 
     /// Streaming iterator over encoded tokens.
@@ -638,21 +1007,15 @@ impl Tokenizer {
         let cpus = num_cpus();
 
         let mut encodings: Vec<Encoding> = if texts.len() > cpus && cpus > 1 {
-            let chunk_size = (texts.len() + cpus - 1) / cpus;
-            thread::scope(|s| {
-                texts.chunks(chunk_size)
-                    .map(|text_chunk| {
-                        s.spawn(|| {
-                            text_chunk.iter()
-                                .map(|t| self.encode(t, add_special_tokens))
-                                .collect::<Vec<_>>()
-                        })
-                    })
+            self.steal_batches(texts, |chunk, cache| {
+                chunk
+                    .iter()
+                    .map(|t| self.encode_inner(t, add_special_tokens, Some(cache)))
                     .collect::<Vec<_>>()
-                    .into_iter()
-                    .flat_map(|h| h.join().unwrap())
-                    .collect()
             })
+            .into_iter()
+            .flatten()
+            .collect()
         } else {
             texts.iter().map(|t| self.encode(t, add_special_tokens)).collect()
         };
@@ -664,6 +1027,59 @@ impl Tokenizer {
         encodings
     }
 
+    /// Encode multiple texts in parallel into one contiguous id buffer.
+    ///
+    /// Returns `(ids, lens)`: every document's token ids concatenated in
+    /// order, and per-document id counts. This is the zero-materialization
+    /// bulk contract — no per-document `Encoding` objects or vectors reach
+    /// the caller, so bindings can hand the buffers over as flat arrays.
+    /// Truncation and special tokens apply as in [`Self::encode_ids`];
+    /// padding does not (bulk consumers reconstruct boundaries from
+    /// `lens`).
+    pub fn encode_batch_flat(
+        &self,
+        texts: &[&str],
+        add_special_tokens: bool,
+    ) -> (Vec<TokenId>, Vec<u64>) {
+        let cpus = num_cpus();
+        if texts.is_empty() {
+            return (Vec::new(), Vec::new());
+        }
+        if texts.len() <= cpus || cpus == 1 {
+            let total_bytes: usize = texts.iter().map(|t| t.len()).sum();
+            let mut ids = Vec::with_capacity(total_bytes / 3);
+            let mut lens = Vec::with_capacity(texts.len());
+            for t in texts {
+                let v = self.encode_ids(t, add_special_tokens);
+                lens.push(v.len() as u64);
+                ids.extend_from_slice(&v);
+            }
+            return (ids, lens);
+        }
+
+        let results: Vec<(Vec<TokenId>, Vec<u64>)> =
+            self.steal_batches(texts, |chunk, cache| {
+                let chunk_bytes: usize = chunk.iter().map(|t| t.len()).sum();
+                let mut ids = Vec::with_capacity(chunk_bytes / 3);
+                let mut lens = Vec::with_capacity(chunk.len());
+                for t in chunk {
+                    let v = self.encode_ids_ctx(t, add_special_tokens, Some(cache));
+                    lens.push(v.len() as u64);
+                    ids.extend_from_slice(&v);
+                }
+                (ids, lens)
+            });
+
+        let total_ids: usize = results.iter().map(|(i, _)| i.len()).sum();
+        let mut ids = Vec::with_capacity(total_ids);
+        let mut lens = Vec::with_capacity(texts.len());
+        for (i, l) in results {
+            ids.extend_from_slice(&i);
+            lens.extend_from_slice(&l);
+        }
+        (ids, lens)
+    }
+
     /// Count tokens for multiple texts in parallel.
     pub fn count_tokens_batch(&self, texts: &[&str]) -> Vec<usize> {
         let cpus = num_cpus();
@@ -671,19 +1087,15 @@ impl Tokenizer {
             return texts.iter().map(|t| self.count_tokens(t)).collect();
         }
 
-        let chunk_size = (texts.len() + cpus - 1) / cpus;
-        thread::scope(|s| {
-            texts.chunks(chunk_size)
-                .map(|text_chunk| {
-                    s.spawn(|| {
-                        text_chunk.iter().map(|t| self.count_tokens(t)).collect::<Vec<_>>()
-                    })
-                })
+        self.steal_batches(texts, |chunk, cache| {
+            chunk
+                .iter()
+                .map(|t| self.encode_raw_ctx(t, Some(cache)).len())
                 .collect::<Vec<_>>()
-                .into_iter()
-                .flat_map(|h| h.join().unwrap())
-                .collect()
         })
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
     /// Count tokens without storing them (no special tokens).
@@ -930,6 +1342,37 @@ mod tests {
         let batch_with = tokenizer.encode_batch(&texts, true);
         let batch_without = tokenizer.encode_batch(&texts, false);
         assert_eq!(batch_with, batch_without);
+    }
+
+    #[test]
+    fn test_encode_batch_flat_matches_encode_batch() {
+        let tokenizer = make_pretok_tokenizer();
+        // Enough texts to cross the parallel threshold (texts.len() > cpus)
+        let texts: Vec<&str> = (0..64).map(|i| match i % 5 {
+            0 => "Hello world, this is a somewhat longer document to encode.",
+            1 => "abc def ghi",
+            2 => "",
+            3 => "short",
+            _ => "the quick brown fox jumps over the lazy dog 0123456789",
+        }).collect();
+        let (flat, lens) = tokenizer.encode_batch_flat(&texts, false);
+        let batch = tokenizer.encode_batch(&texts, false);
+        assert_eq!(lens.len(), texts.len());
+        assert_eq!(flat.len() as u64, lens.iter().sum::<u64>());
+        let mut off = 0usize;
+        for (i, enc) in batch.iter().enumerate() {
+            let n = lens[i] as usize;
+            assert_eq!(&flat[off..off + n], enc.ids.as_slice(), "doc {i}");
+            off += n;
+        }
+        assert_eq!(off, flat.len());
+    }
+
+    #[test]
+    fn test_encode_batch_flat_empty() {
+        let tokenizer = make_pretok_tokenizer();
+        let (flat, lens) = tokenizer.encode_batch_flat(&[], false);
+        assert!(flat.is_empty() && lens.is_empty());
     }
 
     #[test]

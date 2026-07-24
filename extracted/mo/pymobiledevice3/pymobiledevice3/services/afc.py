@@ -21,38 +21,54 @@ import struct
 import sys
 import threading
 import warnings
-from collections.abc import Iterator, MutableMapping, MutableSequence
+from collections.abc import AsyncIterator, Iterator, MutableMapping, MutableSequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from re import Pattern
-from typing import Any, Callable, NamedTuple, Optional, TextIO, Union, cast
+from types import TracebackType
+from typing import Any, Callable, NamedTuple, Optional, TextIO, TypeVar, Union, cast
 
 import hexdump
+import parameter_decorators
+import xonsh.cli_utils
+import xonsh.main
+import xonsh.tools
 from click.exceptions import Exit
-from construct import Bytes, Const, CString, GreedyRange, Int64ul, Tell
+from construct import Bytes, CString, GreedyRange, Int64ul, Tell
 from construct_typed import DataclassMixin, EnumBase, TEnum, TStruct, csfield
-from parameter_decorators import path_to_str
 from pygments import formatters, highlight, lexers
 from pygnuutils.cli.ls import ls as ls_cli
 from pygnuutils.ls import Ls, LsStub
 from tqdm.auto import tqdm
 from xonsh.built_ins import XSH
-from xonsh.cli_utils import Annotated, Arg, ArgParserAlias
-from xonsh.main import main as xonsh_main
-from xonsh.tools import print_color
+from xonsh.cli_utils import Annotated, ArgParserAlias
 
+from pymobiledevice3.construct_compat import const_field
 from pymobiledevice3.exceptions import AfcException, AfcFileNotFoundError, ArgumentError, ConnectionTerminatedError
 from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
 from pymobiledevice3.utils import get_asyncio_loop, try_decode
 
-try:
-    # construct-typing >= 0.8.0 rejects csfield(Const(...)) and requires csfield_const() for const
-    # fields. Older versions (0.7.x, the Python 3.9 floor) have no csfield_const.
-    from construct_typed import csfield_const  # pyright: ignore[reportAttributeAccessIssue]
-except ImportError:  # construct-typing < 0.8.0
-    csfield_const = None
+# These symbols come from untyped third-party modules; re-bind them with explicit types so their
+# uses type-check without leaking Unknown into this module.
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def path_to_str(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
+    """Signature-preserving wrapper over the untyped ``parameter_decorators.path_to_str``."""
+    return cast(Callable[[_F], _F], cast(Any, parameter_decorators).path_to_str(*args, **kwargs))
+
+
+Arg = cast(Callable[..., Any], cast(Any, xonsh.cli_utils).Arg)
+xonsh_main = cast(Callable[..., Any], cast(Any, xonsh.main).main)
+print_color = cast(Callable[..., Any], cast(Any, xonsh.tools).print_color)
+
+
+def _xsh_ctx() -> dict[str, Any]:
+    """Typed accessor for the untyped ``XSH.ctx`` mapping."""
+    return cast(dict[str, Any], cast(Any, XSH).ctx)
+
 
 MAXIMUM_READ_SIZE = 4 * 1024**2  # 4 MB
 MODE_MASK = 0o0000777
@@ -174,19 +190,13 @@ MAXIMUM_WRITE_SIZE = 1 << 30
 
 AFCMAGIC = b"CFA6LPAA"
 
-# construct-typing >= 0.8.0 requires csfield_const() for const fields; 0.7.x (the Python 3.9 floor)
-# only has csfield(Const(...)). Pick the form the installed version supports.
-_afc_magic_field = (
-    csfield_const(Bytes(len(AFCMAGIC)), AFCMAGIC) if csfield_const is not None else csfield(Const(AFCMAGIC))
-)
-
 
 @dataclass
 class AfcHeader(DataclassMixin):
-    # construct-typing 0.8's csfield_const() actually returns a dataclasses.Field(init=False), so this
-    # ordering is legal at runtime, but its stub returns the plain value type — pyright can't see the
-    # init=False and flags the non-default fields that follow. Field order is the AFC wire format.
-    magic: bytes = _afc_magic_field
+    # const_field() makes ``magic`` init=False at runtime, but pyright can't see that through the
+    # construct-typing stubs and flags the non-default fields that follow. Field order is the AFC wire
+    # format.
+    magic: bytes = const_field(Bytes(len(AFCMAGIC)), AFCMAGIC)
     entire_length: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
     this_length: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
     packet_num: int = csfield(Int64ul)  # pyright: ignore[reportGeneralTypeIssues]
@@ -323,9 +333,9 @@ class AfcService(LockdownService):
         super().__init__(lockdown, service_name)
         self.packet_num = 0
         # Demux state — populated in __aenter__, torn down in __aexit__
-        self._afc_pending: dict[int, asyncio.Future] = {}
+        self._afc_pending: dict[int, asyncio.Future[Any]] = {}
         self._afc_write_lock = asyncio.Lock()
-        self._afc_reader_task: Optional[asyncio.Task] = None
+        self._afc_reader_task: Optional[asyncio.Task[None]] = None
 
     async def __aenter__(self):
         await super().__aenter__()
@@ -344,7 +354,12 @@ class AfcService(LockdownService):
         self._afc_pending.clear()
         await super().close()
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ):
         await self.aclose()
 
     async def _afc_reader_loop(self) -> None:
@@ -385,8 +400,8 @@ class AfcService(LockdownService):
         self,
         relative_src: str,
         dst: str,
-        match: Optional[Pattern] = None,
-        callback: Optional[Callable] = None,
+        match: Optional[Pattern[str]] = None,
+        callback: Optional[Callable[..., Any]] = None,
         src_dir: str = "",
         ignore_errors: bool = False,
         progress_bar: bool = True,
@@ -490,7 +505,7 @@ class AfcService(LockdownService):
                     self.logger.warning(f"(Ignoring) Error: {afc_exception} occurred during the copy of {src_filename}")
 
     @path_to_str()
-    async def exists(self, filename):
+    async def exists(self, filename: str):
         """
         Check whether a path exists on the device.
 
@@ -507,7 +522,7 @@ class AfcService(LockdownService):
         return True
 
     @path_to_str()
-    async def wait_exists(self, filename):
+    async def wait_exists(self, filename: str):
         """
         Block until a path exists on the device.
 
@@ -520,7 +535,13 @@ class AfcService(LockdownService):
             await asyncio.sleep(0.1)
 
     @path_to_str()
-    async def _push_internal(self, local_path, remote_path, callback=None, progress_bar: bool = True):
+    async def _push_internal(
+        self,
+        local_path: str,
+        remote_path: str,
+        callback: Optional[Callable[[str, str], Any]] = None,
+        progress_bar: bool = True,
+    ):
         """
         Internal method for pushing files to the device.
 
@@ -593,7 +614,13 @@ class AfcService(LockdownService):
                 await self._push_internal(local_filename, remote_filename, callback=callback, progress_bar=progress_bar)
 
     @path_to_str()
-    async def push(self, local_path, remote_path, callback=None, progress_bar: bool = True):
+    async def push(
+        self,
+        local_path: str,
+        remote_path: str,
+        callback: Optional[Callable[[str, str], Any]] = None,
+        progress_bar: bool = True,
+    ):
         """
         Push (upload) a file or directory from the local machine to the device.
 
@@ -637,7 +664,7 @@ class AfcService(LockdownService):
         return True
 
     @path_to_str()
-    async def rm(self, filename: str, match: Optional[Pattern] = None, force: bool = False) -> list[str]:
+    async def rm(self, filename: str, match: Optional[Pattern[str]] = None, force: bool = False) -> list[str]:
         """
         Recursively remove a file or directory tree on the device.
 
@@ -664,7 +691,7 @@ class AfcService(LockdownService):
             return [filename]
 
         # directory content
-        undeleted_items = []
+        undeleted_items: list[str] = []
         for entry in await self.listdir(filename):
             current_filename = posixpath.join(filename, entry)
 
@@ -710,7 +737,7 @@ class AfcService(LockdownService):
         return list_to_dict(await self._do_operation(AfcOpcode.GET_DEVINFO))
 
     @path_to_str()
-    async def listdir(self, filename: str):
+    async def listdir(self, filename: str) -> list[str]:
         """
         List the entries of a directory on the device.
 
@@ -825,7 +852,7 @@ class AfcService(LockdownService):
         )
 
     @path_to_str()
-    async def link(self, target: str, source: str, type_=AfcLinkType.SYMLINK):
+    async def link(self, target: str, source: str, type_: AfcLinkType = AfcLinkType.SYMLINK):
         """
         Create a symbolic or hard link on the device.
 
@@ -950,7 +977,7 @@ class AfcService(LockdownService):
                 raise AfcException(f"failed to write last chunk: {status}", status)
 
     @path_to_str()
-    async def resolve_path(self, filename: str):
+    async def resolve_path(self, filename: str) -> str:
         """
         Resolve a symbolic link to its target path.
 
@@ -1010,7 +1037,7 @@ class AfcService(LockdownService):
         await self.fclose(h)
 
     @path_to_str()
-    async def walk(self, dirname: str):
+    async def walk(self, dirname: str) -> AsyncIterator[tuple[str, list[str], list[str]]]:
         """
         Recursively walk a directory tree, similar to `walk`.
 
@@ -1021,8 +1048,8 @@ class AfcService(LockdownService):
         :param dirname: Root directory to walk.
         :yields: ``(dirpath, dirnames, filenames)`` tuples.
         """
-        dirs = []
-        files = []
+        dirs: list[str] = []
+        files: list[str] = []
         for fd in await self.listdir(dirname):
             if fd in (".", "..", ""):
                 continue
@@ -1040,7 +1067,7 @@ class AfcService(LockdownService):
                     yield item
 
     @path_to_str()
-    async def dirlist(self, root: str, depth: int = -1):
+    async def dirlist(self, root: str, depth: int = -1) -> AsyncIterator[str]:
         """
         Recursively yield paths under a directory up to a maximum depth.
 
@@ -1062,7 +1089,7 @@ class AfcService(LockdownService):
             for entry in dirs + files:
                 yield posixpath.join(folder, entry)
 
-    async def lock(self, handle, operation):
+    async def lock(self, handle: int, operation: int):
         """
         Apply or release an advisory ``flock``-style lock on an open file.
 
@@ -1151,7 +1178,7 @@ class AfcService(LockdownService):
             self._afc_reader_task = asyncio.create_task(self._afc_reader_loop(), name="afc-reader")
         loop = asyncio.get_event_loop()
         async with self._afc_write_lock:
-            fut: asyncio.Future = loop.create_future()
+            fut: asyncio.Future[Any] = loop.create_future()
             # Register *before* sending so the reader never misses the response
             pkt_num = self.packet_num
             self._afc_pending[pkt_num] = fut
@@ -1208,7 +1235,7 @@ class AfcLsStub(LsStub):
     file system, translating calls to work with remote device paths.
     """
 
-    def __init__(self, afc_shell, stdout: Optional[TextIO] = sys.stdout):
+    def __init__(self, afc_shell: "AfcShell", stdout: Optional[TextIO] = sys.stdout):
         """
         Initialize the ls stub.
 
@@ -1222,49 +1249,49 @@ class AfcLsStub(LsStub):
     def sep(self):
         return posixpath.sep
 
-    def join(self, path, *paths):
+    def join(self, path: str, *paths: str):
         return posixpath.join(path, *paths)
 
-    def abspath(self, path):
+    def abspath(self, path: str):
         return posixpath.normpath(path)
 
-    def stat(self, path, dir_fd=None, follow_symlinks=True):
+    def stat(self, path: str, dir_fd: Optional[int] = None, follow_symlinks: bool = True):
         if follow_symlinks:
             path = self.afc_shell.afc.resolve_path(path)
         return self.afc_shell.afc.os_stat(path)
 
-    def readlink(self, path, dir_fd=None):
+    def readlink(self, path: str, dir_fd: Optional[int] = None):
         return self.afc_shell.afc.resolve_path(path)
 
-    def isabs(self, path):
+    def isabs(self, path: str):
         return posixpath.isabs(path)
 
-    def dirname(self, path):
+    def dirname(self, path: str):
         return posixpath.dirname(path)
 
-    def basename(self, path):
+    def basename(self, path: str):
         return posixpath.basename(path)
 
-    def getgroup(self, st_gid):
+    def getgroup(self, st_gid: int):
         return "-"
 
-    def getuser(self, st_uid):
+    def getuser(self, st_uid: int):
         return "-"
 
     def now(self):
         timestamp = self.afc_shell.lockdown.all_values.get("TimeIntervalSince1970", 0)
         return datetime.fromtimestamp(timestamp)
 
-    def listdir(self, path="."):
+    def listdir(self, path: str = "."):
         return self.afc_shell.afc.listdir(path)
 
     def system(self):
         return "Darwin"
 
-    def getenv(self, key, default=None):
+    def getenv(self, key: str, default: Optional[str] = None):
         return ""
 
-    def print(self, *objects, sep=" ", end="\n", file=sys.stdout, flush=False):
+    def print(self, *objects: Any, sep: str = " ", end: str = "\n", file: TextIO = sys.stdout, flush: bool = False):
         """
         Print ls output to the constructor-provided stream.
 
@@ -1287,7 +1314,7 @@ class _AsyncRunner:
         self._loop = get_asyncio_loop()
         self._lock = threading.Lock()
 
-    def run(self, coro):
+    def run(self, coro: Any):
         with self._lock:
             if self._loop.is_running():
                 loop_thread_id = getattr(self._loop, "_thread_id", None)
@@ -1305,7 +1332,7 @@ class _AsyncRunner:
 class _SyncAsyncGenIterator:
     """Bridge an async generator into a blocking iterator for xonsh handlers."""
 
-    def __init__(self, agen, lock: threading.Lock, runner: _AsyncRunner):
+    def __init__(self, agen: Any, lock: threading.Lock, runner: _AsyncRunner):
         self._agen = agen
         self._lock = lock
         self._runner = runner
@@ -1334,7 +1361,7 @@ class _SyncAfcProxy:
         if not callable(attr):
             return attr
 
-        def sync_call(*args, **kwargs):
+        def sync_call(*args: Any, **kwargs: Any):
             result = attr(*args, **kwargs)
             if inspect.isasyncgen(result):
                 return _SyncAsyncGenIterator(result, self._lock, self._runner)
@@ -1353,7 +1380,7 @@ class _SyncAfcProxy:
         return sync_call
 
 
-def path_completer(xsh, action, completer, alias, command) -> list[str]:
+def path_completer(xsh: Any, action: Any, completer: Any, alias: Any, command: Any) -> list[str]:
     """
     Provide path completion for xonsh shell commands.
 
@@ -1367,7 +1394,7 @@ def path_completer(xsh, action, completer, alias, command) -> list[str]:
     :param command: Command being completed
     :return: List of completion suggestions
     """
-    shell: AfcShell = XSH.ctx["_shell"]
+    shell = cast(AfcShell, _xsh_ctx()["_shell"])
     pwd = shell.cwd
     is_absolute = command.prefix.startswith("/")
     dirpath = posixpath.join(pwd, command.prefix)
@@ -1383,7 +1410,7 @@ def path_completer(xsh, action, completer, alias, command) -> list[str]:
             dirpath = posixpath.dirname(dirpath)
             shell._schedule_completion_cache_refresh(dirpath)
 
-    result = []
+    result: list[str] = []
     for f, is_dir in shell._get_completion_cache(dirpath):
         if is_absolute:
             completion_option = posixpath.join(dirpath, f)
@@ -1396,7 +1423,7 @@ def path_completer(xsh, action, completer, alias, command) -> list[str]:
     return result
 
 
-def dir_completer(xsh, action, completer, alias, command):
+def dir_completer(xsh: Any, action: Any, completer: Any, alias: Any, command: Any):
     """
     Provide directory-only completion for xonsh shell commands.
 
@@ -1409,7 +1436,7 @@ def dir_completer(xsh, action, completer, alias, command):
     :param command: Command being completed
     :return: List of directory completion suggestions
     """
-    shell: AfcShell = XSH.ctx["_shell"]
+    shell = cast(AfcShell, _xsh_ctx()["_shell"])
     pwd = shell.cwd
     is_absolute = command.prefix.startswith("/")
     dirpath = posixpath.join(pwd, command.prefix)
@@ -1425,7 +1452,7 @@ def dir_completer(xsh, action, completer, alias, command):
             dirpath = posixpath.dirname(dirpath)
             shell._schedule_completion_cache_refresh(dirpath)
 
-    result = []
+    result: list[str] = []
     for f, is_dir in shell._get_completion_cache(dirpath):
         if not is_dir:
             continue
@@ -1479,13 +1506,13 @@ class AfcShell:
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         args = ["--rc", str(pathlib.Path(__file__).absolute())]
         os.environ["XONSH_COLOR_STYLE"] = "default"
-        XSH.ctx["_class"] = cls
-        XSH.ctx["_lockdown"] = service_provider
-        XSH.ctx["_auto_cd"] = auto_cd
+        _xsh_ctx()["_class"] = cls
+        _xsh_ctx()["_lockdown"] = service_provider
+        _xsh_ctx()["_auto_cd"] = auto_cd
         if service is not None:
-            XSH.ctx["_service"] = service
+            _xsh_ctx()["_service"] = service
         else:
-            XSH.ctx["_service"] = AfcService(service_provider, service_name=service_name)
+            _xsh_ctx()["_service"] = AfcService(service_provider, service_name=service_name)
 
         try:
             logging.getLogger("parso").setLevel(logging.CRITICAL + 1)
@@ -1505,12 +1532,12 @@ class AfcShell:
         """
         self.lockdown = lockdown
         self.afc = _SyncAfcProxy(service)
-        XSH.ctx["_shell"] = self
-        self.cwd = XSH.ctx.get("_auto_cd", "/")
-        self._commands = {}
-        self._orig_aliases = {}
-        assert XSH.env is not None
-        self._orig_prompt = XSH.env["PROMPT"]
+        _xsh_ctx()["_shell"] = self
+        self.cwd: str = _xsh_ctx().get("_auto_cd", "/")
+        self._commands: dict[str, Any] = {}
+        self._orig_aliases: dict[str, Any] = {}
+        assert cast(Any, XSH).env is not None
+        self._orig_prompt = cast(Any, XSH).env["PROMPT"]
         self._completion_cache: dict[str, list[tuple[str, bool]]] = {}
         self._completion_refreshing: set[str] = set()
         self._completion_cache_lock = threading.Lock()
@@ -1533,7 +1560,7 @@ class AfcShell:
             return list(self._completion_cache.get(directory, []))
 
     def _refresh_completion_cache_sync(self, directory: str) -> None:
-        entries = []
+        entries: list[tuple[str, bool]] = []
         for name in self.afc.listdir(directory):
             is_dir = False
             with contextlib.suppress(AfcException):
@@ -1568,7 +1595,7 @@ class AfcShell:
 
         threading.Thread(target=_refresh, daemon=True).start()
 
-    def _register_arg_parse_alias(self, name: str, handler: Union[Callable, str]):
+    def _register_arg_parse_alias(self, name: str, handler: Union[Callable[..., Any], str]):
         """
         Register a command with argument parsing support.
 
@@ -1577,13 +1604,13 @@ class AfcShell:
         """
         handler = ArgParserAlias(func=handler, has_args=True, prog=name)
         self._commands[name] = handler
-        aliases = XSH.aliases
+        aliases = cast(Any, XSH).aliases
         assert aliases is not None
         if aliases.get(name):
             self._orig_aliases[name] = aliases[name]
         aliases[name] = handler
 
-    def _register_rpc_command(self, name, handler):
+    def _register_rpc_command(self, name: str, handler: Union[Callable[..., Any], str]):
         """
         Register a simple command without argument parsing.
 
@@ -1591,7 +1618,7 @@ class AfcShell:
         :param handler: Command handler function or executable path
         """
         self._commands[name] = handler
-        aliases = XSH.aliases
+        aliases = cast(Any, XSH).aliases
         assert aliases is not None
         if aliases.get(name):
             self._orig_aliases[name] = aliases[name]
@@ -1605,10 +1632,10 @@ class AfcShell:
         utilities), registers AFC-specific commands, and sets up the custom prompt.
         """
         # clear all host commands except for some useful ones
-        env = XSH.env
+        env = cast(Any, XSH).env
         assert env is not None
         # Env.__getitem__ is untyped; $PATH is an EnvPath (mutable sequence) at runtime
-        cast(MutableSequence, env["PATH"]).clear()
+        cast(MutableSequence[str], env["PATH"]).clear()
         # adding "file" just to fix xonsh errors
         for cmd in ["wc", "grep", "egrep", "sed", "awk", "print", "yes", "cat"]:
             executable = shutil.which(cmd)
@@ -1702,7 +1729,7 @@ class AfcShell:
         else:
             print(f"[ERROR] {directory} does not exist")
 
-    def do_ls(self, args, stdin, stdout, stderr):
+    def do_ls(self, args: list[str], stdin: Optional[TextIO], stdout: Optional[TextIO], stderr: Optional[TextIO]):
         """
         List directory contents with Unix ls-like formatting.
 
@@ -1722,7 +1749,9 @@ class AfcShell:
 
         :param directory: Root directory to walk
         """
-        for root, dirs, files in self.afc.walk(self.relative_path(directory)):
+        for root, dirs, files in cast(
+            Iterator[tuple[str, list[str], list[str]]], self.afc.walk(self.relative_path(directory))
+        ):
             for name in files:
                 print(posixpath.join(root, name))
             for name in dirs:
@@ -1767,7 +1796,7 @@ class AfcShell:
             Show progress bar for large files (--progress_bar flag)
         """
 
-        def log(src, dst):
+        def log(src: str, dst: str):
             print(f"{src} --> {dst}")
 
         self.afc.pull(
@@ -1787,7 +1816,7 @@ class AfcShell:
         :param remote_path: Destination path on the device
         """
 
-        def log(src, dst):
+        def log(src: str, dst: str):
             print(f"{src} --> {dst}")
 
         self.afc.push(local_path, self.relative_path(remote_path), callback=log)
@@ -1806,7 +1835,7 @@ class AfcShell:
 
         :param filename: Path to the file
         """
-        print(hexdump.hexdump(self.afc.get_file_contents(self.relative_path(filename)), result="return"))
+        print(cast(Any, hexdump).hexdump(self.afc.get_file_contents(self.relative_path(filename)), result="return"))
 
     def _do_mkdir(self, filename: Annotated[str, Arg(completer=_path_arg_completer)]):
         """
@@ -1854,13 +1883,16 @@ class AfcShell:
 
     def _update_prompt(self) -> None:
         """Update the shell prompt with syntax highlighting."""
-        self.prompt = highlight(
-            f"[{self.afc.service_name}:{self.cwd}]$ ",
-            lexers.BashSessionLexer(),
-            formatters.Terminal256Formatter(style="solarized-dark"),
+        self.prompt = cast(
+            str,
+            highlight(
+                f"[{self.afc.service_name}:{self.cwd}]$ ",
+                cast(Any, lexers).BashSessionLexer(),
+                cast(Any, formatters).Terminal256Formatter(style="solarized-dark"),
+            ),
         ).strip()
 
-    def _complete(self, text, line, begidx, endidx):
+    def _complete(self, text: str, line: str, begidx: int, endidx: int):
         """
         Provide path completion for commands (internal method).
 
@@ -1879,7 +1911,7 @@ class AfcShell:
             if filename.startswith(prefix)
         ]
 
-    def _complete_first_arg(self, text, line, begidx, endidx):
+    def _complete_first_arg(self, text: str, line: str, begidx: int, endidx: int) -> list[str]:
         """
         Complete only the first argument of a command.
 
@@ -1889,7 +1921,7 @@ class AfcShell:
             return []
         return self._complete(text, line, begidx, endidx)
 
-    def _complete_push_arg(self, text, line, begidx, endidx):
+    def _complete_push_arg(self, text: str, line: str, begidx: int, endidx: int) -> list[str]:
         """
         Completion for push command (local path, then remote path).
 
@@ -1903,7 +1935,7 @@ class AfcShell:
         else:
             return []
 
-    def _complete_pull_arg(self, text, line, begidx, endidx):
+    def _complete_pull_arg(self, text: str, line: str, begidx: int, endidx: int) -> list[str]:
         """
         Completion for pull command (remote path, then local path).
 
@@ -1930,7 +1962,7 @@ class AfcShell:
         return [str(p) for p in path_iter if str(p).startswith(text)]
 
     @staticmethod
-    def _count_completion_parts(line, begidx):
+    def _count_completion_parts(line: str, begidx: int):
         """
         Count the number of space-separated parts in a command line.
 
@@ -1949,9 +1981,9 @@ if __name__ == str(pathlib.Path(__file__).absolute()):
     This block is executed when the file is loaded as an xonsh RC script,
     initializing the AFC shell with the context provided by AfcShell.create().
     """
-    rc = XSH.ctx["_class"](XSH.ctx["_lockdown"], XSH.ctx["_service"])
+    rc = cast(AfcShell, _xsh_ctx()["_class"](_xsh_ctx()["_lockdown"], _xsh_ctx()["_service"]))
     # fix fzf conflicts
-    _xsh_env = XSH.env
+    _xsh_env = cast(Any, XSH).env
     assert _xsh_env is not None
     _xsh_env["fzf_history_binding"] = ""  # Ctrl+R
     _xsh_env["fzf_ssh_binding"] = ""  # Ctrl+S

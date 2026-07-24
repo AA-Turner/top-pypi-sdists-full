@@ -3,6 +3,8 @@ import google.protobuf.message
 import modal._function_variants
 import modal._functions
 import modal._load_context
+import modal._logs_manager
+import modal._supports_logs
 import modal._utils.async_utils
 import modal._utils.function_utils
 import modal.app
@@ -58,9 +60,31 @@ class Function(
     _metadata: typing.Optional[modal_proto.api_pb2.FunctionHandleMetadata]
     _options: modal._function_variants._FunctionOptions
     _base_function: typing.Optional[Function]
+    _app_id: typing.Optional[str]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
+        ...
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._LogQueryData: ...
+        async def aio(self, /) -> modal._supports_logs._LogQueryData: ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.FunctionLogsManager:
+        """Access logs for a `Function`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
         ...
 
     @staticmethod
@@ -109,6 +133,7 @@ class Function(
         i6pn_enabled: bool = False,
         cluster_size: typing.Optional[int] = None,
         rdma: typing.Optional[bool] = None,
+        fabric_size: typing.Optional[int] = None,
         single_use_containers: bool = False,
         ephemeral_disk: typing.Optional[int] = None,
         include_source: bool = True,
@@ -618,9 +643,9 @@ class Function(
                 **kwargs: Keyword arguments forwarded to the remote function.
 
             Returns:
-                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
+                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/FunctionCall) object
                 that can later be polled or waited for using
-                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
+                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/FunctionCall#get).
             """
             ...
 
@@ -634,9 +659,9 @@ class Function(
                 **kwargs: Keyword arguments forwarded to the remote function.
 
             Returns:
-                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall) object
+                A [`modal.FunctionCall`](https://modal.com/docs/sdk/py/latest/FunctionCall) object
                 that can later be polled or waited for using
-                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/modal.FunctionCall#get).
+                [`.get(timeout=...)`](https://modal.com/docs/sdk/py/latest/FunctionCall#get).
             """
             ...
 
@@ -891,12 +916,46 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
 
     _is_generator: bool
     _num_inputs: typing.Optional[int]
+    _app_id: typing.Optional[str]
+    _function_id: typing.Optional[str]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
         ...
 
     def _invocation(self): ...
+
+    class ___hydrate_from_id_metadata_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> None:
+            """Hydrate metadata only when needed for FunctionCall fields."""
+            ...
+
+        async def aio(self, /) -> None:
+            """Hydrate metadata only when needed for FunctionCall fields."""
+            ...
+
+    _hydrate_from_id_metadata: ___hydrate_from_id_metadata_spec
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._LogQueryData: ...
+        async def aio(self, /) -> modal._supports_logs._LogQueryData: ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.FunctionCallLogsManager:
+        """Access logs for a single `FunctionCall`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+            CLI access to logs for an App.
+        """
+        ...
 
     class __num_inputs_spec(typing_extensions.Protocol):
         def __call__(self, /) -> int:
@@ -1029,11 +1088,13 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
 
     class __get_call_graph_spec(typing_extensions.Protocol):
         def __call__(self, /) -> list[modal.types.InputInfo]:
-            """Returns a structure representing the call graph from a given root
-            call ID, along with the status of execution for each node.
+            """Fetch information about the graph of Inputs this FunctionCall is part of.
 
-            See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
-            for documentation on the structure of the returned `InputInfo` items.
+            Note: the call graph data is not populated in real-time, and its capture is best-effort.
+            We do not recommend relying on this method for critical use cases.
+
+            See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
+            on the return values.
 
             Returns:
                 A list of `InputInfo` nodes describing the call graph.
@@ -1041,11 +1102,13 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             ...
 
         async def aio(self, /) -> list[modal.types.InputInfo]:
-            """Returns a structure representing the call graph from a given root
-            call ID, along with the status of execution for each node.
+            """Fetch information about the graph of Inputs this FunctionCall is part of.
 
-            See [`modal.call_graph`](https://modal.com/docs/sdk/py/latest/modal.call_graph) reference page
-            for documentation on the structure of the returned `InputInfo` items.
+            Note: the call graph data is not populated in real-time, and its capture is best-effort.
+            We do not recommend relying on this method for critical use cases.
+
+            See the [`modal.types`](/docs/sdk/py/latest/types) reference for information
+            on the return values.
 
             Returns:
                 A list of `InputInfo` nodes describing the call graph.
@@ -1056,26 +1119,22 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
 
     class __cancel_spec(typing_extensions.Protocol):
         def __call__(self, /, terminate_containers: bool = False):
-            """Cancels the function call, which will stop its execution and mark its inputs as
-            [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
-
-            If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
-            causing any non-cancelled inputs on those containers to be rescheduled in new containers.
+            """Cancel the FunctionCall and terminate its inputs without retrying.
 
             Args:
-                terminate_containers: If True, forcibly terminate workers running cancelled inputs.
+                terminate_containers: If True, terminate the containers running the cancelled
+                    inputs. Any other inputs running concurrently on those containers will be
+                    rescheduled.
             """
             ...
 
         async def aio(self, /, terminate_containers: bool = False):
-            """Cancels the function call, which will stop its execution and mark its inputs as
-            [`TERMINATED`](https://modal.com/docs/sdk/py/latest/modal.call_graph#modalcall_graphinputstatus).
-
-            If `terminate_containers=True` - the containers running the cancelled inputs are all terminated
-            causing any non-cancelled inputs on those containers to be rescheduled in new containers.
+            """Cancel the FunctionCall and terminate its inputs without retrying.
 
             Args:
-                terminate_containers: If True, forcibly terminate workers running cancelled inputs.
+                terminate_containers: If True, terminate the containers running the cancelled
+                    inputs. Any other inputs running concurrently on those containers will be
+                    rescheduled.
             """
             ...
 
@@ -1113,6 +1172,8 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
         async def aio(self, /, function_call_id: str, client: typing.Optional[modal.client.Client] = None): ...
 
     from_id: typing.ClassVar[__from_id_spec]
+
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
 
     class __gather_spec(typing_extensions.Protocol):
         def __call__(self, /, *function_calls: FunctionCall[modal._functions.T]) -> typing.Sequence[modal._functions.T]:

@@ -20,6 +20,7 @@ from sagemaker_studio.utils.loggerutils import sync_with_metrics
 from sagemaker_studio.utils.spark.session.athena.interceptors import CustomChannelBuilder
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    apply_compatibility_mode_configs,
     build_spark_configs,
     extract_connection_spark_configs,
 )
@@ -127,8 +128,10 @@ class AthenaSparkSessionManager(SparkSessionManager):
 
             # Prepare session parameters (outside metrics)
             user_id, account_id = self._get_user_id_account_id()
+            service_configs = apply_compatibility_mode_configs({})
             spark_properties = build_spark_configs(
                 account_id=account_id,
+                service_configs=service_configs,
                 connection_configs=self.connection_spark_configs,
                 user_configs=self._user_spark_conf,
             )

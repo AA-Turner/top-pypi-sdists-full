@@ -33,7 +33,7 @@ import re
 import sys
 from collections.abc import Awaitable, Sequence
 from functools import partial, wraps
-from typing import Any, Callable, ClassVar, Optional, Protocol, TypeVar, cast, get_type_hints
+from typing import Any, Callable, ClassVar, Optional, Protocol, TypeVar, cast, get_type_hints, overload
 
 from .channel import DTXChannel
 from .context import DTX_GLOBAL_CTX, DTXContext  # noqa: F401 — re-exported for back-compat
@@ -43,6 +43,9 @@ from .primitives import PInt32, _PrimitiveBase
 logger = logging.getLogger(__name__)
 
 _MISSING = object()  # sentinel for missing attribute values in __init_subclass__
+# Identity TypeVar for the DTX method/handler decorators: keeps the decorated
+# function's own type so `self.service.<method>(...)` stays callable/typed.
+_DtxFnT = TypeVar("_DtxFnT", bound=Callable[..., Any])
 DTX_SERVICE_T = TypeVar("DTX_SERVICE_T", bound="DTXService")
 QUEUE_ITEM_T = TypeVar("QUEUE_ITEM_T")
 
@@ -151,7 +154,7 @@ def _python_name_to_objc_selector(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _apply_primitive_coercions(args: tuple, coercions: tuple) -> tuple:
+def _apply_primitive_coercions(args: tuple[Any, ...], coercions: tuple[Any, ...]) -> tuple[Any, ...]:
     """Coerce *args* to :class:`_PrimitiveBase` types driven by annotation hints.
 
     For each position *i*, if ``coercions[i]`` is a :class:`_PrimitiveBase`
@@ -173,7 +176,7 @@ def _apply_primitive_coercions(args: tuple, coercions: tuple) -> tuple:
         if not isinstance(result[i], _PrimitiveBase):
             # Concrete primitive classes mix in a builtin (int/str/bytes/…) whose
             # constructor takes the raw value; _PrimitiveBase itself declares none.
-            result[i] = cast("Callable[[Any], _PrimitiveBase]", coerce_type)(result[i])
+            result[i] = cast(Callable[[Any], _PrimitiveBase], coerce_type)(result[i])
     return tuple(result)
 
 
@@ -194,7 +197,11 @@ class _DtxOnInvokeFn(Protocol):
     _dtx_on_invoke: Optional[str]
 
 
-def dtx_method(selector_or_fn=None, /, **invoke_kwargs):
+@overload
+def dtx_method(selector_or_fn: _DtxFnT, /) -> _DtxFnT: ...
+@overload
+def dtx_method(selector_or_fn: Optional[str] = ..., /, **invoke_kwargs: Any) -> Callable[[_DtxFnT], _DtxFnT]: ...
+def dtx_method(selector_or_fn: Any = None, /, **invoke_kwargs: Any) -> Any:
     """Decorator for outgoing DTX calls.
 
     Replaces the decorated method body with a ``self._channel.invoke(...)``
@@ -209,18 +216,22 @@ def dtx_method(selector_or_fn=None, /, **invoke_kwargs):
         @dtx_method("setConfig:", expects_reply=False)
     """
     if callable(selector_or_fn):
-        cast("_DtxMethodFn", selector_or_fn)._dtx_method = (None, {})
+        cast(_DtxMethodFn, selector_or_fn)._dtx_method = (None, {})
         return selector_or_fn
     selector = selector_or_fn
 
-    def decorator(fn):
+    def decorator(fn: Any) -> Any:
         fn._dtx_method = (selector, invoke_kwargs)
         return fn
 
     return decorator
 
 
-def dtx_on_invoke(selector_or_fn=None, /):
+@overload
+def dtx_on_invoke(selector_or_fn: _DtxFnT, /) -> _DtxFnT: ...
+@overload
+def dtx_on_invoke(selector_or_fn: Optional[str] = ..., /) -> Callable[[_DtxFnT], _DtxFnT]: ...
+def dtx_on_invoke(selector_or_fn: Any = None, /) -> Any:
     """Register a method as the handler for a specific incoming ObjC selector.
 
     Usage::
@@ -229,33 +240,33 @@ def dtx_on_invoke(selector_or_fn=None, /):
         @dtx_on_invoke("_XCT_logMessage:")      # explicit selector
     """
     if callable(selector_or_fn):
-        cast("_DtxOnInvokeFn", selector_or_fn)._dtx_on_invoke = None  # None → infer from method name
+        cast(_DtxOnInvokeFn, selector_or_fn)._dtx_on_invoke = None  # None → infer from method name
         return selector_or_fn
     selector = selector_or_fn
 
-    def decorator(fn):
+    def decorator(fn: Any) -> Any:
         fn._dtx_on_invoke = selector
         return fn
 
     return decorator
 
 
-def dtx_on_data(fn):
+def dtx_on_data(fn: _DtxFnT) -> _DtxFnT:
     """Register a method as the handler for incoming DATA frames (raw bytes)."""
-    fn._dtx_on_data = True
+    cast(Any, fn)._dtx_on_data = True
     return fn
 
 
-def dtx_on_notification(fn):
+def dtx_on_notification(fn: _DtxFnT) -> _DtxFnT:
     """Register a method as the handler for incoming OBJECT/OK notifications."""
-    fn._dtx_on_notification = True
+    cast(Any, fn)._dtx_on_notification = True
     return fn
 
 
-def dtx_on_dispatch(fn):
+def dtx_on_dispatch(fn: _DtxFnT) -> _DtxFnT:
     """Catch-all handler for incoming DISPATCH messages not matched by
     :func:`dtx_on_invoke`.  The method receives ``(selector: str, *args)``."""
-    fn._dtx_on_dispatch = True
+    cast(Any, fn)._dtx_on_dispatch = True
     return fn
 
 
@@ -316,7 +327,7 @@ class DTXService:
                 # Build per-parameter coercion table from type annotations.
                 # With 'from __future__ import annotations' all annotations are
                 # strings; get_type_hints() evaluates them in the module's namespace.
-                _coercions: tuple = ()
+                _coercions: tuple[Any, ...] = ()
                 try:
                     module_globals = vars(sys.modules.get(cls.__module__, None) or {})
                     hints = get_type_hints(val, globalns=module_globals)
@@ -326,11 +337,11 @@ class DTXService:
                     pass
 
                 async def _wrapper(
-                    self,
+                    self: Any,
                     *args: Any,
                     __sel: str = _sel,
-                    __kw: dict = _kw,
-                    __coercions: tuple = _coercions,
+                    __kw: dict[str, Any] = _kw,
+                    __coercions: tuple[Any, ...] = _coercions,
                     **extra: Any,
                 ) -> Any:
                     if __coercions:
@@ -513,7 +524,7 @@ class DTXControlService(DTXService):
     # ------------------------------------------------------------------
 
     @dtx_method("_notifyOfPublishedCapabilities:", expects_reply=False)
-    async def notify_capabilities(self, capabilities: dict) -> None:
+    async def notify_capabilities(self, capabilities: dict[str, Any]) -> None:
         """Announce our capability dictionary to the peer."""
 
     @dtx_method("_requestChannelWithCode:identifier:")
@@ -529,7 +540,7 @@ class DTXControlService(DTXService):
     # ------------------------------------------------------------------
 
     @dtx_on_invoke("_notifyOfPublishedCapabilities:")
-    async def _recv_capabilities(self, capabilities: dict) -> None:
+    async def _recv_capabilities(self, capabilities: dict[str, Any]) -> None:
         await self._ctx["connection"]._on_capabilities_received(capabilities)
 
     @dtx_on_invoke("_requestChannelWithCode:identifier:")

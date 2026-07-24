@@ -265,6 +265,7 @@ class SearchResource(SyncAPIResource):
         q: str,
         aggregate: bool | Omit = omit,
         container_tag: str | Omit = omit,
+        container_tags: SequenceNotStr[str] | Omit = omit,
         filepath: str | Omit = omit,
         filters: search_memories_params.Filters | Omit = omit,
         include: search_memories_params.Include | Omit = omit,
@@ -292,6 +293,9 @@ class SearchResource(SyncAPIResource):
 
           container_tag: Optional tag this search should be containerized by. This can be an ID for your
               user, a project ID, or any other identifier you wish to use to filter memories.
+
+          container_tags: Optional tags this search should be containerized by. Search is scoped to
+              memories under these tags.
 
           filepath: Filter search results by filepath. Exact match for full paths, prefix match if
               ending with /
@@ -329,6 +333,7 @@ class SearchResource(SyncAPIResource):
                     "q": q,
                     "aggregate": aggregate,
                     "container_tag": container_tag,
+                    "container_tags": container_tags,
                     "filepath": filepath,
                     "filters": filters,
                     "include": include,
@@ -587,6 +592,7 @@ class AsyncSearchResource(AsyncAPIResource):
         q: str,
         aggregate: bool | Omit = omit,
         container_tag: str | Omit = omit,
+        container_tags: SequenceNotStr[str] | Omit = omit,
         filepath: str | Omit = omit,
         filters: search_memories_params.Filters | Omit = omit,
         include: search_memories_params.Include | Omit = omit,
@@ -614,6 +620,9 @@ class AsyncSearchResource(AsyncAPIResource):
 
           container_tag: Optional tag this search should be containerized by. This can be an ID for your
               user, a project ID, or any other identifier you wish to use to filter memories.
+
+          container_tags: Optional tags this search should be containerized by. Search is scoped to
+              memories under these tags.
 
           filepath: Filter search results by filepath. Exact match for full paths, prefix match if
               ending with /
@@ -651,6 +660,7 @@ class AsyncSearchResource(AsyncAPIResource):
                     "q": q,
                     "aggregate": aggregate,
                     "container_tag": container_tag,
+                    "container_tags": container_tags,
                     "filepath": filepath,
                     "filters": filters,
                     "include": include,

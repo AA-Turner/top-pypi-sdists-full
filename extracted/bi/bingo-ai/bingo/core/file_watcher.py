@@ -1,7 +1,7 @@
 """
 bingo File Watcher — 스크립트가 생성/수정한 파일을 실시간으로 감지.
 
-Claude Code의 fsevents 관찰과 동일한 역할:
+로컬 파일 이벤트 관찰과 동일한 역할:
   - 임시 스크립트 출력 파일 자동 감지
   - 새 발견 사항(.txt/.json/.log) 자동 읽기
   - 콜백으로 터미널에 실시간 알림
@@ -16,6 +16,8 @@ from __future__ import annotations
 import os, time, threading
 from pathlib import Path
 from typing import Callable
+
+from .local_state import artifact_dir
 
 
 class FileWatcher:
@@ -98,7 +100,7 @@ class AgentOutputWatcher(FileWatcher):
 
     자동 감지 파일:
       - /tmp/bingo_agent/*.py 실행 결과
-      - ~/.bingo/output/*.json / *.txt
+      - Bingo artifact output *.json / *.txt
       - /tmp/bingo_findings.*
     """
 
@@ -109,7 +111,7 @@ class AgentOutputWatcher(FileWatcher):
         import tempfile
         default_dirs = [
             Path(tempfile.gettempdir()) / "bingo_agent",
-            Path.home() / ".bingo" / "output",
+            artifact_dir() / "output",
         ]
         for d in default_dirs:
             d.mkdir(parents=True, exist_ok=True)
@@ -153,7 +155,7 @@ class AgentOutputWatcher(FileWatcher):
 
     def save_finding(self, name: str, content: str) -> Path:
         """발견 사항을 파일로 저장 (자동 감지됨)."""
-        out_dir = Path.home() / ".bingo" / "output"
+        out_dir = artifact_dir() / "output"
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = int(time.time())
         path = out_dir / f"{name}_{ts}.txt"

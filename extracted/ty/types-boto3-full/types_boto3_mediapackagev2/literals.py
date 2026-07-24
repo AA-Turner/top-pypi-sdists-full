@@ -48,6 +48,8 @@ __all__ = (
     "ListOriginEndpointsPaginatorName",
     "Mediapackagev2ServiceName",
     "MssManifestLayoutType",
+    "OutputLockingModeType",
+    "OutputTimestampModeType",
     "PaginatorName",
     "PresetSpeke20AudioType",
     "PresetSpeke20VideoType",
@@ -94,6 +96,8 @@ ListChannelsPaginatorName = Literal["list_channels"]
 ListHarvestJobsPaginatorName = Literal["list_harvest_jobs"]
 ListOriginEndpointsPaginatorName = Literal["list_origin_endpoints"]
 MssManifestLayoutType = Literal["COMPACT", "FULL"]
+OutputLockingModeType = Literal["EPOCH_LOCKED", "NON_EPOCH_LOCKED"]
+OutputTimestampModeType = Literal["PASSTHROUGH", "REBASED_TO_CHANNEL_START"]
 PresetSpeke20AudioType = Literal[
     "PRESET_AUDIO_1", "PRESET_AUDIO_2", "PRESET_AUDIO_3", "SHARED", "UNENCRYPTED"
 ]

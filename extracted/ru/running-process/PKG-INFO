@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: running_process
-Version: 4.5.12
+Version: 4.6.1
 License-File: LICENSE
 Summary: A Rust-backed subprocess wrapper with split stdout/stderr streaming
 Home-Page: https://github.com/zackees/running-process

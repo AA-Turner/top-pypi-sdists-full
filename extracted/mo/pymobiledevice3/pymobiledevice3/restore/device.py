@@ -1,5 +1,5 @@
 from contextlib import suppress
-from typing import Optional, overload
+from typing import Any, Optional, cast, overload
 
 from pymobiledevice3.exceptions import MissingValueError
 from pymobiledevice3.irecv import IRecv
@@ -19,16 +19,16 @@ class Device:
         self._ecid: Optional[int] = None
         self._hardware_model: Optional[str] = None
         self._is_image4_supported: Optional[bool] = None
-        self._ap_parameters: Optional[dict] = None
+        self._ap_parameters: Optional[dict[str, Any]] = None
         self._ap_nonce = None
         self._ap_nonce_loaded = False
         self._sep_nonce = None
         self._sep_nonce_loaded = False
-        self._preflight_info: Optional[dict] = None
+        self._preflight_info: Optional[dict[str, Any]] = None
         self._preflight_info_loaded = False
-        self._firmware_preflight_info: Optional[dict] = None
+        self._firmware_preflight_info: Optional[dict[str, Any]] = None
         self._firmware_preflight_info_loaded = False
-        self._preflight_device_info: Optional[dict] = None
+        self._preflight_device_info: Optional[dict[str, Any]] = None
         self._preflight_device_info_loaded = False
         self._product_type: Optional[str] = None
 
@@ -85,7 +85,7 @@ class Device:
 
         return self._is_image4_supported
 
-    async def get_ap_parameters(self) -> dict:
+    async def get_ap_parameters(self) -> dict[str, Any]:
         if self._ap_parameters is not None:
             return self._ap_parameters
 
@@ -132,7 +132,7 @@ class Device:
         self._sep_nonce_loaded = True
         return self._sep_nonce
 
-    async def get_preflight_info(self) -> Optional[dict]:
+    async def get_preflight_info(self) -> Optional[dict[str, Any]]:
         if self._preflight_info_loaded:
             return self._preflight_info
 
@@ -149,7 +149,7 @@ class Device:
         self._preflight_info_loaded = True
         return self._preflight_info
 
-    async def get_firmware_preflight_info(self) -> Optional[dict]:
+    async def get_firmware_preflight_info(self) -> Optional[dict[str, Any]]:
         if self._firmware_preflight_info_loaded:
             return self._firmware_preflight_info
 
@@ -162,7 +162,7 @@ class Device:
         self._firmware_preflight_info_loaded = True
         return self._firmware_preflight_info
 
-    async def get_preflight_device_info(self) -> Optional[dict]:
+    async def get_preflight_device_info(self) -> Optional[dict[str, Any]]:
         """Return PreflightInfo.DeviceInfo (per-peripheral state: nonces, chip IDs, etc.).
 
         Present on iOS 18+. Contains entries like Rose/SE/Savage/T200, each carrying the
@@ -180,11 +180,11 @@ class Device:
         if not isinstance(device_info, dict):
             return None
         # Filter out entries marked disabled or that failed to query.
-        disabled = pinfo.get("DeviceInfoDisabled") or {}
-        failures = pinfo.get("DeviceInfoFailures") or {}
+        disabled: dict[str, Any] = pinfo.get("DeviceInfoDisabled") or {}
+        failures: dict[str, Any] = pinfo.get("DeviceInfoFailures") or {}
         self._preflight_device_info = {
             updater: info
-            for updater, info in device_info.items()
+            for updater, info in cast(dict[str, Any], device_info).items()
             if updater not in disabled and updater not in failures
         }
         return self._preflight_device_info

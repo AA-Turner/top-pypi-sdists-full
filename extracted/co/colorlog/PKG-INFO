@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colorlog
-Version: 6.11.0
+Version: 6.12.0
 Summary: Add colours to the output of Python's logging module.
 Home-page: https://github.com/borntyping/python-colorlog
 Author: Sam Clements

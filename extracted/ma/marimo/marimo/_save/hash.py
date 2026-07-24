@@ -10,7 +10,7 @@ import sys
 import types
 from typing import TYPE_CHECKING, Any, NamedTuple
 
-from marimo._ast.transformers import DeprivateVisitor, get_hashable_ast
+from marimo._ast.transformers import DeprivateVisitor
 from marimo._ast.variables import (
     get_cell_from_local,
     if_local_then_mangle,
@@ -140,14 +140,6 @@ def hash_raw_module(
 def hash_cell_impl(cell: CellImpl, hash_type: str = DEFAULT_HASH) -> bytes:
     return hash_module(cell.body, hash_type) + hash_module(
         cell.last_expr, hash_type
-    )
-
-
-def hash_function(
-    fn: Callable[..., Any], hash_type: str = DEFAULT_HASH
-) -> bytes:
-    return hash_raw_module(
-        DeprivateVisitor().visit(get_hashable_ast(fn)), hash_type
     )
 
 
@@ -698,7 +690,22 @@ class BlockHasher:
         imports = get_imports(scope)
         for local_ref in sorted(refs):
             ref = if_local_then_mangle(local_ref, self.cell_id)
-            if ref in imports:
+            # An underscore import (e.g. `import marimo as _private`) is
+            # mangled in the cell, but a cached function that references
+            # it can surface the raw, unmangled name as a ref (its body
+            # is hashed in the function scope). Depending on the path the
+            # import may therefore appear in `imports` under either the
+            # mangled `ref` or the raw `local_ref`. Accept either so the
+            # module is treated as an import (and not pickled, which
+            # would raise `cannot pickle 'module' object`).
+            import_key: Name | None = (
+                ref
+                if ref in imports
+                else local_ref
+                if local_ref in imports
+                else None
+            )
+            if import_key is not None:
                 # TODO: There may be a way to tie this in with module watching.
                 # e.g. module watcher could mutate the version number based
                 # last updated timestamp.
@@ -707,15 +714,18 @@ class BlockHasher:
                 if self.pin_modules:
                     # Fall back to the in-scope value (which may be a module
                     # stub) so its replayed `__version__` reproduces the pinned
-                    # hash.
-                    module = sys.modules.get(imports[ref].module) or scope.get(
-                        local_ref
+                    # hash. The scope may hold the module under either the
+                    # mangled or the raw name, mirroring `import_key`.
+                    module = (
+                        sys.modules.get(imports[import_key].module)
+                        or scope.get(ref)
+                        or scope.get(local_ref)
                     )
                     version = getattr(module, "__version__", "") or ""
                     if not version:
                         module = sys.modules.get(
-                            imports[ref].namespace
-                        ) or scope.get(imports[ref].namespace)
+                            imports[import_key].namespace
+                        ) or scope.get(imports[import_key].namespace)
                         version = getattr(module, "__version__", "") or ""
 
                 content_serialization[ref] = type_sign(
@@ -1171,7 +1181,7 @@ def content_cache_attempt_from_base(
 
     # refine to values present
     refs = scoped_refs & previous_block.visitor.refs
-    # Required refs are made explicit incase the examined block does not
+    # Required refs are made explicit in case the examined block does not
     # specify them e.g.
     # @cache
     # def foo(x):

@@ -3,18 +3,14 @@
 from __future__ import annotations
 
 from typing import Dict, Union, Iterable, Optional
-from typing_extensions import Required, Annotated, TypeAlias, TypedDict
+from typing_extensions import Required, Annotated, TypedDict
 
 from .._utils import PropertyInfo
 
-__all__ = ["SettingUpdateParams", "Variant0", "Variant1", "Variant1ProfileBucket"]
+__all__ = ["SettingUpdateParams", "ProfileBucket"]
 
 
-class Variant0(TypedDict, total=False):
-    workspace_prompt: Required[Annotated[Optional[str], PropertyInfo(alias="workspacePrompt")]]
-
-
-class Variant1(TypedDict, total=False):
+class SettingUpdateParams(TypedDict, total=False):
     chunk_size: Annotated[Optional[int], PropertyInfo(alias="chunkSize")]
 
     exclude_items: Annotated[
@@ -51,13 +47,13 @@ class Variant1(TypedDict, total=False):
 
     onedrive_custom_key_enabled: Annotated[Optional[bool], PropertyInfo(alias="onedriveCustomKeyEnabled")]
 
-    profile_buckets: Annotated[Iterable[Variant1ProfileBucket], PropertyInfo(alias="profileBuckets")]
+    profile_buckets: Annotated[Iterable[ProfileBucket], PropertyInfo(alias="profileBuckets")]
     """Profile bucket definitions"""
 
     should_llm_filter: Annotated[Optional[bool], PropertyInfo(alias="shouldLLMFilter")]
 
 
-class Variant1ProfileBucket(TypedDict, total=False):
+class ProfileBucket(TypedDict, total=False):
     """Definition of a single profile bucket"""
 
     key: Required[str]
@@ -65,6 +61,3 @@ class Variant1ProfileBucket(TypedDict, total=False):
 
     description: str
     """What belongs in this bucket — used to guide the ingestion classifier."""
-
-
-SettingUpdateParams: TypeAlias = Union[Variant0, Variant1]

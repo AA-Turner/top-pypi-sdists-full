@@ -47,7 +47,7 @@ UserCodeException = synchronicity.exceptions.UserCodeException  # Deprecated typ
 
 class Error(Exception):
     """
-    Base class for all Modal errors. See [`modal.exception`](https://modal.com/docs/sdk/py/latest/modal.exception)
+    Base class for all Modal errors. See [`modal.exception`](https://modal.com/docs/sdk/py/latest/exception)
     for the specialized error classes.
 
     Examples:
@@ -186,6 +186,10 @@ class TimeoutError(Error):
 
 class SandboxTimeoutError(TimeoutError):
     """Raised when a Sandbox exceeds its execution duration limit and times out."""
+
+
+class SnapshotCreationError(Error):
+    """Raised when a Sandbox fails to create an exit snapshot."""
 
 
 class ExecTimeoutError(TimeoutError):

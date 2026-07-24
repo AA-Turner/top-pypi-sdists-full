@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: liteparse
-Version: 2.8.0
+Version: 2.8.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -149,7 +149,7 @@ for page in pages:
 - PDF (`.pdf`)
 - Microsoft Office (`.docx`, `.xlsx`, `.pptx`, etc.) — requires LibreOffice
 - OpenDocument (`.odt`, `.ods`, `.odp`) — requires LibreOffice
-- Images (`.png`, `.jpg`, `.tiff`, etc.) — requires ImageMagick
+- Images (`.png`, `.jpg`, `.tiff`, etc.)
 - And more!
 
 ## CLI

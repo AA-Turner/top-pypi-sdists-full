@@ -1,11 +1,13 @@
 import contextlib
 import datetime
 import json
+import secrets
 
 import pytest
 import requests
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.http import HttpRequest
 from django.utils import timezone
 from jwcrypto import jwt
 from oauthlib.common import Request
@@ -24,7 +26,6 @@ from oauth2_provider.oauth2_validators import OAuth2Validator
 from . import presets
 from .common_testing import OAuth2ProviderTestCase as TestCase
 from .common_testing import OAuth2ProviderTransactionTestCase as TransactionTestCase
-from .common_testing import retrieve_current_databases
 from .utils import get_basic_auth_header
 
 
@@ -163,6 +164,47 @@ class TestOAuth2Validator(TransactionTestCase):
         self.request.headers = get_basic_auth_header("client_id", "wrong_secret")
         self.assertFalse(self.validator._authenticate_basic_auth(self.request))
 
+    def test_authenticate_basic_auth_wrong_client_secret_not_logged(self):
+        """The client secret must never be written to the logs (basic auth)."""
+        self.request.encoding = "utf-8"
+        self.request.headers = get_basic_auth_header("client_id", "super_secret_value")
+        with self.assertLogs("oauth2_provider", level="DEBUG") as logs:
+            self.assertFalse(self.validator._authenticate_basic_auth(self.request))
+        self.assertNotIn("super_secret_value", "\n".join(logs.output))
+
+    def test_authenticate_request_body_wrong_client_secret_not_logged(self):
+        """The client secret must never be written to the logs (body auth)."""
+        self.request.client_id = "client_id"
+        self.request.client_secret = "super_secret_value"
+        with self.assertLogs("oauth2_provider", level="DEBUG") as logs:
+            self.assertFalse(self.validator._authenticate_request_body(self.request))
+        self.assertNotIn("super_secret_value", "\n".join(logs.output))
+
+    def test_authenticate_basic_auth_undecodable_credentials_not_logged(self):
+        """The raw credential string must not be logged when base64/unicode decoding fails."""
+        self.request.encoding = "utf-8"
+
+        # Not valid base64 -> hits the base64 decode failure branch.
+        self.request.headers = {"HTTP_AUTHORIZATION": "Basic not_base64"}
+        with self.assertLogs("oauth2_provider", level="DEBUG") as logs:
+            self.assertFalse(self.validator._authenticate_basic_auth(self.request))
+        output = "\n".join(logs.output)
+        # Assert the base64-decode-failure branch actually ran (not some later path) ...
+        self.assertIn("can't be decoded as base64", output)
+        # ... and that it did not log the raw credential string.
+        self.assertNotIn("not_base64", output)
+
+        # "test" b64-decodes to non-utf-8 bytes, so it deterministically hits the unicode
+        # decode failure branch (same known fixture as test_authenticate_basic_auth_not_utf8).
+        self.request.headers = {"HTTP_AUTHORIZATION": "Basic test"}
+        with self.assertLogs("oauth2_provider", level="DEBUG") as logs:
+            self.assertFalse(self.validator._authenticate_basic_auth(self.request))
+        output = "\n".join(logs.output)
+        # Assert the unicode-decode-failure branch actually ran ...
+        self.assertIn("can't be decoded as unicode", output)
+        # ... and that it did not log the raw credential string.
+        self.assertNotIn("test", output)
+
     def test_authenticate_basic_auth_not_b64_auth_string(self):
         self.request.encoding = "utf-8"
         # Can"t b64decode
@@ -263,8 +305,148 @@ class TestOAuth2Validator(TransactionTestCase):
         self.assertIsNone(application)
         self.assertIsNone(self.request.client)
 
+    @mock.patch.object(Application._default_manager, "get")
+    def test_load_application_returns_none_for_client_id_containing_nul_byte(self, mock_get):
+        """
+        Regression test for
+        https://github.com/django-oauth/django-oauth-toolkit/issues/1006
+
+        Some database backends (e.g. PostgreSQL) raise ValueError
+        rather than executing the query at all when a string
+        parameter contains a NUL (0x00) byte. A client_id containing
+        one can never match a real Application, so this must return
+        None (same as "not found") instead of letting the ValueError
+        propagate into a 500 error.
+
+        The manager lookup is mocked to raise ValueError so the test is
+        backend-agnostic: SQLite (the default test backend) tolerates a
+        NUL byte and simply returns "not found", so without the mock this
+        would pass even against the unfixed code.
+        """
+        mock_get.side_effect = ValueError("A string literal cannot contain NUL (0x00) characters.")
+        self.request.client = None
+        application = self.validator._load_application("client_id\x00", self.request)
+        self.assertIsNone(application)
+        self.assertIsNone(self.request.client)
+
+    @mock.patch("oauth2_provider.oauth2_validators.authenticate")
+    def test_validate_user_returns_false_for_username_containing_nul_byte(self, mock_authenticate):
+        """
+        Regression test for
+        https://github.com/django-oauth/django-oauth-toolkit/issues/1006
+
+        Some database backends (e.g. PostgreSQL) raise ValueError from
+        within Django's own authenticate() when a username contains a
+        NUL (0x00) byte, rather than the usual "no matching user"
+        outcome. A username containing one can never match a real
+        user, so this must return False (authentication failed)
+        instead of letting the ValueError propagate into a 500 error.
+
+        authenticate() is mocked to raise ValueError so the test is
+        backend-agnostic: SQLite (the default test backend) tolerates a
+        NUL byte and simply returns None, so without the mock this would
+        pass even against the unfixed code.
+        """
+        mock_authenticate.side_effect = ValueError("A string literal cannot contain NUL (0x00) characters.")
+        oauthlib_request = Request("/o/token/")
+        oauthlib_request.decoded_body = []
+        result = self.validator.validate_user(
+            "someuser\x00", "somepassword", self.application, oauthlib_request
+        )
+        self.assertFalse(result)
+
+    @mock.patch("oauth2_provider.oauth2_validators.authenticate")
+    def test_validate_user_reraises_unrelated_value_error(self, mock_authenticate):
+        """
+        A ValueError that is not caused by a NUL byte in the username
+        (e.g. raised by a custom authentication backend for an unrelated
+        reason) must propagate rather than being silently swallowed as a
+        failed authentication.
+        """
+        mock_authenticate.side_effect = ValueError("unrelated backend error")
+        oauthlib_request = Request("/o/token/")
+        oauthlib_request.decoded_body = []
+        with self.assertRaises(ValueError):
+            self.validator.validate_user("someuser", "somepassword", self.application, oauthlib_request)
+
     def test_rotate_refresh_token__is_true(self):
         self.assertTrue(self.validator.rotate_refresh_token(mock.MagicMock()))
+
+    def test_validate_refresh_token_with_long_token(self):
+        long_token = "x" * 500
+        access_token = AccessToken.objects.create(
+            user=self.user,
+            token="12345678901",
+            application=self.application,
+            expires=timezone.now() + datetime.timedelta(days=1),
+        )
+        RefreshToken.objects.create(
+            user=self.user,
+            token=long_token,
+            application=self.application,
+            access_token=access_token,
+        )
+        request = mock.MagicMock(wraps=Request)
+
+        self.assertTrue(self.validator.validate_refresh_token(long_token, self.application, request))
+        self.assertEqual(request.user, self.user)
+        self.assertEqual(request.refresh_token, long_token)
+
+    def test_validate_refresh_token_with_unknown_token(self):
+        request = mock.MagicMock(wraps=Request)
+        self.assertFalse(self.validator.validate_refresh_token("unknown", self.application, request))
+
+    def test_revoke_token_with_long_refresh_token(self):
+        long_token = "x" * 500
+        refresh_token = RefreshToken.objects.create(
+            user=self.user,
+            token=long_token,
+            application=self.application,
+        )
+
+        self.validator.revoke_token(long_token, "refresh_token", mock.MagicMock(wraps=Request))
+
+        refresh_token.refresh_from_db()
+        self.assertIsNotNone(refresh_token.revoked)
+
+    def test_validate_refresh_token_prefers_unrevoked_row_over_revoked_duplicate(self):
+        # (token_checksum, revoked) uniqueness allows the same token value to exist
+        # as both a revoked row and an active row; validation must pick the active one.
+        token = "duplicate-refresh-token"
+        RefreshToken.objects.create(
+            user=self.user,
+            token=token,
+            application=self.application,
+            revoked=timezone.now() - datetime.timedelta(days=1),
+        )
+        RefreshToken.objects.create(
+            user=self.user,
+            token=token,
+            application=self.application,
+        )
+        request = mock.MagicMock(wraps=Request)
+
+        self.assertTrue(self.validator.validate_refresh_token(token, self.application, request))
+        self.assertIsNone(request.refresh_token_instance.revoked)
+
+    def test_revoke_token_with_duplicate_refresh_token_checksums(self):
+        token = "duplicate-refresh-token"
+        RefreshToken.objects.create(
+            user=self.user,
+            token=token,
+            application=self.application,
+            revoked=timezone.now() - datetime.timedelta(days=1),
+        )
+        active_token = RefreshToken.objects.create(
+            user=self.user,
+            token=token,
+            application=self.application,
+        )
+
+        self.validator.revoke_token(token, "refresh_token", mock.MagicMock(wraps=Request))
+
+        active_token.refresh_from_db()
+        self.assertIsNotNone(active_token.revoked)
 
     def test_save_bearer_token__without_user__raises_fatal_client(self):
         token = {}
@@ -402,6 +584,54 @@ class TestOAuth2Validator(TransactionTestCase):
 
         self.assertIsNotNone(user)
         self.assertEqual(content["username"], user.username)
+
+    def test_validate_user_uses_default_build_http_request(self):
+        password = secrets.token_hex(16)
+        request = mock.MagicMock(
+            wraps=Request,
+            uri="/",
+            http_method="POST",
+            decoded_body=[("username", self.user.username), ("password", password)],
+            headers={"Authorization": "Basic 123456"},
+        )
+        with mock.patch("oauth2_provider.oauth2_validators.authenticate") as mock_authenticate:
+            mock_authenticate.return_value = self.user
+            success = self.validator.validate_user(self.user.username, password, self.application, request)
+        self.assertTrue(success)
+        self.assertEqual(request.user, self.user, "Successfully authenticated user is set to the request")
+        # authenticate() should receive a Django HttpRequest built from the oauthlib
+        # request, with the key attributes copied over.
+        built_request = mock_authenticate.call_args.args[0]
+        self.assertIsInstance(built_request, HttpRequest)
+        self.assertEqual(built_request.path, request.uri)
+        self.assertEqual(built_request.method, request.http_method)
+        self.assertEqual(built_request.META, request.headers)
+        call_with_original_request = mock.call(request, username=self.user.username, password=password)
+        self.assertNotIn(
+            call_with_original_request,
+            mock_authenticate.mock_calls,
+            "The request should not be passed directly to the authenticate method",
+        )
+
+    def test_validate_user_with_overridden_build_http_request(self):
+        copy_of_request = HttpRequest()
+
+        class TestOAuth2Validator(OAuth2Validator):
+            def build_http_request(self, request):
+                return copy_of_request
+
+        validator = TestOAuth2Validator()
+        password = secrets.token_hex(16)
+        request = mock.MagicMock(wraps=Request)
+        with mock.patch("oauth2_provider.oauth2_validators.authenticate") as mock_authenticate:
+            mock_authenticate.return_value = self.user
+            success = validator.validate_user(self.user.username, password, self.application, request)
+        self.assertTrue(success)
+        self.assertEqual(request.user, self.user, "Successfully authenticated user is set to the request")
+        # Check that overridden method is called and the request is passed to the authenticate method
+        mock_authenticate.assert_called_once_with(
+            copy_of_request, username=self.user.username, password=password
+        )
 
 
 class TestOAuth2ValidatorProvidesErrorData(TransactionTestCase):
@@ -613,7 +843,7 @@ def test_get_jwt_bearer_token(oauth2_settings, mocker):
     assert mock_get_id_token.call_args[1] == {}
 
 
-@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.django_db(databases="__all__")
 @pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
 def test_validate_id_token_expired_jwt(oauth2_settings, mocker, oidc_tokens):
     mocker.patch("oauth2_provider.oauth2_validators.jwt.JWT", side_effect=jwt.JWTExpired)
@@ -629,7 +859,7 @@ def test_validate_id_token_no_token(oauth2_settings, mocker):
     assert status is False
 
 
-@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.django_db(databases="__all__")
 @pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
 def test_validate_id_token_app_removed(oauth2_settings, mocker, oidc_tokens):
     oidc_tokens.application.delete()
@@ -638,7 +868,7 @@ def test_validate_id_token_app_removed(oauth2_settings, mocker, oidc_tokens):
     assert status is False
 
 
-@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.django_db(databases="__all__")
 @pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
 def test_validate_id_token_bad_token_no_aud(oauth2_settings, mocker, oidc_key):
     token = jwt.JWT(header=json.dumps({"alg": "RS256"}), claims=json.dumps({"bad": "token"}))
@@ -648,7 +878,67 @@ def test_validate_id_token_bad_token_no_aud(oauth2_settings, mocker, oidc_key):
     assert status is False
 
 
-@pytest.mark.django_db
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_get_id_token_dictionary_auth_time_naive_last_login_is_utc(oauth2_settings, rf):
+    validator = OAuth2Validator()
+    django_request = rf.get("/")
+    request = Request("/", headers=django_request.META)
+    request.scopes = ["openid"]
+    request.client = mock.MagicMock()
+
+    naive_last_login = datetime.datetime(2026, 1, 1, 12, 0, 0)
+    request.user = mock.MagicMock(pk=1, last_login=naive_last_login)
+
+    with timezone.override("Europe/Rome"):
+        claims, _ = validator.get_id_token_dictionary(None, None, request)
+
+    expected_auth_time = int(naive_last_login.replace(tzinfo=datetime.timezone.utc).timestamp())
+    assert claims["auth_time"] == expected_auth_time
+
+
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_get_id_token_dictionary_auth_time_last_login_none_falls_back_to_now(oauth2_settings, rf):
+    validator = OAuth2Validator()
+    django_request = rf.get("/")
+    request = Request("/", headers=django_request.META)
+    request.scopes = ["openid"]
+    request.client = mock.MagicMock()
+    request.user = mock.MagicMock(pk=1, last_login=None)
+
+    frozen_now = datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    with mock.patch("oauth2_provider.oauth2_validators.timezone.now", return_value=frozen_now):
+        claims, _ = validator.get_id_token_dictionary(None, None, request)
+
+    assert claims["auth_time"] == int(frozen_now.timestamp())
+
+
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_get_id_token_dictionary_auth_time_naive_last_login_use_tz_false_uses_default_timezone(
+    oauth2_settings, rf, settings
+):
+    settings.USE_TZ = False
+    settings.TIME_ZONE = "Europe/Rome"
+
+    validator = OAuth2Validator()
+    django_request = rf.get("/")
+    request = Request("/", headers=django_request.META)
+    request.scopes = ["openid"]
+    request.client = mock.MagicMock()
+
+    naive_last_login = datetime.datetime(2026, 1, 1, 12, 0, 0)
+    request.user = mock.MagicMock(pk=1, last_login=naive_last_login)
+
+    claims, _ = validator.get_id_token_dictionary(None, None, request)
+
+    expected_auth_time = int(
+        timezone.make_aware(naive_last_login, timezone=timezone.get_default_timezone())
+        .astimezone(datetime.timezone.utc)
+        .timestamp()
+    )
+    assert claims["auth_time"] == expected_auth_time
+
+
+@pytest.mark.django_db(databases="__all__")
 def test_invalidate_authorization_token_returns_invalid_grant_error_when_grant_does_not_exist():
     client_id = "123"
     code = "12345"

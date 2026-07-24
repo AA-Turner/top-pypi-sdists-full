@@ -349,6 +349,19 @@ def default_serializer(obj):
         return obj.isoformat()
     if isinstance(obj, datetime.timedelta):
         return str(obj)
+    # Cells holding array formulas (or data-table formulas) come back as
+    # openpyxl formula objects rather than plain values when the workbook is
+    # loaded without data_only=True. Serialize them to their formula text so a
+    # sheet containing array formulas doesn't blow up json.dumps with
+    # "Object of type ArrayFormula is not JSON serializable".
+    try:
+        from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
+        if isinstance(obj, ArrayFormula):
+            return obj.text
+        if isinstance(obj, DataTableFormula):
+            return getattr(obj, "ref", None)
+    except ImportError:
+        pass
     raise TypeError(f"Object of type {{type(obj).__name__}} is not JSON serializable")
 
 try:

@@ -25,8 +25,8 @@ import contextlib
 import struct
 import time
 import uuid
-from collections.abc import AsyncIterator, Iterable
-from typing import Optional
+from collections.abc import AsyncGenerator, Iterable
+from typing import Any, Optional
 
 from pymobiledevice3.remote.remote_service import RemoteService
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -385,7 +385,7 @@ class UniversalHIDServiceService(RemoteService):
     def __init__(self, rsd: RemoteServiceDiscoveryService):
         super().__init__(rsd, self.SERVICE_NAME)
 
-    async def list_connected_services(self) -> dict:
+    async def list_connected_services(self) -> dict[str, Any]:
         """Enumerate the device's currently registered HID surfaces."""
         return await self.service.send_receive_request({
             "featureIdentifier": "com.apple.coredevice.feature.remote.universalhidservice",
@@ -486,7 +486,7 @@ class UniversalHIDServiceService(RemoteService):
         # Storage block follows the Swift Codable property-list shape:
         # every leaf is {<type-tag>: <value>}, every dict is
         # {"dictionary": {...}}, every list is {"array": [...]}.
-        storage = {
+        storage: dict[str, Any] = {
             "Manufacturer": {"string": manufacturer},
             "Product": {"string": product},
             "ProductID": {"int": prod},
@@ -549,7 +549,7 @@ async def touch_session(
     rsd: RemoteServiceDiscoveryService,
     *,
     display_id: int = 1,
-) -> AsyncIterator["UniversalHIDServiceService"]:
+) -> AsyncGenerator["UniversalHIDServiceService", None]:
     """Open a :class:`UniversalHIDServiceService` with an active media stream
     holding backboardd's auth gate open.
 

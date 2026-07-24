@@ -810,10 +810,49 @@ setTimeout(checkOnboardingStatus, 300);
 //     (transient race that resolves in ~30s)
 //   * no-agent-banner fires when "no agent installed at all" — persistent
 //     until the user installs OpenClaw or NVIDIA NemoClaw.
+// Two copy variants (see banners.html): if the backend detected paid
+// runtimes on this machine (Claude Code, Cursor, ...) that the plan does
+// not cover, we pitch the Pro trial instead of telling the user to
+// install a second agent they don't want.
 // Mutual exclusion: if openclaw or nemoclaw IS detected (heartbeat just
 // hasn't landed yet), we hide this banner and let onboarding-banner do
 // its thing. Polls every 60s — filesystem state for "did the user pip
 // install an agent" changes on the order of minutes, not seconds.
+var _cmNoAgentPaywallLogged = false;
+function _cmApplyNoAgentVariant(data) {
+  var msg = document.getElementById('no-agent-banner-msg');
+  var cta = document.getElementById('no-agent-upgrade-cta');
+  var installs = [document.getElementById('no-agent-install-openclaw'),
+                  document.getElementById('no-agent-install-nemoclaw')];
+  var detected = (data && data.detected_runtimes) || [];
+  var locked = detected.filter(function(r){ return r && !r.entitled; });
+  var upgrade = locked.length > 0;
+  if (upgrade && msg && cta) {
+    var names = locked.map(function(r){ return r.label || r.id; }).join(', ');
+    var t = (typeof window.t === 'function') ? window.t : function(k, v, fb){ return fb; };
+    msg.textContent = t('banners.detected_runtimes_msg', {runtimes: names},
+      'Detected ' + names + ' on this machine. ClawMetry Pro watches them in real time.');
+    cta.href = 'https://app.clawmetry.com/upgrade?source=no-agent-banner&harness='
+      + encodeURIComponent(locked[0].id || '');
+    cta.style.display = 'inline-block';
+    installs.forEach(function(a){ if (a) a.style.display = 'none'; });
+    if (!_cmNoAgentPaywallLogged) {
+      _cmNoAgentPaywallLogged = true;
+      try {
+        fetch('/api/paywall/event', {method:'POST', headers:{'Content-Type':'application/json'},
+          credentials:'same-origin',
+          body: JSON.stringify({event:'paywall_view', feature:'runtime_observability',
+            harness: locked[0].id || '', source:'no-agent-banner'})});
+      } catch(e) {}
+    }
+  } else {
+    // Install variant (nothing detected, or everything detected is already
+    // entitled and just hasn't produced data yet — banners.no_agent_msg is
+    // the stored default English for this span, restored via i18n).
+    if (cta) cta.style.display = 'none';
+    installs.forEach(function(a){ if (a) a.style.display = ''; });
+  }
+}
 async function checkAgentPresence() {
   var banner = document.getElementById('no-agent-banner');
   if (!banner) return;
@@ -828,6 +867,7 @@ async function checkAgentPresence() {
       var ob = document.getElementById('onboarding-banner');
       if (ob) ob.style.display = 'none';
       _cmOnboardingDismissed = true;
+      _cmApplyNoAgentVariant(data);
       banner.style.display = 'flex';
     } else {
       // Agent appeared. Hide the no-agent banner and (if the dashboard
@@ -4389,7 +4429,7 @@ function _enterBrainHistoryMode() {
 }
 
 // Provider → emoji + display name. Mirrors routes/brain.py `_CHANNEL_ICON`
-// and clawmetry/sync.py `_CHANNEL_DIRS` (the canonical 21-adapter list).
+// and clawmetry/sync.py `_CHANNEL_DIRS` (the canonical 22-adapter list).
 // Keep these three in sync when a new adapter ships.
 var _channelIcons = {
   'telegram': '📱', 'whatsapp': '💬', 'discord': '🎮', 'slack': '💼',
@@ -4397,7 +4437,7 @@ var _channelIcons = {
   'googlechat': '🔵', 'matrix': '🔢', 'msteams': '🏢', 'mattermost': '⚡',
   'line': '💚', 'nostr': '🟣', 'twitch': '💜', 'bluebubbles': '💙',
   'feishu': '🟠', 'zalo': '🩵', 'tlon': '🟤', 'synologychat': '🟦',
-  'nextcloudtalk': '☁️',
+  'nextcloudtalk': '☁️', 'clickclack': '🗨️',
   'cli': '🖥️', 'tui': '⌨️', 'cron': '⏰'
 };
 var _channelColors = {
@@ -4406,7 +4446,7 @@ var _channelColors = {
   'googlechat': '#1A73E8', 'matrix': '#0DBD8B', 'msteams': '#4B53BC', 'mattermost': '#0072C6',
   'line': '#06C755', 'nostr': '#9333ea', 'twitch': '#9146FF', 'bluebubbles': '#3478F6',
   'feishu': '#00D6B9', 'zalo': '#0068FF', 'tlon': '#A78BFA', 'synologychat': '#1A73E8',
-  'nextcloudtalk': '#0082C9',
+  'nextcloudtalk': '#0082C9', 'clickclack': '#FF6B35',
   'cli': '#94a3b8', 'tui': '#94a3b8', 'cron': '#6B7280'
 };
 // Display-name overrides for channels whose snake/lower-case key isn't a
@@ -4422,7 +4462,8 @@ var _channelDisplayNames = {
   'cli':        'CLI',
   'tui':        'TUI',
   'synologychat': 'Synology Chat',
-  'nextcloudtalk': 'Nextcloud Talk'
+  'nextcloudtalk': 'Nextcloud Talk',
+  'clickclack':    'ClickClack'
 };
 
 function _channelDisplayName(provider) {
@@ -12562,6 +12603,7 @@ async function loadSystemHealth() {
                : p === 'tlon'           ? '🌊'
                : p === 'synology-chat'  ? '🖥️'
                : p === 'nextcloud-talk' ? '☁️'
+               : p === 'clickclack'     ? '🗨️'
                : '📨';
         };
         if (ingest.length === 0) {
@@ -16827,7 +16869,7 @@ function hideUnconfiguredChannels(svgRoot) {
   // Priority order for slot assignment (up to 3 visible at a time)
   var SLOT_ORDER = ['tui', 'telegram', 'whatsapp', 'imessage', 'signal', 'discord', 'slack',
                     'irc', 'webchat', 'googlechat', 'bluebubbles', 'msteams', 'matrix',
-                    'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo'];
+                    'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack'];
   fetch('/api/channels').then(function(r){return r.json();}).then(function(d) {
     var active = d.channels || ['telegram', 'signal', 'whatsapp'];
     // Build display list: up to 3 channels, prioritized by SLOT_ORDER
@@ -18425,7 +18467,7 @@ function initOverviewFlow() {
     };
     var OV_SLOT_ORDER = ['tui', 'telegram', 'whatsapp', 'imessage', 'signal', 'discord', 'slack',
                          'irc', 'webchat', 'googlechat', 'bluebubbles', 'msteams', 'matrix',
-                         'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo'];
+                         'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack'];
     var visibleChannels = OV_SLOT_ORDER.filter(function(ch) { return active.indexOf(ch) !== -1; }).slice(0, 3);
     // Use the clone SVG as root for getElementById (it's already in DOM via container)
     function ovEl(id) { return document.getElementById(id); }

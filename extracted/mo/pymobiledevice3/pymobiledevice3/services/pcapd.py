@@ -2,8 +2,8 @@
 
 import enum
 import time
-from collections.abc import AsyncGenerator
-from typing import Optional, cast
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import Any, BinaryIO, Optional, cast
 
 import pcapng.blocks as blocks
 from construct import Byte, Bytes, Container, CString, Int16ub, Int32ub, Int32ul, Padded, Seek, Struct, this
@@ -351,7 +351,7 @@ class PcapdService(LockdownService):
 
     async def watch(
         self, packets_count: int = -1, process: Optional[str] = None, interface_name: Optional[str] = None
-    ) -> AsyncGenerator[Container, None]:
+    ) -> AsyncGenerator[Container[Any], None]:
         """
         Stream captured packets from the device as they arrive.
 
@@ -393,7 +393,7 @@ class PcapdService(LockdownService):
 
             packet_index += 1
 
-    async def write_to_pcap(self, out, packet_generator) -> None:
+    async def write_to_pcap(self, out: BinaryIO, packet_generator: AsyncIterator[Container[Any]]) -> None:
         """
         Write captured packets to a pcapng stream.
 
@@ -404,7 +404,7 @@ class PcapdService(LockdownService):
         :param out: A writable binary file-like object to receive the pcapng data.
         :param packet_generator: Async iterable yielding parsed packet containers.
         """
-        shb = blocks.SectionHeader(
+        shb: Any = blocks.SectionHeader(
             options={
                 "shb_hardware": "artificial",
                 "shb_os": "iOS",
@@ -416,7 +416,7 @@ class PcapdService(LockdownService):
             link_type=1,
             options={"if_description": "iOS Packet Capture", "if_os": f"iOS {self.lockdown.product_version}"},
         )
-        writer = FileWriter(out, shb)
+        writer: Any = FileWriter(out, shb)
 
         async for packet in packet_generator:
             packet_time = packet.timestamp if hasattr(packet, "timestamp") else time.time()

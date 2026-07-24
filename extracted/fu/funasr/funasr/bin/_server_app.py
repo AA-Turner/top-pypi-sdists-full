@@ -10,6 +10,7 @@ import re
 import time
 import logging
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -24,6 +25,30 @@ except ImportError:
     )
 
 logger = logging.getLogger("funasr.server")
+
+
+PACKAGE_VERSION = (Path(__file__).resolve().parents[1] / "version.txt").read_text().strip()
+
+
+_LANGUAGE_TAG_RE = re.compile(r"<\|(zh|en|yue|ja|ko)\|>")
+
+
+def extract_language_from_asr_text(text):
+    """Extract a SenseVoice language code before special tokens are removed."""
+    if not isinstance(text, str):
+        return None
+    match = _LANGUAGE_TAG_RE.search(text)
+    return match.group(1) if match else None
+
+
+def resolve_transcription_language(requested_language, result):
+    """Prefer the caller's language hint, then backend detection, else unknown."""
+    if requested_language and requested_language.strip().lower() != "auto":
+        return requested_language
+    detected_language = result.get("language")
+    if isinstance(detected_language, str) and detected_language:
+        return detected_language
+    return "unknown"
 
 
 def _split_text_for_openai_segments(text: str, max_chars: int = 80):
@@ -105,7 +130,7 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
     if preload_model == "auto":
         preload_model = "fun-asr-nano" if device.startswith("cuda") else "sensevoice"
 
-    app = FastAPI(title="FunASR Server", version="1.3.6")
+    app = FastAPI(title="FunASR Server", version=PACKAGE_VERSION)
     app.state.device = device
     app.state.engine = None
     app.state.vad_model = None
@@ -129,7 +154,7 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
 
     def _load_vllm_engine():
         """Load Fun-ASR-Nano vLLM engine. Falls back to AutoModel if vLLM unavailable."""
-        if app.state.engine is not None:
+        if app.state.engine is not None or "fun-asr-nano" in app.state.fallback_models:
             return
         try:
             from funasr.models.fun_asr_nano.inference_vllm import FunASRNanoVLLM
@@ -141,7 +166,7 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
             # cases, honor the server-level hub selection.
             vllm_model = app.state.model_path if app.state.model_path else "FunAudioLLM/Fun-ASR-Nano-2512"
             vllm_hub = app.state.hub
-            app.state.engine = FunASRNanoVLLM.from_pretrained(
+            engine = FunASRNanoVLLM.from_pretrained(
                 model=vllm_model,
                 hub=vllm_hub,
                 device=device,
@@ -150,10 +175,12 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
                 gpu_memory_utilization=0.5,
             )
             logger.info(f"vLLM engine ready in {time.time()-t0:.1f}s")
-            app.state.use_vllm = True
 
             logger.info("Loading VAD model...")
-            app.state.vad_model = _AutoModel(model="fsmn-vad", device=device, disable_update=True)
+            vad_model = _AutoModel(model="fsmn-vad", device=device, disable_update=True)
+            app.state.engine = engine
+            app.state.vad_model = vad_model
+            app.state.use_vllm = True
             logger.info("VAD ready.")
         except Exception as e:
             logger.warning(f"vLLM failed ({e}), falling back to AutoModel for fun-asr-nano")
@@ -255,7 +282,9 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
         if language:
             kwargs["language"] = language
         result = model.generate(**kwargs)
-        text = re.sub(r'<\|[^|]*\|>', '', result[0]["text"]).strip()
+        raw_text = result[0]["text"]
+        detected_language = extract_language_from_asr_text(raw_text)
+        text = re.sub(r'<\|[^|]*\|>', '', raw_text).strip()
         segments = []
         if "sentence_info" in result[0]:
             for s in result[0]["sentence_info"]:
@@ -267,7 +296,12 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
                 })
         if not segments and text:
             segments = build_openai_fallback_segments(text, duration)
-        return {"text": text, "segments": segments, "duration": duration}
+        return {
+            "text": text,
+            "segments": segments,
+            "duration": duration,
+            "language": detected_language,
+        }
 
     # Pre-load
     if app.state.model_path:
@@ -322,7 +356,7 @@ def create_app(device: str = "cuda", preload_model: str = "auto", model_path: st
         if response_format == "verbose_json":
             return JSONResponse({
                 "task": "transcribe",
-                "language": language or "zh",
+                "language": resolve_transcription_language(language, result),
                 "duration": result.get("duration", 0),
                 "text": result["text"],
                 "segments": [

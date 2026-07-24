@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from pymobiledevice3.dtx import DTXService, dtx_method
 from pymobiledevice3.dtx_service import DtxService
+from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.exceptions import PyMobileDevice3Exception
 
 
@@ -10,7 +11,7 @@ class ConditionInducerService(DTXService):
     IDENTIFIER = "com.apple.instruments.server.services.ConditionInducer"
 
     @dtx_method("availableConditionInducers")
-    async def available_condition_inducers(self) -> list: ...
+    async def available_condition_inducers(self) -> list[dict[str, Any]]: ...
 
     @dtx_method("enableConditionWithIdentifier:profileIdentifier:")
     async def enable_condition_with_identifier_profile_identifier_(
@@ -30,7 +31,7 @@ class ConditionInducer(DtxService[ConditionInducerService]):
     replaces any previously active condition.
     """
 
-    def __init__(self, dvt):
+    def __init__(self, dvt: DtxServiceProvider):
         super().__init__(dvt)
         self.logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class ConditionInducer(DtxService[ConditionInducerService]):
         """
         return await self.service.available_condition_inducers()
 
-    async def set(self, profile_identifier):
+    async def set(self, profile_identifier: str):
         """
         Activate the condition profile with the given identifier.
 
@@ -53,7 +54,7 @@ class ConditionInducer(DtxService[ConditionInducerService]):
         :raises PyMobileDevice3Exception: If no available profile matches `profile_identifier`.
         """
         for group in await self.list():
-            for profile in cast("list[dict[str, Any]]", group.get("profiles")):
+            for profile in cast(list[dict[str, Any]], group.get("profiles")):
                 if profile_identifier == profile.get("identifier"):
                     self.logger.info(profile.get("description"))
                     await self.service.enable_condition_with_identifier_profile_identifier_(

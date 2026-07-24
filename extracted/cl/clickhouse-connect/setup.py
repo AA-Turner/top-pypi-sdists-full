@@ -66,8 +66,7 @@ def run_setup(try_c: bool = True):
             "certifi",
             "urllib3>=1.26",
             'tzdata; sys_platform == "win32"',
-            'zstandard; python_version<"3.14"',
-            'zstandard>=0.25.0; python_version>="3.14"',
+            'backports.zstd>=1.3.0; python_version<"3.14"',
             'lz4; python_version<"3.14"',
             'lz4>=4.4.5; python_version>="3.14"',
         ],
@@ -82,6 +81,7 @@ def run_setup(try_c: bool = True):
             "tzlocal": ["tzlocal>=4.0"],
             "tzdata": ["tzdata"],
             "async": ["aiohttp>=3.9.0"],
+            "chdb": ["chdb>=4.1.7"],
         },
         tests_require=["pytest"],
         entry_points={

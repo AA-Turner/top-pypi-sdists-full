@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-fpdf2
-Version: 2.8.4.20260712
+Version: 2.8.4.20260724
 Summary: Typing stubs for fpdf2
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -37,8 +37,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`8e3110c4d3cf2828734b119863c6853529bb3034`](https://github.com/python/typeshed/commit/8e3110c4d3cf2828734b119863c6853529bb3034).
+[`97e83f65cee88c0c978fa34668d9f59b8c362fce`](https://github.com/python/typeshed/commit/97e83f65cee88c0c978fa34668d9f59b8c362fce).

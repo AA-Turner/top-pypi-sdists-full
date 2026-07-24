@@ -169,6 +169,7 @@ __all__ = (
     "DeleteRecommendationRequestTypeDef",
     "DeleteRecommendationResponseTypeDef",
     "DescriptorsTypeDef",
+    "EfsConfigurationTypeDef",
     "EmbeddedCryptoWalletOutputTypeDef",
     "EmbeddedCryptoWalletTypeDef",
     "EvaluateRequestTypeDef",
@@ -425,6 +426,7 @@ __all__ = (
     "RightExpressionTypeDef",
     "RootCauseClusterTypeDef",
     "RuntimeClientErrorTypeDef",
+    "S3FilesConfigurationTypeDef",
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
@@ -491,6 +493,7 @@ __all__ = (
     "ToolDescriptionTextInputTypeDef",
     "ToolResultStructuredContentTypeDef",
     "ToolsDefinitionTypeDef",
+    "ToolsFileSystemConfigurationTypeDef",
     "UpdateABTestRequestTypeDef",
     "UpdateABTestResponseTypeDef",
     "UpdateBrowserStreamRequestTypeDef",
@@ -827,6 +830,11 @@ class DeletePaymentSessionRequestTypeDef(TypedDict):
 
 class DeleteRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
+
+class EfsConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
 
 class EvaluationInputTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
@@ -1279,6 +1287,11 @@ class S3LocationTypeDef(TypedDict):
     bucket: str
     prefix: str
     versionId: NotRequired[str]
+
+class S3FilesConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
 
 class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     profileIdentifier: str
@@ -1918,6 +1931,10 @@ class SystemPromptRecommendationResultTypeDef(TypedDict):
 class ResourceLocationTypeDef(TypedDict):
     s3: NotRequired[S3LocationTypeDef]
 
+class ToolsFileSystemConfigurationTypeDef(TypedDict):
+    s3FilesConfiguration: NotRequired[S3FilesConfigurationTypeDef]
+    efsConfiguration: NotRequired[EfsConfigurationTypeDef]
+
 class SystemPromptConfigTypeDef(TypedDict):
     text: NotRequired[str]
     configurationBundle: NotRequired[SystemPromptConfigurationBundleTypeDef]
@@ -2292,6 +2309,7 @@ class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
     sessionTimeoutSeconds: int
     status: CodeInterpreterSessionStatusType
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
@@ -2301,6 +2319,7 @@ class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
     name: NotRequired[str]
     sessionTimeoutSeconds: NotRequired[int]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
 
 class DataSourceConfigOutputTypeDef(TypedDict):
@@ -2674,6 +2693,7 @@ class GetBrowserSessionResponseTypeDef(TypedDict):
     streams: BrowserSessionStreamTypeDef
     proxyConfiguration: ProxyConfigurationOutputTypeDef
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     sessionReplayArtifact: str
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2780,6 +2800,7 @@ class StartBrowserSessionRequestTypeDef(TypedDict):
     proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
     enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
 
 class RecommendationConfigOutputTypeDef(TypedDict):

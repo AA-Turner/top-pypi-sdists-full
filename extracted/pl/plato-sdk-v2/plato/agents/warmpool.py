@@ -661,6 +661,20 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         # bracketed regex still matches chrome's literal `user-data-dir=...`
         # cmdline but does not match our own `[u]ser-data-dir=...` literal.
         "pkill -9 -f '[u]ser-data-dir=/tmp/plato-ab-' 2>/dev/null; true",
+        # Reap any direct-fuse dataset daemon BEFORE the /tmp wipe below:
+        # deleting a live worker's hydration cache/config underneath it can
+        # wedge the fuse loop mid-request — the same D-state failure class the
+        # direct mounts exist to avoid. Killed first, the workspace
+        # ``umount -l`` entries (appended before the wipe) detach the
+        # now-dead mounts cleanly and the wipe only touches orphaned state.
+        "pkill -x plato-fuse 2>/dev/null; true",
+    ]
+    for workspace_path in workspace_paths:
+        quoted_path = shlex.quote(str(Path(workspace_path)))
+        commands.append(
+            f"umount -l {quoted_path} 2>/dev/null; rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
+        )
+    commands += [
         # /var/tmp glob is scoped to plato-* on purpose. Wiping all of /var/tmp
         # removes systemd's per-service PrivateTmp dirs
         # (/var/tmp/systemd-private-*-ssh.service-*) that the live SSH session
@@ -670,9 +684,4 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         ": > /etc/environment",
         "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",
     ]
-    for workspace_path in workspace_paths:
-        quoted_path = shlex.quote(str(Path(workspace_path)))
-        commands.append(
-            f"umount -l {quoted_path} 2>/dev/null; rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
-        )
     return commands

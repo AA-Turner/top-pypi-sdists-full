@@ -1263,6 +1263,117 @@ mod tests {
         assert_eq!(decision.reason, "constraints_present");
     }
 
+    /// Regression for #2401: the cancellation-safe PSD-root solve introduced
+    /// for stiff P-IRLS systems must accept the sparse-native coordinate frame.
+    /// Before the fix, the routing oracle correctly chose `SparseNative`, the
+    /// disparate penalty energies correctly chose the augmented root solve, and
+    /// `write_fisher_design_root` then aborted solely because those two valid
+    /// choices had no shared implementation.
+    #[test]
+    pub(crate) fn sparse_native_stiff_penalty_uses_psd_root_2401() {
+        use gam_terms::construction::CanonicalPenalty;
+
+        let p = 64usize;
+        let n = 3 * p;
+        let triplets: Vec<_> = (0..n).map(|row| Triplet::new(row, row / 3, 1.0)).collect();
+        let x = SparseColMat::try_new_from_triplets(n, p, &triplets)
+            .expect("one-hot sparse design should build");
+        let x_design = DesignMatrix::from(x.clone());
+
+        let mut low_energy_root = Array2::<f64>::zeros((1, p));
+        low_energy_root[[0, 0]] = 1.0;
+        let mut high_energy_root = Array2::<f64>::zeros((p - 1, p));
+        for coefficient in 1..p {
+            high_energy_root[[coefficient - 1, coefficient]] = 1.0;
+        }
+        let canonical: Vec<_> = [low_energy_root, high_energy_root]
+            .into_iter()
+            .map(|root| {
+                let rank = root.nrows();
+                CanonicalPenalty {
+                    local: root.t().dot(&root),
+                    root,
+                    col_range: 0..p,
+                    total_dim: p,
+                    nullity: p - rank,
+                    prior_mean: Array1::zeros(p),
+                    positive_eigenvalues: vec![1.0; rank],
+                    op: None,
+                }
+            })
+            .collect();
+
+        let rho = array![-12.0, 12.0];
+        let lambdas = rho.mapv(f64::exp);
+        let weighted_penalty = &canonical[0].local * lambdas[0] + &canonical[1].local * lambdas[1];
+        let mut routing_workspace = PirlsWorkspace::new(n, p, 0, 0);
+        let decision = should_use_sparse_native_pirls(
+            &mut routing_workspace,
+            &x_design,
+            &weighted_penalty,
+            None,
+            None,
+        );
+        assert_eq!(
+            decision.path,
+            PirlsLinearSolvePath::SparseNative,
+            "fixture must exercise the sparse-native coordinate frame; reason={}",
+            decision.reason
+        );
+        assert!(
+            lambdas[1] / lambdas[0] > f64::EPSILON.sqrt().recip(),
+            "fixture must exceed the PSD-root stiffness threshold"
+        );
+
+        let y = Array1::from_shape_fn(n, |row| if row % 3 == 2 { 1.0 } else { 0.0 });
+        let weights = Array1::ones(n);
+        let offset = Array1::zeros(n);
+        let config = PirlsConfig {
+            likelihood: GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::Logit),
+            )),
+            link_kind: InverseLink::Standard(StandardLink::Logit),
+            max_iterations: 100,
+            convergence_tolerance: 1e-8,
+            firth_bias_reduction: false,
+            initial_lm_lambda: None,
+            arrow_schur: None,
+        };
+
+        let (fit, _) = fit_model_for_fixed_rho(
+            LogSmoothingParamsView::new(rho.view())
+                .expect("test rho lies in the smoothing-strength domain"),
+            PirlsProblem {
+                x,
+                offset: offset.view(),
+                y: y.view(),
+                priorweights: weights.view(),
+                covariate_se: None,
+                gaussian_fixed_cache: None,
+                glm_first_step_gram: None,
+            },
+            PenaltyConfig {
+                canonical_penalties: &canonical,
+                balanced_penalty_root: None,
+                reparam_invariant: None,
+                p,
+                coefficient_lower_bounds: None,
+                linear_constraints_original: None,
+                penalty_shrinkage_floor: None,
+                kronecker_factored: None,
+            },
+            &config,
+            None,
+        )
+        .expect("stiff sparse-native binomial P-IRLS fit must use the PSD root");
+
+        assert!(
+            fit.beta_transformed.iter().all(|value| value.is_finite()),
+            "sparse-native PSD-root fit must return finite coefficients"
+        );
+    }
+
     /// Regression for the sparse-native vs dense REML λ-selection divergence
     /// (#1266 class): the sparse-native reparam result MUST carry the same
     /// penalty (with the `penalty_shrinkage_floor` ridge folded in) that the
@@ -1766,6 +1877,7 @@ mod tests {
                     d2: jet.d2,
                     d3: jet.d3,
                 },
+                1.0 - jet.mean,
             )
             .expect("integrated Bernoulli row geometry must be representable");
             assert_relative_eq!(
@@ -1886,11 +1998,16 @@ mod tests {
         );
     }
 
+    /// Below full saturation the noncanonical links carry the exact tail
+    /// complement `1 - mu` (option 3): `mu` has already rounded to `1.0`, but the
+    /// weight `d1^2/(mu(1-mu))` and the working score stay representable, so the
+    /// row proceeds instead of being refused. (cloglog `eta = 5`, probit
+    /// `eta = 10` are both past the point `mu` rounds to `1.0`.)
     #[test]
-    pub(crate) fn noncanonical_binomial_working_state_clamps_saturating_standard_links() {
-        for link in [StandardLink::Probit, StandardLink::CLogLog] {
+    pub(crate) fn noncanonical_binomial_carries_tail_complement_below_saturation() {
+        for (link, eta_val) in [(StandardLink::CLogLog, 5.0), (StandardLink::Probit, 10.0)] {
             let y = array![1.0];
-            let eta = array![30.0];
+            let eta = array![eta_val];
             let priorweights = array![1.0];
             let inverse_link = InverseLink::Standard(link);
             let mut mu = Array1::zeros(1);
@@ -1907,22 +2024,163 @@ mod tests {
                 &mut z,
                 None,
             )
-            .expect("noncanonical binomial working state");
+            .expect("tail-complement row must be representable");
 
-            assert!(
-                mu[0] > 0.0 && mu[0] < 1.0,
-                "{link:?} working mu must stay inside (0,1) before variance evaluation; got {}",
-                mu[0]
+            assert_eq!(
+                mu[0], 1.0,
+                "{link:?} at eta={eta_val} is past where mu rounds to 1.0"
             );
             assert!(
                 weights[0].is_finite() && weights[0] > 0.0,
-                "{link:?} working weight must remain positive finite at saturated eta; got {}",
+                "{link:?} working weight must stay positive finite via the carried complement; got {}",
                 weights[0]
             );
             assert!(
                 z[0].is_finite(),
-                "{link:?} working response must remain finite at saturated eta; got {}",
+                "{link:?} working response must remain finite; got {}",
                 z[0]
+            );
+            // The working score X^T W (z - eta) is the whole point of carrying the
+            // complement: it stays representable and positive rather than
+            // collapsing to zero (or the row being refused outright).
+            let score = weights[0] * (z[0] - eta[0]);
+            assert!(
+                score.is_finite() && score > 0.0,
+                "{link:?} working score must stay positive finite; got {score}"
+            );
+        }
+    }
+
+    /// A fully saturated row (`mu == 1.0`, complement underflowed) that is
+    /// *consistent* with its response (`y == 1`) is the analytic `eta -> inf`
+    /// limit of the weight formula: a zero-weight row, exactly what the
+    /// `priorweight == 0` branch returns.
+    #[test]
+    pub(crate) fn saturated_consistent_binomial_row_is_zero_weight() {
+        for (link, eta_val) in [(StandardLink::CLogLog, 30.0), (StandardLink::Probit, 40.0)] {
+            let y = array![1.0];
+            let eta = array![eta_val];
+            let priorweights = array![1.0];
+            let inverse_link = InverseLink::Standard(link);
+            let mut mu = Array1::zeros(1);
+            let mut weights = Array1::zeros(1);
+            let mut z = Array1::zeros(1);
+
+            update_glmvectors(
+                y.view(),
+                &eta,
+                &inverse_link,
+                priorweights.view(),
+                &mut mu,
+                &mut weights,
+                &mut z,
+                None,
+            )
+            .expect("consistent saturated row must be representable");
+
+            assert_eq!(mu[0], 1.0, "{link:?} saturated mu");
+            assert_eq!(
+                weights[0], 0.0,
+                "{link:?} consistent saturated row must be zero-weight; got {}",
+                weights[0]
+            );
+            assert_eq!(
+                z[0], eta[0],
+                "{link:?} zero-weight working response is eta; got {}",
+                z[0]
+            );
+        }
+    }
+
+    /// A fully saturated row that is *inconsistent* with its response (`y == 0`
+    /// while `mu == 1.0`) has `-inf` log-likelihood and must stay a typed
+    /// refusal — never silently zero-weighted.
+    #[test]
+    pub(crate) fn saturated_inconsistent_binomial_row_is_refused() {
+        for (link, eta_val) in [(StandardLink::CLogLog, 30.0), (StandardLink::Probit, 40.0)] {
+            let y = array![0.0];
+            let eta = array![eta_val];
+            let priorweights = array![1.0];
+            let inverse_link = InverseLink::Standard(link);
+            let mut mu = Array1::zeros(1);
+            let mut weights = Array1::zeros(1);
+            let mut z = Array1::zeros(1);
+
+            let result = update_glmvectors(
+                y.view(),
+                &eta,
+                &inverse_link,
+                priorweights.view(),
+                &mut mu,
+                &mut weights,
+                &mut z,
+                None,
+            );
+
+            assert!(
+                matches!(
+                    result,
+                    Err(EstimationError::PirlsRowGeometryUnrepresentable { .. })
+                ),
+                "{link:?} inconsistent saturated row must be a typed refusal; got {result:?}"
+            );
+        }
+    }
+
+    /// The stable Fisher-weight curvature `c = dW/deta`, `d = d2W/deta2` matches
+    /// central finite differences of the weight through the saturating band where
+    /// the naive `d1^2/v` form divides by an underflowed variance (cloglog
+    /// `eta` 5.9-6.61, probit ~24-27). Each probe rebuilds the inverse-link jet
+    /// and the stable complement from scratch — the working cache is never frozen
+    /// across the difference stencil. The pair-then-multiply factoring keeps `c`
+    /// and `d` finite and nonzero where the naive quotient would be `0/0`.
+    #[test]
+    pub(crate) fn noncanonical_binomial_curvature_matches_central_fd_through_saturation() {
+        let weight_c_d = |link: StandardLink, eta: f64| -> (f64, f64, f64) {
+            let inverse_link = InverseLink::Standard(link);
+            let jet = crate::mixture_link::inverse_link_jet_for_inverse_link(&inverse_link, eta)
+                .expect("inverse-link jet must evaluate");
+            let omm = crate::mixture_link::inverse_link_complement_for_inverse_link(
+                &inverse_link,
+                eta,
+                jet.mu,
+            );
+            let geometry = bernoulli_geometry_from_jet(0, eta, 1.0, 1.0, jet, omm)
+                .expect("saturating-band row must be representable");
+            (geometry.weight, geometry.c, geometry.d)
+        };
+        // (link, eta, fd step): a regime-1 point then the regime-2 band where the
+        // naive `d1^2/(mu(1-mu))` and its `v^2`/`v^3` curvature denominators
+        // underflow. Steps are sized to the local scale of the super-exponential
+        // weight so central differences stay well inside float precision.
+        for (link, eta, h) in [
+            (StandardLink::CLogLog, 5.0, 3e-5),
+            (StandardLink::CLogLog, 6.0, 3e-5),
+            (StandardLink::CLogLog, 6.3, 3e-5),
+            (StandardLink::Probit, 12.0, 1e-4),
+            (StandardLink::Probit, 25.0, 1e-4),
+        ] {
+            let (w0, c, d) = weight_c_d(link, eta);
+            assert!(
+                w0 > 0.0 && c.is_finite() && d.is_finite() && c != 0.0 && d != 0.0,
+                "{link:?} eta={eta}: weight/curvature must be representable and nonzero; \
+                 W={w0} c={c} d={d}"
+            );
+            let (wp, _, _) = weight_c_d(link, eta + h);
+            let (wm, _, _) = weight_c_d(link, eta - h);
+            let c_fd = (wp - wm) / (2.0 * h);
+            let d_fd = (wp - 2.0 * w0 + wm) / (h * h);
+            let rel_c = (c - c_fd).abs() / c.abs();
+            let rel_d = (d - d_fd).abs() / d.abs();
+            assert!(
+                rel_c <= 5e-3,
+                "{link:?} eta={eta}: dW/deta vs central FD rel err {rel_c:.2e} \
+                 (analytic {c:.3e}, fd {c_fd:.3e})"
+            );
+            assert!(
+                rel_d <= 5e-3,
+                "{link:?} eta={eta}: d2W/deta2 vs central FD rel err {rel_d:.2e} \
+                 (analytic {d:.3e}, fd {d_fd:.3e})"
             );
         }
     }

@@ -66,6 +66,7 @@ class EventType(Enum):
     WARNING = "scos_warning"
     RESOLUTION_RULE = "scos_resolution_rule"
     NULL_TYPE_FALLBACK = "scos_null_type_fallback"
+    STARTUP_INIT_FAILURE = "scos_startup_init_failure"
 
 
 # global labels
@@ -97,6 +98,10 @@ RECORDED_CONFIG_KEYS = {
     "snowpark.connect.udtf.compatibility_mode",
     "snowpark.connect.views.duplicate_column_names_handling_mode",
     "snowpark.connect.parquet.useLogicalType",
+    "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
+    "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
+    "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
+    "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
 }
 
 # IO option allowlist for telemetry reporting.
@@ -976,6 +981,34 @@ class Telemetry:
             TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
             TelemetryType.EVENT_TYPE.value: EventType.NULL_TYPE_FALLBACK.value,
             TelemetryField.KEY_DATA.value: payload,
+        }
+        self._send(message)
+
+    @safe
+    def send_startup_init_failure_telemetry(
+        self, resource_name: str, error: Exception, traceback_str: str
+    ) -> None:
+        """Emit a custom event when a critical server warm-up step fails.
+
+        Startup warm-up runs outside any gRPC request, so its failure is never
+        captured by request-summary telemetry. This event records the *primary*
+        error - including the full traceback with the JVM caused-by chain - so
+        the real root cause is visible. Without it we only ever see the later,
+        downstream ``NoClassDefFoundError: Could not initialize class
+        ...SQLConf$`` symptom that a poisoned JVM raises on every subsequent
+        ``spark.sql()`` (SNOW-3585779).
+        """
+        data = {
+            "resource_name": resource_name,
+            "error_type": type(error).__name__,
+            "error_message": str(error)[:2000],
+            "traceback": traceback_str[:10000],
+        }
+        message = {
+            **self._basic_telemetry_data(),
+            TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
+            TelemetryType.EVENT_TYPE.value: EventType.STARTUP_INIT_FAILURE.value,
+            TelemetryField.KEY_DATA.value: data,
         }
         self._send(message)
 

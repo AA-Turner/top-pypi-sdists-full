@@ -39,7 +39,7 @@ import socket
 import struct
 import sys
 from contextlib import AsyncExitStack, suppress
-from typing import Optional, Protocol, cast
+from typing import Any, Optional, Protocol, cast
 
 from pmd_net_addr import Ip6Address, Ip6IfAddr, MacAddress
 from pmd_pytcp import stack
@@ -129,7 +129,7 @@ def throughput_sysctls() -> dict[str, int]:
     ACKed, so each device/transport converges to its own real forwarding limit with no
     hardcoded per-device size and a worst case equal to the old static 1340 cap.
 
-    Every knob here is guaranteed by the pmd-pytcp version floor in requirements.txt — no
+    Every knob here is guaranteed by the pmd-pytcp version floor in pyproject.toml — no
     capability probing.
     """
     return {
@@ -174,7 +174,7 @@ class _AsyncPytcpSocket(Protocol):
 
     def bind(self, address: tuple[str, int]) -> None: ...
 
-    def getsockname(self) -> tuple: ...
+    def getsockname(self) -> tuple[str, int]: ...
 
     def shutdown(self, how: int) -> None: ...
 
@@ -322,7 +322,7 @@ class UserspaceTun:
         runs the pytcp stack. Raises OSError once the socketpair is closed, which ends
         ``tun_read_task``."""
         frame = await asyncio.get_running_loop().sock_recv(self._peer, 65535)
-        packets = []
+        packets: list[bytes] = []
         while True:
             if len(frame) > 14 and frame[12:14] == _ETH_IPV6_BYTES:
                 packets.append(frame[14:])
@@ -371,12 +371,12 @@ class UserspaceDialPlane:
         self._device_addr = str(device_addr)
         self._relays: dict[tuple[str, int], int] = {}
         self._servers: list[asyncio.AbstractServer] = []  # kept referenced so relays stay alive
-        self._relay_tasks: set[asyncio.Task] = set()  # in-flight handlers, cancelled on exit
+        self._relay_tasks: set[asyncio.Task[None]] = set()  # in-flight handlers, cancelled on exit
 
     async def __aenter__(self) -> UserspaceDialPlane:
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         for srv in self._servers:
             srv.close()
         # Cancel the in-flight relay handlers BEFORE wait_closed(): since Python 3.12.1
@@ -477,7 +477,7 @@ class UserspaceDialPlane:
         logger.debug("userspace relay %s:%s -> 127.0.0.1:%s", self._device_addr, port, lport)
         return lport
 
-    async def dial(self, host=None, port=None, **kwargs):
+    async def dial(self, host: Optional[str] = None, port: Optional[int] = None, **kwargs: Any):
         """``asyncio.open_connection``-compatible dialer passed to the RSD via ``open_connection=``.
 
         Connections to the device's tunnel address are relayed through the userspace stack;
@@ -725,7 +725,7 @@ class UserspaceRsdTunnel:
     async def __aenter__(self) -> RemoteServiceDiscoveryService:
         return await self.aopen()
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         await self.aclose()
 
 

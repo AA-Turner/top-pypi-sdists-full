@@ -34,11 +34,11 @@ from kagglesdk.discussions.types.discussions_api_service import (
 def api():
     """A KaggleApi with mocked auth and client — no network calls."""
     a = KaggleApi()
-    a.authenticate = MagicMock()
+    a.authenticate = MagicMock()  # type: ignore[method-assign]
     mock_client = MagicMock()
-    a.build_kaggle_client = MagicMock()
+    a.build_kaggle_client = MagicMock()  # type: ignore[method-assign]
     a.build_kaggle_client.return_value.__enter__.return_value = mock_client
-    a._mock_client = mock_client
+    a._mock_client = mock_client  # type: ignore[attr-defined]
     return a
 
 
@@ -66,7 +66,7 @@ def parser(monkeypatch, api):
     root.add_argument("-W", "--no-warn", dest="disable_version_warning", action="store_true")
     subparsers = root.add_subparsers(title="commands", dest="command")
     subparsers.required = True
-    subparsers.choices = Help.kaggle_choices
+    subparsers.choices = Help.kaggle_choices  # type: ignore[assignment]
 
     parse_competitions(subparsers)
     parse_datasets(subparsers)
@@ -132,7 +132,7 @@ class TestTopicsListParsing:
             ("kernels", ["list", "--sort-by", "hot", "-s", "keyword"]),
             ("models", ["--page-size", "50"]),
             ("benchmarks", ["--page-token", "abc"]),
-            ("competitions", ["list", "--page", "5", "--sort-by", "recent"]),
+            ("competitions", ["list", "--page-token", "5", "--sort-by", "recent"]),
         ],
         ids=[
             "datasets_sort_search",
@@ -706,3 +706,31 @@ class TestForumsTopicShowCliOutput:
         assert list(output["comments"][0].keys()) == ["content"]
         assert output["comments"][0]["content"] == "Comment Content"
         assert "id" not in output["comments"][0]
+
+    def test_text_output_with_deleted_comments(self, api, capsys):
+        mock_topic = MagicMock()
+        mock_topic.id = 123
+        mock_topic.title = "Test Title"
+        mock_topic.author_name = "test-author"
+        mock_topic.post_date = "2026-06-01"
+        mock_topic.votes = 5
+        mock_topic.comment_count = 1
+        mock_topic.content = "Test Content"
+
+        # Deleted comment (missing author_name and content)
+        mock_comment = MagicMock()
+        mock_comment.id = 456
+        mock_comment.author_name = None
+        mock_comment.content = None
+        mock_comment.post_date = "2026-06-02"
+        mock_comment.votes = 2
+        mock_comment.replies = []
+
+        api.forums_topic_show = MagicMock(return_value=(mock_topic, [mock_comment], ""))
+
+        api.forums_topic_show_cli(topic_ref="123")
+
+        captured = capsys.readouterr()
+
+        assert "├─ [deleted] (2026-06-02) [+2]" in captured.out
+        assert "│  [deleted]" in captured.out

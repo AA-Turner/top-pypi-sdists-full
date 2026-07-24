@@ -101,44 +101,40 @@ class EnvironmentManager:
 
     delete: __delete_spec
 
-class EnvironmentMembersManager:
-    """mdmd:namespace
-    Namespace with methods for managing the membership of a restricted Environment.
-
-    See https://modal.com/docs/guide/rbac for more information on restricted Environments.
-    """
+class EnvironmentRolesManager:
+    """mdmd:namespace"""
     def __init__(self, environment: Environment):
         """mdmd:hidden"""
         ...
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
-            """Return the members of a restricted Environment with their roles.
+            """Enumerate the Environment Role for each user and service user in the workspace.
 
             **Examples:**
 
             ```python notest
-            members = modal.Environment.from_name("my-restricted-env").members.list()
-            print(members)
+            roles = modal.Environment.from_name("my-env").roles.list()
+            print(roles)
             # {
-            #     "users": {"alice": "contributor", "bob": "viewer"},
-            #     "service_users": {"alice-bot": "contributor"},
+            #     "users": {"alice": "contributor", "bob": "viewer", "carol": "contributor"},
+            #     "service_users": {"alice-bot": "contributor", "ops-bot": "viewer", "ci-bot": "no-access"},
             # }
             ```
             """
             ...
 
         async def aio(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
-            """Return the members of a restricted Environment with their roles.
+            """Enumerate the Environment Role for each user and service user in the workspace.
 
             **Examples:**
 
             ```python notest
-            members = modal.Environment.from_name("my-restricted-env").members.list()
-            print(members)
+            roles = modal.Environment.from_name("my-env").roles.list()
+            print(roles)
             # {
-            #     "users": {"alice": "contributor", "bob": "viewer"},
-            #     "service_users": {"alice-bot": "contributor"},
+            #     "users": {"alice": "contributor", "bob": "viewer", "carol": "contributor"},
+            #     "service_users": {"alice-bot": "contributor", "ops-bot": "viewer", "ci-bot": "no-access"},
             # }
             ```
             """
@@ -154,16 +150,17 @@ class EnvironmentMembersManager:
             users: typing.Optional[collections.abc.Mapping[str, str]] = None,
             service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
         ) -> None:
-            """Add or modify roles for members of a restricted Environment.
+            """Update the Environment Role of users and service users.
 
-            Each user or service user will be added to the Environment if not currently a member;
-            if already a member, the user or service user's role will be updated.
+            Each role is one of 'contributor', 'viewer', or 'no-access'. Service users can be
+            assigned a role on any Environment, while workspace members can only be assigned a
+            role on restricted Environments.
 
             **Examples:**
 
             ```python notest
             env = modal.Environment.from_name("my-restricted-env")
-            env.members.update(
+            env.roles.update(
                 users={"alice": "contributor", "bob": "viewer"},
                 service_users={"alice-bot": "contributor"},
             )
@@ -178,16 +175,17 @@ class EnvironmentMembersManager:
             users: typing.Optional[collections.abc.Mapping[str, str]] = None,
             service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
         ) -> None:
-            """Add or modify roles for members of a restricted Environment.
+            """Update the Environment Role of users and service users.
 
-            Each user or service user will be added to the Environment if not currently a member;
-            if already a member, the user or service user's role will be updated.
+            Each role is one of 'contributor', 'viewer', or 'no-access'. Service users can be
+            assigned a role on any Environment, while workspace members can only be assigned a
+            role on restricted Environments.
 
             **Examples:**
 
             ```python notest
             env = modal.Environment.from_name("my-restricted-env")
-            env.members.update(
+            env.roles.update(
                 users={"alice": "contributor", "bob": "viewer"},
                 service_users={"alice-bot": "contributor"},
             )
@@ -196,51 +194,6 @@ class EnvironmentMembersManager:
             ...
 
     update: __update_spec
-
-    class __remove_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            *,
-            users: typing.Optional[collections.abc.Iterable[str]] = None,
-            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
-        ) -> None:
-            """Remove members from a restricted Environment.
-
-            **Examples:**
-
-            ```python notest
-            env = modal.Environment.from_name("my-restricted-env")
-            env.members.remove(
-                users=["alice"],
-                service_users=["alice-bot"],
-            )
-            ```
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            *,
-            users: typing.Optional[collections.abc.Iterable[str]] = None,
-            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
-        ) -> None:
-            """Remove members from a restricted Environment.
-
-            **Examples:**
-
-            ```python notest
-            env = modal.Environment.from_name("my-restricted-env")
-            env.members.remove(
-                users=["alice"],
-                service_users=["alice-bot"],
-            )
-            ```
-            """
-            ...
-
-    remove: __remove_spec
 
     class ___dispatch_role_updates_spec(typing_extensions.Protocol):
         def __call__(self, /, requests: dict[str, modal_proto.api_pb2.EnvironmentRoleSetRequest]) -> None:
@@ -253,10 +206,61 @@ class EnvironmentMembersManager:
 
     _dispatch_role_updates: ___dispatch_role_updates_spec
 
+class EnvironmentMembersManager:
+    """mdmd:hidden"""
+    def __init__(self, environment: Environment):
+        """mdmd:hidden"""
+        ...
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]: ...
+        async def aio(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]: ...
+
+    list: __list_spec
+
+    class __update_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+            service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+        ) -> None: ...
+        async def aio(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+            service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+        ) -> None: ...
+
+    update: __update_spec
+
+    class __remove_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Iterable[str]] = None,
+            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
+        ) -> None:
+            """Remove the Environment Role of users and service users, reverting them to the default."""
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            users: typing.Optional[collections.abc.Iterable[str]] = None,
+            service_users: typing.Optional[collections.abc.Iterable[str]] = None,
+        ) -> None:
+            """Remove the Environment Role of users and service users, reverting them to the default."""
+            ...
+
+    remove: __remove_spec
+
 class EnvironmentBillingManager:
-    """mdmd:namespace
-    Namespace for Environment billing APIs
-    """
+    """mdmd:namespace"""
     def __init__(self, environment: Environment):
         """mdmd:ignore"""
         ...
@@ -294,7 +298,7 @@ class EnvironmentBillingManager:
                 - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
                   An environment report CLI that has convenience features around relative time range queries
                   and JSON/CSV output.
-                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/Workspace#billingreport):
                   An analogous report API for the entire Workspace.
             """
             ...
@@ -331,12 +335,81 @@ class EnvironmentBillingManager:
                 - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
                   An environment report CLI that has convenience features around relative time range queries
                   and JSON/CSV output.
-                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+                - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/Workspace#billingreport):
                   An analogous report API for the entire Workspace.
             """
             ...
 
     report: __report_spec
+
+    class __summary_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, cycle: typing.Union[str, datetime.datetime, None] = None
+        ) -> modal.types.EnvironmentBillingSummary:
+            """Return a summary of environment cost over a single billing cycle determined by `cycle`.
+
+            Unlike the analogous `Workspace.billing.summary()`, this API only emits metered cost
+            information. This is because billing adjustments due to credits, free storage, etc. are
+            applied at the Workspace level, and thus cannot be attributed to individual Environments.
+
+            Args:
+                cycle: Start of the summary, inclusive. Must be the first of a month, and must be in UTC
+                    or timezone-naive (interpreted as UTC). If provided as a string, it must either be
+                    formatted as an ISO 8601 month (YYYY-MM), or must be one of the convenience spellings
+                    "this month" or "last month". If not provided, `cycle` defaults to the first of the
+                    current month (in which case a summary is generated for the current billing cycle).
+
+            Returns:
+                A single `EnvironmentBillingSummary` dataclass containing the following fields:
+                - `metered_cost` representing cost before any adjustments, and
+                - `metered_cost_breakdown` containing a breakdown of that cost by the Modal resources
+                  that generated it. The exact keys of this are subject to change as Modal's billing
+                  model evolves.
+
+                All values are reported as `decimal.Decimal`s.
+
+            See also:
+                - [`modal environment billing summary`](https://modal.com/docs/cli/latest/billing#modal-environment-billing-summary):
+                  An environment summary CLI that has convenience features around relative time range queries.
+                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/Environment#billingreport):
+                  An analogous report API that is scoped to a specific Environment.
+            """
+            ...
+
+        async def aio(
+            self, /, cycle: typing.Union[str, datetime.datetime, None] = None
+        ) -> modal.types.EnvironmentBillingSummary:
+            """Return a summary of environment cost over a single billing cycle determined by `cycle`.
+
+            Unlike the analogous `Workspace.billing.summary()`, this API only emits metered cost
+            information. This is because billing adjustments due to credits, free storage, etc. are
+            applied at the Workspace level, and thus cannot be attributed to individual Environments.
+
+            Args:
+                cycle: Start of the summary, inclusive. Must be the first of a month, and must be in UTC
+                    or timezone-naive (interpreted as UTC). If provided as a string, it must either be
+                    formatted as an ISO 8601 month (YYYY-MM), or must be one of the convenience spellings
+                    "this month" or "last month". If not provided, `cycle` defaults to the first of the
+                    current month (in which case a summary is generated for the current billing cycle).
+
+            Returns:
+                A single `EnvironmentBillingSummary` dataclass containing the following fields:
+                - `metered_cost` representing cost before any adjustments, and
+                - `metered_cost_breakdown` containing a breakdown of that cost by the Modal resources
+                  that generated it. The exact keys of this are subject to change as Modal's billing
+                  model evolves.
+
+                All values are reported as `decimal.Decimal`s.
+
+            See also:
+                - [`modal environment billing summary`](https://modal.com/docs/cli/latest/billing#modal-environment-billing-summary):
+                  An environment summary CLI that has convenience features around relative time range queries.
+                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/Environment#billingreport):
+                  An analogous report API that is scoped to a specific Environment.
+            """
+            ...
+
+    summary: __summary_spec
 
 class Environment(modal.object.Object):
     _name: typing.Optional[str]
@@ -352,7 +425,18 @@ class Environment(modal.object.Object):
     @classmethod
     def objects(cls) -> EnvironmentManager: ...
     @property
-    def members(self) -> EnvironmentMembersManager: ...
+    def roles(self) -> EnvironmentRolesManager:
+        """Namespace with methods for managing the Environment Roles of users and service users.
+
+        See https://modal.com/docs/guide/rbac for more information on Environment Roles.
+        """
+        ...
+
+    @property
+    def members(self) -> EnvironmentMembersManager:
+        """mdmd:hidden"""
+        ...
+
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     @staticmethod
     def _get_or_create(
@@ -378,7 +462,9 @@ class Environment(modal.object.Object):
         ...
 
     @property
-    def billing(self) -> EnvironmentBillingManager: ...
+    def billing(self) -> EnvironmentBillingManager:
+        """Namespace for Environment billing APIs."""
+        ...
 
 class __create_environment_spec(typing_extensions.Protocol):
     def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...

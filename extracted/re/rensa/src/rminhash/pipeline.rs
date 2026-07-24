@@ -297,10 +297,12 @@ impl RMinHash {
     num_perm: usize,
     seed: u64,
   ) -> PyResult<RMinHashDigestMatrix> {
+    Self::validate_num_perm(num_perm)?;
     Self::validate_flat_row_offsets(row_offsets, token_hashes.len())?;
     let rows = row_offsets.len().saturating_sub(1);
-    let permutations = Self::build_permutations(num_perm, seed);
-    let permutations_soa = PermutationSoA::from_permutations(&permutations);
+    let shared = crate::rminhash::shared_permutations(num_perm, seed);
+    let permutations = shared.pairs;
+    let permutations_soa = shared.soa;
     let config = DigestBuildConfig::from_env();
     let matrix_len = checked_matrix_len(rows, num_perm)?;
     let mut matrix_data = vec![u32::MAX; matrix_len];
@@ -550,6 +552,7 @@ impl RMinHash {
     permutations_soa: &PermutationSoA,
     document_hasher: fn(&Bound<'_, PyAny>, &mut Vec<u64>) -> PyResult<()>,
   ) -> PyResult<RMinHashDigestMatrix> {
+    Self::validate_num_perm(num_perm)?;
     let config = DigestBuildConfig::from_env();
     if let Ok(py_list) = token_sets.cast::<PyList>() {
       return Self::build_digest_matrix_data_with_known_rows(
@@ -610,11 +613,7 @@ impl RMinHash {
       permutation_cache.as_mut(),
     );
 
-    let rows = if num_perm == 0 {
-      0
-    } else {
-      matrix_data.len() / num_perm
-    };
+    let rows = matrix_data.len() / num_perm;
 
     Ok(RMinHashDigestMatrix {
       num_perm,
@@ -630,8 +629,9 @@ impl RMinHash {
     seed: u64,
     document_hasher: fn(&Bound<'_, PyAny>, &mut Vec<u64>) -> PyResult<()>,
   ) -> PyResult<RMinHashDigestMatrix> {
-    let permutations = Self::build_permutations(num_perm, seed);
-    let permutations_soa = PermutationSoA::from_permutations(&permutations);
+    let shared = crate::rminhash::shared_permutations(num_perm, seed);
+    let permutations = shared.pairs;
+    let permutations_soa = shared.soa;
     Self::build_digest_matrix_data(
       token_sets,
       num_perm,
@@ -661,8 +661,8 @@ impl RMinHash {
         num_perm: matrix.num_perm,
         seed,
         hash_values: hash_values.to_vec(),
-        permutations: Vec::new(),
-        permutations_soa: PermutationSoA::default(),
+        permutations: std::sync::Arc::default(),
+        permutations_soa: std::sync::Arc::default(),
       });
     }
     minhashes
@@ -674,8 +674,8 @@ impl RMinHash {
       num_perm,
       seed,
       hash_values: vec![u32::MAX; num_perm],
-      permutations: Vec::new(),
-      permutations_soa: PermutationSoA::default(),
+      permutations: std::sync::Arc::default(),
+      permutations_soa: std::sync::Arc::default(),
     })
   }
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime
-from datetime import timezone
+from datetime import UTC
 from typing import TYPE_CHECKING
 
 from flask.sessions import NullSession as NullSession  # noqa: F401
@@ -55,6 +55,10 @@ class SessionInterface:
         rv = app.config["SESSION_COOKIE_DOMAIN"]
         return rv if rv else None
 
+    def get_cookie_partitioned(self, app: Quart) -> bool:
+        """Helper method to return the Cookie partitioned setting for the App."""
+        return app.config["SESSION_COOKIE_PARTITIONED"]
+
     def get_cookie_path(self, app: Quart) -> str:
         """Helper method to return the Cookie path for the App."""
         return app.config["SESSION_COOKIE_PATH"] or app.config["APPLICATION_ROOT"]
@@ -78,7 +82,7 @@ class SessionInterface:
         the browser stops accessing the app.
         """
         if session.permanent:
-            return datetime.now(timezone.utc) + app.permanent_session_lifetime
+            return datetime.now(UTC) + app.permanent_session_lifetime
         else:
             return None
 
@@ -145,12 +149,18 @@ class SecureCookieSessionInterface(SessionInterface):
         if not app.secret_key:
             return None
 
+        keys: list[str | bytes] = []
+
+        if fallbacks := app.config["SECRET_KEY_FALLBACKS"]:
+            keys.extend(fallbacks)
+
+        keys.append(app.secret_key)  # itsdangerous expects current key at top
         options = {
             "key_derivation": self.key_derivation,
             "digest_method": self.digest_method,
         }
         return URLSafeTimedSerializer(
-            app.secret_key,
+            keys,  # type: ignore[arg-type]
             salt=self.salt,
             serializer=self.serializer,
             signer_kwargs=options,
@@ -195,6 +205,7 @@ class SecureCookieSessionInterface(SessionInterface):
 
         name = self.get_cookie_name(app)
         domain = self.get_cookie_domain(app)
+        partitioned = self.get_cookie_partitioned(app)
         path = self.get_cookie_path(app)
         secure = self.get_cookie_secure(app)
         samesite = self.get_cookie_samesite(app)
@@ -211,6 +222,7 @@ class SecureCookieSessionInterface(SessionInterface):
                 response.delete_cookie(
                     name,
                     domain=domain,
+                    partitioned=partitioned,
                     path=path,
                     secure=secure,
                     samesite=samesite,
@@ -231,6 +243,7 @@ class SecureCookieSessionInterface(SessionInterface):
             expires=expires,
             httponly=httponly,
             domain=domain,
+            partitioned=partitioned,
             path=path,
             secure=secure,
             samesite=samesite,

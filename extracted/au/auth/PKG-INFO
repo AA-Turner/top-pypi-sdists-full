@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth
-Version: 1.5.1
+Version: 2.0.0
 Summary: Authorization for humans
 Author-email: Farshid Ashouri <farsheed.ashouri@gmail.com>
 License-Expression: MIT
@@ -38,9 +38,14 @@ Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: requests>=2.25.0
 Requires-Dist: bleach>=5.0.0
 Requires-Dist: python-json-logger>=3.1.0
+Provides-Extra: ratelimit
+Requires-Dist: flask-limiter>=3.0.0; extra == "ratelimit"
+Provides-Extra: migrations
+Requires-Dist: alembic>=1.13.0; extra == "migrations"
 Provides-Extra: dev
 Requires-Dist: pytest>=6.0; extra == "dev"
 Requires-Dist: pytest-cov>=2.0; extra == "dev"
+Requires-Dist: alembic>=1.13.0; extra == "dev"
 Requires-Dist: ruff>=0.0.260; extra == "dev"
 Requires-Dist: mypy>=1.0; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"

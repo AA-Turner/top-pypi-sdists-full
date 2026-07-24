@@ -3,11 +3,11 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from asyncio import CancelledError
-from collections.abc import AsyncGenerator, AsyncIterator, Iterable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import update_wrapper
 from string import Template
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, cast
 
 import inquirer3
 import typer
@@ -22,7 +22,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import style_from_pygments_cls
 from pygments import formatters, highlight, lexers
-from pygments.styles import get_style_by_name
+from pygments import styles as _pygments_styles
 from typer_injector import InjectingTyper
 
 from pymobiledevice3.cli.cli_common import ServiceProviderDep, async_command
@@ -142,19 +142,19 @@ cli = InjectingTyper(
 )
 
 
-def catch_errors(func):
-    errors = {
+def catch_errors(func: Callable[..., Any]) -> Callable[..., Any]:
+    errors: dict[type[Exception], str] = {
         LaunchingApplicationError: "Unable to launch application (try to unlock device)",
         WebInspectorNotEnabledError: "Web inspector is not enabled",
         RemoteAutomationNotEnabledError: "Remote automation is not enabled",
     }
 
-    def handle_error(e):
+    def handle_error(e: Exception) -> None:
         logger.error(next(msg for exc, msg in errors.items() if isinstance(e, exc)))
 
     if inspect.iscoroutinefunction(func):
 
-        async def async_catch_function(*args, **kwargs):
+        async def async_catch_function(*args: Any, **kwargs: Any):
             try:
                 return await func(*args, **kwargs)
             except tuple(errors) as e:
@@ -163,7 +163,7 @@ def catch_errors(func):
         catch_function = async_catch_function
     else:
 
-        def sync_catch_function(*args, **kwargs):
+        def sync_catch_function(*args: Any, **kwargs: Any):
             try:
                 return func(*args, **kwargs)
             except tuple(errors) as e:
@@ -181,7 +181,7 @@ async def reload_pages(inspector: WebinspectorService) -> None:
 
 
 @asynccontextmanager
-async def webinspector_service(lockdown: LockdownServiceProvider) -> AsyncIterator[WebinspectorService]:
+async def webinspector_service(lockdown: LockdownServiceProvider) -> AsyncGenerator[WebinspectorService, None]:
     inspector = WebinspectorService(lockdown=lockdown)
     try:
         await inspector.connect()
@@ -221,7 +221,7 @@ async def opened_tabs(
 
 
 @catch_errors
-async def launch_task(service_provider: LockdownServiceProvider, url, timeout) -> None:
+async def launch_task(service_provider: LockdownServiceProvider, url: str, timeout: float) -> None:
     async with webinspector_service(service_provider) as inspector:
         safari = await inspector.open_app(SAFARI)
         session = await inspector.automation_session(safari)
@@ -292,7 +292,9 @@ async def shell_task(service_provider: LockdownServiceProvider, timeout: float) 
         driver = WebDriver(session)
         try:
             start_ipython_shell(
-                header=highlight(SHELL_USAGE, lexers.PythonLexer(), formatters.Terminal256Formatter(style="native")),
+                header=highlight(
+                    SHELL_USAGE, cast(Any, lexers).PythonLexer(), formatters.Terminal256Formatter(style="native")
+                ),
                 user_ns={
                     "driver": driver,
                     "Cookie": Cookie,
@@ -476,10 +478,10 @@ class JsShellCompleter(Completer):
 class JsShell(ABC):
     def __init__(self) -> None:
         super().__init__()
-        self.prompt_session: PromptSession = PromptSession(
-            lexer=PygmentsLexer(lexers.JavascriptLexer),
+        self.prompt_session: PromptSession[str] = PromptSession(
+            lexer=PygmentsLexer(cast(Any, lexers).JavascriptLexer),
             auto_suggest=AutoSuggestFromHistory(),
-            style=style_from_pygments_cls(get_style_by_name("stata-dark")),
+            style=style_from_pygments_cls(cast(Any, _pygments_styles).get_style_by_name("stata-dark")),
             history=FileHistory(self.webinspector_history_path()),
             completer=JsShellCompleter(self),
         )
@@ -492,11 +494,11 @@ class JsShell(ABC):
         timeout: float,
         open_safari: bool,
         bundle_identifier: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "AbstractAsyncContextManager[JsShell]": ...
 
     @abstractmethod
-    async def evaluate_expression(self, exp, return_by_value: bool = False) -> Any: ...
+    async def evaluate_expression(self, exp: str, return_by_value: bool = False) -> Any: ...
 
     @abstractmethod
     async def navigate(self, url: str) -> None: ...
@@ -509,8 +511,13 @@ class JsShell(ABC):
             return
 
         result = await self.evaluate_expression(exp)
-        colorful_result = highlight(
-            f"{result}", lexers.JavascriptLexer(), formatters.Terminal256Formatter(style="stata-dark")
+        colorful_result = cast(
+            str,
+            highlight(
+                f"{result}",
+                cast(Any, lexers).JavascriptLexer(),
+                cast(Any, formatters).Terminal256Formatter(style="stata-dark"),
+            ),
         )
         print(colorful_result, end="")
 
@@ -545,8 +552,8 @@ class AutomationJsShell(JsShell):
         timeout: float,
         open_safari: bool,
         bundle_identifier: Optional[str] = None,
-        **kwargs,
-    ) -> "AsyncIterator[AutomationJsShell]":
+        **kwargs: Any,
+    ) -> "AsyncGenerator[AutomationJsShell, None]":
         if bundle_identifier is None:
             bundle_identifier = SAFARI
         async with webinspector_service(lockdown) as inspector:
@@ -581,8 +588,8 @@ class InspectorJsShell(JsShell):
         bundle_identifier: Optional[str] = None,
         *,
         console_enable: bool = True,
-        **kwargs,
-    ) -> "AsyncIterator[InspectorJsShell]":
+        **kwargs: Any,
+    ) -> "AsyncGenerator[InspectorJsShell, None]":
         async with webinspector_service(lockdown) as inspector:
             if open_safari:
                 _ = await inspector.open_app(SAFARI)
@@ -628,7 +635,9 @@ class InspectorJsShell(JsShell):
             return available_pages[0]
 
         page_query = [inquirer3.List("page", message="choose page", choices=available_pages, carousel=True)]
-        page = inquirer3.prompt(page_query, theme=GreenPassion(), raise_keyboard_interrupt=True)["page"]
+        page = cast(
+            dict[str, Any], cast(Any, inquirer3).prompt(page_query, theme=GreenPassion(), raise_keyboard_interrupt=True)
+        )["page"]
         return page
 
 

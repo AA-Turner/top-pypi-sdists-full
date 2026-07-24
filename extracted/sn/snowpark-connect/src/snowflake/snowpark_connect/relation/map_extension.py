@@ -53,6 +53,10 @@ from snowflake.snowpark_connect.utils.expression_transformer import (
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.python_udf_marshal import (
+    encode_native_or_variant_args,
+    python_is_native_input,
+)
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -280,6 +284,148 @@ def get_udtf_project(
     return None
 
 
+def _variant_packed_table_arg_result(
+    base_df,
+    table_containers: list,
+    scalar_typed_args: list,
+    _udtf_obj,
+    over_kwargs: dict,
+):
+    """Legacy encoding: pack each table argument's row into a single VARIANT object
+    ({"__fields__": [...], "__values__": [...]}) and pass scalar args per the UDTF's
+    declared input_types. Used when the native per-column path is not applicable."""
+    table_arg_variants = []
+    for table_container, table_arg_idx in table_containers:
+        table_columns = table_container.column_map.get_snowpark_columns()
+        spark_columns = table_container.column_map.get_spark_columns()
+
+        # Create a structure that supports both positional and named access
+        # Format: {"__fields__": ["col1", "col2"], "__values__": [val1, val2]}
+        # This allows UDTFs to access table arguments both ways: a[0] and a["col1"]
+        fields_array = snowpark_fn.array_construct(
+            *[snowpark_fn.lit(col) for col in spark_columns]
+        )
+        values_array = snowpark_fn.array_construct(
+            *[snowpark_fn.col(col) for col in table_columns]
+        )
+
+        table_arg_variant = snowpark_fn.to_variant(
+            snowpark_fn.object_construct(
+                snowpark_fn.lit("__fields__"),
+                fields_array,
+                snowpark_fn.lit("__values__"),
+                values_array,
+            )
+        )
+        table_arg_variants.append((table_arg_variant, table_arg_idx))
+
+    # Registered UDTFs are always created with all-VARIANT input types (register_udtf
+    # has no call-site types), so every scalar arg is wrapped in VARIANT here. The
+    # native per-column encoding is handled separately in _try_native_table_arg_udtf.
+    scalar_args_encoded = [snowpark_fn.to_variant(tc.col) for tc in scalar_typed_args]
+
+    all_args = scalar_args_encoded.copy()
+    for table_arg_variant, table_arg_idx in sorted(
+        table_arg_variants, key=lambda x: x[1]
+    ):
+        all_args.insert(table_arg_idx, table_arg_variant)
+
+    udtf_func = snowpark_fn.table_function(_udtf_obj.name)
+    udtf_call = udtf_func(*all_args)
+    if over_kwargs:
+        udtf_call = udtf_call.over(**over_kwargs)
+    return base_df.join_table_function(udtf_call)
+
+
+def _try_native_table_arg_udtf(
+    cache,
+    udtf_name_lower: str,
+    base_df,
+    table_container_entry: tuple,
+    scalar_typed_args: list,
+    over_kwargs: dict,
+):
+    """Attempt the native per-column encoding for a single-table-argument UDTF.
+
+    Passes each table column as an individual native-typed argument (rather than one
+    packed VARIANT object) and re-emits the physical function with native per-column
+    params via the registration-time recreation closure. The handler-side wrapper
+    rebuilds the single Row from the flat args (see ``_regroup_flat_table_args``).
+
+    Returns the joined DataFrame, or ``None`` to signal the caller to fall back to the
+    VARIANT-packing path — when there is no recreation closure (e.g. inline UDTFs or
+    sproc-mode), a table column is not a native scalar, or the arg layout is unexpected.
+    """
+    recreate_fn = cache.udtfs.get_recreate_fn(udtf_name_lower)
+    if recreate_fn is None:
+        return None
+
+    container, table_arg_idx = table_container_entry
+    spark_fields = container.column_map.get_spark_columns()
+    sf_cols = container.column_map.get_snowpark_columns()
+    if not sf_cols or len(sf_cols) != len(spark_fields):
+        return None
+
+    # Resolve each table column's Snowpark type from the base DataFrame schema.
+    # Prefer an exact name match; fall back to a case/quote-normalized match only when
+    # it is unambiguous — two fields sharing a normalized key would otherwise pick the
+    # wrong type, so in that case we bail to the safe VARIANT-packing path.
+    type_by_name = {f.name: f.datatype for f in base_df.schema.fields}
+    norm_counts: dict = {}
+    norm_by_name: dict = {}
+    for f in base_df.schema.fields:
+        key = f.name.strip('"').upper()
+        norm_counts[key] = norm_counts.get(key, 0) + 1
+        norm_by_name[key] = f.datatype
+    col_types = []
+    for c in sf_cols:
+        dt = type_by_name.get(c)
+        if dt is None:
+            key = c.strip('"').upper()
+            if norm_counts.get(key, 0) == 1:
+                dt = norm_by_name.get(key)
+        if dt is None or not python_is_native_input(dt):
+            return None
+        col_types.append(dt)
+
+    total_args = len(scalar_typed_args) + 1  # single table argument
+    if not (0 <= table_arg_idx < total_args):
+        return None
+
+    flat_cols: list = []
+    flat_types: list = []
+    table_arg_layout: list = []
+    scalar_iter = iter(scalar_typed_args)
+    for pos in range(total_args):
+        if pos == table_arg_idx:
+            for c, dt in zip(sf_cols, col_types):
+                flat_cols.append(snowpark_fn.col(c))
+                flat_types.append(dt)
+            table_arg_layout.append(("row", list(spark_fields)))
+        else:
+            tc = next(scalar_iter)
+            if python_is_native_input(tc.typ):
+                flat_cols.append(tc.col)
+            else:
+                flat_cols.append(snowpark_fn.to_variant(tc.col))
+            flat_types.append(tc.typ)
+            table_arg_layout.append(("scalar", None))
+
+    signature_key = repr((tuple(repr(t) for t in flat_types), table_arg_layout))
+    native_udtf = cache.udtfs.get_native_variant(udtf_name_lower, signature_key)
+    if native_udtf is None:
+        native_udtf = recreate_fn(flat_types, table_arg_layout)
+        if native_udtf is None:
+            return None
+        cache.udtfs.set_native_variant(udtf_name_lower, signature_key, native_udtf)
+
+    udtf_func = snowpark_fn.table_function(native_udtf.name)
+    udtf_call = udtf_func(*flat_cols)
+    if over_kwargs:
+        udtf_call = udtf_call.over(**over_kwargs)
+    return base_df.join_table_function(udtf_call)
+
+
 def handle_udtf_with_table_arguments(
     udtf_info: snowflake_proto.UDTFWithTableArguments,
 ) -> DataFrameContainer:
@@ -333,49 +479,14 @@ def handle_udtf_with_table_arguments(
 
         base_df = base_df.sort(*(subsequent_table_cols + first_table_cols))
 
-    scalar_args = []
+    scalar_typed_args = []
     typer = ExpressionTyper.dummy_typer(session)
     empty_column_map = ColumnNameMap([], [], None)
     for arg_proto in udtf_info.arguments:
         # UDTF when used with table arguments, the arguments can only be scalar arguments like integer, literals etc. or Table arguments.
         # Using map_expression with dummy typer to resolve the scalar arguments.
         _, typed_column = map_expression(arg_proto, empty_column_map, typer)
-        scalar_args.append(typed_column.col)
-
-    table_arg_variants = []
-    for table_container, table_arg_idx in table_containers:
-        table_columns = table_container.column_map.get_snowpark_columns()
-        spark_columns = table_container.column_map.get_spark_columns()
-
-        # Create a structure that supports both positional and named access
-        # Format: {"__fields__": ["col1", "col2"], "__values__": [val1, val2]}
-        # This allows UDTFs to access table arguments both ways: a[0] and a["col1"]
-        fields_array = snowpark_fn.array_construct(
-            *[snowpark_fn.lit(col) for col in spark_columns]
-        )
-        values_array = snowpark_fn.array_construct(
-            *[snowpark_fn.col(col) for col in table_columns]
-        )
-
-        table_arg_variant = snowpark_fn.to_variant(
-            snowpark_fn.object_construct(
-                snowpark_fn.lit("__fields__"),
-                fields_array,
-                snowpark_fn.lit("__values__"),
-                values_array,
-            )
-        )
-        table_arg_variants.append((table_arg_variant, table_arg_idx))
-
-    scalar_args_variant = [snowpark_fn.to_variant(arg) for arg in scalar_args]
-
-    all_args = scalar_args_variant.copy()
-    for table_arg_variant, table_arg_idx in sorted(
-        table_arg_variants, key=lambda x: x[1]
-    ):
-        all_args.insert(table_arg_idx, table_arg_variant)
-
-    udtf_func = snowpark_fn.table_function(_udtf_obj.name)
+        scalar_typed_args.append(typed_column)
 
     # Apply ORDER BY when the single table argument carried sort_exprs from
     # sortWithinPartitions. This does NOT add a PARTITION BY: OSS Spark passes a
@@ -428,10 +539,25 @@ def handle_udtf_with_table_arguments(
         if order_cols:
             over_kwargs["order_by"] = order_cols
 
-    udtf_call = udtf_func(*all_args)
-    if over_kwargs:
-        udtf_call = udtf_call.over(**over_kwargs)
-    result_df = base_df.join_table_function(udtf_call)
+    # Try the native per-column encoding first (single table argument): pass each table
+    # column as an individual native-typed argument and let the handler-side wrapper rebuild
+    # the Row, eliminating the VARIANT __fields__/__values__ packing done per row. Falls back
+    # to VARIANT packing when the shape isn't supported or a column isn't a native scalar.
+    result_df = None
+    if len(table_containers) == 1:
+        result_df = _try_native_table_arg_udtf(
+            cache,
+            udtf_name_lower,
+            base_df,
+            table_containers[0],
+            scalar_typed_args,
+            over_kwargs,
+        )
+
+    if result_df is None:
+        result_df = _variant_packed_table_arg_result(
+            base_df, table_containers, scalar_typed_args, _udtf_obj, over_kwargs
+        )
 
     # Return only the UDTF output columns
     original_column_count = len(base_df.columns)
@@ -469,12 +595,16 @@ def handle_lateral_join_with_udtf(
     left_column_map = left_result.column_map
     left_df = left_result.dataframe
     table_func = snowpark_fn.table_function(_udtf_obj.name)
-    udtf_args = [
-        map_expression(arg_proto, left_column_map, typer)[1].col
+    udtf_typed_args = [
+        map_expression(arg_proto, left_column_map, typer)[1]
         for arg_proto in udtf_func.arguments
     ]
-    udtf_args_variant = [snowpark_fn.to_variant(arg) for arg in udtf_args]
-    result_df = left_df.join_table_function(table_func(*udtf_args_variant))
+    udtf_args_encoded = encode_native_or_variant_args(
+        udtf_typed_args,
+        getattr(_udtf_obj, "input_types", []),
+        variant_encoder=snowpark_fn.to_variant,
+    )
+    result_df = left_df.join_table_function(table_func(*udtf_args_encoded))
 
     right_qualifiers = (
         [

@@ -100,8 +100,6 @@ class _ContainerIOManager:
     app_id: str
     _task_lifecycle_manager: modal._runtime.task_lifecycle_manager._TaskLifecycleManager
     input_plane_server_url: typing.Optional[str]
-    calls_completed: int
-    total_user_time: float
     current_input_id: typing.Optional[str]
     current_inputs: dict[str, IOContext]
     current_input_started_at: typing.Optional[float]
@@ -185,8 +183,6 @@ class _ContainerIOManager:
         """Put a value onto a queue, using the synchronicity event loop."""
         ...
 
-    def get_average_call_time(self) -> float: ...
-    def get_max_inputs_to_fetch(self): ...
     def _generate_inputs(
         self, batch_max_size: int, batch_wait_ms: int
     ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
@@ -196,7 +192,7 @@ class _ContainerIOManager:
         batch_max_size: int = 0,
         batch_wait_ms: int = 0,
     ) -> collections.abc.AsyncIterator[IOContext]: ...
-    async def _send_outputs(self, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+    async def _send_outputs(self, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
         """Send pre-built output items with retry and chunking."""
         ...
 
@@ -204,7 +200,7 @@ class _ContainerIOManager:
         """Handle an exception while processing a function input."""
         ...
 
-    def exit_context(self, started_at, input_ids: list[str]): ...
+    def exit_context(self, input_ids: list[str]): ...
     async def push_outputs(self, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
     def snapshot_context_manager(self) -> typing.AsyncContextManager[None]: ...
     async def interact(self, from_breakpoint: bool = False): ...
@@ -246,8 +242,6 @@ class ContainerIOManager:
     app_id: str
     _task_lifecycle_manager: modal._runtime.task_lifecycle_manager.TaskLifecycleManager
     input_plane_server_url: typing.Optional[str]
-    calls_completed: int
-    total_user_time: float
     current_input_id: typing.Optional[str]
     current_inputs: dict[str, IOContext]
     current_input_started_at: typing.Optional[float]
@@ -413,9 +407,6 @@ class ContainerIOManager:
 
     _queue_put: ___queue_put_spec
 
-    def get_average_call_time(self) -> float: ...
-    def get_max_inputs_to_fetch(self): ...
-
     class ___generate_inputs_spec(typing_extensions.Protocol):
         def __call__(
             self, /, batch_max_size: int, batch_wait_ms: int
@@ -445,11 +436,11 @@ class ContainerIOManager:
     run_inputs_outputs: __run_inputs_outputs_spec
 
     class ___send_outputs_spec(typing_extensions.Protocol):
-        def __call__(self, /, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+        def __call__(self, /, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
             """Send pre-built output items with retry and chunking."""
             ...
 
-        async def aio(self, /, started_at: float, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+        async def aio(self, /, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
             """Send pre-built output items with retry and chunking."""
             ...
 
@@ -468,7 +459,7 @@ class ContainerIOManager:
 
     handle_input_exception: __handle_input_exception_spec
 
-    def exit_context(self, started_at, input_ids: list[str]): ...
+    def exit_context(self, input_ids: list[str]): ...
 
     class __push_outputs_spec(typing_extensions.Protocol):
         def __call__(self, /, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
@@ -517,5 +508,3 @@ class ContainerIOManager:
     def stop_fetching_inputs(cls): ...
 
 MAX_OUTPUT_BATCH_SIZE: int
-
-RTT_S: float

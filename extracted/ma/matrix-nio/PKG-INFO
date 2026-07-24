@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: matrix-nio
-Version: 0.25.2
+Version: 0.26.0
 Summary: A Python Matrix client library, designed according to sans I/O principles.
 Author-email: Damir Jelić <poljar@termina.org.uk>, Paarth Shah <mail@shahpaarth.com>
 License: Internet Systems Consortium license
@@ -22,45 +22,36 @@ License: Internet Systems Consortium license
         
 Project-URL: Source, https://github.com/matrix-nio/matrix-nio
 Project-URL: Documentation, https://matrix-nio.readthedocs.io/en/latest/
-Requires-Python: >=3.8.0
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: aiohttp~=3.10
-Requires-Dist: aiofiles~=24.1
-Requires-Dist: h11~=0.14
-Requires-Dist: h2~=4.0
-Requires-Dist: jsonschema~=4.14
-Requires-Dist: unpaddedbase64~=2.1
-Requires-Dist: pycryptodome~=3.10
-Requires-Dist: aiohttp-socks~=0.8
+Requires-Dist: aiohttp>=3.10
+Requires-Dist: aiofiles>=24.1
+Requires-Dist: h11>=0.14
+Requires-Dist: h2>=4.0
+Requires-Dist: jsonschema>=4.14
+Requires-Dist: unpaddedbase64>=2.1
+Requires-Dist: pycryptodome>=3.10
+Requires-Dist: aiohttp-socks>=0.8
 Provides-Extra: e2e
 Requires-Dist: atomicwrites~=1.4; extra == "e2e"
-Requires-Dist: cachetools~=5.3; extra == "e2e"
+Requires-Dist: cachetools>=5.3; extra == "e2e"
 Requires-Dist: peewee~=3.14; extra == "e2e"
-Requires-Dist: python-olm~=3.2; extra == "e2e"
-Provides-Extra: dev
-Requires-Dist: matrix-nio[e2e]; extra == "dev"
-Requires-Dist: aioresponses~=0.7; extra == "dev"
-Requires-Dist: hpack~=4.0; extra == "dev"
-Requires-Dist: hyperframe~=6.0; extra == "dev"
-Requires-Dist: hypothesis~=6.8; extra == "dev"
-Requires-Dist: faker~=8.0; extra == "dev"
-Requires-Dist: mypy~=1.11; extra == "dev"
-Requires-Dist: mypy_extensions~=1.0; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest~=8.2; extra == "dev"
-Requires-Dist: pytest-asyncio~=0.24; extra == "dev"
-Requires-Dist: pytest-aiohttp~=0.3; extra == "dev"
-Requires-Dist: pytest-benchmark~=4.0; extra == "dev"
-Requires-Dist: pytest-cov~=2.11; extra == "dev"
-Requires-Dist: pytest-flake8~=1.2; extra == "dev"
+Requires-Dist: vodozemac>=0.9.0.post2; extra == "e2e"
 Provides-Extra: docs
 Requires-Dist: matrix-nio[dev]; extra == "docs"
 Requires-Dist: setuptools>=61.0; extra == "docs"
-Requires-Dist: sphinx~=7.4; extra == "docs"
+Requires-Dist: sphinx>=7.4; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints~=2.1; extra == "docs"
 Requires-Dist: sphinx_mdinclude>=0.5; extra == "docs"
-Requires-Dist: sphinx_rtd_theme~=2.0; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>=2.0; extra == "docs"
+Dynamic: license-file
 
 nio
 ===

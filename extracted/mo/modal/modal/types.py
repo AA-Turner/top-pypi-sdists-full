@@ -5,7 +5,7 @@ import enum
 from dataclasses import FrozenInstanceError, dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Iterable, Optional, TypedDict
+from typing import Any, Iterable, Literal, Optional, TypedDict
 
 from modal_proto import api_pb2
 
@@ -52,6 +52,27 @@ class FileWatchEventType(enum.Enum):
     Create = "Create"
     Modify = "Modify"
     Remove = "Remove"
+
+
+LogSource = Literal["stdout", "stderr", "system"]
+
+
+@dataclass(frozen=True, slots=True)
+class LogEntry:
+    """A log entry emitted by a Modal object.
+
+    The context_ids field contains a list of IDs corresponding to the context in which the log entry was emitted.
+    For example, for a function log entry, this will contain the function call ID, the input ID, and the container ID.
+    """
+
+    message: str
+    timestamp: datetime
+    source: LogSource
+    object_id: str
+    context_ids: list[str]
+
+    def __str__(self) -> str:
+        return self.message
 
 
 @dataclass
@@ -286,4 +307,63 @@ class BillingReportItem:
             cost=Decimal(pb_item.cost),
             cost_by_resource={k: Decimal(v) for k, v in pb_item.cost_by_resource.items()},
             tags=dict(pb_item.tags),
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class WorkspaceBillingSummary:
+    start: datetime
+    end: datetime
+    metered_cost: Decimal
+    metered_cost_breakdown: dict[str, Decimal]
+    adjustments: dict[str, Decimal]
+    billed_cost: Decimal
+
+    @classmethod
+    def _from_proto(cls, pb_item: api_pb2.WorkspaceBillingSummaryResponse) -> "WorkspaceBillingSummary":
+        metered_cost_breakdown = {}
+        for key, value in pb_item.metered_cost_breakdown.items():
+            if value == "":
+                value = "0"
+
+            metered_cost_breakdown[key] = Decimal(value)
+
+        adjustments = {}
+        for key, value in pb_item.adjustments.items():
+            if value == "":
+                value = "0"
+
+            adjustments[key] = Decimal(value)
+
+        return cls(
+            start=pb_item.start_timestamp.ToDatetime(timezone.utc),
+            end=pb_item.end_timestamp.ToDatetime(timezone.utc),
+            metered_cost=Decimal(pb_item.metered_cost),
+            billed_cost=Decimal(pb_item.billed_cost),
+            metered_cost_breakdown=metered_cost_breakdown,
+            adjustments=adjustments,
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class EnvironmentBillingSummary:
+    start: datetime
+    end: datetime
+    metered_cost: Decimal
+    metered_cost_breakdown: dict[str, Decimal]
+
+    @classmethod
+    def _from_proto(cls, pb_item: api_pb2.EnvironmentBillingSummaryResponse) -> "EnvironmentBillingSummary":
+        metered_cost_breakdown = {}
+        for key, value in pb_item.metered_cost_breakdown.items():
+            if value == "":
+                value = "0"
+
+            metered_cost_breakdown[key] = Decimal(value)
+
+        return cls(
+            start=pb_item.start_timestamp.ToDatetime(timezone.utc),
+            end=pb_item.end_timestamp.ToDatetime(timezone.utc),
+            metered_cost=Decimal(pb_item.metered_cost),
+            metered_cost_breakdown=metered_cost_breakdown,
         )

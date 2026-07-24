@@ -2,8 +2,9 @@ import asyncio
 import contextlib
 import hashlib
 import logging
-from typing import Optional
+from typing import Any, Optional, cast
 
+from ipsw_parser.build_manifest import BuildManifest
 from ipsw_parser.ipsw import IPSW
 from usb import USBError
 
@@ -21,20 +22,22 @@ RESTORE_VARIANT_MACOS_RECOVERY_OS = "macOS Customer"
 
 
 class Recovery(BaseRestore):
-    def __init__(self, ipsw: IPSW, device: Device, tss: Optional[dict] = None, behavior: Behavior = Behavior.Update):
+    def __init__(
+        self, ipsw: IPSW, device: Device, tss: Optional[dict[str, Any]] = None, behavior: Behavior = Behavior.Update
+    ):
         super().__init__(ipsw, device, tss, behavior)
         self.tss_localpolicy = None
         self.tss_recoveryos_root_ticket = None
         self.restore_boot_args = None
 
-    async def reconnect_irecv(self, is_recovery=None):
+    async def reconnect_irecv(self, is_recovery: Optional[bool] = None):
         self.logger.debug("waiting for device to reconnect...")
         self.device.set_irecv(IRecv(ecid=await self.device.get_ecid(), is_recovery=is_recovery))
         assert self.device.irecv is not None
         self.logger.debug(f"connected mode: {self.device.irecv.mode}")
 
     def get_preboard_manifest(self):
-        overrides = {
+        overrides: dict[str, Any] = {
             "@APTicket": True,
             "ApProductionMode": 0,
             "ApSecurityDomain": 0,
@@ -59,7 +62,7 @@ class Recovery(BaseRestore):
 
     async def get_tss_response(self) -> TSSResponse:
         # populate parameters
-        parameters = {}
+        parameters: dict[str, Any] = {}
 
         parameters["ApECID"] = await self.device.get_ecid()
         ap_nonce = await self.device.get_ap_nonce()
@@ -149,7 +152,7 @@ class Recovery(BaseRestore):
 
     async def get_local_policy_tss_response(self):
         # populate parameters
-        parameters = {
+        parameters: dict[str, Any] = {
             "ApECID": await self.device.get_ecid(),
             "Ap,LocalBoot": False,
             "ApProductionMode": True,
@@ -173,7 +176,7 @@ class Recovery(BaseRestore):
         self.populate_tss_request_from_manifest(parameters)
 
         # Add Ap,LocalPolicy
-        lpol = {
+        lpol: dict[str, Any] = {
             "Digest": hashlib.sha384(lpol_file).digest(),
             "Trusted": True,
         }
@@ -196,7 +199,7 @@ class Recovery(BaseRestore):
 
     async def get_recoveryos_root_ticket_tss_response(self):
         # populate parameters
-        parameters = {
+        parameters: dict[str, Any] = {
             "ApECID": await self.device.get_ecid(),
             "Ap,LocalBoot": False,
             "ApProductionMode": True,
@@ -249,7 +252,8 @@ class Recovery(BaseRestore):
             self.tss_localpolicy = await self.get_local_policy_tss_response()
             self.tss_recoveryos_root_ticket = await self.get_recoveryos_root_ticket_tss_response()
         else:
-            recovery_variant = self.build_identity["Info"].get("RecoveryVariant")
+            info = cast(dict[str, Any], self.build_identity["Info"])
+            recovery_variant = info.get("RecoveryVariant")
             if recovery_variant is not None:
                 self.tss_recoveryos_root_ticket = await self.get_tss_response()
 
@@ -270,7 +274,7 @@ class Recovery(BaseRestore):
         assert self.device.irecv is not None
         self.device.irecv.send_buffer(data)
 
-    async def send_component_and_command(self, name, command):
+    async def send_component_and_command(self, name: str, command: str):
         await self.send_component(name)
         assert self.device.irecv is not None
         self.device.irecv.send_command(command)
@@ -282,7 +286,7 @@ class Recovery(BaseRestore):
         self.device.irecv.send_command("go", b_request=1)
         self.device.irecv.ctrl_transfer(0x21, 1)
 
-    async def send_applelogo(self, allow_missing=True):
+    async def send_applelogo(self, allow_missing: bool = True):
         component = "RestoreLogo"
 
         if not self.build_identity.has_component(component):
@@ -298,7 +302,7 @@ class Recovery(BaseRestore):
         self.device.irecv.send_command("bgcolor 0 0 0")
 
     async def send_loaded_by_iboot(self):
-        manifest = self.build_identity["Manifest"]
+        manifest = cast(dict[str, Any], self.build_identity["Manifest"])
         for key, node in manifest.items():
             iboot = node["Info"].get("IsLoadedByiBoot", False)
             iboot_stg1 = node["Info"].get("IsLoadedByiBootStage1", False)
@@ -311,7 +315,7 @@ class Recovery(BaseRestore):
                 await self.send_component_and_command(key, "firmware")
 
     async def send_iboot_stage1_components(self):
-        manifest = self.build_identity["Manifest"]
+        manifest = cast(dict[str, Any], self.build_identity["Manifest"])
         for key, node in manifest.items():
             iboot = node["Info"].get("IsLoadedByiBoot", False)
             iboot_stg1 = node["Info"].get("IsLoadedByiBootStage1", False)
@@ -416,7 +420,7 @@ class Recovery(BaseRestore):
         if "SRTG" in self.device.irecv._device_info:
             raise PyMobileDevice3Exception("Device failed to enter recovery")
 
-        if self.build_identity.build_manifest.build_major > 8:
+        if cast(BuildManifest, self.build_identity.build_manifest).build_major > 8:
             old_nonce = self.device.irecv.ap_nonce
 
             # reconnect
@@ -447,7 +451,7 @@ class Recovery(BaseRestore):
                 await asyncio.sleep(1)
                 self.device.irecv.send_command("go", b_request=1)
 
-                if self.build_identity.build_manifest.build_major < 20:
+                if cast(BuildManifest, self.build_identity.build_manifest).build_major < 20:
                     with contextlib.suppress(USBError):
                         self.device.irecv.ctrl_transfer(0x21, 1, timeout=5000)
 

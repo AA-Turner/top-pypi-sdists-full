@@ -21,6 +21,7 @@ import csv
 from datetime import datetime, timezone
 from enum import Enum
 import io
+from contextlib import redirect_stdout
 
 import json  # Needed by mypy.
 import logging
@@ -72,7 +73,11 @@ from kagglesdk.benchmarks.types.benchmark_tasks_api_service import (
     ApiPublishBenchmarkTaskRequest,
 )
 from kagglesdk.benchmarks.types.benchmark_types import BenchmarkTaskOptions
-from kagglesdk.benchmarks.types.benchmarks_api_service import ApiListBenchmarkModelsRequest
+from kagglesdk.benchmarks.types.benchmarks_api_service import (
+    ApiListBenchmarkModelsRequest,
+    ApiGetBenchmarkLeaderboardRequest,
+    ApiBenchmarkLeaderboard,
+)
 from kagglesdk.competitions.types.competition_api_service import (
     ApiListCompetitionsRequest,
     ApiCreateCodeSubmissionRequest,
@@ -81,6 +86,8 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiCreateSubmissionRequest,
     ApiSubmission,
     ApiListSubmissionsRequest,
+    ApiGetSubmissionLimitsRequest,
+    ApiSubmissionLimits,
     ApiListTeamPublicSubmissionsRequest,
     ApiListDataFilesResponse,
     ApiListDataFilesRequest,
@@ -98,6 +105,22 @@ from kagglesdk.competitions.types.competition_api_service import (
     ApiGetEpisodeAgentLogsRequest,
     ApiListCompetitionPagesRequest,
     ApiListCompetitionPagesResponse,
+    ApiCreateCompetitionPageRequest,
+    ApiDeleteCompetitionPageRequest,
+    ApiUpdateCompetitionPageRequest,
+    ApiGetCompetitionSettingsRequest,
+    ApiListCompetitionHostsRequest,
+    ApiUpdateCompetitionSettingsRequest,
+    ApiCreateCompetitionDataRequest,
+    ApiCreateCompetitionDataResponse,
+    ApiCreateCompetitionSolutionRequest,
+    ApiGetCompetitionSolutionStatusRequest,
+    ApiCompetitionSolutionStatus,
+    ApiCompetitionDataFile,
+    ApiCompetitionPage,
+    ApiCreateCompetitionRequest,
+    ApiCreateCompetitionResponse,
+    ApiLaunchCompetitionRequest,
     ApiListCompetitionTopicsRequest,
     ApiListCompetitionTopicsResponse,
     ApiListTopicMessagesRequest,
@@ -128,16 +151,22 @@ from kagglesdk.discussions.types.discussions_enums import (
 )
 from kagglesdk.competitions.types.competition_enums import (
     CompetitionListTab,
+    CompetitionDatabundleType,
+    CompetitionPrivacy,
     HostSegment,
     CompetitionSortBy,
     SubmissionGroup,
     SubmissionSortBy,
 )
 
+from kagglesdk.competitions.types.competition import PubliclyCloneable, Reward, RewardTypeId
+from kagglesdk.competitions.types.host_service import CompetitionSettings
+
 from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
 
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
+    ApiListDatasetsResponse,
     ApiListDatasetFilesRequest,
     ApiGetDatasetRequest,
     ApiGetDatasetStatusRequest,
@@ -167,9 +196,11 @@ from kagglesdk.datasets.types.dataset_types import (
     DatasetCollaborator,
     DatasetSettingsFile,
 )
+from kagglesdk.users.types.users_enums import CollaboratorType
 from kagglesdk.kaggle_object import KaggleObject
 from kagglesdk.kernels.types.kernels_api_service import (
     ApiListKernelsRequest,
+    ApiListKernelsResponse,
     ApiListKernelFilesRequest,
     ApiSaveKernelRequest,
     ApiGetKernelRequest,
@@ -216,9 +247,42 @@ import kagglesdk.kaggle_client
 from enum import EnumMeta
 from requests.exceptions import HTTPError
 from requests.models import Response
-from typing import Callable, cast, Dict, Iterator, List, Mapping, Optional, Tuple, Union, TypeVar, Iterable
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    TypeVar,
+    Iterable,
+    ParamSpec,
+    Protocol,
+    runtime_checkable,
+)
 
 T = TypeVar("T")
+P = ParamSpec("P")
+
+
+@runtime_checkable
+class HasPageSize(Protocol):
+    page_size: int
+
+
+@runtime_checkable
+class HasPageToken(HasPageSize, Protocol):
+    page_token: str
+
+
+@runtime_checkable
+class HasPage(HasPageToken, Protocol):
+    page: int
+
 
 BENCHMARKS_SYNTAX_REF = """\
 # kaggle-benchmarks Task Syntax Reference
@@ -391,29 +455,104 @@ class OutputFormat(Enum):
         return self.value
 
 
+DEFAULT_IGNORE_PATTERNS = [
+    ".git/",
+    "*/.git/",
+    ".cache/",
+    ".huggingface/",
+]
+
+
+def should_ignore(rel_path: str, is_dir: bool, patterns: List[str]) -> bool:
+    """Helper to check if a path should be ignored based on patterns."""
+    import fnmatch
+
+    rel_path = rel_path.replace(os.path.sep, "/")
+    match_path = rel_path + "/" if is_dir and not rel_path.endswith("/") else rel_path
+
+    for pattern in patterns:
+        pattern = pattern.replace(os.path.sep, "/")
+        if pattern.endswith("/"):
+            if not is_dir:
+                continue
+        if fnmatch.fnmatch(match_path, pattern):
+            return True
+    return False
+
+
 class DirectoryArchive(object):
-    """
-    Context manager for handling directory archives.
+    """Context manager for handling directory archives with filtering.
 
-    This class provides a context manager for working with directory archives in various formats.
-    It manages the lifecycle of the archive, including opening and closing resources as needed.
+    This class provides a context manager for working with directory archives in
+    various formats. It manages the lifecycle of the archive, including opening
+    and closing resources as needed. It supports filtering files based on
+    ignore patterns.
     """
 
-    def __init__(self, fullpath, fmt):
+    def __init__(self, fullpath, fmt, ignore_patterns=None):
         self._fullpath = fullpath
         self._format = fmt
+        self._ignore_patterns = ignore_patterns or []
         self.name = None
         self.path = None
 
     def __enter__(self):
         self._temp_dir = tempfile.mkdtemp()
         _, dir_name = os.path.split(self._fullpath)
-        self.path = shutil.make_archive(os.path.join(self._temp_dir, dir_name), self._format, self._fullpath)
+        archive_base_path = os.path.join(self._temp_dir, dir_name)
+
+        if self._ignore_patterns:
+            self.path = self._create_archive_with_filters(archive_base_path)
+        else:
+            self.path = shutil.make_archive(archive_base_path, self._format, self._fullpath)
+
         _, self.name = os.path.split(self.path)
         return self
 
     def __exit__(self, *args):
         shutil.rmtree(self._temp_dir)
+
+    def _create_archive_with_filters(self, base_name):
+        if self._format == "zip":
+            archive_path = base_name + ".zip"
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(self._fullpath):
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not should_ignore(
+                            os.path.relpath(os.path.join(root, d), self._fullpath),
+                            True,
+                            self._ignore_patterns,
+                        )
+                    ]
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, self._fullpath)
+                        if not should_ignore(rel_path, False, self._ignore_patterns):
+                            zipf.write(file_path, rel_path)
+            return archive_path
+        elif self._format == "tar":
+            archive_path = base_name + ".tar"
+            with tarfile.open(archive_path, "w") as tarf:
+                for root, dirs, files in os.walk(self._fullpath):
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not should_ignore(
+                            os.path.relpath(os.path.join(root, d), self._fullpath),
+                            True,
+                            self._ignore_patterns,
+                        )
+                    ]
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, self._fullpath)
+                        if not should_ignore(rel_path, False, self._ignore_patterns):
+                            tarf.add(file_path, rel_path)
+            return archive_path
+        else:
+            raise ValueError(f"Unsupported archive format: {self._format}")
 
 
 class ResumableUploadContext(object):
@@ -540,9 +679,11 @@ class ResumableFileUpload(object):
             return False
 
     def _is_previous_valid(self, previous):
+        prev_req = previous.start_blob_upload_request.to_dict() if previous.start_blob_upload_request else None
+        curr_req = self.start_blob_upload_request.to_dict() if self.start_blob_upload_request else None
         return (
             previous.path == self.path
-            and previous.start_blob_upload_request == self.start_blob_upload_request
+            and prev_req == curr_req
             and previous.timestamp > time.time() - ResumableFileUpload.RESUMABLE_UPLOAD_EXPIRY_SECONDS
         )
 
@@ -561,6 +702,7 @@ class ResumableFileUpload(object):
             return
 
         self.start_blob_upload_response = start_blob_upload_response
+        self.can_resume = True
         with io.open(self._upload_info_file_path, "w") as f:
             json.dump(self.to_dict(), f, indent=True)
 
@@ -621,16 +763,15 @@ class ResumableFileUpload(object):
         Returns:
             A new ResumableFileUpload object.
         """
-        req = ApiStartBlobUploadRequest()
-        req.from_dict(other["start_blob_upload_request"])
+        req = ApiStartBlobUploadRequest.from_dict(other["start_blob_upload_request"])
         new = ResumableFileUpload(other["path"], req, context)
         new.timestamp = other.get("timestamp")
         start_blob_upload_response = other.get("start_blob_upload_response")
         if start_blob_upload_response is not None:
-            rsp = ApiStartBlobUploadResponse()
-            rsp.from_dict(**start_blob_upload_response)
-            new.start_blob_upload_response = rsp
-            new.upload_complete = other.get("upload_complete") or False
+            new.start_blob_upload_response = ApiStartBlobUploadResponse.from_dict(start_blob_upload_response)
+        else:
+            new.start_blob_upload_response = None
+        new.upload_complete = other.get("upload_complete") or False
         return new
 
     def to_str(self):
@@ -761,10 +902,12 @@ class KaggleApi:
     KERNEL_METADATA_FILE = "kernel-metadata.json"
     MODEL_METADATA_FILE = "model-metadata.json"
     MODEL_INSTANCE_METADATA_FILE = "model-instance-metadata.json"
+    COMPETITION_METADATA_FILE = "competition-metadata.json"
+    COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE = "Could not submit to competition"
     MAX_NUM_INBOX_FILES_TO_UPLOAD = 1000
     MAX_UPLOAD_RESUME_ATTEMPTS = 10
 
-    config_dir = os.environ.get("KAGGLE_CONFIG_DIR")
+    config_dir: str = os.environ.get("KAGGLE_CONFIG_DIR") or ""
 
     if not config_dir:
         config_dir = os.path.join(expanduser("~"), ".kaggle")
@@ -782,6 +925,7 @@ class KaggleApi:
     config = os.path.join(config_dir, config_file)
     config_values: Dict[str, str] = {}
     already_printed_version_warning = False
+    _authenticated = False
 
     args: List[str] = []
     if os.environ.get("KAGGLE_API_ENVIRONMENT") == "LOCALHOST":
@@ -845,7 +989,7 @@ class KaggleApi:
     command_prefixes_allowing_anonymous_access = ("datasets download", "datasets files", "auth login")
 
     # Attributes
-    competition_fields = ["ref", "deadline", "category", "reward", "teamCount", "userHasEntered"]
+    competition_fields = ["ref", "deadline", "category", "reward", "teamCount", "userHasEntered", "userRank"]
     submission_fields = ["ref", "fileName", "date", "description", "status", "publicScore", "privateScore"]
     competition_file_fields = ["name", "totalBytes", "creationDate"]
     competition_file_labels = ["name", "size", "creationDate"]
@@ -863,6 +1007,7 @@ class KaggleApi:
     episode_fields = ["id", "createTime", "endTime", "state", "type"]
     episode_agent_fields = ["submissionId", "index", "reward", "state", "teamName", "teamId"]
     competition_page_fields = ["name"]
+    competition_host_fields = ["userName", "displayName", "id", "profileUrl"]
     competition_topic_fields = ["id", "title", "authorName", "commentCount", "votes", "postDate"]
     competition_topic_message_fields = ["id", "authorName", "postDate", "votes", "content"]
     valid_topic_sort_by = ["hot", "top", "new", "recent", "active", "relevance"]
@@ -884,7 +1029,7 @@ class KaggleApi:
     ]
     valid_forum_topic_groups = ["all", "owned", "upvoted", "bookmarked", "my_activity", "drafts"]
 
-    def _is_retriable(self, e: HTTPError) -> bool:
+    def _is_retriable(self, e: Exception) -> bool:
         if self._is_rate_limited(e):
             return True
         return (
@@ -948,51 +1093,77 @@ class KaggleApi:
 
     def with_retry(
         self,
-        func: Callable[[KaggleObject], KaggleObject],
+        func: Callable[P, T],
         max_retries: int = 10,
         initial_delay_millis: int = 500,
         retry_multiplier: float = 1.7,
         randomness_factor: float = 0.5,
-    ) -> Callable[[KaggleObject], KaggleObject]:
-        def retriable_func(*args):
+    ) -> Callable[P, T]:
+        if max_retries <= 0:
+            raise ValueError("max_retries must be positive")
+
+        def retriable_func(*args: P.args, **kwargs: P.kwargs) -> T:
             for i in range(1, max_retries + 1):
                 try:
-                    return func(*args)
+                    return func(*args, **kwargs)
                 except Exception as e:
-                    if type(e) is HTTPError:
-                        if self._is_retriable(e) and i < max_retries:
-                            # Use Retry-After header for 429 responses when available
-                            if self._is_rate_limited(e):
-                                retry_delay = self._get_retry_after_delay(e.response)
-                                if retry_delay is not None:
-                                    total_delay = retry_delay
-                                    self.logger.info(
-                                        "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
-                                        total_delay,
-                                        i,
-                                        max_retries,
-                                    )
-                                else:
-                                    total_delay = self._calculate_backoff_delay(
-                                        i, initial_delay_millis, retry_multiplier, randomness_factor
-                                    )
-                                    self.logger.info(
-                                        "Rate limited (429). No valid Retry-After header; "
-                                        "backing off %.1f seconds (attempt %d/%d)",
-                                        total_delay,
-                                        i,
-                                        max_retries,
-                                    )
+                    if self._is_retriable(e) and i < max_retries:
+                        # Use Retry-After header for 429 responses when available
+                        if self._is_rate_limited(e):
+                            http_error = cast(HTTPError, e)
+                            retry_delay = self._get_retry_after_delay(http_error.response)
+                            if retry_delay is not None:
+                                total_delay = retry_delay
+                                self.logger.info(
+                                    "Rate limited (429). Retry-After: %.1f seconds (attempt %d/%d)",
+                                    total_delay,
+                                    i,
+                                    max_retries,
+                                )
                             else:
                                 total_delay = self._calculate_backoff_delay(
                                     i, initial_delay_millis, retry_multiplier, randomness_factor
                                 )
-                            print("Request failed: %s. Will retry in %2.1f seconds" % (e, total_delay), file=sys.stderr)
-                            time.sleep(total_delay)
-                            continue
+                                self.logger.info(
+                                    "Rate limited (429). No valid Retry-After header; "
+                                    "backing off %.1f seconds (attempt %d/%d)",
+                                    total_delay,
+                                    i,
+                                    max_retries,
+                                )
+                        else:
+                            total_delay = self._calculate_backoff_delay(
+                                i, initial_delay_millis, retry_multiplier, randomness_factor
+                            )
+                        print("Request failed: %s. Will retry in %2.1f seconds" % (e, total_delay), file=sys.stderr)
+                        time.sleep(total_delay)
+                        continue
                     raise
+            raise RuntimeError("Unreachable")
 
         return retriable_func
+
+    def _set_paging(
+        self,
+        request: HasPageSize,
+        page_size: Optional[int],
+        page_token: Optional[str] = None,
+        page: Optional[int] = None,
+    ) -> None:
+        if page_size is not None:
+            request.page_size = page_size
+
+        if isinstance(request, HasPageToken):
+            if page_token is not None:
+                request.page_token = page_token
+            else:
+                request.page_token = ""
+
+        if isinstance(request, HasPage):
+            if page is not None and page != -1:
+                request.page = page
+            elif not page_token:
+                request.page = 1
 
     ## Authentication
 
@@ -1053,17 +1224,29 @@ class KaggleApi:
         self.config_values = self.read_config_environment(config_values)
 
     def authenticate(self) -> None:
-        """Authenticate the user with the Kaggle API, using either a legacy API key or a Kaggle OAuth token.
+        """Authenticate the user with the Kaggle API.
+
+        This method attempts to authenticate using one of the following methods in order:
+        1. An active access token
+        2. A legacy API key.
+        3. OAuth credentials
+        4. Anonymous fallback, if allowed by the command.
 
         Returns:
             None:
         """
         self._load_config()
         if self._authenticate_with_access_token():
+            self._authenticated = True
             return
         if self._authenticate_with_legacy_apikey():
+            self._authenticated = True
             return
         if self._authenticate_with_oauth_creds():
+            self._authenticated = True
+            return
+        if self._authenticate_anonymously():
+            self._authenticated = True
             return
         print_auth_help()
         exit(1)
@@ -1071,25 +1254,53 @@ class KaggleApi:
     def _authenticate_with_legacy_apikey(self) -> bool:
         """Authenticate the user with the Kaggle API using legacy API key.
 
-        This method will generate a configuration, first checking the
-        environment for credential variables, and falling back to looking
-        for the .kaggle/kaggle.json configuration file.
+        This method checks for username and key in the loaded configuration,
+        which are populated from environment variables or the .kaggle/kaggle.json
+        configuration file.
 
         Returns:
-            bool: True if auth succeeded.
+            bool: True if legacy credentials are available.
         """
-        # Ex: 'datasets list', 'competitions files', 'models instances get', etc.
-        api_command = " ".join(sys.argv[1:])
-
         if self.CONFIG_NAME_USER in self.config_values and self.CONFIG_NAME_KEY in self.config_values:
             self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.LEGACY_API_KEY)
             self.logger.debug(f"Authenticated with legacy api key in: {self.config}")
             return True
 
-        if self._command_allows_logged_out(api_command):
-            return True
-
         return False
+
+    def _authenticate_anonymously(self) -> bool:
+        """Check if the command can run anonymously.
+
+        Anonymous access is derived from ``sys.argv``, which is only a Kaggle
+        command when the Kaggle CLI itself is the running program. When the
+        library is merely imported by another application, ``sys.argv`` belongs
+        to that host script (e.g. ``python my_script.py -h``) and must not be
+        interpreted as a Kaggle CLI command.
+
+        Returns:
+            bool: True if anonymous access is allowed.
+        """
+        if not self._invoked_as_cli():
+            return False
+        api_command = " ".join(sys.argv[1:])
+        return self._command_allows_logged_out(api_command)
+
+    @staticmethod
+    def _invoked_as_cli() -> bool:
+        """Whether the current process is the Kaggle CLI rather than a host
+        application that imported the library.
+
+        Recognizes the installed console entry point (``kaggle`` /
+        ``kaggle.exe``) and ``python -m kaggle`` (which runs
+        ``kaggle/__main__.py``).
+
+        Returns:
+            bool: True if running as the Kaggle CLI.
+        """
+        prog = (sys.argv[0] if sys.argv else "").replace("\\", "/")
+        if os.path.splitext(os.path.basename(prog))[0] == "kaggle":
+            return True
+        return prog.endswith("/kaggle/__main__.py")
 
     def _authenticate_with_access_token(self) -> bool:
         access_token, source = get_access_token_from_env()
@@ -1108,24 +1319,30 @@ class KaggleApi:
         return True
 
     def _authenticate_with_oauth_creds(self) -> bool:
-        with self.build_kaggle_client() as kaggle:
-            creds = KaggleCredentials.load(client=kaggle)
-            if not creds:
-                return False
-            try:
-                access_token = creds.get_access_token()
-            except HTTPError as e:
-                if e.response.status_code == 401:
-                    print("Invalid credentials!")
-                    creds.delete()
+        try:
+            with self.build_kaggle_client() as kaggle:
+                creds = KaggleCredentials.load(client=kaggle)
+                if not creds:
                     return False
-                raise
-            self.config_values[self.CONFIG_NAME_TOKEN] = access_token
-            self.config_values[self.CONFIG_NAME_USER] = creds.get_username()
-            self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.OAUTH)
-            creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
-            self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
-            return True
+                try:
+                    access_token = creds.get_access_token()
+                except HTTPError as e:
+                    if e.response.status_code == 401:
+                        print("Invalid credentials!")
+                        creds.delete()
+                        return False
+                    raise
+                self.config_values[self.CONFIG_NAME_TOKEN] = access_token
+                self.config_values[self.CONFIG_NAME_USER] = creds.get_username()
+                self.config_values[self.CONFIG_NAME_AUTH_METHOD] = str(AuthMethod.OAUTH)
+                creds_path = os.path.expanduser(KaggleCredentials.DEFAULT_CREDENTIALS_FILE)
+                self.logger.debug(f"Authenticated with OAuth credentials in: {creds_path}")
+                return True
+        except KeyError as e:
+            if e.args[0] == "username":
+                self.logger.debug("Failed to authenticate with OAuth due to missing username in API key config.")
+                return False
+            raise
 
     def _introspect_token(self, access_token: str) -> Optional[str]:
         with self.build_kaggle_client() as kaggle:
@@ -1157,7 +1374,15 @@ class KaggleApi:
         Returns:
             bool: True if valid
         """
-        return api_command.endswith(("-h", "--help", "-v", "--version"))
+        argv = sys.argv[1:]
+        if not argv:
+            return False
+        # Top-level only: kaggle -v, kaggle --version, kaggle -h, kaggle --help
+        if len(argv) == 1 and argv[0] in ("-h", "--help", "-v", "--version"):
+            return True
+        # Subcommand help only. Do not treat trailing -v as version: many commands use
+        # -v as the --csv output-format alias (e.g. kaggle quota -v).
+        return api_command.endswith(("-h", "--help"))
 
     def read_config_environment(self, config_data: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Reads config values from environment variables.
@@ -1527,7 +1752,7 @@ class KaggleApi:
         group: Optional[str] = None,
         category: Optional[str] = None,
         sort_by: Optional[str] = None,
-        page: Optional[int] = 1,
+        page: Optional[int] = -1,
         search: Optional[str] = None,
         page_size: Optional[int] = 20,
         page_token: Optional[str] = None,
@@ -1548,10 +1773,10 @@ class KaggleApi:
         """
         group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
         if group:
-            if group not in self.valid_competition_groups:
-                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             if group == "all":
                 group_val = CompetitionListTab.COMPETITION_LIST_TAB_EVERYTHING
+            elif group not in self.valid_competition_groups:
+                raise ValueError("Invalid group specified. Valid options are " + str(self.valid_competition_groups))
             else:
                 group_val = self.lookup_enum(CompetitionListTab, group_val, group)
 
@@ -1575,14 +1800,11 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListCompetitionsRequest()
             request.group = group_val
-            # -1 is the default in argparse. We don't set it here to indicate we are using new pagination.
-            if page != -1:
-                request.page = page
             request.category = category_val
             request.search = search or ""
             request.sort_by = sort_by_val
-            request.page_size = page_size
-            request.page_token = page_token
+            # -1 is the default in argparse. We don't set it here to indicate we are using new pagination.
+            self._set_paging(request, page_size, page_token, page)
             return kaggle.competitions.competition_api_client.list_competitions(request)
 
     def competitions_list_cli(
@@ -1590,7 +1812,7 @@ class KaggleApi:
         group: Optional[str] = None,
         category: Optional[str] = None,
         sort_by: Optional[str] = None,
-        page: Optional[int] = 1,
+        page: Optional[int] = -1,
         search: Optional[str] = None,
         csv_display: Optional[bool] = False,
         page_size: Optional[int] = 20,
@@ -1613,6 +1835,9 @@ class KaggleApi:
         Returns:
             None:
         """
+        if page != -1 and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
         response = self.competitions_list(
             group=group,
             category=category,
@@ -1683,7 +1908,12 @@ class KaggleApi:
                 return submit_response
 
     def competition_submit(
-        self, file_name: str, message: str, competition: str, quiet: bool = False, sandbox: bool = False
+        self,
+        file_name: str | None,
+        message: str,
+        competition: str | None,
+        quiet: bool = False,
+        sandbox: bool = False,
     ) -> ApiCreateSubmissionResponse:
         """Submits to a competition.
 
@@ -1719,7 +1949,7 @@ class KaggleApi:
                     # Actual error is printed during upload_complete. Not
                     # ideal but changing would not be backwards compatible
                     resp = ApiCreateSubmissionResponse()
-                    resp.message = "Could not submit to competition"
+                    resp.message = self.COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE
                     return resp
 
                 submit_request = ApiCreateSubmissionRequest()
@@ -1793,6 +2023,17 @@ class KaggleApi:
                 return ""
             else:
                 raise e
+        submit_succeeded = submit_result.message != self.COMPETITION_SUBMIT_UPLOAD_FAILED_MESSAGE
+        if submit_succeeded and not quiet and competition:
+            # Bonus context: how many submissions are left today. Never fail
+            # the submit over a limits-endpoint blip. Skipped on failed
+            # submissions so we don't imply the submission counted when it
+            # didn't.
+            try:
+                limits = self.competition_get_submission_limits(competition)
+                print(f"{limits.num_allowed_now} submissions remaining today.")
+            except Exception:
+                pass
         return submit_result.message
 
     def competition_submissions(
@@ -1820,11 +2061,9 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListSubmissionsRequest()
             request.competition_name = competition
-            request.page = page_number
-            request.page_token = page_token
-            request.page_size = page_size
             request.group = group
             request.sort_by = sort
+            self._set_paging(request, page_size, page_token, page_number)
             response = kaggle.competitions.competition_api_client.list_submissions(request)
             result: list[ApiSubmission | None] | None = response.submissions
             return result
@@ -1874,6 +2113,46 @@ class KaggleApi:
             else:
                 print("No submissions found")
 
+    def competition_get_submission_limits(self, competition_name: str) -> ApiSubmissionLimits:
+        """Fetch the calling user's team's submission counts and remaining allowance.
+
+        Args:
+            competition_name (str): The competition name (slug).
+
+        Returns:
+            ApiSubmissionLimits: with num_today, num_total, num_allowed_now,
+            limited_by_total. All zero if the user is not on a team yet.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetSubmissionLimitsRequest()
+            request.competition_name = competition_name
+            return kaggle.competitions.competition_api_client.get_submission_limits(request)
+
+    def competition_get_submission_limits_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_get_submission_limits."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        limits = self.competition_get_submission_limits(competition_name)
+        if json_output:
+            self.print_obj(limits)
+        else:
+            print(f"Submissions today: {limits.num_today}")
+            print(f"Lifetime submissions: {limits.num_total}")
+            suffix = " (limited by lifetime cap)" if limits.limited_by_total else ""
+            print(f"Remaining today: {limits.num_allowed_now}{suffix}")
+
     def competition_list_files(
         self, competition: str, page_token: Optional[str] = None, page_size: int = 20
     ) -> ApiListDataFilesResponse:
@@ -1890,8 +2169,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiListDataFilesRequest()
             request.competition_name = competition
-            request.page_token = cast(str, page_token)
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             response: ApiListDataFilesResponse = kaggle.competitions.competition_api_client.list_data_files(request)
             for file in cast(Iterable[ApiDataFile], response.files):
                 file.ref = file.name
@@ -2069,8 +2347,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             request = ApiGetLeaderboardRequest()
             request.competition_name = competition
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             response = kaggle.competitions.competition_api_client.get_leaderboard(request)
         if response.next_page_token:
             print("Next Page Token = {}".format(response.next_page_token))
@@ -2341,6 +2618,1062 @@ class KaggleApi:
         else:
             print("No pages found")
 
+    def competition_list_hosts(self, competition: str):
+        """List hosts (users with host access) for a competition.
+
+        Args:
+            competition (str): The competition name (slug).
+
+        Returns:
+            list: A list of ApiCompetitionHost objects.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListCompetitionHostsRequest()
+            request.competition_name = competition
+            response = kaggle.competitions.competition_api_client.list_competition_hosts(request)
+            return response.hosts
+
+    def competition_list_hosts_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        csv_display=False,
+        quiet=False,
+        output_format=None,
+    ):
+        """CLI wrapper for competition_list_hosts."""
+        competition = competition or competition_opt
+        if competition is None:
+            competition = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition is not None and not quiet:
+                print("Using competition: " + competition)
+        if competition is None:
+            raise ValueError("No competition specified")
+
+        hosts = self.competition_list_hosts(competition)
+        if hosts:
+            self.print_results(
+                hosts,
+                self.competition_host_fields,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+        else:
+            print("No hosts found")
+
+    def competition_create_page(
+        self,
+        competition_name: str,
+        page_name: str,
+        content_path: str,
+        mime_type: Optional[str] = None,
+        post_title: Optional[str] = None,
+        publish: bool = False,
+    ) -> ApiCompetitionPage:
+        """Create a new page on a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            page_name (str): Page name (e.g. "description", "rules", "evaluation").
+            content_path (str): Path to a file whose contents become the page body.
+            mime_type (Optional[str]): MIME type of the content. Defaults to "text/html"
+                server-side if omitted.
+            post_title (Optional[str]): Title shown above the content. Defaults to
+                ``page_name`` server-side if omitted.
+            publish (bool): If True, publish the page immediately (default: staged
+                as unpublished).
+
+        Returns:
+            ApiCompetitionPage: the created page.
+        """
+        if not os.path.isfile(content_path):
+            raise ValueError("Content file not found: " + content_path)
+        with open(content_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        page = ApiCompetitionPage()
+        page.name = page_name
+        page.content = content
+        if mime_type is not None:
+            page.mime_type = mime_type
+        if post_title is not None:
+            page.post_title = post_title
+        page.is_published = publish
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateCompetitionPageRequest()
+            request.competition_name = competition_name
+            request.page = page
+            return kaggle.competitions.competition_api_client.create_competition_page(request)
+
+    def competition_create_page_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        page_name=None,
+        file_path=None,
+        mime_type=None,
+        post_title=None,
+        publish=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_create_page."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not page_name:
+            raise ValueError("--page-name is required")
+        if not file_path:
+            raise ValueError("-f/--file is required")
+
+        page = self.competition_create_page(
+            competition_name=competition_name,
+            page_name=page_name,
+            content_path=file_path,
+            mime_type=mime_type,
+            post_title=post_title,
+            publish=publish,
+        )
+        status = "published" if page.is_published else "staged (unpublished)"
+        print(f'Page "{page.name}" created on competition "{competition_name}" — {status}.')
+
+    def competition_update_page(
+        self,
+        competition_name: str,
+        page_name: str,
+        content_path: Optional[str] = None,
+        new_name: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        post_title: Optional[str] = None,
+        is_published: Optional[bool] = None,
+    ) -> ApiCompetitionPage:
+        """Update fields on an existing competition page.
+
+        Only fields supplied here are sent to the server (the FieldMask is built
+        from which arguments are non-None). Pass ``new_name`` to rename the page.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            page_name (str): Current page name (identifier).
+            content_path (Optional[str]): Path to a file whose contents become
+                the new page body.
+            new_name (Optional[str]): New page name (renames the page).
+            mime_type (Optional[str]): New MIME type for the content.
+            post_title (Optional[str]): New title shown above the content.
+            is_published (Optional[bool]): True publishes the page, False
+                unpublishes it.
+
+        Returns:
+            ApiCompetitionPage: the updated page.
+        """
+        page = ApiCompetitionPage()
+        paths: List[str] = []
+
+        if content_path is not None:
+            if not os.path.isfile(content_path):
+                raise ValueError("Content file not found: " + content_path)
+            with open(content_path, "r", encoding="utf-8") as f:
+                page.content = f.read()
+            paths.append("content")
+        if new_name is not None:
+            page.name = new_name
+            paths.append("name")
+        if mime_type is not None:
+            page.mime_type = mime_type
+            paths.append("mime_type")
+        if post_title is not None:
+            page.post_title = post_title
+            paths.append("post_title")
+        if is_published is not None:
+            page.is_published = is_published
+            paths.append("is_published")
+
+        if not paths:
+            raise ValueError(
+                "Nothing to update — pass at least one of -f, --new-name, "
+                "--mime-type, --post-title, --publish/--unpublish."
+            )
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiUpdateCompetitionPageRequest()
+            request.competition_name = competition_name
+            request.page_name = page_name
+            request.page = page
+            request.update_mask = field_mask_pb2.FieldMask(paths=paths)
+            return kaggle.competitions.competition_api_client.update_competition_page(request)
+
+    def competition_update_page_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        page_name=None,
+        file_path=None,
+        new_name=None,
+        mime_type=None,
+        post_title=None,
+        publish=False,
+        unpublish=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_update_page."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not page_name:
+            raise ValueError("--page-name is required")
+        if publish and unpublish:
+            raise ValueError("--publish and --unpublish are mutually exclusive")
+
+        is_published: Optional[bool] = None
+        if publish:
+            is_published = True
+        elif unpublish:
+            is_published = False
+
+        page = self.competition_update_page(
+            competition_name=competition_name,
+            page_name=page_name,
+            content_path=file_path,
+            new_name=new_name,
+            mime_type=mime_type,
+            post_title=post_title,
+            is_published=is_published,
+        )
+        print(f'Page "{page.name}" updated on competition "{competition_name}".')
+
+    def competition_delete_page(
+        self,
+        competition_name: str,
+        page_name: str,
+        no_confirm: bool = False,
+    ) -> bool:
+        """Delete a page from a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            page_name (str): Name of the page to delete.
+            no_confirm (bool): If True, skip the confirmation prompt.
+
+        Returns:
+            bool: True if deleted, False if cancelled.
+        """
+        if not no_confirm:
+            if not self.confirmation(f"delete the page '{page_name}' from competition '{competition_name}'"):
+                print("Deletion cancelled")
+                return False
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiDeleteCompetitionPageRequest()
+            request.competition_name = competition_name
+            request.page_name = page_name
+            kaggle.competitions.competition_api_client.delete_competition_page(request)
+        return True
+
+    def competition_delete_page_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        page_name=None,
+        no_confirm=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_delete_page."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not page_name:
+            raise ValueError("--page-name is required")
+
+        if self.competition_delete_page(competition_name, page_name, no_confirm=no_confirm):
+            print(f'Page "{page_name}" deleted from competition "{competition_name}".')
+
+    _COMPETITION_SETTINGS_GROUPS = [
+        (
+            "General",
+            [
+                "title",
+                "brief_description",
+                "competition_name",
+                "host_segment",
+                "organization_id",
+                "rules_required",
+                "publicly_cloneable",
+                "has_scripts",
+            ],
+        ),
+        (
+            "Access & Teams",
+            [
+                "requires_identity_verification",
+                "enable_team_files",
+                "team_file_deadline",
+            ],
+        ),
+        (
+            "Key Dates",
+            [
+                "team_merger_explicit_deadline",
+                "prohibit_new_entrants_explicit_deadline",
+                "kernels_publishing_disabled_deadline",
+                "disable_submissions",
+                "public_leaderboard_disclaimer_message",
+            ],
+        ),
+        (
+            "Submissions & Leaderboard",
+            [
+                "has_leaderboard",
+                "disable_leaderboard_prize_indicator",
+                "withold_final_leaderboard_until_it_has_been_verified",
+                "final_leaderboard_has_been_verified",
+                "final_leaderboard_disclaimer_message",
+            ],
+        ),
+        (
+            "Code Competition",
+            [
+                "only_allow_kernel_submissions",
+                "uses_synchronous_reruns",
+                "max_cpu_runtime_minutes",
+                "max_gpu_runtime_minutes",
+                "rerun_override_kernel_id",
+                "gateway_kernel_id",
+                "rerun_max_stagger_minutes",
+            ],
+        ),
+        (
+            "Hosts",
+            [
+                "directly_responsible_user_id",
+            ],
+        ),
+    ]
+
+    def competition_get_settings(self, competition_name: str) -> CompetitionSettings:
+        """Fetch the unified settings blob for a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+
+        Returns:
+            CompetitionSettings: the current settings.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetCompetitionSettingsRequest()
+            request.competition_name = competition_name
+            return kaggle.competitions.competition_api_client.get_competition_settings(request)
+
+    def competition_get_settings_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_get_settings."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        settings = self.competition_get_settings(competition_name)
+        if json_output:
+            self.print_obj(settings)
+        else:
+            self._print_competition_settings(settings)
+
+    def _print_competition_settings(self, settings: CompetitionSettings) -> None:
+        """Print settings grouped by UI section, skipping fields left at their default."""
+        printed_any = False
+        for group_title, field_names in self._COMPETITION_SETTINGS_GROUPS:
+            rows = []
+            for name in field_names:
+                value = getattr(settings, name, None)
+                formatted = self._format_setting_value(value)
+                if formatted is None:
+                    continue
+                rows.append((name, formatted))
+            if not rows:
+                continue
+            if printed_any:
+                print("")
+            printed_any = True
+            print(f"[{group_title}]")
+            for name, formatted in rows:
+                print(f"  {name}: {formatted}")
+        if not printed_any:
+            print("(no settings set)")
+
+    @staticmethod
+    def _format_setting_value(value) -> Optional[str]:
+        """Return a display string for a settings value, or None to skip it."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return "true" if value else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if value == 0:
+                return None
+            return str(value)
+        if isinstance(value, str):
+            if value == "":
+                return None
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        name = getattr(value, "name", None)
+        if name is not None:
+            if name.endswith("_UNSPECIFIED"):
+                return None
+            return name
+        return str(value)
+
+    def competition_update_settings(
+        self,
+        competition_name: str,
+        updates: Dict[str, Any],
+    ) -> CompetitionSettings:
+        """Update selected fields on a competition's unified settings.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            updates (Dict[str, Any]): Field name → new value. Keys may be
+                snake_case (matches SDK) or camelCase (matches JSON). Only
+                the fields present here are sent; the server's FieldMask is
+                derived from the keys.
+
+        Returns:
+            CompetitionSettings: the settings blob returned by the server.
+        """
+        if not updates:
+            raise ValueError("No settings to update — the input file has no fields.")
+
+        field_map = self._competition_settings_field_map()
+        settings = CompetitionSettings()
+        paths: List[str] = []
+        for raw_key, raw_value in updates.items():
+            key = self._normalize_setting_key(raw_key, field_map)
+            if key is None:
+                raise ValueError(f"Unknown competition setting: {raw_key!r}")
+            _, field_type = field_map[key]
+            coerced = self._coerce_setting_value(key, field_type, raw_value)
+            setattr(settings, key, coerced)
+            paths.append(key)
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiUpdateCompetitionSettingsRequest()
+            request.competition_name = competition_name
+            request.settings = settings
+            request.update_mask = field_mask_pb2.FieldMask(paths=paths)
+            return kaggle.competitions.competition_api_client.update_competition_settings(request)
+
+    def competition_update_settings_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        file_path=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_update_settings."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not file_path:
+            raise ValueError("--from-file is required")
+
+        updates = self._load_settings_file(file_path)
+        settings = self.competition_update_settings(competition_name, updates)
+        if not quiet:
+            print(f'Settings updated on competition "{competition_name}" ({len(updates)} field(s)).')
+        if json_output:
+            self.print_obj(settings)
+        else:
+            self._print_competition_settings(settings)
+
+    @staticmethod
+    def _load_settings_file(file_path: str) -> Dict[str, Any]:
+        """Load a settings update payload from a JSON or YAML file."""
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Settings file not found: {file_path}")
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        lower = file_path.lower()
+        try:
+            if lower.endswith((".yaml", ".yml")):
+                import yaml  # transitive via jupytext
+
+                data = yaml.safe_load(raw)
+            else:
+                data = json.loads(raw)
+        except Exception as e:
+            raise ValueError(f"Failed to parse settings file {file_path}: {e}") from e
+        if data is None:
+            raise ValueError(f"Settings file {file_path} is empty.")
+        if not isinstance(data, dict):
+            raise ValueError(f"Settings file {file_path} must contain a mapping at the top level.")
+        return data
+
+    @staticmethod
+    def _competition_settings_field_map() -> Dict[str, Any]:
+        """Return {snake_case_name: (json_name, python_type)} for CompetitionSettings."""
+        return {meta.field_name: (meta.json_name, meta.field_type) for meta in CompetitionSettings._fields}
+
+    @staticmethod
+    def _normalize_setting_key(key: str, field_map: Dict[str, Any]) -> Optional[str]:
+        """Resolve a user-supplied key (snake or camel) to the snake_case field name."""
+        if not isinstance(key, str):
+            return None
+        if key in field_map:
+            return key
+        for snake, (json_name, _) in field_map.items():
+            if key == json_name:
+                return snake
+        return None
+
+    @staticmethod
+    def _coerce_setting_value(field_name: str, field_type: type, value: Any) -> Any:
+        """Convert a raw JSON/YAML value into the type CompetitionSettings expects."""
+        if value is None:
+            return None
+        if field_type is bool:
+            if isinstance(value, bool):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a bool, got {type(value).__name__}")
+        if field_type is int:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects an int, got bool")
+            if isinstance(value, int):
+                return value
+            raise ValueError(f"Field {field_name!r} expects an int, got {type(value).__name__}")
+        if field_type is float:
+            if isinstance(value, bool):
+                raise ValueError(f"Field {field_name!r} expects a float, got bool")
+            if isinstance(value, (int, float)):
+                return float(value)
+            raise ValueError(f"Field {field_name!r} expects a number, got {type(value).__name__}")
+        if field_type is str:
+            if isinstance(value, str):
+                return value
+            raise ValueError(f"Field {field_name!r} expects a string, got {type(value).__name__}")
+        if field_type is datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                iso = value.replace("Z", "+00:00")
+                try:
+                    return datetime.fromisoformat(iso)
+                except ValueError as e:
+                    raise ValueError(f"Field {field_name!r} expects an ISO-8601 datetime, got {value!r}") from e
+            raise ValueError(f"Field {field_name!r} expects a datetime string, got {type(value).__name__}")
+        # Enum types (HostSegment, PubliclyCloneable, etc.)
+        if isinstance(field_type, EnumMeta):
+            if isinstance(value, field_type):
+                return value
+            if not isinstance(value, str):
+                raise ValueError(
+                    f"Field {field_name!r} expects a {field_type.__name__} name, got {type(value).__name__}"
+                )
+            try:
+                return field_type[value]
+            except KeyError:
+                pass
+            snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field_type.__name__).upper()
+            candidate = f"{snake}_{value.upper()}"
+            try:
+                return field_type[candidate]
+            except KeyError as e:
+                allowed = [n for n in field_type.__members__ if not n.endswith("_UNSPECIFIED")]
+                raise ValueError(
+                    f"Field {field_name!r} value {value!r} is not a valid {field_type.__name__}. "
+                    f"Allowed: {', '.join(allowed)}"
+                ) from e
+        raise ValueError(f"Field {field_name!r} has unsupported type {field_type!r}")
+
+    def competition_data_update(
+        self,
+        competition_name: str,
+        path: str,
+        version_notes: str,
+        rerun: bool = False,
+        quiet: bool = False,
+        include_hidden: bool = False,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> ApiCreateCompetitionDataResponse:
+        """Update (version) the data files for a competition you host.
+
+        Uploads the files at ``path`` via the blob-upload pipeline and sends
+        a CreateCompetitionData request bundling the resulting tokens. Each
+        update replaces the prior version's file set in full.
+
+        - If ``path`` is a single file (e.g. a pre-packed .zip or .tar), it is
+          uploaded as-is; the file's basename becomes its entry name.
+        - If ``path`` is a directory, it is walked recursively — every file
+          becomes its own upload with the path relative to ``path`` preserved
+          in the API's ``name`` field (e.g. ``train/images/img1.jpg``).
+          Sub-directories are always traversed. Hidden entries (names starting
+          with ``.``, including ``.DS_Store`` / ``.git`` / ``.gitignore``) are
+          skipped by default; pass ``include_hidden=True`` to upload them too.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            path (str): Path to a directory or a single archive file.
+            version_notes (str): Notes describing this version (required).
+            rerun (bool): If True, update the RERUN databundle (private
+                host-only data used during rerun scoring).
+            quiet (bool): Suppress per-file upload progress lines.
+            include_hidden (bool): If True, upload hidden files and traverse
+                hidden sub-directories. Default False.
+            ignore_patterns (Optional[List[str]]): Patterns of files/dirs to ignore.
+
+        Returns:
+            ApiCreateCompetitionDataResponse: url, databundle_id,
+            databundle_version_id of the new version.
+        """
+        if not version_notes or not version_notes.strip():
+            raise ValueError("--message/-m version notes are required")
+        if not os.path.exists(path):
+            raise ValueError("Invalid path: " + path)
+
+        # Collect (relative_name, full_path) tuples first so we can validate
+        # and then upload deterministically.
+        uploads: List[Tuple[str, str]] = []
+        if os.path.isfile(path):
+            uploads.append((os.path.basename(path), path))
+        else:
+            patterns = (ignore_patterns or []) if include_hidden else DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
+
+            for dirpath, dirnames, filenames in os.walk(path):
+                if not include_hidden:
+                    # Prune hidden sub-directories in place so os.walk skips them.
+                    dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+                    filenames = [n for n in filenames if not n.startswith(".")]
+
+                # Prune by ignore_patterns
+                pruned_dirnames = []
+                for d in dirnames:
+                    full_dir_path = os.path.join(dirpath, d)
+                    rel_dir_path = os.path.relpath(full_dir_path, path)
+                    if not should_ignore(rel_dir_path, is_dir=True, patterns=patterns):
+                        pruned_dirnames.append(d)
+                dirnames[:] = pruned_dirnames
+
+                pruned_filenames = []
+                for f in filenames:
+                    full_file_path = os.path.join(dirpath, f)
+                    rel_file_path = os.path.relpath(full_file_path, path)
+                    if not should_ignore(rel_file_path, is_dir=False, patterns=patterns):
+                        pruned_filenames.append(f)
+                filenames = pruned_filenames
+
+                for name in filenames:
+                    full = os.path.join(dirpath, name)
+                    rel = os.path.relpath(full, path).replace(os.sep, "/")
+                    uploads.append((rel, full))
+            uploads.sort()
+
+        if not uploads:
+            raise ValueError(f"No files found under {path} to upload")
+
+        files: List[ApiCompetitionDataFile] = []
+        # DATASET routes uploads through the DATASET_VERSION_FILES_V2 bucket,
+        # which is the same bucket the host wizard's CompetitionDataUploader
+        # panel uses. CreateCompetitionData reads blobs from that bucket.
+        with ResumableUploadContext() as upload_context:
+            for rel_name, full_path in uploads:
+                upload_file = self._upload_file(
+                    rel_name,
+                    full_path,
+                    ApiBlobType.DATASET,
+                    upload_context,
+                    quiet,
+                    resources=None,
+                )
+                if upload_file is not None:
+                    f = ApiCompetitionDataFile()
+                    f.name = rel_name
+                    f.token = upload_file.token
+                    files.append(f)
+
+        if not files:
+            raise ValueError("All file uploads failed; nothing to update")
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateCompetitionDataRequest()
+            request.competition_name = competition_name
+            request.version_notes = version_notes
+            request.files = files
+            if rerun:
+                request.competition_databundle_type = CompetitionDatabundleType.COMPETITION_DATABUNDLE_TYPE_RERUN
+            return kaggle.competitions.competition_api_client.create_competition_data(request)
+
+    def competition_data_update_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        path=None,
+        version_notes=None,
+        rerun=False,
+        quiet=False,
+        include_hidden=False,
+        ignore_patterns=None,
+    ):
+        """CLI wrapper for competition_data_update."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not path:
+            raise ValueError("-p/--path is required (folder or archive file)")
+        if not version_notes:
+            raise ValueError("-m/--message version notes are required")
+
+        response = self.competition_data_update(
+            competition_name=competition_name,
+            path=path,
+            version_notes=version_notes,
+            rerun=rerun,
+            quiet=quiet,
+            include_hidden=include_hidden,
+            ignore_patterns=ignore_patterns,
+        )
+        print(f'New data version created for "{competition_name}": {response.url}')
+
+    def competition_create_solution(self, competition_name: str, path: str, quiet: bool = False) -> None:
+        """Upload the private solution CSV for a competition you host.
+
+        The file is uploaded via the public blob-upload pipeline with
+        ApiBlobType.COMPETITION_SOLUTION — the backend routes this straight
+        to the CompetitionSolutions bucket instead of the general InboxFiles
+        bucket, so the source blob doesn't linger after CreateCompetitionSolution
+        moves it into the raw-solution slot. After this call, poll
+        ``competition_get_solution_status`` until ``ready`` flips true (or
+        ``setup_error`` is populated) before submissions can be scored.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            path (str): Path to a single CSV file. The CSV must have the same
+                shape as a submission file.
+            quiet (bool): Suppress per-file upload progress lines.
+        """
+        if not os.path.exists(path):
+            raise ValueError("Invalid path: " + path)
+        if not os.path.isfile(path):
+            raise ValueError("Solution must be a single CSV file, not a directory: " + path)
+
+        with ResumableUploadContext() as upload_context:
+            upload_file = self._upload_file(
+                os.path.basename(path),
+                path,
+                ApiBlobType.COMPETITION_SOLUTION,
+                upload_context,
+                quiet,
+                resources=None,
+            )
+            if upload_file is None:
+                raise ValueError("Solution file upload failed")
+
+        with self.build_kaggle_client() as kaggle:
+            request = ApiCreateCompetitionSolutionRequest()
+            request.competition_name = competition_name
+            request.blob_token = upload_file.token
+            kaggle.competitions.competition_api_client.create_competition_solution(request)
+
+    def competition_create_solution_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        path=None,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_create_solution."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+        if not path:
+            raise ValueError("-p/--path is required")
+
+        self.competition_create_solution(competition_name=competition_name, path=path, quiet=quiet)
+        print(
+            f'Solution uploaded for "{competition_name}". '
+            f"Run 'kaggle competitions solution status {competition_name}' to check readiness."
+        )
+
+    def competition_get_solution_status(self, competition_name: str) -> ApiCompetitionSolutionStatus:
+        """Fetch the solution-setup status for a competition you host.
+
+        Args:
+            competition_name (str): The competition name (slug).
+
+        Returns:
+            ApiCompetitionSolutionStatus: current setup state, including a
+            ``ready`` flag and any ``setup_error`` reported by preprocessing.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetCompetitionSolutionStatusRequest()
+            request.competition_name = competition_name
+            return kaggle.competitions.competition_api_client.get_competition_solution_status(request)
+
+    def competition_get_solution_status_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        json_output=False,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_get_solution_status."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        status = self.competition_get_solution_status(competition_name)
+        if json_output:
+            self.print_obj(status)
+        else:
+            self._print_competition_solution_status(status)
+
+    def _print_competition_solution_status(self, status: ApiCompetitionSolutionStatus) -> None:
+        """Print a compact human view of a solution status."""
+        if status.setup_error:
+            print("Ready: false (setup failed)")
+            print(f"Setup error: {status.setup_error}")
+        else:
+            print(f"Ready: {'true' if status.ready else 'false'}")
+        if status.kernels_metric:
+            print("Kernels metric: true")
+        if status.row_id_column_name:
+            print(f"Row ID column: {status.row_id_column_name}")
+        info = status.solution_info
+        if info is not None and (info.file_name or info.file_size_bytes or info.upload_date):
+            parts = []
+            if info.file_name:
+                parts.append(info.file_name)
+            if info.file_size_bytes:
+                parts.append(File.get_size(info.file_size_bytes))
+            if info.upload_date:
+                parts.append(f"uploaded {info.upload_date.isoformat()}")
+            print("Solution file: " + " — ".join(parts))
+            row_bits = []
+            if info.total_rows:
+                row_bits.append(f"total={info.total_rows}")
+            if info.public_rows:
+                row_bits.append(f"public={info.public_rows}")
+            if info.private_rows:
+                row_bits.append(f"private={info.private_rows}")
+            if row_bits:
+                print("  " + ", ".join(row_bits))
+        if status.column_mapping:
+            print("Column mapping:")
+            for metric_col, csv_col in status.column_mapping.items():
+                print(f"  {metric_col} -> {csv_col}")
+        if status.required_metric_columns:
+            print("Required columns:")
+            for col in status.required_metric_columns:
+                if col is None:
+                    continue
+                print(f"  {col.name} ({col.data_type})")
+
+    def competition_launch(self, competition_name: str, future_time: Optional[datetime] = None) -> None:
+        """Launch a competition you host, optionally at a future UTC time.
+
+        Args:
+            competition_name (str): The competition name (slug).
+            future_time (Optional[datetime]): If set, schedule launch for this UTC
+                instant. If omitted, launch immediately.
+        """
+        with self.build_kaggle_client() as kaggle:
+            request = ApiLaunchCompetitionRequest()
+            request.competition_name = competition_name
+            if future_time is not None:
+                request.future_time = future_time
+            kaggle.competitions.competition_api_client.launch_competition(request)
+
+    def competition_launch_cli(
+        self,
+        competition=None,
+        competition_opt=None,
+        at=None,
+        quiet=False,
+    ):
+        """CLI wrapper for competition_launch."""
+        competition_name = competition or competition_opt
+        if competition_name is None:
+            competition_name = self.get_config_value(self.CONFIG_NAME_COMPETITION)
+            if competition_name is not None and not quiet:
+                print("Using competition: " + competition_name)
+        if competition_name is None:
+            raise ValueError("No competition specified")
+
+        future_time = None
+        if at:
+            try:
+                parsed = datetime.fromisoformat(at.rstrip("Z"))
+            except ValueError as exc:
+                raise ValueError(f"Invalid --at value '{at}'. Use ISO-8601 UTC (e.g. 2027-01-01T00:00:00Z).") from exc
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            future_time = parsed
+
+        self.competition_launch(competition_name=competition_name, future_time=future_time)
+        if future_time is not None:
+            print(f'Competition "{competition_name}" scheduled to launch at {future_time.isoformat()}.')
+        else:
+            print(f'Competition "{competition_name}" launched.')
+
+    def competition_initialize(self, folder: str) -> str:
+        """Initialize a folder with a competition-metadata.json template.
+
+        Args:
+            folder (str): Folder in which to write the template.
+
+        Returns:
+            str: Path to the written metadata file.
+        """
+        if not os.path.isdir(folder):
+            raise ValueError("Invalid folder: " + folder)
+
+        meta_data = {
+            "title": "INSERT_TITLE_HERE",
+            "slug": "INSERT_SLUG_HERE",
+            "briefDescription": "INSERT_BRIEF_DESCRIPTION_HERE",
+            "privacy": "PUBLIC",
+            "disableKernels": False,
+            "hackathon": False,
+            "cloneCompetitionId": None,
+            "cloneExcludeCompetitionData": None,
+            "clonePageNames": None,
+            "licenseId": None,
+            "organizationId": None,
+            "numPrizes": None,
+            "restrictLinkToEmailList": None,
+            "reward": None,
+        }
+        meta_file = os.path.join(folder, self.COMPETITION_METADATA_FILE)
+        with open(meta_file, "w") as f:
+            json.dump(meta_data, f, indent=2)
+
+        print("Competition metadata template written to: " + meta_file)
+        return meta_file
+
+    def competition_initialize_cli(self, folder=None):
+        folder = folder or os.getcwd()
+        self.competition_initialize(folder)
+
+    def competition_create_new(self, folder: str) -> ApiCreateCompetitionResponse:
+        """Create a new competition from ``competition-metadata.json`` in ``folder``.
+
+        Args:
+            folder (str): Folder containing competition-metadata.json.
+
+        Returns:
+            ApiCreateCompetitionResponse: with id, ref, url of the new competition.
+        """
+        if not os.path.isdir(folder):
+            raise ValueError("Invalid folder: " + folder)
+
+        meta_file = os.path.join(folder, self.COMPETITION_METADATA_FILE)
+        if not os.path.isfile(meta_file):
+            raise ValueError("Metadata file not found: " + self.COMPETITION_METADATA_FILE)
+
+        with open(meta_file) as f:
+            meta = json.load(f)
+
+        title = cast(str, self.get_or_fail(meta, "title"))
+        slug = cast(str, self.get_or_fail(meta, "slug"))
+        brief_description = cast(str, self.get_or_fail(meta, "briefDescription"))
+        privacy_str = cast(str, self.get_or_fail(meta, "privacy"))
+
+        if title == "INSERT_TITLE_HERE":
+            raise ValueError("Default title detected, please update competition-metadata.json before creating")
+        if slug == "INSERT_SLUG_HERE":
+            raise ValueError("Default slug detected, please update competition-metadata.json before creating")
+        if brief_description == "INSERT_BRIEF_DESCRIPTION_HERE":
+            raise ValueError(
+                "Default briefDescription detected, please update competition-metadata.json before creating"
+            )
+
+        try:
+            privacy = CompetitionPrivacy[privacy_str.upper()]
+        except KeyError as exc:
+            valid = [n for n in CompetitionPrivacy.__members__ if n != "COMPETITION_PRIVACY_UNSPECIFIED"]
+            raise ValueError(f"Invalid privacy '{privacy_str}'. Valid: {', '.join(valid)}") from exc
+
+        request = ApiCreateCompetitionRequest()
+        request.title = title
+        request.slug = slug
+        request.brief_description = brief_description
+        request.privacy = privacy
+
+        if meta.get("disableKernels") is not None:
+            request.disable_kernels = bool(meta["disableKernels"])
+        if meta.get("hackathon") is not None:
+            request.hackathon = bool(meta["hackathon"])
+        if meta.get("restrictLinkToEmailList") is not None:
+            request.restrict_link_to_email_list = bool(meta["restrictLinkToEmailList"])
+        if meta.get("cloneCompetitionId") is not None:
+            request.clone_competition_id = int(meta["cloneCompetitionId"])
+        if meta.get("cloneExcludeCompetitionData") is not None:
+            request.clone_exclude_competition_data = bool(meta["cloneExcludeCompetitionData"])
+        if meta.get("clonePageNames"):
+            request.clone_page_names = list(meta["clonePageNames"])
+        if meta.get("licenseId") is not None:
+            request.license_id = int(meta["licenseId"])
+        if meta.get("organizationId") is not None:
+            request.organization_id = int(meta["organizationId"])
+        if meta.get("numPrizes") is not None:
+            request.num_prizes = int(meta["numPrizes"])
+        if meta.get("reward") is not None:
+            reward_meta = meta["reward"]
+            reward = Reward()
+            reward_id_str = cast(str, self.get_or_fail(reward_meta, "id"))
+            try:
+                reward.id = RewardTypeId[reward_id_str.upper()]
+            except KeyError as exc:
+                valid = [n for n in RewardTypeId.__members__ if n != "REWARD_TYPE_ID_UNSPECIFIED"]
+                raise ValueError(f"Invalid reward.id '{reward_id_str}'. Valid: {', '.join(valid)}") from exc
+            reward.quantity = int(self.get_or_fail(reward_meta, "quantity"))
+            if reward_meta.get("clarification") is not None:
+                reward.clarification = reward_meta["clarification"]
+            request.reward = reward
+
+        with self.build_kaggle_client() as kaggle:
+            return kaggle.competitions.competition_api_client.create_competition(request)
+
+    def competition_create_new_cli(self, folder=None):
+        folder = folder or os.getcwd()
+        response = self.competition_create_new(folder)
+        print(f"Competition created: {response.url}")
+
     def competition_list_topics(self, competition: str, sort_by: Optional[str] = None, page: Optional[int] = None):
         """List discussion topics for a competition.
 
@@ -2399,10 +3732,19 @@ class KaggleApi:
         if competition is None:
             raise ValueError("No competition specified")
 
-        if not quiet and (page_size is not None or page_token is not None or search is not None):
-            print(
-                "Warning: --page-size, --page-token, and --search are not supported for competition topics and will be ignored."
-            )
+        if not quiet and (page_size is not None or search is not None):
+            print("Warning: --page-size and --search are not supported for competition topics and will be ignored.")
+
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        if page_token:
+            try:
+                page = int(page_token)
+            except ValueError:
+                raise ValueError("Invalid page token. For this command, page token must be a page number.")
+        elif page is None:
+            page = 1
 
         response = self.competition_list_topics(
             competition=competition,
@@ -2417,6 +3759,9 @@ class KaggleApi:
                 csv_display=csv_display,
                 output_format=output_format,
             )
+            page_size_default = 20
+            if response.total_count and page * page_size_default < response.total_count:
+                print("Next Page Token = {}".format(page + 1))
         else:
             print("No topics found")
 
@@ -2446,8 +3791,7 @@ class KaggleApi:
                 if sort_by not in self.valid_comment_sort_by:
                     raise ValueError("Invalid sort_by specified. Valid options are " + str(self.valid_comment_sort_by))
                 request.sort_by = CommentListSortBy["COMMENT_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
+            self._set_paging(request, page_size)
             return kaggle.competitions.competition_api_client.list_topic_messages(request)
 
     def competition_list_topic_messages_cli(
@@ -2573,10 +3917,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             if category:
@@ -2622,10 +3963,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_dataset_topics(request)
@@ -2661,10 +3999,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_kernel_topics(request)
@@ -2700,10 +4035,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_model_topics(request)
@@ -2739,10 +4071,7 @@ class KaggleApi:
                         "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
                     )
                 request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
-            if page_size is not None:
-                request.page_size = page_size
-            if page_token:
-                request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             if search:
                 request.search_query = search
             return kaggle.discussions.discussion_api_client.list_benchmark_topics(request)
@@ -2825,9 +4154,7 @@ class KaggleApi:
                 # Single page requested
                 comments_request = ApiListCommentsRequest()
                 comments_request.topic_id = topic_id
-                comments_request.page_size = page_size
-                if page_token:
-                    comments_request.page_token = page_token
+                self._set_paging(comments_request, page_size, page_token)
                 comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
                 return topic, comments_response.comments or [], comments_response.next_page_token or ""
             else:
@@ -2837,8 +4164,7 @@ class KaggleApi:
                 while True:
                     comments_request = ApiListCommentsRequest()
                     comments_request.topic_id = topic_id
-                    if current_token:
-                        comments_request.page_token = current_token
+                    self._set_paging(comments_request, None, current_token)
                     comments_response = kaggle.discussions.discussion_api_client.list_comments(comments_request)
                     if comments_response.comments:
                         all_comments.extend(comments_response.comments)
@@ -2974,11 +4300,11 @@ class KaggleApi:
         """Recursively print comments with indentation to show tree structure."""
         indent = "  " * depth
         for comment in comments or []:
-            author = getattr(comment, "author_name", "Unknown")
+            author = getattr(comment, "author_name", None) or "[deleted]"
             date = getattr(comment, "post_date", "")
             votes = getattr(comment, "votes", 0)
-            content = getattr(comment, "content", "")
-            if content:
+            content = getattr(comment, "content", None) or "[deleted]"
+            if content and content != "[deleted]":
                 content = bleach.clean(content, tags=[], strip=True).strip()
                 # Truncate long content for display
                 if len(content) > 200:
@@ -3228,6 +4554,37 @@ class KaggleApi:
         Returns:
             Union[listApiDataset, None, None]:
         """
+        response = self.dataset_list_with_response(
+            sort_by=sort_by,
+            size=size,
+            file_type=file_type,
+            license_name=license_name,
+            tag_ids=tag_ids,
+            search=search,
+            user=user,
+            mine=mine,
+            page=page,
+            max_size=max_size,
+            min_size=min_size,
+        )
+        return response.datasets if response else None
+
+    def dataset_list_with_response(
+        self,
+        sort_by: Optional[str] = None,
+        size: Optional[str] = None,
+        file_type: Optional[str] = None,
+        license_name: Optional[str] = None,
+        tag_ids: Optional[str] = None,
+        search: Optional[str] = None,
+        user: Optional[str] = None,
+        mine: Optional[bool] = False,
+        page: Optional[int] = None,
+        max_size: Optional[str] = None,
+        min_size: Optional[str] = None,
+        page_size: Optional[int] = 20,
+        page_token: Optional[str] = None,
+    ) -> ApiListDatasetsResponse:
         sort_by_val = DatasetSortBy.DATASET_SORT_BY_HOTTEST
         if sort_by:
             if sort_by not in self.valid_dataset_sort_bys:
@@ -3257,7 +4614,7 @@ class KaggleApi:
             else:
                 license_name_val = self.lookup_enum(DatasetLicenseGroup, license_name_val, license_name)
 
-        if page and int(page) <= 0:
+        if page is not None and int(page) <= 0:
             raise ValueError("Page number must be >= 1")
 
         if max_size and min_size:
@@ -3285,12 +4642,10 @@ class KaggleApi:
             request.tag_ids = tag_ids or ""
             request.search = search or ""
             request.user = user or ""
-            request.page = int(page) if page else None  # type: ignore[assignment] # https://github.com/python/mypy/issues/17043
+            self._set_paging(request, page_size, page_token, page)
             request.max_size = int(max_size) if max_size else None  # type: ignore[assignment]
             request.min_size = int(min_size) if min_size else None  # type: ignore[assignment]
-            response = kaggle.datasets.dataset_api_client.list_datasets(request)
-            result: list[ApiDataset | None] | None = response.datasets
-            return result
+            return kaggle.datasets.dataset_api_client.list_datasets(request)
 
     def dataset_list_cli(
         self,
@@ -3302,7 +4657,9 @@ class KaggleApi:
         search=None,
         user=None,
         mine=False,
-        page=1,
+        page=None,
+        page_size=20,
+        page_token=None,
         csv_display=False,
         max_size=None,
         min_size=None,
@@ -3319,15 +4676,34 @@ class KaggleApi:
             search: a search term to use (default is empty string)
             user: username to filter the search to
             mine: boolean if True, group is changed to "my" to return personal
-            page: the page to return (default is 1)
+            page_size: the number of items to show on a page
+            page_token: the page token for pagination
             csv_display: if True, print comma separated values instead of table
             max_size: the maximum size of the dataset to return (bytes)
             min_size: the minimum size of the dataset to return (bytes)
             output_format: the output format to use
         """
-        datasets = self.dataset_list(
-            sort_by, size, file_type, license_name, tag_ids, search, user, mine, page, max_size, min_size
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        response = self.dataset_list_with_response(
+            sort_by=sort_by,
+            size=size,
+            file_type=file_type,
+            license_name=license_name,
+            tag_ids=tag_ids,
+            search=search,
+            user=user,
+            mine=mine,
+            max_size=max_size,
+            min_size=min_size,
+            page=page,
+            page_size=page_size,
+            page_token=page_token,
         )
+        datasets = response.datasets if response else None
+        if response and response.next_page_token:
+            print("Next Page Token = {}".format(response.next_page_token))
         if datasets:
             self.print_results(
                 datasets,
@@ -3499,11 +4875,10 @@ class KaggleApi:
         l.name = name
         return l
 
-    @staticmethod
-    def _new_collaborator(name, role):
+    def _new_collaborator(self, name, role):
         u = DatasetCollaborator()
         u.username = name
-        u.role = role
+        u.role = self.lookup_enum(CollaboratorType, CollaboratorType.COLLABORATOR_TYPE_UNSPECIFIED, role)
         return u
 
     def dataset_metadata(self, dataset, path):
@@ -3570,8 +4945,7 @@ class KaggleApi:
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
             request.dataset_version_number = int(dataset_version_number) if dataset_version_number else None
-            request.page_token = page_token
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             response = kaggle.datasets.dataset_api_client.list_dataset_files(request)
             return response
 
@@ -3636,17 +5010,10 @@ class KaggleApi:
             # a plain string instead of JSON.
             selected_fields = ["status"]
         else:
-            format_name, fields = _parse_format(format)
+            format_name, _ = _parse_format(format)
             if format_name != "json":
                 raise ValueError(f"Unsupported format value: {format!r}. Supported formats: json")
-            if fields:
-                unknown = [f for f in fields if f not in self._DATASET_STATUS_FIELDS]
-                if unknown:
-                    raise ValueError(f"Unknown field(s) in format: {', '.join(unknown)}")
-                selected_fields = list(fields)
-            else:
-                # No projection: include all fields.
-                selected_fields = list(self._DATASET_STATUS_FIELDS)
+            selected_fields, _ = self._resolve_projection(format, list(self._DATASET_STATUS_FIELDS))
 
         if "/" in dataset:
             self.validate_dataset_string(dataset)
@@ -3768,7 +5135,7 @@ class KaggleApi:
         else:
             downloaded = False
 
-        if downloaded:
+        if downloaded or unzip:
             outfile = os.path.join(effective_path, dataset_slug + ".zip")
             if unzip:
                 try:
@@ -3883,17 +5250,20 @@ class KaggleApi:
         file_upload = upload_context.new_resumable_file_upload(path, start_blob_upload_request)
         for i in range(0, self.MAX_UPLOAD_RESUME_ATTEMPTS):
             if file_upload.upload_complete:
-                return file_upload
+                return file_upload.get_token()
 
+            just_initiated = False
             if not file_upload.can_resume:
                 # Initiate upload on Kaggle backend to get the url and token.
                 with self.build_kaggle_client() as kaggle:
                     method = kaggle.blobs.blob_api_client.start_blob_upload
                     start_blob_upload_response = self.with_retry(method)(file_upload.start_blob_upload_request)
                     file_upload.upload_initiated(cast(ApiStartBlobUploadResponse, start_blob_upload_response))
+                    just_initiated = True
 
             upload_response = cast(ApiStartBlobUploadResponse, file_upload.start_blob_upload_response)
-            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=file_upload.can_resume)
+            resume_attempt = file_upload.can_resume and not just_initiated
+            upload_result = self.upload_complete(path, upload_response.create_url, quiet, resume=resume_attempt)
             if upload_result == ResumableUploadResult.INCOMPLETE:
                 continue  # Continue (i.e., retry/resume) only if the upload is incomplete.
 
@@ -3912,6 +5282,7 @@ class KaggleApi:
         convert_to_csv: bool = True,
         delete_old_versions: bool = False,
         dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateDatasetResponse:
         """Creates a new version of a dataset.
 
@@ -3979,12 +5350,28 @@ class KaggleApi:
                 message = kaggle.datasets.dataset_api_client.create_dataset_version
             request.body = body
             with ResumableUploadContext() as upload_context:
-                self.upload_files(body, resources, folder, ApiBlobType.DATASET, upload_context, quiet, dir_mode)
+                self.upload_files(
+                    body,
+                    resources,
+                    folder,
+                    ApiBlobType.DATASET,
+                    upload_context,
+                    quiet,
+                    dir_mode,
+                    ignore_patterns,
+                )
                 response = cast(ApiCreateDatasetResponse, self.with_retry(message)(request))
                 return response
 
     def dataset_create_version_cli(
-        self, folder, version_notes, quiet=False, convert_to_csv=True, delete_old_versions=False, dir_mode="skip"
+        self,
+        folder,
+        version_notes,
+        quiet=False,
+        convert_to_csv=True,
+        delete_old_versions=False,
+        dir_mode="skip",
+        ignore_patterns=None,
     ):
         """A client wrapper for creating a new version of a dataset.
 
@@ -3995,6 +5382,7 @@ class KaggleApi:
             convert_to_csv: If True, convert data to CSV on upload.
             delete_old_versions: If True, delete old versions of the dataset.
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
         result = self.dataset_create_version(
@@ -4004,6 +5392,7 @@ class KaggleApi:
             convert_to_csv=convert_to_csv,
             delete_old_versions=delete_old_versions,
             dir_mode=dir_mode,
+            ignore_patterns=ignore_patterns,
         )
 
         if result is None:
@@ -4018,7 +5407,7 @@ class KaggleApi:
         else:
             print("Dataset version creation error: " + result.error)
 
-    def dataset_delete(self, owner_slug: str, dataset_slug: str, no_confirm: bool = False) -> None:
+    def dataset_delete(self, owner_slug: str | None, dataset_slug: str, no_confirm: bool = False) -> bool:
         """Deletes a dataset.
 
         Args:
@@ -4027,7 +5416,7 @@ class KaggleApi:
             no_confirm (bool): If True, skip confirmation (default is False).
 
         Returns:
-            None:
+            bool: True if deleted, False if cancelled.
         """
 
         if not owner_slug:
@@ -4036,13 +5425,14 @@ class KaggleApi:
         if not no_confirm:
             if not self.confirmation(f"delete the dataset: {owner_slug}/{dataset_slug}"):
                 print("Deletion cancelled")
-                return
+                return False
 
         with self.build_kaggle_client() as kaggle:
             request = ApiDeleteDatasetRequest()
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
             kaggle.datasets.dataset_api_client.delete_dataset(request)
+        return True
 
     def kernels_delete(self, kernel: str, no_confirm: bool = False) -> None:
         """Deletes a kernel.
@@ -4099,8 +5489,8 @@ class KaggleApi:
             raise ValueError("A dataset must be specified")
         owner_slug, dataset_slug, _ = self.split_dataset_string(dataset)
 
-        self.dataset_delete(owner_slug, dataset_slug, no_confirm)
-        print(f'Dataset "{dataset}" deleted successfully.')
+        if self.dataset_delete(owner_slug, dataset_slug, no_confirm):
+            print(f'Dataset "{dataset}" deleted successfully.')
 
     def dataset_initialize(self, folder: str) -> str:
         """Initializes a folder with a dataset configuration (metadata) file.
@@ -4138,6 +5528,7 @@ class KaggleApi:
         quiet: bool = False,
         convert_to_csv: bool = True,
         dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateDatasetResponse:
         """Creates a new dataset.
 
@@ -4216,7 +5607,16 @@ class KaggleApi:
         request.category_ids = keywords
 
         with ResumableUploadContext() as upload_context:
-            self.upload_files(request, resources, folder, ApiBlobType.DATASET, upload_context, quiet, dir_mode)
+            self.upload_files(
+                request,
+                resources,
+                folder,
+                ApiBlobType.DATASET,
+                upload_context,
+                quiet,
+                dir_mode,
+                ignore_patterns,
+            )
 
             with self.build_kaggle_client() as kaggle:
                 retry_request = ApiCreateDatasetRequest()
@@ -4235,7 +5635,15 @@ class KaggleApi:
                     result.error = None
                 return result
 
-    def dataset_create_new_cli(self, folder=None, public=False, quiet=False, convert_to_csv=True, dir_mode="skip"):
+    def dataset_create_new_cli(
+        self,
+        folder=None,
+        public=False,
+        quiet=False,
+        convert_to_csv=True,
+        dir_mode="skip",
+        ignore_patterns=None,
+    ):
         """A client wrapper for creating a new dataset.
 
         Args:
@@ -4244,9 +5652,10 @@ class KaggleApi:
             quiet: Suppress verbose output (default is False).
             convert_to_csv: If True, convert data to comma-separated values.
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
-        result = self.dataset_create_new(folder, public, quiet, convert_to_csv, dir_mode)
+        result = self.dataset_create_new(folder, public, quiet, convert_to_csv, dir_mode, ignore_patterns)
         if result.invalidTags:
             print(
                 "The following are not valid tags and could not be added to " "the dataset: " + str(result.invalidTags)
@@ -4259,10 +5668,75 @@ class KaggleApi:
         else:
             print("Dataset creation error: " + result.error)
 
+    def _resume_marker_path(self, outfile):
+        """Path of the sidecar file that records the identity of an in-progress download."""
+        return outfile + ".kaggle-partial"
+
+    def _read_resume_marker(self, outfile):
+        """Return the persisted resume marker dict for ``outfile``, or None if absent/invalid."""
+        try:
+            with open(self._resume_marker_path(outfile), "r") as marker:
+                data = json.load(marker)
+            return data if isinstance(data, dict) else None
+        except (OSError, ValueError):
+            return None
+
+    def _write_resume_marker(self, outfile, validator, size):
+        """Persist the current object's identity next to a partially-downloaded file.
+
+        Without an identity token (``validator``) a future run cannot prove the
+        partial belongs to the current object, so no marker is written (and any
+        stale one is removed) to keep cross-invocation resume disabled.
+        """
+        if validator is None:
+            self._clear_resume_marker(outfile)
+            return
+        try:
+            with open(self._resume_marker_path(outfile), "w") as marker:
+                json.dump({"validator": validator, "size": size}, marker)
+        except OSError:
+            pass  # Best effort: at worst we simply cannot resume this file later.
+
+    def _clear_resume_marker(self, outfile):
+        """Remove the resume marker for ``outfile`` if present."""
+        try:
+            os.remove(self._resume_marker_path(outfile))
+        except OSError:
+            pass
+
+    def _can_resume_partial(self, outfile, resume, resumable, validator, size):
+        """Whether an existing local file is a verified partial of the current object.
+
+        Returns True only when appending to ``outfile`` is provably safe: resume
+        was requested, the server supports ranges, we have an identity token, and
+        a persisted marker matches that token (and the expected total size) while
+        the local file is strictly shorter than the remote object.
+        """
+        if not (resume and resumable) or validator is None:
+            return False
+        if not os.path.isfile(outfile):
+            return False
+        marker = self._read_resume_marker(outfile)
+        if not marker or marker.get("validator") != validator:
+            return False
+        if size is not None and marker.get("size") != size:
+            return False
+        part_size = os.path.getsize(outfile)
+        if size is not None:
+            return 0 < part_size < size
+        return part_size > 0
+
     def download_file(
         self, response, outfile, http_client, quiet=True, resume=False, chunk_size=1048576, max_retries=5, timeout=300
     ):
         """Downloads a file to an output file, streaming in chunks with automatic retry on failure.
+
+        A resume (HTTP Range request appended to the existing file) is only performed
+        when the local bytes are proven to belong to the current remote object: either
+        because it is an in-process retry of the same download, or because a persisted
+        ``.kaggle-partial`` marker records a matching identity token (ETag/Last-Modified)
+        and total size. This prevents silently corrupting or keeping a stale file when
+        the remote object has changed between runs.
 
         Args:
             response: The response object to download.
@@ -4292,6 +5766,12 @@ class KaggleApi:
         # Check if file is resumable
         resumable = "Accept-Ranges" in response.headers and response.headers["Accept-Ranges"] == "bytes"
 
+        # Identity token used to prove a local partial belongs to the *current*
+        # remote object before we resume (append) onto it. Prefer the strong
+        # ETag; fall back to Last-Modified. May be None if the server sends
+        # neither, in which case cross-invocation resume is disabled.
+        resume_validator = response.headers.get("ETag") or last_modified
+
         # Retry loop for handling network errors
         retry_count = 0
         download_url = response.url
@@ -4307,12 +5787,28 @@ class KaggleApi:
                 # Check file existence inside loop (may be created during retry)
                 file_exists = os.path.isfile(outfile)
 
-                # Determine starting position
-                if retry_count > 0 or (resume and resumable and file_exists):
+                # Decide whether to resume an existing file or start fresh.
+                #
+                # Appending only makes sense when the bytes already on disk belong
+                # to the *same* remote object we are fetching now. We allow that
+                # only for an in-process retry (same download session) or when a
+                # persisted resume marker proves the local partial was written for
+                # the current object. Otherwise a stale file from an older/newer
+                # version would be silently corrupted (remote grew) or kept as-is
+                # (remote shrank). See the method docstring.
+                resume_from_partial = retry_count == 0 and self._can_resume_partial(
+                    outfile, resume, resumable, resume_validator, size
+                )
+
+                if retry_count > 0 or resume_from_partial:
                     size_read = os.path.getsize(outfile) if file_exists else 0
                     open_mode = "ab"
 
-                    if size is not None and size_read >= size:
+                    if size is not None and size_read == size:
+                        # Every byte is already present (e.g. a retry that had in
+                        # fact completed). Finalize instead of re-downloading.
+                        os.utime(outfile, times=(remote_date_timestamp, remote_date_timestamp))
+                        self._clear_resume_marker(outfile)
                         if not quiet:
                             print("File already downloaded completely.")
                         return
@@ -4327,9 +5823,14 @@ class KaggleApi:
                         else:
                             print(f"Resuming from {size_read} bytes{remaining}...")
 
-                    # Request with Range header for resume, preserving authentication
+                    # Request with Range header for resume, preserving authentication.
+                    # If-Range asks the server to return the full object (200) instead
+                    # of a partial (206) if it changed underneath us, so we never
+                    # append across a version boundary.
                     retry_headers = original_headers.copy()
                     retry_headers["Range"] = f"bytes={size_read}-"
+                    if resume_validator is not None:
+                        retry_headers["If-Range"] = resume_validator
                     response = requests.request(
                         original_method,
                         download_url,
@@ -4337,9 +5838,35 @@ class KaggleApi:
                         stream=True,
                         timeout=timeout,
                     )
+
+                    if response.status_code == 206:
+                        pass  # Partial content: safe to append from size_read.
+                    elif response.status_code == 200:
+                        # Range ignored or object changed (If-Range miss): the body
+                        # is the whole current object, so overwrite from scratch.
+                        size_read = 0
+                        open_mode = "wb"
+                        self._write_resume_marker(outfile, resume_validator, size)
+                    else:
+                        # e.g. 416 Range Not Satisfiable (local file >= remote size).
+                        # Discard the stale bytes and re-request the full object.
+                        response.close()
+                        response = requests.request(
+                            original_method,
+                            download_url,
+                            headers=original_headers,
+                            stream=True,
+                            timeout=timeout,
+                        )
+                        size_read = 0
+                        open_mode = "wb"
+                        self._write_resume_marker(outfile, resume_validator, size)
                 else:
                     size_read = 0
                     open_mode = "wb"
+                    # Persist object identity up front so a later invocation can
+                    # safely resume this file if the download is interrupted.
+                    self._write_resume_marker(outfile, resume_validator, size)
 
                     if not quiet:
                         print("Downloading " + os.path.basename(outfile) + " to " + outpath)
@@ -4383,6 +5910,10 @@ class KaggleApi:
                             print(f"\n{error_msg}")
                         raise ValueError(error_msg)
 
+                # Completed and verified: drop the resume marker so this file is
+                # never treated as a resumable partial on a future run.
+                self._clear_resume_marker(outfile)
+
                 # Success - exit retry loop
                 break
 
@@ -4408,7 +5939,8 @@ class KaggleApi:
 
                 # Use Retry-After header for 429 responses when available
                 if self._is_rate_limited(e):
-                    retry_delay = self._get_retry_after_delay(e.response)
+                    http_error = cast(HTTPError, e)
+                    retry_delay = self._get_retry_after_delay(http_error.response)
                     if retry_delay is not None:
                         backoff_time = retry_delay
                         self.logger.info(
@@ -4480,7 +6012,39 @@ class KaggleApi:
         Returns:
             Union[List[ApiKernelMetadata, None], None]: A list of ApiKernelMetadata objects.
         """
-        if int(page) <= 0:
+        response = self.kernels_list_with_response(
+            page=page,
+            page_size=page_size,
+            dataset=dataset,
+            competition=competition,
+            parent_kernel=parent_kernel,
+            search=search,
+            mine=mine,
+            user=user,
+            language=language,
+            kernel_type=kernel_type,
+            output_type=output_type,
+            sort_by=sort_by,
+        )
+        return response.kernels if response else None
+
+    def kernels_list_with_response(
+        self,
+        page: Optional[int] = None,
+        page_size: int = 20,
+        dataset: Optional[str] = None,
+        competition: Optional[str] = None,
+        parent_kernel: Optional[str] = None,
+        search: Optional[str] = None,
+        mine: bool = False,
+        user: Optional[str] = None,
+        language: Optional[str] = None,
+        kernel_type: Optional[str] = None,
+        output_type: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        page_token: Optional[str] = None,
+    ) -> ApiListKernelsResponse:
+        if page and int(page) <= 0:
             raise ValueError("Page number must be >= 1")
 
         page_size = int(page_size)
@@ -4517,8 +6081,7 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelsRequest()
-            request.page = page
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token, page)
             request.group = group_val
             request.user = user or ""
             request.language = language or "all"
@@ -4529,16 +6092,14 @@ class KaggleApi:
             request.competition = competition or ""
             request.parent_kernel = parent_kernel or ""
             request.search = search or ""
-            result: list[ApiKernelMetadata | None] | None = kaggle.kernels.kernels_api_client.list_kernels(
-                request
-            ).kernels
-            return result
+            return kaggle.kernels.kernels_api_client.list_kernels(request)
 
     def kernels_list_cli(
         self,
         mine=False,
-        page=1,
+        page=None,
         page_size=20,
+        page_token=None,
         search=None,
         csv_display=False,
         parent=None,
@@ -4558,8 +6119,8 @@ class KaggleApi:
 
         Args:
             mine: If True, return personal kernels.
-            page: The page of results to return (default is 1).
             page_size: The number of results per page (default is 20).
+            page_token: The page token for pagination.
             search: A custom search string to pass to the list query.
             csv_display: If True, print comma-separated values instead of a table.
             parent: If defined, filter to those with the specified parent.
@@ -4572,9 +6133,13 @@ class KaggleApi:
             sort_by: How to sort the result, see valid_list_sort_by for options.
             output_format: The output format to use.
         """
-        kernels = self.kernels_list(
+        if page is not None and page_token is not None:
+            raise ValueError("Cannot specify both page and page_token")
+
+        response = self.kernels_list_with_response(
             page=page,
             page_size=page_size,
+            page_token=page_token,
             search=search,
             mine=mine,
             dataset=dataset,
@@ -4586,6 +6151,9 @@ class KaggleApi:
             output_type=output_type,
             sort_by=sort_by,
         )
+        kernels = response.kernels if response else None
+        if response and response.next_page_token:
+            print("Next Page Token = {}".format(response.next_page_token))
         fields = ["ref", "title", "author", "lastRunTime", "totalVotes"]
         if kernels:
             self.print_results(
@@ -4660,8 +6228,7 @@ class KaggleApi:
             request = ApiListKernelFilesRequest()
             request.kernel_slug = kernel_slug
             request.user_name = user_name
-            request.page_token = page_token
-            request.page_size = page_size
+            self._set_paging(request, page_size, page_token)
             return kaggle.kernels.kernels_api_client.list_kernel_files(request)
 
     def kernels_list_files_cli(
@@ -4773,7 +6340,7 @@ class KaggleApi:
         if not os.path.isfile(meta_file):
             raise ValueError("Metadata file not found: " + str(meta_file))
 
-        with open(meta_file) as f:
+        with open(meta_file, encoding="utf-8") as f:
             meta_data = json.load(f)
 
         title = self.get_or_default(meta_data, "title", None)
@@ -4843,7 +6410,7 @@ class KaggleApi:
                 "If specified, the docker_image_pinning_type must be " "one of " + str(self.valid_push_pinning_types)
             )
 
-        with open(code_file) as f:
+        with open(code_file, encoding="utf-8") as f:
             script_body = f.read()
 
         if kernel_type == "notebook":
@@ -5014,7 +6581,10 @@ class KaggleApi:
                         extension = ".irnb"
                     elif language == "julia":
                         extension = ".ijlnb"
-                file_name = blob.slug + extension
+                if extension:
+                    file_name = blob.slug + extension
+                else:
+                    file_name = None
 
             if file_name is None:
                 print(
@@ -5119,9 +6689,7 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            request.page_size = page_size
-            if token:
-                request.page_token = token
+            self._set_paging(request, page_size, token)
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
             except HTTPError as e:
@@ -5254,7 +6822,7 @@ class KaggleApi:
         else:
             print('%s has status "%s"' % (kernel, status))
 
-    def kernels_logs(self, kernel: str) -> str:
+    def kernels_logs(self, kernel: str | None) -> str:
         """Retrieves the execution log for a specified kernel.
 
         Args:
@@ -5283,7 +6851,7 @@ class KaggleApi:
                 raise
         return response.log or ""
 
-    def _split_kernel(self, kernel: str) -> Tuple[str, str]:
+    def _split_kernel(self, kernel: str | None) -> Tuple[str, str]:
         """Split a kernel identifier into (owner_slug, kernel_slug)."""
         if kernel is None:
             raise ValueError("A kernel must be specified")
@@ -5297,7 +6865,7 @@ class KaggleApi:
     # Sentinel value emitted by the streaming endpoint to signal end-of-stream.
     _LOG_STREAM_END_SENTINEL = "END_OF_LOG"
 
-    def kernels_logs_stream(self, kernel: str) -> Iterator[Dict[str, str]]:
+    def kernels_logs_stream(self, kernel: str | None) -> Iterator[Dict[str, str]]:
         """Stream execution logs for a kernel via the midtier logs endpoint.
 
         `GET /api/v1/kernels/logs/stream/{owner}/{slug}` adapts to the session
@@ -5536,8 +7104,7 @@ class KaggleApi:
             request.sort_by = sort_by_val
             request.search = search or ""
             request.owner = owner or ""
-            request.page_size = page_size
-            request.page_token = page_token  # type: ignore[assignment]
+            self._set_paging(request, page_size, page_token)
             response = kaggle.models.model_api_client.list_models(request)
             if response.next_page_token:
                 print("Next Page Token = {}".format(response.next_page_token))
@@ -5650,10 +7217,14 @@ class KaggleApi:
             raise ValueError("Default title detected, please change values before uploading")
         if slug == "INSERT_SLUG_HERE":
             raise ValueError("Default slug detected, please change values before uploading")
+        self._validate_slug_syntax(owner_slug, allow_underscore=True)
+        self._validate_slug_syntax(slug, allow_underscore=False)
         if not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
+
         if publish_time:
             self.validate_date(publish_time)
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
 
@@ -5684,7 +7255,7 @@ class KaggleApi:
         else:
             print("Model creation error: " + result.error)
 
-    def model_delete(self, model: str, no_confirm: bool) -> ApiDeleteModelResponse:
+    def model_delete(self, model: str, no_confirm: bool) -> Optional[ApiDeleteModelResponse]:
         """Deletes a model.
 
         Args:
@@ -5692,14 +7263,14 @@ class KaggleApi:
             no_confirm (bool): If True, skip confirmation (default is False).
 
         Returns:
-            ApiDeleteModelResponse: An ApiDeleteModelResponse object.
+            Optional[ApiDeleteModelResponse]: The delete response, or None if cancelled.
         """
         owner_slug, model_slug = self.split_model_string(model)
 
         if not no_confirm:
             if not self.confirmation(f"delete the model {model}"):
                 print("Deletion cancelled")
-                return ApiDeleteModelResponse()
+                return None
 
         with self.build_kaggle_client() as kaggle:
             request = ApiDeleteModelRequest()
@@ -5716,6 +7287,8 @@ class KaggleApi:
             no_confirm: If True, automatically confirm the deletion.
         """
         result = self.model_delete(model, no_confirm)
+        if result is None:
+            return
 
         if result.error:
             print("Model deletion error: " + result.error)
@@ -5750,6 +7323,8 @@ class KaggleApi:
             raise ValueError("Default ownerSlug detected, please change values before uploading")
         if slug == "INSERT_SLUG_HERE":
             raise ValueError("Default slug detected, please change values before uploading")
+        self._validate_slug_syntax(owner_slug, allow_underscore=True)
+        self._validate_slug_syntax(slug, allow_underscore=False)
         if is_private != None and not isinstance(is_private, bool):
             raise ValueError("model.isPrivate must be a boolean")
         if publish_time:
@@ -5762,16 +7337,19 @@ class KaggleApi:
         if subtitle != None:
             update_mask["paths"].append("subtitle")
         if is_private != None:
-            update_mask["paths"].append("isPrivate")  # is_private
+            update_mask["paths"].append("is_private")
         else:
             is_private = True  # default value, not updated
         if description != None:
             description = self.sanitize_markdown(description)
             update_mask["paths"].append("description")
+
         if publish_time != None and len(publish_time) > 0:
             update_mask["paths"].append("publish_time")
+            publish_time = datetime.strptime(publish_time, "%Y-%m-%d")
         else:
             publish_time = None
+
         if provenance_sources != None and len(provenance_sources) > 0:
             update_mask["paths"].append("provenance_sources")
         else:
@@ -5779,7 +7357,6 @@ class KaggleApi:
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelRequest()
             request.owner_slug = owner_slug
             request.model_slug = slug
@@ -5929,7 +7506,13 @@ class KaggleApi:
         folder = folder or os.getcwd()
         self.model_instance_initialize(folder)
 
-    def model_instance_create(self, folder: str, quiet: bool = False, dir_mode: str = "skip") -> ApiCreateModelResponse:
+    def model_instance_create(
+        self,
+        folder: str,
+        quiet: bool = False,
+        dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> ApiCreateModelResponse:
         """Creates a new model instance.
 
         Args:
@@ -5999,27 +7582,37 @@ class KaggleApi:
             request.body = body
             message = kaggle.models.model_api_client.create_model_instance
             with ResumableUploadContext() as upload_context:
-                self.upload_files(body, None, folder, ApiBlobType.MODEL, upload_context, quiet, dir_mode)
+                self.upload_files(
+                    body,
+                    None,
+                    folder,
+                    ApiBlobType.MODEL,
+                    upload_context,
+                    quiet,
+                    dir_mode,
+                    ignore_patterns,
+                )
                 response = cast(ApiCreateModelResponse, self.with_retry(message)(request))
                 return response
 
-    def model_instance_create_cli(self, folder, quiet=False, dir_mode="skip"):
+    def model_instance_create_cli(self, folder, quiet=False, dir_mode="skip", ignore_patterns=None):
         """A client wrapper for creating a new model instance.
 
         Args:
             folder: The folder from which to get the metadata file.
             quiet: Suppress verbose output (default is False).
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
         folder = folder or os.getcwd()
-        result = self.model_instance_create(folder, quiet, dir_mode)
+        result = self.model_instance_create(folder, quiet, dir_mode, ignore_patterns)
 
         if result.id:
             print("Your model instance was created. Id={}. Url={}".format(result.id, result.url))
         else:
             print("Model instance creation error: " + result.error)
 
-    def model_instance_delete(self, model_instance: str, no_confirm: bool = False) -> ApiDeleteModelResponse:
+    def model_instance_delete(self, model_instance: str, no_confirm: bool = False) -> Optional[ApiDeleteModelResponse]:
         """Deletes a model instance.
 
         Args:
@@ -6027,7 +7620,7 @@ class KaggleApi:
             no_confirm (bool): If True, skip confirmation (default is False).
 
         Returns:
-            ApiDeleteModelResponse: An ApiDeleteModelResponse object.
+            Optional[ApiDeleteModelResponse]: The delete response, or None if cancelled.
         """
         if model_instance is None:
             raise ValueError("A model instance must be specified")
@@ -6036,7 +7629,7 @@ class KaggleApi:
         if not no_confirm:
             if not self.confirmation(f"delete the variation {model_instance}"):
                 print("Deletion cancelled")
-                return ApiDeleteModelResponse()
+                return None
 
         with self.build_kaggle_client() as kaggle:
             request = ApiDeleteModelInstanceRequest()
@@ -6056,6 +7649,8 @@ class KaggleApi:
             no_confirm: If True, automatically confirm the deletion.
         """
         result = self.model_instance_delete(model_instance, no_confirm)
+        if result is None:
+            return
 
         if len(result.error) > 0:
             print("Model instance deletion error: " + result.error)
@@ -6063,7 +7658,11 @@ class KaggleApi:
             print("The model instance was deleted.")
 
     def model_instance_files(
-        self, model_instance: str, page_token: Union[str, None] = None, page_size: int = 20, csv_display: bool = False
+        self,
+        model_instance: str | None,
+        page_token: Union[str, None] = None,
+        page_size: int = 20,
+        csv_display: bool = False,
     ) -> FileList:
         """Lists files for the current version of a model instance.
 
@@ -6089,8 +7688,7 @@ class KaggleApi:
             request.model_slug = model_slug
             request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_API, framework)
             request.instance_slug = instance_slug
-            request.page_size = page_size
-            request.page_token = page_token  # type: ignore[assignment]
+            self._set_paging(request, page_size, page_token)
             response = kaggle.models.model_api_client.list_model_instance_version_files(request)
 
             if response:
@@ -6132,8 +7730,7 @@ class KaggleApi:
             request = ApiListModelInstancesRequest()
             request.owner_slug = owner_slug
             request.model_slug = model_slug
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             return kaggle.models.model_api_client.list_model_instances(request)
 
     def model_instances_list_cli(
@@ -6217,23 +7814,22 @@ class KaggleApi:
             usage = self.sanitize_markdown(usage)
             update_mask["paths"].append("usage")
         if license_name != None:
-            update_mask["paths"].append("licenseName")
+            update_mask["paths"].append("license_name")
         else:
             license_name = "Apache 2.0"  # default value even if not updated
         if fine_tunable != None:
-            update_mask["paths"].append("fineTunable")
+            update_mask["paths"].append("fine_tunable")
         if training_data != None:
-            update_mask["paths"].append("trainingData")
+            update_mask["paths"].append("training_data")
         if model_instance_type != None:
-            update_mask["paths"].append("modelInstanceType")
+            update_mask["paths"].append("model_instance_type")
         if base_model_instance != None:
-            update_mask["paths"].append("baseModelInstance")
+            update_mask["paths"].append("base_model_instance")
         if external_base_model_url != None:
-            update_mask["paths"].append("externalBaseModelUrl")
+            update_mask["paths"].append("external_base_model_url")
 
         with self.build_kaggle_client() as kaggle:
             fm = field_mask_pb2.FieldMask(paths=update_mask["paths"])
-            fm = fm.FromJsonString(json.dumps(update_mask))
             request = ApiUpdateModelInstanceRequest()
             request.owner_slug = owner_slug
             request.model_slug = model_slug
@@ -6266,7 +7862,13 @@ class KaggleApi:
             print("Model update error: " + result.error)
 
     def model_instance_version_create(
-        self, model_instance: str, folder: str, version_notes: str = "", quiet: bool = False, dir_mode: str = "skip"
+        self,
+        model_instance: str,
+        folder: str,
+        version_notes: str = "",
+        quiet: bool = False,
+        dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> ApiCreateModelResponse:
         """Creates a new model instance version.
 
@@ -6293,11 +7895,28 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
             message = kaggle.models.model_api_client.create_model_instance_version
             with ResumableUploadContext() as upload_context:
-                self.upload_files(body, None, folder, ApiBlobType.MODEL, upload_context, quiet, dir_mode)
+                self.upload_files(
+                    body,
+                    None,
+                    folder,
+                    ApiBlobType.MODEL,
+                    upload_context,
+                    quiet,
+                    dir_mode,
+                    ignore_patterns,
+                )
                 response = cast(ApiCreateModelResponse, self.with_retry(message)(request))
                 return response
 
-    def model_instance_version_create_cli(self, model_instance, folder, version_notes="", quiet=False, dir_mode="skip"):
+    def model_instance_version_create_cli(
+        self,
+        model_instance,
+        folder,
+        version_notes="",
+        quiet=False,
+        dir_mode="skip",
+        ignore_patterns=None,
+    ):
         """A client wrapper for creating a new version of a model instance.
 
         Args:
@@ -6307,8 +7926,11 @@ class KaggleApi:
             version_notes: The version notes to record for this new version.
             quiet: Suppress verbose output (default is False).
             dir_mode: What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns: Patterns of files/dirs to ignore.
         """
-        result = self.model_instance_version_create(model_instance, folder, version_notes, quiet, dir_mode)
+        result = self.model_instance_version_create(
+            model_instance, folder, version_notes, quiet, dir_mode, ignore_patterns
+        )
 
         if result.id != 0:
             print("Your model instance version was created. Url={}".format(result.url))
@@ -6317,7 +7939,7 @@ class KaggleApi:
 
     def model_instance_version_download(
         self,
-        model_instance_version: str,
+        model_instance_version: str | None,
         path: Optional[str] = None,
         force: bool = False,
         quiet: bool = True,
@@ -6404,7 +8026,7 @@ class KaggleApi:
 
     def model_instance_version_files(
         self,
-        model_instance_version: str,
+        model_instance_version: str | None,
         page_token: Union[str, None] = None,
         page_size: int = 20,
         csv_display: bool = False,
@@ -6433,8 +8055,7 @@ class KaggleApi:
         request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_API, framework)
         request.instance_slug = instance_slug
         request.version_number = int(version_number)
-        request.page_size = page_size
-        request.page_token = page_token  # type: ignore[assignment]
+        self._set_paging(request, page_size, page_token)
         with self.build_kaggle_client() as kaggle:
             response = kaggle.models.model_api_client.list_model_instance_version_files(request)
 
@@ -6484,8 +8105,7 @@ class KaggleApi:
             request.model_slug = model_slug
             request.framework = self.lookup_enum(ModelFramework, ModelFramework.MODEL_FRAMEWORK_UNSPECIFIED, framework)
             request.instance_slug = instance_slug
-            request.page_size = page_size
-            request.page_token = page_token
+            self._set_paging(request, page_size, page_token)
             return kaggle.models.model_api_client.list_model_instance_versions(request)
 
     def model_instance_versions_list_cli(
@@ -6517,7 +8137,7 @@ class KaggleApi:
 
     def model_instance_version_delete(
         self, model_instance_version: str, no_confirm: bool = False
-    ) -> ApiDeleteModelResponse:
+    ) -> Optional[ApiDeleteModelResponse]:
         """Deletes a model instance version.
 
         Args:
@@ -6525,7 +8145,7 @@ class KaggleApi:
             no_confirm (bool): If True, skip confirmation (default is False).
 
         Returns:
-            ApiDeleteModelResponse: An ApiDeleteModelResponse object.
+            Optional[ApiDeleteModelResponse]: The delete response, or None if cancelled.
         """
         if model_instance_version is None:
             raise ValueError("A model instance version must be specified")
@@ -6541,7 +8161,7 @@ class KaggleApi:
         if not no_confirm:
             if not self.confirmation(f"delete the version {model_instance_version}"):
                 print("Deletion cancelled")
-                return ApiDeleteModelResponse()
+                return None
 
         request = ApiDeleteModelInstanceVersionRequest()
         request.owner_slug = owner_slug
@@ -6563,6 +8183,8 @@ class KaggleApi:
             no_confirm: If True, automatically confirm the deletion.
         """
         result = self.model_instance_version_delete(model_instance_version, no_confirm)
+        if result is None:
+            return
 
         if len(result.error) > 0:
             print("Model instance version deletion error: " + result.error)
@@ -6844,6 +8466,7 @@ class KaggleApi:
         upload_context: ResumableUploadContext,
         quiet: bool = False,
         dir_mode: str = "skip",
+        ignore_patterns: Optional[List[str]] = None,
     ) -> None:
         """Uploads files in a folder.
 
@@ -6855,10 +8478,12 @@ class KaggleApi:
             upload_context (ResumableUploadContext): The context for resumable uploads.
             quiet (bool): Suppress verbose output (default is False).
             dir_mode (str): What to do with directories: "skip" - ignore; "zip" - compress and upload.
+            ignore_patterns (Optional[List[str]]): Patterns of files/dirs to ignore.
 
         Returns:
             None:
         """
+        patterns = DEFAULT_IGNORE_PATTERNS + (ignore_patterns or [])
         for file_name in os.listdir(folder):
             if file_name in [
                 self.DATASET_METADATA_FILE,
@@ -6869,8 +8494,21 @@ class KaggleApi:
                 self.MODEL_INSTANCE_METADATA_FILE,
             ]:
                 continue
+
+            full_path = os.path.join(folder, file_name)
+            is_dir = os.path.isdir(full_path)
+            if should_ignore(file_name, is_dir, patterns):
+                continue
+
             upload_file = self._upload_file_or_folder(
-                folder, file_name, blob_type, upload_context, dir_mode, quiet, resources
+                folder,
+                file_name,
+                blob_type,
+                upload_context,
+                dir_mode,
+                quiet,
+                resources,
+                patterns,
             )
             if upload_file is not None:
                 files = request.files
@@ -6894,16 +8532,29 @@ class KaggleApi:
         dir_mode: str,
         quiet: bool = False,
         resources: Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]] = None,
+        ignore_patterns: Optional[List[str]] = None,
     ) -> Union[UploadFile, None]:
         full_path = os.path.join(parent_path, file_or_folder_name)
         upload_file = None
         if os.path.isfile(full_path):
-            upload_file = self._upload_file(file_or_folder_name, full_path, blob_type, upload_context, quiet, resources)
+            upload_file = self._upload_file(
+                file_or_folder_name,
+                full_path,
+                blob_type,
+                upload_context,
+                quiet,
+                resources,
+            )
         elif os.path.isdir(full_path):
             if dir_mode in ["zip", "tar"]:
-                with DirectoryArchive(full_path, dir_mode) as archive:
+                with DirectoryArchive(full_path, dir_mode, ignore_patterns=ignore_patterns) as archive:
                     upload_file = self._upload_file(
-                        archive.name, archive.path, blob_type, upload_context, quiet, resources
+                        archive.name,
+                        archive.path,
+                        blob_type,
+                        upload_context,
+                        quiet,
+                        resources,
                     )
             elif not quiet:
                 print("Skipping folder: " + file_or_folder_name + "; use '--dir-mode' to upload folders")
@@ -7095,7 +8746,7 @@ class KaggleApi:
     def _get_bytes_already_uploaded(self, response, quiet):
         range_val = response.headers.get("Range")
         if range_val is None:
-            return 0  # This means server hasn't received anything before.
+            return -1  # This means server hasn't received anything before.
         items = range_val.split("-")  # Example: bytes=0-1000 => ['0', '1000']
         if len(items) != 2:
             if not quiet:
@@ -7166,6 +8817,25 @@ class KaggleApi:
             split = model.split("/")
             if not split[0] or not split[1]:
                 raise ValueError("Invalid model specification " + model)
+
+    def _validate_slug_syntax(self, slug: str, allow_underscore: bool = False) -> None:
+        if allow_underscore:
+            pattern = r"^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
+            error_msg = (
+                f"Invalid owner slug: {slug}. Owner slugs must be lowercase, "
+                "alphanumeric, and may contain hyphens and underscores, but "
+                "not start or end with them, nor contain consecutive ones."
+            )
+        else:
+            pattern = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            error_msg = (
+                f"Invalid slug: {slug}. Slugs must be lowercase, alphanumeric, "
+                "and may contain hyphens, but not start or end with them, nor "
+                "contain consecutive ones."
+            )
+
+        if not re.match(pattern, slug):
+            raise ValueError(error_msg)
 
     def split_model_string(self, model: str) -> Tuple[Union[str, None], str]:
         """Splits a model string into owner_slug and model_slug.
@@ -7483,10 +9153,41 @@ class KaggleApi:
 
     @staticmethod
     def _make_task_slug(task: str) -> ApiBenchmarkTaskSlug:
-        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string."""
+        """Build an ApiBenchmarkTaskSlug from a (pre-normalized) task string.
+
+        Supports the ``owner/task`` format: when the string contains a ``/``,
+        the part before it is used as ``owner_slug`` and the part after as
+        ``task_slug``. Without a ``/`` only ``task_slug`` is set and the owner
+        defaults to the current user on the server.
+        """
         slug = ApiBenchmarkTaskSlug()
-        slug.task_slug = task
+        if "/" in task:
+            owner, task_slug = task.split("/", 1)
+            slug.owner_slug = owner
+            slug.task_slug = task_slug
+        else:
+            slug.task_slug = task
         return slug
+
+    @staticmethod
+    def _slugify_task(task: str) -> str:
+        """Slugify a task name while preserving the ``owner/task`` separator.
+
+        The generic ``slugify()`` replaces ``/`` with ``-``, which destroys
+        the owner/task structure that ``_make_task_slug`` relies on.  This
+        helper slugifies each segment independently so that
+        ``owner/my-task`` becomes ``owner/my-task``
+        instead of ``owner-my-task``.
+
+        Raises:
+            ValueError: If either the owner or task segment is empty
+                (e.g. ``/task``, ``owner/``, ``/``).
+        """
+        parts = task.split("/", 1)
+        slugified = [slugify(p) for p in parts]
+        if len(slugified) == 2 and not all(slugified):
+            raise ValueError(f"Invalid task format '{task}'. Use 'task-name' or 'owner/task-name'.")
+        return "/".join(slugified)
 
     @staticmethod
     def _normalize_model_slug(slug: str) -> str:
@@ -7758,7 +9459,7 @@ class KaggleApi:
             request.model_version_slugs = models
 
         def _fetch(page_token):
-            request.page_token = page_token
+            self._set_paging(request, None, page_token)
             return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_task_runs)(request)
 
         runs = self._paginate(_fetch, lambda r: r.runs or [])
@@ -8085,7 +9786,7 @@ class KaggleApi:
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
                 "LLM_DEFAULT_EVAL": "google/gemini-3-flash-preview",
-                "LLMS_AVAILABLE": "anthropic/claude-haiku-4-5@20251001,deepseek-ai/deepseek-v3.2,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct,zai/glm-5",
+                "LLMS_AVAILABLE": "anthropic/claude-sonnet-5@default,deepseek-ai/deepseek-r1-0528,google/gemini-3-flash-preview,google/gemini-3.1-flash-lite-preview,ibm/granite-4.0-h-small,openai/gpt-5.4-nano-2026-03-17,openai/gpt-oss-120b,qwen/qwen3-next-80b-a3b-instruct",
             }
         )
         if not self._write_benchmarks_env(env_vars, no_confirm, env_file, quiet=True):
@@ -8211,7 +9912,7 @@ class KaggleApi:
         if poll_interval is not None and poll_interval <= 0:
             raise ValueError("--poll-interval must be a positive integer")
         models = self._normalize_model_list(model)
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists and is ready to run
@@ -8269,7 +9970,7 @@ class KaggleApi:
         with self.build_kaggle_client() as kaggle:
 
             def _fetch(page_token):
-                request.page_token = page_token
+                self._set_paging(request, None, page_token)
                 return self.with_retry(kaggle.benchmarks.benchmark_tasks_api_client.list_benchmark_tasks)(request)
 
             all_tasks = self._paginate(_fetch, lambda r: r.tasks or [])
@@ -8327,7 +10028,7 @@ class KaggleApi:
                 page -= 1
 
     def benchmarks_tasks_status_cli(self, task, model=None):
-        task = slugify(task)
+        task = self._slugify_task(task)
         with self.build_kaggle_client() as kaggle:
             task_info = self._get_benchmark_task(task, kaggle)
             print(f"Task:     {task_info.slug.task_slug}")
@@ -8366,7 +10067,7 @@ class KaggleApi:
 
     def benchmarks_tasks_download_cli(self, task, model=None, output=None, include_source=False, force=False):
         """Download output files for completed/errored benchmark task runs."""
-        task = slugify(task)
+        task = self._slugify_task(task)
         output = output or "."
 
         with self.build_kaggle_client() as kaggle:
@@ -8445,6 +10146,7 @@ class KaggleApi:
                     # Note: extractall() is safe here because the zip originates from
                     # the trusted Kaggle server, not user-supplied input (zip-slip).
                     with zipfile.ZipFile(zipfile_path, "r") as zf:
+                        os.makedirs(tmp_outdir, exist_ok=True)
                         zf.extractall(tmp_outdir)
                 except zipfile.BadZipFile:
                     print(f"{row_prefix} {size_str:<{size_col}} {'Bad zip':<{prog_col}}")
@@ -8528,7 +10230,7 @@ class KaggleApi:
 
     def benchmarks_tasks_log_cli(self, task, model=None):
         """Print execution logs for benchmark task run(s)."""
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             self._get_benchmark_task(task, kaggle)
@@ -8630,7 +10332,7 @@ class KaggleApi:
 
     def benchmarks_tasks_publish_cli(self, task, publish_backing_notebook=True):
         """Publish a benchmark task, making it public."""
-        task = slugify(task)
+        task = self._slugify_task(task)
 
         with self.build_kaggle_client() as kaggle:
             # Verify the task exists first
@@ -8662,6 +10364,122 @@ class KaggleApi:
                     print("Backing notebook also published.")
                 else:
                     print("Note: No backing notebook is associated with this task.", file=sys.stderr)
+
+    def benchmark_leaderboard_view(self, benchmark: str, version: Optional[int] = None) -> ApiBenchmarkLeaderboard:
+        """View a leaderboard based on a benchmark name.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+
+        Returns:
+            ApiBenchmarkLeaderboard: The leaderboard response.
+        """
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiGetBenchmarkLeaderboardRequest()
+            request.owner_slug = owner_slug
+            request.benchmark_slug = benchmark_slug
+            if version is not None:
+                request.version_number = version
+            response = self.with_retry(kaggle.benchmarks.benchmarks_api_client.get_benchmark_leaderboard)(request)
+        return response
+
+    def benchmark_leaderboard_cli(
+        self,
+        benchmark,
+        version=None,
+        view=False,
+        download=False,
+        path=None,
+        csv_display=False,
+        output_format=None,
+        quiet=False,
+    ):
+        """A wrapper for benchmark_leaderboard_view that will print the results or download them.
+
+        Args:
+            benchmark (str): The benchmark name (owner/slug) to view leaderboard for.
+            version (Optional[int]): The benchmark version (optional).
+            view (bool): If True, show the results in the terminal.
+            download (bool): If True, download the leaderboard as CSV.
+            path (Optional[str]): Path to download folder.
+            csv_display (bool): If True, print CSV instead of table (legacy).
+            output_format (Optional[str]): The output format to use.
+            quiet (bool): Suppress verbose output.
+        """
+        if not view and not download:
+            raise ValueError("Either --show or --download must be specified")
+
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+
+        response = self.benchmark_leaderboard_view(benchmark, version)
+
+        if not response.rows:
+            if not quiet:
+                print("No results found")
+            return
+
+        # Flatten the response
+        tasks = {}  # slug -> name
+        for row in response.rows:
+            for result in row.task_results:
+                tasks[result.benchmark_task_slug] = result.benchmark_task_name
+
+        sorted_task_slugs = sorted(tasks.keys())
+
+        def slug_to_field(slug):
+            return slug.replace("-", "_")
+
+        fields = ["model"] + [slug_to_field(slug) for slug in sorted_task_slugs]
+        labels = ["Model"] + [tasks[slug] for slug in sorted_task_slugs]
+
+        items = []
+        for row in response.rows:
+            row_view = BenchmarkLeaderboardRowView(row.model_version_name)
+            for slug in sorted_task_slugs:
+                setattr(row_view, slug_to_field(slug), "N/A")
+            for result in row.task_results:
+                field_name = slug_to_field(result.benchmark_task_slug)
+                score = "N/A"
+                if result.result:
+                    if result.result.numeric_result:
+                        score = str(result.result.numeric_result.value)
+                    elif result.result.boolean_result is not None:
+                        score = "Pass" if result.result.boolean_result else "Fail"
+                setattr(row_view, field_name, score)
+            items.append(row_view)
+
+        if download:
+            if path is None:
+                effective_path = self.get_default_download_dir("benchmarks", benchmark_slug)
+            else:
+                effective_path = path
+
+            os.makedirs(effective_path, exist_ok=True)
+            file_name = benchmark_slug + "_leaderboard.csv"
+            outfile = os.path.join(effective_path, file_name)
+
+            with open(outfile, "w", newline="", encoding="utf-8") as f:
+                with redirect_stdout(f):
+                    self.print_csv(items, fields, labels)
+            if not quiet:
+                print(f"Leaderboard downloaded to {outfile}")
+
+        if view:
+            self.print_results(
+                items,
+                fields,
+                labels=labels,
+                csv_display=csv_display,
+                output_format=output_format,
+            )
+
+
+class BenchmarkLeaderboardRowView(object):
+
+    def __init__(self, model):
+        self.model = model
 
 
 class TqdmBufferedReader(io.BufferedReader):

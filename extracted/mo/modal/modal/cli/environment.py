@@ -1,20 +1,26 @@
 # Copyright Modal Labs 2023
 import json as json_mod
+import warnings
 
 import click
 import rich
 from click import UsageError
+from rich.box import SIMPLE_HEAD
+from rich.table import Table
 from rich.text import Text
 
 from modal import environments
 from modal._environments import _Environment
 from modal._utils.async_utils import synchronizer
+from modal._utils.deprecation import deprecation_warning
+from modal._utils.display_utils import pretty_decimal
 from modal._utils.name_utils import check_environment_name
 from modal._utils.time_utils import format_interval
 from modal.cli.billing import DATE_HELP, _validate_and_parse_interval
-from modal.cli.utils import confirm_or_suggest_yes, display_table, yes_option
+from modal.cli.utils import _col_name_to_json_key, confirm_or_suggest_yes, display_table, yes_option
 from modal.config import config
 from modal.environments import Environment
+from modal.exception import DeprecationError, InvalidError
 from modal.output import OutputManager
 
 from ._help import ModalGroup
@@ -49,9 +55,9 @@ def list_(json: bool = False):
 
     # determine which environment is currently active, prioritizing the local default
     # over the server default
-    active_env = config.get("environment")
+    active_env = config.get("environment") or ""
     for env in envs:
-        if env.default is True and active_env is None:
+        if env.default is True and not active_env:
             active_env = env.name
 
     table_data = []
@@ -119,67 +125,127 @@ def update(
     rich.print("[green]✓[/green] Environment updated")
 
 
-MEMBERS_HELP_TEXT = """Manage members and their roles in a restricted Environment.
-
-Restricted Environments use RBAC to limit the actions that can be performed by
-users (and service users) based on roles: https://modal.com/docs/guide/rbac.
-"""
-
-members_cli = ModalGroup(name="members", help=MEMBERS_HELP_TEXT)
-environment_cli.add_command(members_cli)
-
 service_user_option = click.option(
-    "--service-user", is_flag=True, default=False, help="Treat MEMBER as the name of a service user"
+    "--service-user", is_flag=True, default=False, help="Treat PRINCIPAL as the name of a service user"
 )
 
 
-@members_cli.command("list", help="List the members of a restricted Environment", no_args_is_help=True)
-@click.argument("environment")
-@click.option("--json", is_flag=True, default=False)
-def members_list(environment: str, json: bool = False):
-    members = Environment.from_name(environment).members.list()
+def _render_roles_list(environment: str, json: bool) -> None:
+    roles = Environment.from_name(environment).roles.list()
     if json:
         # Mirror the API output shape: a nested dict keyed by users / service_users.
-        OutputManager.get().print_json(json_mod.dumps(members))
+        OutputManager.get().print_json(json_mod.dumps(roles))
         return
     rows = []
-    for name, role in members.get("users", {}).items():
+    for name, role in roles.get("users", {}).items():
         rows.append([name, role])
-    for name, role in members.get("service_users", {}).items():
+    for name, role in roles.get("service_users", {}).items():
         rows.append([f"{name} (service user)", role])
     rows = sorted(rows, key=lambda x: x[0])
     display_table(["name", "role"], rows)
 
 
-@members_cli.command("update", help="Add or update a member's role in a restricted Environment", no_args_is_help=True)
+def _apply_role_update(environment: str, principal: str, role: str, service_user: bool) -> None:
+    env = Environment.from_name(environment)
+    if service_user:
+        env.roles.update(service_users={principal: role})
+    else:
+        env.roles.update(users={principal: role})
+    kind = "service user" if service_user else "user"
+    rich.print(f"[green]✓[/green] Set {kind} {principal!r} to role {role!r} in environment {environment!r}")
+
+
+def _apply_role_remove(environment: str, principal: str, service_user: bool) -> None:
+    env = Environment.from_name(environment)
+    # `remove` only lives on the deprecated `members` manager, which warns. The caller (a
+    # deprecated `members` command) has already warned, so suppress the redundant SDK warning.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationError)
+        if service_user:
+            env.members.remove(service_users=[principal])
+        else:
+            env.members.remove(users=[principal])
+    kind = "service user" if service_user else "user"
+    rich.print(f"[green]✓[/green] Removed {kind} {principal!r} from environment {environment!r}")
+
+
+ROLES_HELP_TEXT = """Manage the Environment Roles of users and service users.
+
+An Environment Role is one of 'contributor' (read-write), 'viewer' (read-only), or
+'no-access', and dictates access to Environments. See
+https://modal.com/docs/guide/rbac for details on which principals can be assigned
+which roles.
+"""
+
+roles_cli = ModalGroup(name="roles", help=ROLES_HELP_TEXT)
+environment_cli.add_command(roles_cli)
+
+
+@roles_cli.command("list", help="List the roles of each user and service user in an Environment", no_args_is_help=True)
 @click.argument("environment")
-@click.argument("member")
+@click.option("--json", is_flag=True, default=False)
+def roles_list(environment: str, json: bool = False):
+    _render_roles_list(environment, json)
+
+
+@roles_cli.command("update", help="Update a user's or service user's role in an Environment", no_args_is_help=True)
+@click.argument("environment")
+@click.argument("principal")
+@click.option("--role", type=click.Choice(["contributor", "viewer", "no-access"]), required=True, help="Role to assign")
+@service_user_option
+def roles_update(environment: str, principal: str, role: str, service_user: bool = False):
+    _apply_role_update(environment, principal, role, service_user)
+
+
+# The deprecated `members` command group keeps working for existing automation, but is hidden
+# from `--help` so it is not discoverable. Each subcommand warns with its own guidance.
+members_cli = ModalGroup(name="members", help="[Deprecated] Use `modal environment roles`.", hidden=True)
+environment_cli.add_command(members_cli)
+
+
+@members_cli.command("list", help="[Deprecated] Use `modal environment roles list`", no_args_is_help=True)
+@click.argument("environment")
+@click.option("--json", is_flag=True, default=False)
+def members_list(environment: str, json: bool = False):
+    deprecation_warning(
+        (2026, 7, 23),
+        "`modal environment members list` is deprecated; use `modal environment roles list`.",
+        show_source=False,
+    )
+    _render_roles_list(environment, json)
+
+
+@members_cli.command("update", help="[Deprecated] Use `modal environment roles update`", no_args_is_help=True)
+@click.argument("environment")
+@click.argument("principal")
 @click.option(
-    "--role", type=click.Choice(["contributor", "viewer"]), required=True, help="Role to assign to the member"
+    "--role",
+    type=click.Choice(["contributor", "viewer", "no-access"]),
+    required=True,
+    help="Role to assign to the principal",
 )
 @service_user_option
-def members_update(environment: str, member: str, role: str, service_user: bool = False):
-    env = Environment.from_name(environment)
-    if service_user:
-        env.members.update(service_users={member: role})
-    else:
-        env.members.update(users={member: role})
-    kind = "service user" if service_user else "user"
-    rich.print(f"[green]✓[/green] Set {kind} {member!r} to role {role!r} in environment {environment!r}")
+def members_update(environment: str, principal: str, role: str, service_user: bool = False):
+    deprecation_warning(
+        (2026, 7, 23),
+        "`modal environment members update` is deprecated; use `modal environment roles update`.",
+        show_source=False,
+    )
+    _apply_role_update(environment, principal, role, service_user)
 
 
-@members_cli.command("remove", help="Remove a member from a restricted Environment", no_args_is_help=True)
+@members_cli.command("remove", help="[Deprecated] Use `modal environment roles update`", no_args_is_help=True)
 @click.argument("environment")
-@click.argument("member")
+@click.argument("principal")
 @service_user_option
-def members_remove(environment: str, member: str, service_user: bool = False):
-    env = Environment.from_name(environment)
-    if service_user:
-        env.members.remove(service_users=[member])
-    else:
-        env.members.remove(users=[member])
-    kind = "service user" if service_user else "user"
-    rich.print(f"[green]✓[/green] Removed {kind} {member!r} from environment {environment!r}")
+def members_remove(environment: str, principal: str, service_user: bool = False):
+    deprecation_warning(
+        (2026, 7, 23),
+        "`modal environment members remove` is deprecated; roles are now explicit — set a role "
+        "(e.g. `--role no-access`) with `modal environment roles update` instead.",
+        show_source=False,
+    )
+    _apply_role_remove(environment, principal, service_user)
 
 
 billing_cli = ModalGroup(name="billing", help="View billing and usage info for the given Environment.")
@@ -211,7 +277,7 @@ environment_cli.add_command(billing_cli)
 @click.option("--json", "json", is_flag=True, default=False, help="Output as JSON.")
 @click.option("--csv", "csv", is_flag=True, default=False, help="Output as CSV.")
 @synchronizer.create_blocking
-async def environment_billing(
+async def environment_billing_report(
     environment_name: str | None,
     start: str | None,
     end: str | None,
@@ -229,7 +295,7 @@ async def environment_billing(
     or by requesting a date range using `--for` (e.g., `--for today`, `--for 'last month'`).
 
     This command provides a CLI frontend for the
-    [`Environment.billing.report`](https://modal.com/docs/sdk/py/latest/modal.Environment#billingreport)
+    [`Environment.billing.report`](https://modal.com/docs/sdk/py/latest/Environment#billingreport)
     API.
 
     Note that, as with the API, the start date is inclusive and the end date is exclusive.
@@ -262,7 +328,7 @@ async def environment_billing(
     if json and csv:
         raise click.UsageError("--json and --csv are mutually exclusive")
 
-    interval = _validate_and_parse_interval(start, end, for_, tz, resolution)
+    interval = _validate_and_parse_interval(start=start, end=end, for_=for_, tz=tz, resolution=resolution)
 
     tags = [t.strip() for t in tag_names.split(",")] if tag_names else None
 
@@ -316,3 +382,98 @@ async def environment_billing(
         rows.extend(row_set)
 
     display_table(columns, rows, json=json, csv=csv)
+
+
+@billing_cli.command("summary")
+@click.argument(
+    "environment_name",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--for",
+    "for_",
+    default=None,
+    type=str,
+    help=('What cycle to show a summary for. Accepts: "this month", "last month", and ISO 8601 months ("YYYY-MM").'),
+)
+@click.option("--json", "json", is_flag=True, default=False, help="Output as JSON.")
+@synchronizer.create_blocking
+async def environment_billing_summary(
+    environment_name: str | None,
+    for_: str | None,
+    json: bool,
+):
+    """Generate a billing summary for the specified Environment.
+
+    If no argument for `environment_name` is passed, the method returns a summary for the default
+    environment.
+
+    The summary range can be provided by setting `--for` (e.g `--for 'last month'`). If not
+    provided, `--for` defaults to "this month".
+
+    Summaries are provided for single month intervals (aligned to the month boundary) only. To see
+    summaries for longer intervals, call `summary` for each month in the interval.
+
+    This command provides a CLI frontend for the
+    [`Environment.billing.summary`](https://modal.com/docs/sdk/py/latest/Environment#billingsummary)
+    API.
+
+    Examples:
+
+    ```bash
+    modal environment billing summary # defaults to --for "this month"
+
+    modal environment billing summary --for "last month" test_env
+
+    modal environment billing summary --for 2026-01
+    ```
+
+    """
+
+    # If called with no arguments, we default to the current billing cycle
+    if for_ is None:
+        for_ = "this month"
+
+    if environment_name is None:
+        env = _Environment.from_context()
+    else:
+        env = _Environment.from_name(environment_name)
+
+    try:
+        summary = await env.billing.summary(cycle=for_)
+    except (ValueError, InvalidError) as exc:
+        raise click.UsageError(str(exc))
+
+    output = OutputManager.get()
+
+    if json:
+        output.print_json(
+            json_mod.dumps(
+                {
+                    "metered_cost": str(summary.metered_cost),
+                    "metered_cost_breakdown": {
+                        _col_name_to_json_key(k): str(v) for k, v in summary.metered_cost_breakdown.items()
+                    },
+                }
+            )
+        )
+
+        return
+
+    # Calling .summary hydrates `env` so this is safe
+    output.print(
+        Text("Displaying billing summary for environment: ", style="dim italic")
+        + Text(str(env.name), style="dim italic green"),
+    )
+
+    t = Table(show_header=False, box=SIMPLE_HEAD)
+
+    t.add_row(Text("Metered Cost:"), Text(pretty_decimal(summary.metered_cost), justify="right"))
+    for k, v in sorted(summary.metered_cost_breakdown.items(), key=lambda pair: -pair[1]):
+        if v == 0:
+            continue
+
+        t.add_row(Text(f"  {k}:", style="dim"), Text(pretty_decimal(v), style="dim", justify="right"))
+
+    output.print(t)

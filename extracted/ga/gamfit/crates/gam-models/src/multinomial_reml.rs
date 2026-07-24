@@ -88,6 +88,7 @@ fn multinomial_stable_shift(eta: &[f64]) -> f64 {
 /// The returned `(shift, log_centered_denominator)` keeps scalar likelihood
 /// lowerings in the same cancellation-free coordinates without repeating the
 /// exponential pass.
+#[inline(always)]
 pub(crate) fn multinomial_logit_probabilities_into(
     eta: &[f64],
     probabilities: &mut [f64],
@@ -260,7 +261,7 @@ impl<'row> MultinomialLogitRowProgram<'row> {
     /// returned shift and centered log-denominator use the same representation as
     /// [`Self::eval_expression`]; no probability clamp or alternate tail policy
     /// exists anywhere in the live likelihood.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn probabilities_into(&self, probabilities: &mut [f64]) -> (f64, f64) {
         assert_eq!(probabilities.len(), self.response.len());
         multinomial_logit_probabilities_into(self.eta, probabilities)
@@ -294,7 +295,9 @@ impl<'row> MultinomialLogitRowProgram<'row> {
 
     /// Structure-compiled value/gradient lowering of the semantic row. The
     /// gradient is the NLL gradient; callers needing the log-likelihood negate
-    /// both channels.
+    /// both channels. `inline(always)` so the const-hinted V/G/H shapes see
+    /// through to the normalization loops.
+    #[inline(always)]
     pub(crate) fn value_gradient_into(
         &self,
         probabilities: &mut [f64],
@@ -324,13 +327,47 @@ impl<'row> MultinomialLogitRowProgram<'row> {
     /// Structure-compiled value/gradient/Hessian lowering of the semantic row.
     /// `gradient` is the NLL gradient and `hessian` is row-major. Both are
     /// mechanically determined by the normalized masses produced above.
+    ///
+    /// Small class counts route through const-hinted instantiations of the
+    /// SAME body ([`Self::value_gradient_hessian_shaped`]): the release cell
+    /// showed the dynamic-length codegen losing ~15% to the fully unrolled
+    /// generic jet tower at `M ≤ 3` purely on loop/bounds overhead, so the
+    /// one structure-compiled formula is monomorphized at the shapes where
+    /// that overhead is a measurable fraction of the row cost. There is no
+    /// second formula and no alternate lowering — only a compile-time trip
+    /// count for the identical arithmetic.
     pub(crate) fn value_gradient_hessian_into(
         &self,
         probabilities: &mut [f64],
         gradient: &mut [f64],
         hessian: &mut [f64],
     ) -> f64 {
-        let active_classes = self.eta.len();
+        match self.eta.len() {
+            1 => self.value_gradient_hessian_shaped::<1>(probabilities, gradient, hessian),
+            2 => self.value_gradient_hessian_shaped::<2>(probabilities, gradient, hessian),
+            3 => self.value_gradient_hessian_shaped::<3>(probabilities, gradient, hessian),
+            4 => self.value_gradient_hessian_shaped::<4>(probabilities, gradient, hessian),
+            _ => self.value_gradient_hessian_shaped::<0>(probabilities, gradient, hessian),
+        }
+    }
+
+    /// The single V/G/H body behind [`Self::value_gradient_hessian_into`].
+    /// `M_HINT = 0` is the runtime-length instantiation; a nonzero hint pins
+    /// `active_classes` to a compile-time constant (checked, then used as the
+    /// trip count) so the loops unroll and the bounds checks vanish.
+    #[inline(always)]
+    fn value_gradient_hessian_shaped<const M_HINT: usize>(
+        &self,
+        probabilities: &mut [f64],
+        gradient: &mut [f64],
+        hessian: &mut [f64],
+    ) -> f64 {
+        let active_classes = if M_HINT == 0 {
+            self.eta.len()
+        } else {
+            assert_eq!(self.eta.len(), M_HINT);
+            M_HINT
+        };
         assert_eq!(gradient.len(), active_classes);
         assert_eq!(hessian.len(), active_classes * active_classes);
         let value = self.value_gradient_into(probabilities, gradient);
@@ -733,7 +770,9 @@ pub(crate) fn measured_penalty_rank(s: &Array2<f64>) -> Result<usize, String> {
     use gam_linalg::faer_ndarray::FaerEigh;
     let (eigenvalues, _) = FaerEigh::eigh(s, faer::Side::Lower)
         .map_err(|e| format!("penalty rank eigendecomposition failed: {e}"))?;
-    let max_abs = eigenvalues.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+    let max_abs = eigenvalues
+        .iter()
+        .fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
     let tol = 100.0 * (p as f64) * f64::EPSILON * max_abs;
     Ok(eigenvalues.iter().filter(|&&ev| ev > tol).count())
 }
@@ -3227,16 +3266,17 @@ mod tests {
             }
         }
 
-        /// #932 release speed gate for the multinomial-logit row. The production
-        /// structure-compiled value/gradient/Hessian lowering
-        /// ([`MultinomialLogitRowProgram::value_gradient_hessian_into`]) is timed
-        /// against the generic gam-math forward-mode jet tower
-        /// ([`program_row_kernel`]) — the naive automatic-differentiation baseline
-        /// the retained specialization must beat, since #932 removed this family's
-        /// `cfg(test)` hand restatement. Emits the harness-parsed
-        /// `hand_over_production` token (generic-tower time over production time)
-        /// per active-class width; the MSI release harness fails closed whenever
-        /// any measured cell is `<= 1`.
+        /// #932 release speed gate for the multinomial-logit row. Production
+        /// is the structure-compiled softmax lowering
+        /// ([`MultinomialLogitRowProgram::value_gradient_hessian_into`], with
+        /// const-hinted small-`M` shapes of its single body), timed against
+        /// the generic gam-math forward-mode jet tower
+        /// ([`program_row_kernel`]) — the naive automatic-differentiation
+        /// baseline the retained specialization must beat, since #932 removed
+        /// this family's `cfg(test)` hand restatement. Emits the
+        /// harness-parsed `hand_over_production` token (generic-tower time
+        /// over production time) per active-class width; the MSI release
+        /// harness fails closed whenever any measured cell is `<= 1`.
         ///
         /// The batch of distinct rows supplies genuine per-row input variation, so
         /// the optimizer cannot hoist the pure row call out of the sweep, and the
@@ -3357,6 +3397,7 @@ mod tests {
 
             measure::<2>(0x9322_2020_0715_face);
             measure::<3>(0x0bad_c0de_0715_2020);
+            measure::<4>(0x5eed_4444_0722_beef);
             measure::<8>(0x1234_5678_0715_abcd);
         }
     }
@@ -3841,7 +3882,11 @@ mod tests {
         let joint = multi.joint_penalty_specs().expect("joint specs");
         assert_eq!(joint.len(), n_terms * k);
         let labels: Vec<&str> = joint.iter().filter_map(|s| s.label.as_deref()).collect();
-        assert_eq!(labels.len(), n_terms * k, "every spec carries its own label");
+        assert_eq!(
+            labels.len(),
+            n_terms * k,
+            "every spec carries its own label"
+        );
         let unique: std::collections::HashSet<&str> = labels.iter().copied().collect();
         assert_eq!(
             unique.len(),

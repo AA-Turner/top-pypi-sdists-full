@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, RootModel
 
 
 class Kind(Enum):
@@ -3719,6 +3719,24 @@ class SessionNotesPayloadOutput(BaseModel):
     span_notes: Annotated[list[SessionReviewerSpanNote] | None, Field(title="Span Notes")] = None
 
 
+class SessionPreviewUrl(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    label: Annotated[str, Field(max_length=80, min_length=1, title="Label")]
+    url: Annotated[AnyUrl, Field(title="Url")]
+
+
+class SessionPreviewUrlsResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    preview_urls: Annotated[list[SessionPreviewUrl], Field(title="Preview Urls")]
+
+
+UpsertSessionPreviewUrlRequest = SessionPreviewUrl
+
+
 class SessionResponse(BaseModel):
     model_config = ConfigDict(
         extra="allow",
@@ -3739,6 +3757,7 @@ class SessionResponse(BaseModel):
     agent_costs: Annotated[list[AgentCostEntry] | None, Field(title="Agent Costs")] = None
     logs_url: Annotated[str | None, Field(title="Logs Url")] = None
     tags: Annotated[list[str] | None, Field(title="Tags")] = []
+    preview_urls: Annotated[list[SessionPreviewUrl] | None, Field(title="Preview Urls")] = []
     notes: SessionNotesPayloadOutput | None = None
     created_by: UserInfo | None = None
     parent_session_id: Annotated[str | None, Field(title="Parent Session Id")] = None

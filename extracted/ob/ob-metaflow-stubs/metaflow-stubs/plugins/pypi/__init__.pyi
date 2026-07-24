@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-07-21T20:55:40.890150                                                            #
+# Generated on 2026-07-23T20:46:33.289176                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from . import anaconda_decorator as anaconda_decorator
 from . import pypi_decorator as pypi_decorator
 from . import utils as utils
 from . import conda_environment as conda_environment
-from . import pypi_environment as pypi_environment
 from . import anaconda_environment as anaconda_environment
+from . import pypi_environment as pypi_environment
 from . import parsers as parsers
 
 MAGIC_FILE: str

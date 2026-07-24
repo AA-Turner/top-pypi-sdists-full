@@ -24,7 +24,7 @@ frameworks on macOS:
   carries data inline and we don't need to chase promises.
 """
 
-from typing import Optional
+from typing import Any, Optional, cast
 
 from pymobiledevice3.remote.remote_service import RemoteService
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
@@ -47,18 +47,18 @@ UTI_TEXT = "public.text"
 UTI_URL = "public.url"
 
 # PasteboardDataInclusionPolicy presets.
-POLICY_ALL_RESOLVED = {"allResolved": {}}
-POLICY_ALL_PROMISED = {"allPromised": {}}
-POLICY_MATCH_SOURCE = {"matchSource": {}}
-POLICY_PROMISE_SECONDARY = {"promiseSecondary": {}}
+POLICY_ALL_RESOLVED: dict[str, Any] = {"allResolved": {}}
+POLICY_ALL_PROMISED: dict[str, Any] = {"allPromised": {}}
+POLICY_MATCH_SOURCE: dict[str, Any] = {"matchSource": {}}
+POLICY_PROMISE_SECONDARY: dict[str, Any] = {"promiseSecondary": {}}
 
 
-def policy_threshold(threshold_bytes: int) -> dict:
+def policy_threshold(threshold_bytes: int) -> dict[str, Any]:
     """Inclusion policy: include item data inline if smaller than ``threshold_bytes``, otherwise promise it."""
     return {"thresholdData": {"_0": XpcInt64Type(threshold_bytes)}}
 
 
-def text_item(text: str, utis: Optional[list[str]] = None) -> dict:
+def text_item(text: str, utis: Optional[list[str]] = None) -> dict[str, Any]:
     """Build a single ``PasteboardItem`` carrying ``text`` under the standard text UTIs."""
     if utis is None:
         utis = [UTI_UTF8_PLAIN_TEXT, UTI_PLAIN_TEXT, UTI_TEXT]
@@ -69,7 +69,7 @@ def text_item(text: str, utis: Optional[list[str]] = None) -> dict:
     }
 
 
-def data_item(uti: str, data: bytes) -> dict:
+def data_item(uti: str, data: bytes) -> dict[str, Any]:
     """Build a single ``PasteboardItem`` carrying raw ``data`` under one ``uti``."""
     return {
         "types": [uti],
@@ -77,7 +77,7 @@ def data_item(uti: str, data: bytes) -> dict:
     }
 
 
-def snapshot_text(snapshot: dict) -> Optional[str]:
+def snapshot_text(snapshot: dict[str, Any]) -> Optional[str]:
     """Best-effort extraction of UTF-8 text from a ``PasteboardSnapshot`` dict.
 
     Returns ``None`` if the snapshot has no items or no decodable text. Walks
@@ -85,14 +85,14 @@ def snapshot_text(snapshot: dict) -> Optional[str]:
     """
     pasteboard = snapshot.get("pasteboard")
     if isinstance(pasteboard, dict):
-        snapshot = pasteboard
-    for item in snapshot.get("items", []) or []:
-        data_map = item.get("data") or {}
+        snapshot = cast(dict[str, Any], pasteboard)
+    for item in cast(list[dict[str, Any]], snapshot.get("items", []) or []):
+        data_map = cast(dict[str, Any], item.get("data") or {})
         for uti in (UTI_UTF8_PLAIN_TEXT, UTI_PLAIN_TEXT, UTI_TEXT):
             datum = data_map.get(uti)
             if not isinstance(datum, dict):
                 continue
-            raw = datum.get("data")
+            raw = cast(dict[str, Any], datum).get("data")
             if not raw:
                 continue
             if isinstance(raw, str):
@@ -115,8 +115,8 @@ class PasteboardService(RemoteService):
     async def get(
         self,
         pasteboard_name: str = GENERAL_PASTEBOARD,
-        data_policy: Optional[dict] = None,
-    ) -> dict:
+        data_policy: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Pull the current pasteboard contents from the device.
 
         Returns the raw reply dict (``{command: "PULL_REPLY", pasteboard:
@@ -137,10 +137,10 @@ class PasteboardService(RemoteService):
 
     async def set(
         self,
-        items: list[dict],
+        items: list[dict[str, Any]],
         pasteboard_name: str = GENERAL_PASTEBOARD,
-        source_metadata: Optional[dict] = None,
-    ) -> dict:
+        source_metadata: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Replace the device pasteboard contents with ``items``.
 
         Each item is a ``PasteboardItem`` dict (use :func:`text_item` or
@@ -153,6 +153,6 @@ class PasteboardService(RemoteService):
             "sourceMetadata": source_metadata,
         })
 
-    async def set_text(self, text: str, pasteboard_name: str = GENERAL_PASTEBOARD) -> dict:
+    async def set_text(self, text: str, pasteboard_name: str = GENERAL_PASTEBOARD) -> dict[str, Any]:
         """Convenience wrapper: set the pasteboard to a single UTF-8 ``text`` value."""
         return await self.set([text_item(text)], pasteboard_name)

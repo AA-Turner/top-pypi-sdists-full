@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::encoder::{BacktrackingBytePairEncoder, BytePairEncoder, Encoder, EncoderType, SentencePieceBPE, UnigramEncoder, WordPieceEncoder};
 use crate::decoder::Decoder;
-use crate::normalizer::Normalizer;
+use crate::normalizer::{MetaspacePrepend, Normalizer};
 use crate::postprocessor::PostProcessor;
 use crate::pretok::{PretokType, Pretokenizer};
 use crate::tokenizer::Tokenizer;
@@ -432,7 +432,7 @@ fn load_vocab_defined_bpe(
     // Use SentencePiece encoder if explicitly requested or if Metaspace-style normalizer detected
     // Both Metaspace (Mistral) and MetaspaceReplace (Gemma) indicate SentencePiece tokenizers
     let use_sentencepiece = encoder_type == EncoderType::SentencePiece
-        || matches!(normalizer, Normalizer::Metaspace | Normalizer::MetaspaceReplace);
+        || matches!(normalizer, Normalizer::Metaspace(_) | Normalizer::MetaspaceReplace);
 
     // For ByteLevel vocab-defined BPE (Llama 3, Qwen), use Simple encoder
     // because Backtracking's is_valid_pair doesn't work with non-sequential IDs
@@ -546,6 +546,13 @@ fn detect_pretokenizer_type(data: &serde_json::Value) -> DetectedPretokenizer {
                     // Collect all Split regex patterns for potential fallback
                     let mut split_patterns: Vec<String> = Vec::new();
 
+                    // Digit chunking may live in its own Split stage (DeepSeek puts
+                    // \p{N}{1,3} before the letter pattern), so scan all stages up front
+                    let has_chunked_digits = pretokenizers.iter().any(|p| {
+                        p["type"].as_str() == Some("Split")
+                            && p["pattern"]["Regex"].as_str().is_some_and(|pat| pat.contains("\\p{N}{"))
+                    });
+
                     // Check for Split with regex pattern to determine exact type
                     for p in pretokenizers {
                         if p["type"].as_str() == Some("Split") {
@@ -565,9 +572,9 @@ fn detect_pretokenizer_type(data: &serde_json::Value) -> DetectedPretokenizer {
                                 // Patterns with [\p{L}\p{M}]+ include combining marks
                                 if pattern.contains("[\\p{L}\\p{M}]+") {
                                     // DeepSeek: multi-stage splits, no contractions in main pattern,
-                                    // digit groups \p{N}{1,3}
+                                    // digit groups \p{N}{1,3} (in an earlier Split stage)
                                     // Qwen3.5: single split, has contractions, single digits \p{N}
-                                    if pattern.contains("\\p{N}{") {
+                                    if has_chunked_digits {
                                         return DetectedPretokenizer { pretok_type: PretokType::DeepSeek, fallback_pattern: None };
                                     }
                                     // Single-digit pattern with marks = Voyage + marks (Qwen3.5)
@@ -660,7 +667,7 @@ fn detect_normalizer(data: &serde_json::Value) -> Normalizer {
     // Handle null/missing normalizer - check for Metaspace pre_tokenizer
     if normalizer.is_null() {
         if has_metaspace {
-            return Normalizer::Metaspace;
+            return metaspace_normalizer_from_pretok(data);
         }
         return Normalizer::None;
     }
@@ -669,10 +676,13 @@ fn detect_normalizer(data: &serde_json::Value) -> Normalizer {
     if let Some(typ) = normalizer["type"].as_str() {
         match typ {
             "Precompiled" => {
-                // Precompiled charsmap = SentencePiece normalization (NFKC + whitespace collapse)
+                // Precompiled charsmap = SentencePiece normalization
                 // Models: T5 (with WhitespaceSplit), bge-m3 (without WhitespaceSplit)
                 if has_metaspace {
-                    return Normalizer::SentencePiece;
+                    // Prefer the model's exact charsmap blob; fall back to the
+                    // category-rule approximation if it's missing or malformed.
+                    return parse_precompiled_charsmap(normalizer, has_whitespace_split)
+                        .unwrap_or(Normalizer::SentencePiece);
                 }
             }
             "BertNormalizer" => {
@@ -690,6 +700,13 @@ fn detect_normalizer(data: &serde_json::Value) -> Normalizer {
             "Sequence" => {
                 // Check sequence normalizers for specific patterns
                 if let Some(normalizers) = normalizer["normalizers"].as_array() {
+                    // potion-multilingual pattern: [Seq[Precompiled, collapse],
+                    // 32× Replace(punct → " punct "), Replace(\s+→" "), Strip]
+                    // + Metaspace pre-tokenizer.
+                    if let Some(n) = detect_punct_pad_chain(normalizers, has_metaspace) {
+                        return n;
+                    }
+
                     let has_lowercase = normalizers.iter().any(|n| {
                         n["type"].as_str() == Some("Lowercase")
                     });
@@ -717,12 +734,19 @@ fn detect_normalizer(data: &serde_json::Value) -> Normalizer {
                     // General SentencePiece: Sequence with Precompiled + Metaspace
                     // (with or without WhitespaceSplit — bge-m3 omits it)
                     if has_precompiled && has_metaspace {
-                        return Normalizer::SentencePiece;
+                        return normalizers
+                            .iter()
+                            .find(|n| n["type"].as_str() == Some("Precompiled"))
+                            .and_then(|n| parse_precompiled_charsmap(n, has_whitespace_split))
+                            .unwrap_or(Normalizer::SentencePiece);
                     }
 
-                    // Mixtral pattern: Prepend "▁" + Replace " " → "▁"
+                    // Mixtral pattern: Prepend "▁" + Replace " " → "▁".
+                    // As a *normalizer* this applies per added-token segment
+                    // and prepends unconditionally (TinyLlama, Phi-3,
+                    // voyage-2 family) — unlike the Metaspace pre-tokenizer.
                     if has_prepend_metaspace && has_replace_space_metaspace {
-                        return Normalizer::Metaspace;
+                        return Normalizer::Metaspace(MetaspacePrepend::Unconditional);
                     }
 
                     // Check for NFC or BertNormalizer in sequence
@@ -765,10 +789,144 @@ fn detect_normalizer(data: &serde_json::Value) -> Normalizer {
 
     // Even if normalizer exists, check for Metaspace pre_tokenizer
     if has_metaspace {
-        return Normalizer::Metaspace;
+        return metaspace_normalizer_from_pretok(data);
     }
 
     Normalizer::None
+}
+
+/// Detect the potion-multilingual punctuation-padding normalizer chain:
+/// a (possibly nested) sequence of `Precompiled`, space-collapse `Replace`
+/// rules, per-punctuation `Replace(p → " p ")` rules, and a both-sides
+/// `Strip` — combined with a Metaspace pre-tokenizer.
+///
+/// The fused implementation pads every ASCII punctuation char, so this only
+/// matches when the rules cover exactly that set; anything else falls through
+/// to the generic detection paths.
+fn detect_punct_pad_chain(
+    normalizers: &[serde_json::Value],
+    has_metaspace: bool,
+) -> Option<Normalizer> {
+    if !has_metaspace {
+        return None;
+    }
+    // Flatten one level of nested Sequence (potion nests [Precompiled, Replace]).
+    let mut flat: Vec<&serde_json::Value> = Vec::new();
+    for n in normalizers {
+        if n["type"].as_str() == Some("Sequence") {
+            flat.extend(n["normalizers"].as_array()?.iter());
+        } else {
+            flat.push(n);
+        }
+    }
+
+    let mut precompiled: Option<&serde_json::Value> = None;
+    let mut padded: Vec<char> = Vec::new();
+    let mut has_strip = false;
+    for n in &flat {
+        match n["type"].as_str()? {
+            "Precompiled" => precompiled = Some(n),
+            "Strip" => {
+                has_strip = n["strip_left"].as_bool().unwrap_or(false)
+                    && n["strip_right"].as_bool().unwrap_or(false);
+            }
+            "Replace" => {
+                let content = n["content"].as_str()?;
+                if let Some(pat) = n["pattern"]["String"].as_str() {
+                    // Punctuation-pad rule: single char c with content " c ".
+                    let mut chars = pat.chars();
+                    let (Some(c), None) = (chars.next(), chars.next()) else {
+                        return None;
+                    };
+                    if content == format!(" {c} ") {
+                        padded.push(c);
+                    } else {
+                        return None;
+                    }
+                } else {
+                    // Whitespace-collapse rules subsumed by the fused pass.
+                    let pat = n["pattern"]["Regex"].as_str()?;
+                    if !((pat == " {2,}" || pat == r"\s+") && content == " ") {
+                        return None;
+                    }
+                }
+            }
+            _ => return None,
+        }
+    }
+
+    let padded: std::collections::BTreeSet<char> = padded.into_iter().collect();
+    if !has_strip || padded.len() != 32 || !padded.iter().all(|c| c.is_ascii_punctuation()) {
+        return None;
+    }
+    let node = precompiled?;
+    use base64::Engine as _;
+    let b64 = node["precompiled_charsmap"].as_str()?;
+    let blob = base64::engine::general_purpose::STANDARD.decode(b64).ok()?;
+    let charsmap = crate::charsmap::PrecompiledCharsmap::from_blob(&blob).ok()?;
+    Some(Normalizer::SentencePiecePunctPad {
+        charsmap: std::sync::Arc::new(charsmap),
+    })
+}
+
+/// Map a Metaspace *pre-tokenizer* to the fused normalizer variant.
+///
+/// Unlike the `Prepend("▁")` normalizer, HF's Metaspace pre-tokenizer only
+/// prepends `▁` when the segment doesn't already start with it, and the
+/// `prepend_scheme` controls which segments qualify at all:
+/// - `"always"` (also the default, and what `add_prefix_space: true` means)
+///   → every added-token segment
+/// - `"first"` → only the segment at offset 0 of the input (Mistral-7B-v0.1)
+/// - `"never"` (or `add_prefix_space: false`) → no prepend at all
+fn metaspace_normalizer_from_pretok(data: &serde_json::Value) -> Normalizer {
+    let node = find_metaspace_pretok_node(data);
+    let scheme = node
+        .and_then(|n| n["prepend_scheme"].as_str())
+        .unwrap_or("always");
+    let add_prefix = node
+        .and_then(|n| n["add_prefix_space"].as_bool())
+        .unwrap_or(true);
+    if !add_prefix || scheme == "never" {
+        return Normalizer::MetaspaceReplace;
+    }
+    match scheme {
+        "first" => Normalizer::Metaspace(MetaspacePrepend::FirstSegment),
+        _ => Normalizer::Metaspace(MetaspacePrepend::IfNotSpaceLed),
+    }
+}
+
+/// Find the Metaspace pre-tokenizer JSON node (direct or inside a Sequence).
+fn find_metaspace_pretok_node(data: &serde_json::Value) -> Option<&serde_json::Value> {
+    let pre_tokenizer = &data["pre_tokenizer"];
+    if pre_tokenizer["type"].as_str() == Some("Metaspace") {
+        return Some(pre_tokenizer);
+    }
+    if let Some(pretokenizers) = pre_tokenizer["pretokenizers"].as_array() {
+        return pretokenizers
+            .iter()
+            .find(|p| p["type"].as_str() == Some("Metaspace"));
+    }
+    None
+}
+
+/// Parse the base64 `precompiled_charsmap` blob from a Precompiled normalizer
+/// JSON node. Returns `None` if absent or malformed (caller falls back to the
+/// approximate SentencePiece normalizer).
+///
+/// `whitespace_split` selects the metaspace shape: WhitespaceSplit + Metaspace
+/// (XLM-R, T5) vs Replace `" {2,}"` + Metaspace only (bge-m3 family).
+fn parse_precompiled_charsmap(
+    normalizer: &serde_json::Value,
+    whitespace_split: bool,
+) -> Option<Normalizer> {
+    use base64::Engine as _;
+    let b64 = normalizer["precompiled_charsmap"].as_str()?;
+    let blob = base64::engine::general_purpose::STANDARD.decode(b64).ok()?;
+    let charsmap = crate::charsmap::PrecompiledCharsmap::from_blob(&blob).ok()?;
+    Some(Normalizer::SentencePiecePrecompiled {
+        charsmap: std::sync::Arc::new(charsmap),
+        whitespace_split,
+    })
 }
 
 /// Check if the tokenizer uses a WhitespaceSplit pre_tokenizer.
@@ -1027,7 +1185,7 @@ fn load_unigram(
     let unk_id = model["unk_id"].as_u64().unwrap_or(0) as u32;
 
     // Parse vocab with scores
-    let vocab: Vec<(u32, Vec<u8>, f32)> = vocab_arr
+    let vocab: Vec<(u32, Vec<u8>, f64)> = vocab_arr
         .iter()
         .enumerate()
         .filter_map(|(id, entry)| {
@@ -1036,7 +1194,7 @@ fn load_unigram(
                 return None;
             }
             let token_str = arr[0].as_str()?;
-            let score = arr[1].as_f64()? as f32;
+            let score = arr[1].as_f64()?;
             let bytes = decode_sentencepiece_token(token_str);
             Some((id as u32, bytes, score))
         })
@@ -1172,50 +1330,97 @@ fn extract_pad_token_id(data: &serde_json::Value) -> Option<TokenId> {
     None
 }
 
-/// Extract added tokens from HuggingFace tokenizer.json.
+/// Extract added tokens (with HF matching flags) from tokenizer.json.
 ///
-/// HuggingFace tokenizers match ALL added tokens (both special and non-special)
-/// before pretokenization. This ensures tokens like `<|im_start|>`, `<think>`,
-/// and multi-space sequences are recognized as single tokens.
-/// Returns (token_id, bytes) pairs.
-fn extract_added_tokens(data: &serde_json::Value) -> Vec<(TokenId, Vec<u8>)> {
+/// HuggingFace tokenizers match ALL added tokens (both special and
+/// non-special) before pretokenization, and each entry carries
+/// `lstrip`/`rstrip`/`normalized`/`single_word` flags that shape the match.
+///
+/// IDs are NOT taken from the file: HF's deserializer discards the declared
+/// ids and reassigns them via `AddedVocabulary::add_tokens` — a token whose
+/// content is in the model vocab gets the vocab id, anything else gets
+/// sequential ids starting at the vocab size, in file order. Most exports
+/// declare exactly these ids, but some (deepset-mxbai-embed-de-large-v1)
+/// shrank the vocab without rewriting `added_tokens`, so the declared ids
+/// point past the embedding table while HF silently remaps them.
+pub(crate) fn extract_added_token_specs(data: &serde_json::Value) -> Vec<crate::tokenizer::AddedTokenSpec> {
+    use crate::tokenizer::AddedTokenSpec;
     let Some(added) = data["added_tokens"].as_array() else {
         return Vec::new();
     };
 
-    added.iter().filter_map(|token| {
-        let id = token["id"].as_u64()? as TokenId;
-        let content = token["content"].as_str()?;
-        if content.is_empty() {
-            return None;
+    // Content -> id view of the model vocab (BPE/WordPiece object, or
+    // Unigram [piece, score] list). Missing vocab (tiktoken-style exports)
+    // falls back to the declared ids.
+    let vocab_obj = data["model"]["vocab"].as_object();
+    let vocab_arr_map: Option<std::collections::HashMap<&str, TokenId>> =
+        data["model"]["vocab"].as_array().map(|arr| {
+            arr.iter()
+                .enumerate()
+                .filter_map(|(i, e)| e[0].as_str().map(|s| (s, i as TokenId)))
+                .collect()
+        });
+    let vocab_lookup = |content: &str| -> Option<TokenId> {
+        if let Some(obj) = vocab_obj {
+            return obj.get(content).and_then(|v| v.as_u64()).map(|v| v as TokenId);
         }
-        // Skip single-byte tokens — they're already in the BPE vocab and
-        // matching them in the DAAC would add overhead with no benefit.
-        if content.len() == 1 {
-            return None;
+        vocab_arr_map.as_ref().and_then(|m| m.get(content).copied())
+    };
+    let vocab_size = vocab_obj
+        .map(|o| o.len())
+        .or(data["model"]["vocab"].as_array().map(|a| a.len()));
+    let mut next_id = vocab_size.map(|s| s as TokenId);
+
+    let mut seen = std::collections::HashSet::new();
+    let mut specs = Vec::new();
+    for token in added {
+        let Some(content) = token["content"].as_str() else { continue };
+        if content.is_empty() || !seen.insert(content.to_string()) {
+            continue;
         }
-        Some((id, content.as_bytes().to_vec()))
-    }).collect()
+        let declared = token["id"].as_u64().map(|v| v as TokenId);
+        let id = match (vocab_size, vocab_lookup(content)) {
+            // HF resolution: content in vocab -> vocab id.
+            (Some(_), Some(vid)) => vid,
+            // Out of vocab -> sequential from vocab_size, in file order.
+            (Some(_), None) => {
+                let next = next_id.as_mut().unwrap();
+                let id = *next;
+                *next += 1;
+                id
+            }
+            // No parseable vocab: trust the declared id.
+            (None, _) => match declared {
+                Some(d) => d,
+                None => continue,
+            },
+        };
+        specs.push(AddedTokenSpec {
+            id,
+            bytes: content.as_bytes().to_vec(),
+            special: token["special"].as_bool().unwrap_or(false),
+            lstrip: token["lstrip"].as_bool().unwrap_or(false),
+            rstrip: token["rstrip"].as_bool().unwrap_or(false),
+            normalized: token["normalized"].as_bool().unwrap_or(false),
+            single_word: token["single_word"].as_bool().unwrap_or(false),
+        });
+    }
+    specs
 }
 
 /// Set up added tokens and special token metadata on a tokenizer from HF JSON data.
 fn setup_added_tokens(tokenizer: &mut Tokenizer, data: &serde_json::Value) {
-    let added = extract_added_tokens(data);
-    if !added.is_empty() {
-        tokenizer.set_added_tokens(&added);
+    let specs = extract_added_token_specs(data);
+    let special: Vec<(String, TokenId)> = specs
+        .iter()
+        .filter(|t| t.special)
+        .filter_map(|t| String::from_utf8(t.bytes.clone()).ok().map(|s| (s, t.id)))
+        .collect();
+    if !specs.is_empty() {
+        tokenizer.set_added_tokens(&specs);
     }
-    // Extract special token metadata (string -> ID mapping)
-    if let Some(added_arr) = data["added_tokens"].as_array() {
-        let special: Vec<(String, TokenId)> = added_arr.iter().filter_map(|token| {
-            let special = token["special"].as_bool().unwrap_or(false);
-            if !special { return None; }
-            let id = token["id"].as_u64()? as TokenId;
-            let content = token["content"].as_str()?;
-            Some((content.to_string(), id))
-        }).collect();
-        if !special.is_empty() {
-            tokenizer.set_special_tokens(special);
-        }
+    if !special.is_empty() {
+        tokenizer.set_special_tokens(special);
     }
 }
 
@@ -1243,6 +1448,39 @@ fn lookup_special_token_id(data: &serde_json::Value, token_str: &str) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_detect_deepseek_multi_stage_splits() {
+        // DeepSeek-V3 puts \p{N}{1,3} in its own Split stage, separate from the
+        // [\p{L}\p{M}]+ letter pattern — detection must consider all stages
+        let data = serde_json::json!({
+            "pre_tokenizer": {
+                "type": "Sequence",
+                "pretokenizers": [
+                    {"type": "Split", "pattern": {"Regex": "\\p{N}{1,3}"}, "behavior": "Isolated", "invert": false},
+                    {"type": "Split", "pattern": {"Regex": "[\u{4e00}-\u{9fa5}\u{3040}-\u{309f}\u{30a0}-\u{30ff}]+"}, "behavior": "Isolated", "invert": false},
+                    {"type": "Split", "pattern": {"Regex": "[!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]^_`{|}~][A-Za-z]+|[^\r\n\\p{L}\\p{P}\\p{S}]?[\\p{L}\\p{M}]+| ?[\\p{P}\\p{S}]+[\r\n]*|\\s*[\r\n]+|\\s+(?!\\S)|\\s+"}, "behavior": "Isolated", "invert": false},
+                    {"type": "ByteLevel", "add_prefix_space": false, "trim_offsets": true, "use_regex": false}
+                ]
+            }
+        });
+        assert_eq!(detect_pretokenizer_type(&data).pretok_type, PretokType::DeepSeek);
+    }
+
+    #[test]
+    fn test_detect_qwen35_single_stage_single_digits() {
+        // Qwen3.5-style: one Split with [\p{L}\p{M}]+ and single \p{N} — must stay Qwen35
+        let data = serde_json::json!({
+            "pre_tokenizer": {
+                "type": "Sequence",
+                "pretokenizers": [
+                    {"type": "Split", "pattern": {"Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\\p{L}\\p{N}]?[\\p{L}\\p{M}]+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\r\n]*|\\s*[\r\n]+|\\s+(?!\\S)|\\s+"}, "behavior": "Isolated", "invert": false},
+                    {"type": "ByteLevel", "add_prefix_space": false, "trim_offsets": true, "use_regex": false}
+                ]
+            }
+        });
+        assert_eq!(detect_pretokenizer_type(&data).pretok_type, PretokType::Qwen35);
+    }
 
     #[test]
     fn test_decode_bytelevel_token_ascii() {

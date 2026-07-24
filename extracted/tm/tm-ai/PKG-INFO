@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tm-ai
-Version: 3.5.11
+Version: 3.5.14
 Summary: Time Machine for AI Agents Cognitive Version Control for LLM context
 Project-URL: Homepage, https://jaimeena.com/cvc
 Project-URL: Documentation, https://jaimeena.com/cvc/docs
@@ -546,6 +546,11 @@ pip install "tm-ai[all]"
 
 # uv (faster, recommended)
 uv tool install "tm-ai[all]"
+
+# Android / restricted-filesystem hosts (Termux, chroots, some WSL2 mounts)
+# If the install fails with `Operation not permitted (os error 1)` during
+# extraction, force uv to copy instead of hardlink:
+UV_LINK_MODE=copy uv tool install "tm-ai[all]"
 
 # Specific provider only
 pip install "tm-ai[anthropic]"   # Claude

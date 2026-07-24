@@ -1,18 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dukpy
-Version: 0.5.1
+Version: 0.6.0
 Summary: Simple JavaScript interpreter for Python
-Home-page: https://github.com/amol-/dukpy
-Author: Alessandro Molina
-Author-email: alessandro@molina.fyi
-License: MIT
-Project-URL: CI: AppVeyor, https://ci.appveyor.com/project/amol-/dukpy
-Project-URL: CI: Travis, https://travis-ci.org/amol-/dukpy
-Project-URL: GitHub: issues, https://github.com/amol-/dukpy/issues
-Project-URL: GitHub: repo, https://github.com/amol-/dukpy
-Keywords: javascript compiler babeljs jsx coffeescript typescript
+Author-email: Alessandro Molina <alessandro@molina.fyi>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/amol-/dukpy
+Keywords: javascript,compiler,jsx,typescript
 Classifier: Development Status :: 3 - Alpha
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
@@ -20,9 +15,18 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: JavaScript
-Provides-Extra: testing
-Provides-Extra: webassets
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: mock; extra == "testing"
+Requires-Dist: build; extra == "testing"
+Requires-Dist: webassets; extra == "testing"
+Provides-Extra: webassets
+Requires-Dist: webassets; extra == "webassets"
+Dynamic: license-file
 
 dukpy
 =====
@@ -36,30 +40,17 @@ dukpy
 .. image:: https://img.shields.io/pypi/v/dukpy.svg
    :target: https://pypi.org/p/dukpy
 
+DukPy is a simple JavaScript interpreter for Python **without any external
+runtime dependency**.
 
-DukPy is a simple javascript interpreter for Python built on top of
-duktape engine **without any external dependency**.
+The name comes from DukPy's original Duktape-based implementation and is kept
+for package compatibility.
+
 It comes with a bunch of common transpilers built-in for convenience:
 
-    - *CoffeeScript*
-    - *BabelJS*
     - *TypeScript*
     - *JSX*
     - *LESS*
-
-CoffeeScript Compiler
----------------------
-
-Using the coffeescript compiler is as easy as running:
-
-.. code:: python
-
-    >>> import dukpy
-    >>> dukpy.coffee_compile('''
-    ...     fill = (container, liquid = "coffee") ->
-    ...         "Filling the #{container} with #{liquid}..."
-    ... ''')
-    '(function() {\n  var fill;\n\n  fill = function*(container, liquid) {\n    if (liquid == null) {\n      liquid = "coffee";\n    }\n    return "Filling the " + container + " with " + liquid + "...";\n  };\n\n}).call(this);\n'
 
 TypeScript Transpiler
 ---------------------
@@ -80,7 +71,7 @@ The TypeScript compiler can be used through the
     ...
     ... var greeter = new Greeter("Hello, world!");
     ... ''')
-    'var Greeter = (function () {\n    function Greeter(greeting) {\n        this.greeting = greeting;\n    }\n    Greeter.prototype.greet = function () {\n        return "<h1>" + this.greeting + "</h1>";\n    };\n    return Greeter;\n})();\n;\nvar greeter = new Greeter("Hello, world!");\n'
+    'var Greeter = /** @class */ (function () {\n    function Greeter(greeting) {\n        this.greeting = greeting;\n    }\n    Greeter.prototype.greet = function () {\n        return "<h1>" + this.greeting + "</h1>";\n    };\n    return Greeter;\n}());\n;\nvar greeter = new Greeter("Hello, world!");\n'
 
 Currently the compiler has built-in options and doesn't accept additional ones,
 
@@ -103,55 +94,6 @@ in the browser, make sure to add
 https://cdnjs.cloudflare.com/ajax/libs/systemjs/0.19.24/system.js
 dependency. As ``import`` statements are resolved using SystemJS.
 
-EcmaScript6 BabelJS Transpiler
-------------------------------
-
-To compile ES6 code to ES5 for everyday usage you can use
-``dukpy.babel_compile``:
-
-.. code:: python
-
-    >>> import dukpy
-    >>> dukpy.babel_compile('''
-    ... class Point {
-    ...     constructor(x, y) {
-    ...             this.x = x;
-    ...         this.y = y;
-    ...         }
-    ...         toString() {
-    ...             return '(' + this.x + ', ' + this.y + ')';
-    ...         }
-    ... }
-    ... ''')
-    '"use strict";\n\nvar _prototypeProperties = function (child, staticProps, instanceProps) { if (staticProps) Object.defineProperties(child, staticProps); if (instanceProps) Object.defineProperties(child.prototype, instanceProps); };\n\nvar _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } };\n\nvar Point = (function () {\n    function Point(x, y) {\n        _classCallCheck(this, Point);\n\n        this.x = x;\n        this.y = y;\n    }\n\n    _prototypeProperties(Point, null, {\n        toString: {\n            value: function toString() {\n                return "(" + this.x + ", " + this.y + ")";\n            },\n            writable: true,\n            configurable: true\n        }\n    });\n\n    return Point;\n})();\n'
-
-You  can pass `options`__ to the BabelJS compiler just as keywords on
-the call to ``babel_compile()``.
-
-__ http://babeljs.io/docs/usage/options/
-
-The DukPY based BabelJS compiler also provides a WebAssets (
-http://webassets.readthedocs.org/en/latest/ ) filter to automatically
-compile ES6 code in your assets pipeline.  You register this filter as
-``babeljs`` within WebAssets using:
-
-.. code:: python
-
-    from webassets.filter import register_filter
-    from dukpy.webassets import BabelJS
-
-    register_filter(BabelJS)
-
-Which makes the filter available with the ``babeljs`` name.
-Only supported filter option is currently `BABEL_MODULES_LOADER` with value
-``systemjs`` or ``umd`` to specify that compiled code should use SystemJS
-or UMD instead of CommonJS for modules.
-
-**NOTE:** When using the BabelJS compiler for code that needs to run
-in the browser, make sure to add
-https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.26.0/polyfill.min.js
-dependency.
-
 JSX to React Transpiling
 ------------------------
 
@@ -162,7 +104,7 @@ DukPy provides a built-in compiler from JSX to React, this is available as
 
     >>> import dukpy
     >>> dukpy.jsx_compile('var react_hello = <h1>Hello, world!</h1>;')
-    u'"use strict";\n\nvar react_hello = React.createElement(\n  "h1",\n  null,\n  "Hello, world!"\n);'
+    '"use strict";\n\nvar react_hello = React.createElement(\n  "h1",\n  null,\n  "Hello, world!"\n);'
 
 The DukPY based JSX compiler also provides a WebAssets (
 http://webassets.readthedocs.org/en/latest/ ) filter to automatically
@@ -177,7 +119,8 @@ compile JSX+ES6 code in your assets pipeline.  You register this filter as
     register_filter(BabelJSX)
 
 Which makes the filter available with the ``babeljsx`` name.
-This filter supports the same options as the babel one.
+The ``BABEL_MODULES_LOADER`` option accepts ``systemjs`` or ``umd`` to compile
+modules for SystemJS or UMD instead of CommonJS.
 
 Less Transpiling
 ----------------
@@ -226,6 +169,40 @@ resulting value as far as it is possible to encode it in JSON.
 If execution fails a ``dukpy.JSRuntimeError`` exception is raised
 with the failure reason.
 
+Running JavaScript files
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``dukpy.run`` or, when reusing an interpreter, ``JSInterpreter.run`` to run a
+JavaScript file entrypoint:
+
+.. code:: python
+
+    >>> import dukpy
+    >>> dukpy.run("./main.mjs")
+    {}
+
+``evaljs`` always evaluates source text as a script. ``run`` reads a file and
+classifies its entrypoint:
+
+- ``.mjs`` files are native ES modules.
+- ``.cjs`` files are CommonJS.
+- ``.js`` files follow the nearest ``package.json`` ``type`` of ``module`` or
+  ``commonjs``.
+
+A ``.js`` file without that package metadata is ambiguous. For both entrypoints
+and dependencies, DukPy asks QuickJS to compile the CommonJS wrapper first; if
+that fails, it runs the file as a native ES module. DukPy never scans source
+text for ``import``, ``export``, ``await``, comments, strings, or identifiers.
+
+Entrypoints use the loader's canonical module ID. For a file under a registered
+loader path, ``import.meta.url`` and CommonJS ``module.id`` may therefore be
+relative to that path.
+
+When ES modules import files classified as CommonJS, DukPy exposes a minimal
+synthetic namespace: ``default`` is ``module.exports``, and the only named
+exports are ``module``, ``exports``, and ``require``. DukPy does not infer named
+exports from CommonJS source; use a default import for CommonJS API objects.
+
 Passing Arguments
 ~~~~~~~~~~~~~~~~~
 
@@ -262,16 +239,6 @@ Multiple script can be passed in a list or tuple:
 This is useful when your code requires dependencies to work,
 as you can load the dependency and then your code.
 
-This is actually how the coffeescript compiler is implemented
-by DukPy itself:
-
-.. code:: python
-
-    def coffee_compile(source):
-        with open(COFFEE_COMPILER, 'r') as coffeescript_js:
-            return evaljs((coffeescript_js.read(), 'CoffeeScript.compile(dukpy.coffeecode)'),
-                          coffeecode=source)
-
 Using a persistent JavaScript Interpreter
 -----------------------------------------
 
@@ -294,9 +261,9 @@ and multiple ``eval`` calls will share the same interpreter and global status:
     >>> import dukpy
     >>> interpreter = dukpy.JSInterpreter()
     >>> interpreter.evaljs("var o = {'value': 5}; o")
-    {u'value': 5}
+    {'value': 5}
     >>> interpreter.evaljs("o.value += 1; o")
-    {u'value': 6}
+    {'value': 6}
 
 Loading modules with require
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -113,14 +113,18 @@ class WorkspaceMarker:
         dvcignore: Extra patterns to add to .dvcignore (merged with DEFAULT_DVCIGNORE).
         transport: Per-workspace transport override. When ``None`` (default), the
             workspace inherits the world config ``transport_mode``. Set to ``"git"`` to
-            use git clone/push, or ``"rsync"`` to do one-shot SSH file sync instead of
-            NFS/SSHFS for this workspace.
+            use git clone/push, ``"rsync"`` to do one-shot SSH file sync, or ``"fuse"``
+            to launch a private lazy-hydrating plato-fuse mount of the workspace's
+            immutable manifest DIRECTLY on each agent VM (read-only datasets only —
+            per-agent mounts have no cross-VM coherence, so writable/shared
+            workspaces must stay on NFS/git/rsync).
         git_config: Git transport configuration. Only used when ``transport="git"``.
         commit_strategy: DVC commit strategy. ``"manifest"`` (default) uploads individual
             files; ``"archive"`` uploads the entire directory as a single tar.gz.
-        readonly: Agents mount the workspace read-only. Supported only for the
-            NFS transport (server export ``ro`` + client mount ``-o ro``); use
-            for large shared datasets agents read in place.
+        readonly: Agents mount the workspace read-only. Supported for the NFS
+            transport (server export ``ro`` + client mount ``-o ro``) and the
+            fuse transport (VFS-level ``remount,ro`` on the agent VM); use for
+            large shared datasets agents read in place.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -142,7 +146,7 @@ class WorkspaceMarker:
         tracked: bool = True,
         mount_path: str | None = None,
         dvcignore: list[str] | None = None,
-        transport: Literal["nfs_kernel", "sshfs", "git", "rsync"] | None = None,
+        transport: Literal["nfs_kernel", "sshfs", "git", "rsync", "fuse"] | None = None,
         git_config: GitTransportConfig | None = None,
         commit_strategy: Literal["manifest", "archive"] = "manifest",
         readonly: bool = False,

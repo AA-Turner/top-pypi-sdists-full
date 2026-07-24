@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.6.9
+Version: 1.6.10
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -20,7 +20,7 @@ Classifier: Topic :: Home Automation
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: esphome-device-builder-frontend==0.1.270
+Requires-Dist: esphome-device-builder-frontend==0.1.271
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: aiohttp-asyncmdnsresolver>=0.1.1
 Requires-Dist: colorlog>=6.8.0
@@ -35,7 +35,7 @@ Requires-Dist: ruamel.yaml>=0.18.0
 Requires-Dist: voluptuous>=0.13.1
 Requires-Dist: zeroconf>=0.150.0
 Provides-Extra: esphome
-Requires-Dist: esphome>=2026.7.1; extra == "esphome"
+Requires-Dist: esphome>=2026.7.2; extra == "esphome"
 Provides-Extra: test
 Requires-Dist: blockbuster<1.6,>=1.5.5; extra == "test"
 Requires-Dist: codespell==2.4.3; extra == "test"
@@ -108,9 +108,12 @@ same way.
 > dashboard id; per-dashboard roots nest under one `C:\esphb` folder),
 > rather than under your config / profile dir, so deep ESP-IDF build paths
 > stay under the 260-char `MAX_PATH` limit and clear of spaces in your
-> profile name (`C:\Users\First Last\…`). It is **not** removed on
-> uninstall, so a reinstall keeps the warm toolchain; delete `C:\esphb` by
-> hand to reclaim the disk space. This applies only to native Windows;
+> profile name (`C:\Users\First Last\…`). The native ESP-IDF toolchain
+> lives at `C:\esphb\idf`, shared by all dashboards on the machine: its
+> compiler probes paths reaching ~245 characters below that folder, so the
+> prefix must stay very short to clear `MAX_PATH`. Nothing here is removed
+> on uninstall, so a reinstall keeps the warm toolchain; delete `C:\esphb`
+> by hand to reclaim the disk space. This applies only to native Windows;
 > running in a Linux Docker container (or the HA add-on) uses the normal
 > data dir.
 

@@ -341,7 +341,8 @@ if CUPY_AVAILABLE:
         int z = i / X;
         int x = i % X;
         float u_i = U[i];
-        float eps = 1e-8f;
+        
+        float gamma = 0.05f; // 5% of max(u_i, u_j) to avoid division by zero
         
         float g = 0.0f;
         float h = 0.0f;
@@ -358,7 +359,7 @@ if CUPY_AVAILABLE:
                 float sum_ij = u_i + u_j;
                 float weight = w[k];
                 
-                float denom = sum_ij + delta * abs_diff + eps;
+                float denom = sum_ij + gamma + delta * abs_diff;
                 float denom_sq = denom * denom;
                 
                 float sign_diff = diff > 0.0f ? 1.0f : (diff < 0.0f ? -1.0f : 0.0f);
@@ -366,10 +367,7 @@ if CUPY_AVAILABLE:
                 
                 g += beta * weight * (2.0f * diff * denom - (diff * diff) * d_denom) / denom_sq;
                 
-                // The exact Hessian of RDP is non-convex. We use the standard 
-                // pragmatic approximation 2.0 / denom to guarantee stability.
                 h += beta * weight * 2.0f / denom;
-                
                 e += beta * weight * (diff * diff) / denom;
             }
         }
@@ -541,14 +539,15 @@ def get_potential_function(
                 e[mask_lin] = beta * w * (abs_diff[mask_lin] - 0.5 * delta)
                 
             elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-                # RDP: U(Δu) = β * w * (Δu)² / (u_i + u_j + δ|Δu|)
-                denom = u_i + u_j + delta * xp.abs(diff) + 1e-8
+                gamma = 0.05
+                # RDP: U(Δu) = β * w * (Δu)² / (u_i + u_j + γ + δ|Δu|)
+                denom = u_i + u_j + gamma + delta * xp.abs(diff)
                 d_denom = 1.0 + delta * xp.sign(diff)
                 
-                # Quotient rule derivative: (u/v)' = (u'v - uv')/v²
+                # Quotient rule derivative
                 g = beta * w * (2.0 * diff * denom - (diff**2) * d_denom) / (denom**2)
                 
-                # Pragmatic strictly convex approximation for Hessian: ∇²U ≈ 2 * β * w / denom
+                # Pragmatic strictly convex approximation for Hessian
                 h = beta * w * 2.0 / denom
                 e = beta * w * (diff**2) / denom
 

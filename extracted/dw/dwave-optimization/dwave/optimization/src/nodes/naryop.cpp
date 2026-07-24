@@ -185,7 +185,7 @@ void NaryOpNode<BinaryOp>::add_node(ArrayNode* node_ptr, bool recompute_statisti
         throw std::invalid_argument("arrays must all be the same shape");
     }
 
-    this->add_predecessor(node_ptr);
+    this->add_predecessor_(node_ptr);
     operands_.emplace_back(node_ptr);
 
     if (recompute_statistics) {
@@ -195,12 +195,12 @@ void NaryOpNode<BinaryOp>::add_node(ArrayNode* node_ptr, bool recompute_statisti
 
 template <class BinaryOp>
 double const* NaryOpNode<BinaryOp>::buff(const State& state) const {
-    return data_ptr<NaryOpNodeData>(state)->buff();
+    return data_ptr_<NaryOpNodeData>(state)->buff();
 }
 
 template <class BinaryOp>
 std::span<const Update> NaryOpNode<BinaryOp>::diff(const State& state) const {
-    return data_ptr<NaryOpNodeData>(state)->diff();
+    return data_ptr_<NaryOpNodeData>(state)->diff();
 }
 
 template <class BinaryOp>
@@ -220,12 +220,12 @@ double NaryOpNode<BinaryOp>::max() const {
 
 template <class BinaryOp>
 void NaryOpNode<BinaryOp>::commit(State& state) const {
-    data_ptr<NaryOpNodeData>(state)->commit();
+    data_ptr_<NaryOpNodeData>(state)->commit();
 }
 
 template <class BinaryOp>
 void NaryOpNode<BinaryOp>::revert(State& state) const {
-    data_ptr<NaryOpNodeData>(state)->revert();
+    data_ptr_<NaryOpNodeData>(state)->revert();
 }
 
 template <class BinaryOp>
@@ -255,12 +255,12 @@ void NaryOpNode<BinaryOp>::initialize_state(State& state) const {
         values.emplace_back(val);
     }
 
-    emplace_data_ptr<NaryOpNodeData>(state, std::move(values), std::move(iterators));
+    emplace_data_ptr_<NaryOpNodeData>(state, std::move(values), std::move(iterators));
 }
 
 template <class BinaryOp>
 void NaryOpNode<BinaryOp>::propagate(State& state) const {
-    auto node_data = data_ptr<NaryOpNodeData>(state);
+    auto node_data = data_ptr_<NaryOpNodeData>(state);
 
     auto& iterators = node_data->iterators;
 
@@ -313,6 +313,18 @@ void NaryOpNode<BinaryOp>::propagate(State& state) const {
             node_data->set(index, val);
         }
     }
+}
+
+template <class BinaryOp>
+void NaryOpNode<BinaryOp>::replace_predecessor_(ssize_t index, Node* node_ptr) {
+    Node::replace_predecessor_(index, node_ptr);
+
+    assert(0 <= index and static_cast<size_t>(index) < operands_.size());
+    ArrayNode* array_ptr = dynamic_cast<ArrayNode*>(node_ptr);
+    assert(array_ptr != nullptr);
+
+    assert(std::ranges::equal(operands_[index]->shape(), array_ptr->shape()));
+    operands_[index] = array_ptr;
 }
 
 template class NaryOpNode<functional::max<double>>;

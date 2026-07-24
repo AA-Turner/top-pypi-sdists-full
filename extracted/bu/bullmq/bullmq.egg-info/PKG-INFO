@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bullmq
-Version: 2.25.3
+Version: 2.25.4
 Summary: BullMQ for Python
 Author-email: "Taskforce.sh Inc." <manast@taskforce.sh>
 Project-URL: Homepage, https://bullmq.io
@@ -13,13 +13,19 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
-Requires-Dist: redis==6.4.0
+Requires-Dist: redis==7.4.0
 Requires-Dist: msgpack==1.2.1
 Requires-Dist: semver==3.0.4
 Provides-Extra: dev
 Requires-Dist: pre-commit==4.5.1; extra == "dev"
 Requires-Dist: build==1.4.2; extra == "dev"
 Requires-Dist: types-redis==4.6.0.20241004; extra == "dev"
+Requires-Dist: pipenv==2026.5.1; extra == "dev"
+Requires-Dist: virtualenv==21.2.0; extra == "dev"
+Requires-Dist: virtualenv-clone==0.5.7; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 
 # BullMQ For Python
 

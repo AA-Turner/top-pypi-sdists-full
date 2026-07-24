@@ -213,6 +213,81 @@ where
     }
 }
 
+/// Symmetric fraction-to-boundary factor for a realized displacement of a
+/// `β ≥ 0` cone-constrained coefficient block (#2390, pattern from #2375).
+///
+/// Returns the largest `α ∈ [0, 1]` such that BOTH `β̂ + α·d` and `β̂ − α·d`
+/// stay in the cone:
+///
+/// ```text
+///   α = min( 1,  min_{j : d_j ≠ 0}  max(β̂_j, 0) / |d_j| )
+/// ```
+///
+/// Depending only on `|d_j|` makes the factor sign-symmetric (`α(d) = α(−d)`),
+/// so a symmetric quadrature rule displaced by `α·d` stays symmetric about `β̂`
+/// and the posterior mean of every linear functional is exactly unbiased. A
+/// coordinate already pinned at its wall (`β̂_j ≤ 0` from round-off, with
+/// `d_j ≠ 0`) collapses the displacement to zero rather than admitting an
+/// infeasible vector — the same convention as the #2375 survival cubature rule.
+pub(crate) fn symmetric_cone_fraction_to_boundary(
+    beta: ArrayView1<'_, f64>,
+    displacement: ArrayView1<'_, f64>,
+) -> f64 {
+    let mut alpha = 1.0_f64;
+    for (b, d) in beta.iter().zip(displacement.iter()) {
+        if *d != 0.0 {
+            alpha = alpha.min(b.max(0.0) / d.abs());
+        }
+    }
+    alpha
+}
+
+/// `[0, ∞)`-truncated Gaussian expectation of a fallible pair integrand
+/// (#2390 layer 2): `E[f(w) | w ≥ 0]` for `w ~ N(mean, sd²)`.
+///
+/// The feasible image of the monotone I-spline cone under a non-negative
+/// basis row is exactly `w ≥ 0`, so the scalar link-wiggle integral must not
+/// spend mass on `w < 0` — predictor values no feasible model produces. The
+/// integral is computed through the truncated CDF map
+/// `w(u) = mean + sd·Φ⁻¹(Φ(−mean/sd) + u·(1 − Φ(−mean/sd)))`, `u ∈ (0, 1)`:
+/// the wall becomes the `u = 0` endpoint, the mapped integrand is smooth on
+/// the open interval, and fixed-node Gauss–Legendre converges spectrally.
+/// Far in the interior (`mean ≫ sd`) the truncated mass underflows and this
+/// is the plain Gaussian expectation.
+pub(crate) fn truncated_nonnegative_normal_expectation_pair(
+    mean: f64,
+    sd: f64,
+    f: impl Fn(f64) -> Result<(f64, f64), String>,
+) -> Result<(f64, f64), String> {
+    if !(sd > 0.0) || !sd.is_finite() {
+        return f(mean.max(0.0));
+    }
+    let p0 = gam_math::probability::normal_cdf(-mean / sd);
+    let retained = 1.0 - p0;
+    if retained <= 1.0e-300 {
+        // The unconstrained Gaussian sits essentially entirely below the wall;
+        // the truncated law concentrates at the wall itself.
+        return f(0.0);
+    }
+    let (nodes, weights) = gam_math::special::gauss_legendre(32);
+    let mut first = 0.0;
+    let mut second = 0.0;
+    for (t, wgt) in nodes.iter().zip(weights.iter()) {
+        let u = 0.5 * (t + 1.0);
+        let q = (p0 + u * retained).clamp(f64::MIN_POSITIVE, 1.0 - f64::EPSILON);
+        let z = gam_math::probability::standard_normal_quantile(q)
+            .map_err(|e| format!("truncated-normal quantile at q={q}: {e}"))?;
+        let w = (mean + sd * z).max(0.0);
+        let (f1, f2) = f(w)?;
+        // Gauss–Legendre on [-1,1] carries a Jacobian ½ into u-space; the
+        // CDF map's own Jacobian is absorbed by construction (du IS the
+        // truncated probability measure).
+        first += 0.5 * wgt * f1;
+        second += 0.5 * wgt * f2;
+    }
+    Ok((first, second))
+}
+
 // Exact response moments must stay in the original Gaussian coordinates:
 // [h, threshold, log_sigma] for non-wiggle predictions, with a nested
 // conditional Gaussian over the scalar link-wiggle contribution when present.
@@ -324,10 +399,31 @@ pub(crate) fn exact_survival_response_moments_row(
             "survival response-moment projected covariance",
             |x, z| {
                 let mut cond_mean = beta_w.to_owned();
+                let mut displacement = Array1::<f64>::zeros(pw);
                 for j in 0..pw {
                     for (col, &latent) in z.iter().enumerate() {
-                        cond_mean[j] += regression[[j, col]] * latent;
+                        displacement[j] += regression[[j, col]] * latent;
                     }
+                }
+                // #2390 (#2385 instance, pattern from #2375): `cond_mean` is a
+                // REALIZED coefficient vector for the cone-constrained
+                // link-wiggle block (`β_w ≥ 0`, the structural monotone
+                // I-spline warp the fit certified). A cone coordinate pinned at
+                // its wall has `β̂_w,j = 0` exactly, so an unconstrained
+                // conditional displacement manufactures a warp the model does
+                // not admit. Scale the displacement by the symmetric
+                // fraction-to-boundary factor so every realized vector stays in
+                // the cone; the factor depends only on `|d_j|`, so `α(z) =
+                // α(−z)` and the rule stays symmetric about `β̂` (the posterior
+                // mean of linear functionals stays exactly unbiased). An
+                // interior `β̂` with modest spread yields `α = 1`, recovering
+                // the unconstrained rule verbatim.
+                let alpha = symmetric_cone_fraction_to_boundary(
+                    beta_w.view(),
+                    displacement.view(),
+                );
+                for j in 0..pw {
+                    cond_mean[j] += alpha * displacement[j];
                 }
                 let q0 = survival_q0_from_eta(x[1], x[2]);
                 let q0_arr = Array1::from_vec(vec![q0]);
@@ -347,13 +443,19 @@ pub(crate) fn exact_survival_response_moments_row(
                 let b = basis.row(0).to_owned();
                 let w_mean = b.dot(&cond_mean);
                 let w_var = b.dot(&cov_cond.dot(&b)).max(0.0);
-                crate::quadrature::normal_expectation_nd_adaptive_result::<1, _, _, String>(
-                    quadctx,
-                    [x[0] + q0 + w_mean],
-                    [[w_var]],
-                    21,
-                    |eta| {
-                        let p = inverse_link_survival_prob_checked(&input.inverse_link, eta[0])?;
+                // #2390 layer 2: the wiggle contribution's feasible image is
+                // exactly `w ≥ 0` (non-negative I-spline basis row against the
+                // β_w ≥ 0 cone), so the scalar integral runs over the
+                // `[0, ∞)`-truncated conditional Gaussian — never over
+                // predictor values no feasible model produces.
+                truncated_nonnegative_normal_expectation_pair(
+                    w_mean,
+                    w_var.sqrt(),
+                    |w| {
+                        let p = inverse_link_survival_prob_checked(
+                            &input.inverse_link,
+                            x[0] + q0 + w,
+                        )?;
                         Ok((p, p * p))
                     },
                 )

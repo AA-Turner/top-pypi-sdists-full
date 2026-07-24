@@ -54,7 +54,55 @@ class PnpmProvider(BinProvider):
     name: BinProviderName = "pnpm"
     _log_emoji = "📦"
     INSTALLER_BIN: BinName = "pnpm"
-    INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = ("npm",)
+    INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = (
+        "env",
+        "npm",
+    )
+    FIRST_WRITER_ENV_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"NODE_MODULES_DIR", "NODE_MODULE_DIR"},
+    )
+
+    @classmethod
+    def host_projection_target(cls, source_path: Path) -> Path | None:
+        """Resolve a pnpm shell shim to the executable package script it wraps."""
+        launcher_path = source_path.resolve(strict=False)
+        try:
+            with launcher_path.open("rb") as launcher_file:
+                launcher_bytes = launcher_file.read(64 * 1024)
+        except OSError:
+            return None
+        if not launcher_bytes.startswith(b"#!/bin/sh"):
+            return None
+        try:
+            launcher_text = launcher_bytes.decode("utf-8")
+        except UnicodeError:
+            return None
+
+        relative_prefix = "$basedir/../.pnpm/"
+        for line in reversed(launcher_text.splitlines()):
+            if relative_prefix not in line:
+                continue
+            try:
+                tokens = shlex.split(line)
+            except ValueError:
+                continue
+            for token in tokens:
+                if not token.startswith(relative_prefix):
+                    continue
+                relative_target = token.removeprefix("$basedir/")
+                package_store = (launcher_path.parent.parent / ".pnpm").resolve(
+                    strict=False,
+                )
+                target = (launcher_path.parent / relative_target).resolve(
+                    strict=False,
+                )
+                if (
+                    target.is_relative_to(package_store)
+                    and target.is_file()
+                    and os.access(target, os.X_OK)
+                ):
+                    return target
+        return None
 
     PATH: PATHStr = ""  # Starts empty; setup_PATH() lazily uses install_root/bin_dir only, or PNPM_HOME in global mode.
     postinstall_scripts: bool | None = Field(
@@ -287,7 +335,7 @@ class PnpmProvider(BinProvider):
         if version is None or version >= (22, 13, 0):
             return "pnpm"
         if version >= (18, 12, 0):
-            return "pnpm@10"
+            return "pnpm@10.19.0"
         if version >= (16, 14, 0):
             return "pnpm@8"
         if version >= (14, 6, 0):
@@ -365,17 +413,20 @@ class PnpmProvider(BinProvider):
         from .binprovider_npm import NpmProvider
 
         npm_root = self._installer_provider_root()
-        node_loaded = self._cache_node_dependency(no_cache=no_cache)
-        pnpm_package = self._pnpm_package_for_node(
-            node_loaded.loaded_version if node_loaded is not None else None,
-        )
         npm_provider = NpmProvider(
             install_root=npm_root,
             postinstall_scripts=True,
             min_release_age=0,
-        ).get_provider_with_overrides(
+        )
+        npm_installer = npm_provider.INSTALLER_BINARY(no_cache=no_cache)
+        node_loaded = self._cache_node_dependency(no_cache=no_cache)
+        pnpm_package = self._pnpm_package_for_node(
+            node_loaded.loaded_version if node_loaded is not None else None,
+        )
+        npm_provider = npm_provider.get_provider_with_overrides(
             overrides={"pnpm": {"install_args": [pnpm_package]}},
         )
+        npm_provider._INSTALLER_BINARY = npm_installer
 
         # npm is a host dependency. Project it into the managed env/bin before
         # giving it to the npm provider so no programmatic path relies on the
@@ -499,6 +550,18 @@ class PnpmProvider(BinProvider):
         # pnpm REQUIRES PNPM_HOME to exist for global installs to work.
         pnpm_home = Path(self.ENV["PNPM_HOME"])
         pnpm_home.mkdir(parents=True, exist_ok=True)
+        installer_abspath = (
+            self._INSTALLER_BINARY.loaded_abspath
+            if self._INSTALLER_BINARY is not None
+            else None
+        )
+        is_installer = str(bin_name) == str(self.INSTALLER_BIN) or (
+            installer_abspath is not None
+            and Path(bin_name).resolve(strict=False)
+            == Path(installer_abspath).resolve(strict=False)
+        )
+        if self.install_root is None and is_installer:
+            cmd = (f"--config.global-bin-dir={pnpm_home}", *cmd)
         if env_flag_is_true("ABXPKG_NO_CACHE"):
             env = dict(os.environ if kwargs.get("env") is None else kwargs["env"])
             env["XDG_CACHE_HOME"] = str(abxpkg_ephemeral_cache_home_default())

@@ -1,19 +1,18 @@
 Metadata-Version: 2.4
 Name: django-phonenumber-field
-Version: 8.4.0
+Version: 8.5.0
 Summary: An international phone number field for django models.
 Author-email: Stefan Foulis <stefan@foulis.ch>, François Freitag <mail@franek.fr>
 Maintainer-email: François Freitag <mail@franek.fr>, Stefan Foulis <stefan@foulis.ch>
 License: MIT
-Project-URL: Homepage, https://github.com/stefanfoulis/django-phonenumber-field
+Project-URL: Homepage, https://github.com/django-phonenumber-field/django-phonenumber-field
 Project-URL: Documentation, https://django-phonenumber-field.readthedocs.io/
-Project-URL: Source, https://github.com/stefanfoulis/django-phonenumber-field
-Project-URL: Tracker, https://github.com/stefanfoulis/django-phonenumber-field/issues/
-Project-URL: Changelog, https://github.com/stefanfoulis/django-phonenumber-field/releases/
+Project-URL: Source, https://github.com/django-phonenumber-field/django-phonenumber-field
+Project-URL: Tracker, https://github.com/django-phonenumber-field/django-phonenumber-field/issues/
+Project-URL: Changelog, https://github.com/django-phonenumber-field/django-phonenumber-field/releases/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
@@ -34,6 +33,8 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: Django>=4.2
+Provides-Extra: babel
+Requires-Dist: Babel; extra == "babel"
 Provides-Extra: phonenumbers
 Requires-Dist: phonenumbers>=7.0.2; extra == "phonenumbers"
 Provides-Extra: phonenumberslite
@@ -44,10 +45,10 @@ Dynamic: license-file
 django-phonenumber-field
 ========================
 
-.. image:: https://github.com/stefanfoulis/django-phonenumber-field/workflows/Test/badge.svg
-    :target: https://github.com/stefanfoulis/django-phonenumber-field/workflows/Test/badge.svg
-.. image:: https://img.shields.io/coveralls/stefanfoulis/django-phonenumber-field/develop.svg
-    :target: https://coveralls.io/github/stefanfoulis/django-phonenumber-field?branch=main
+.. image:: https://github.com/django-phonenumber-field/django-phonenumber-field/workflows/Test/badge.svg
+    :target: https://github.com/django-phonenumber-field/django-phonenumber-field/workflows/Test/badge.svg
+.. image:: https://img.shields.io/coveralls/django-phonenumber-field/django-phonenumber-field/develop.svg
+    :target: https://coveralls.io/github/django-phonenumber-field/django-phonenumber-field?branch=main
 
 A Django library which interfaces with `python-phonenumbers`_ to validate, pretty print and convert
 phone numbers. ``python-phonenumbers`` is a port of Google's `libphonenumber`_ library, which
@@ -69,6 +70,5 @@ available Python interpreters and generate a combined coverage report::
 
     tox
 
-run a specific combination::
-
-    tox -e py310-djmain,py39-djmain
+The `cheat sheet for tox <https://tox.wiki/en/latest/user_guide.html#cli>`__
+gives the most useful commands.

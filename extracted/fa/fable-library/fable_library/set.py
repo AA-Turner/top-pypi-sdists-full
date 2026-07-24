@@ -40,7 +40,7 @@ from .system import NotSupportedException__ctor_Z721C83C5
 from .util import UNIT, Disposable, Unit, get_enumerator, ignore, nullable, structural_hash
 
 
-def _expr194(gen0: TypeInfo) -> TypeInfo:
+def _expr175(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeLeaf`1", Array([gen0]), SetTreeLeaf_1)
 
 
@@ -49,7 +49,7 @@ class SetTreeLeaf_1[T]:
         self.k: Any = k
 
 
-SetTreeLeaf_1_reflection = _expr194
+SetTreeLeaf_1_reflection = _expr175
 
 
 def SetTreeLeaf_1__ctor_2B595[T](k: T = UNIT) -> SetTreeLeaf_1[T]:
@@ -60,7 +60,7 @@ def SetTreeLeaf_1__get_Key[T](_: SetTreeLeaf_1[T]) -> T:
     return _.k
 
 
-def _expr195(gen0: TypeInfo) -> TypeInfo:
+def _expr178(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeNode`1", Array([gen0]), SetTreeNode_1, SetTreeLeaf_1_reflection(gen0))
 
 
@@ -72,7 +72,7 @@ class SetTreeNode_1[T](SetTreeLeaf_1):
         self.h: int32 = h
 
 
-SetTreeNode_1_reflection = _expr195
+SetTreeNode_1_reflection = _expr178
 
 
 def SetTreeNode_1__ctor_5F465FC9[T](
@@ -174,7 +174,7 @@ def SetTreeModule_rebalance[T](
         if isinstance(match_value, SetTreeNode_1):
             t2_0027: SetTreeNode_1[Any] = match_value
 
-            def _arrow196(__unit: Unit = UNIT) -> int32:
+            def _arrow185(__unit: Unit = UNIT) -> int32:
                 t_2: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Left(t2_0027))
                 if t_2 is not None:
                     t2_3: SetTreeLeaf_1[Any] = t_2
@@ -183,7 +183,7 @@ def SetTreeModule_rebalance[T](
                 else:
                     return int32.ZERO
 
-            if _arrow196() > (t1h + int32.ONE):
+            if _arrow185() > (t1h + int32.ONE):
                 match_value_1: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Left(t2_0027))
                 if isinstance(match_value_1, SetTreeNode_1):
                     t2l: SetTreeNode_1[Any] = match_value_1
@@ -219,7 +219,7 @@ def SetTreeModule_rebalance[T](
         if isinstance(match_value_2, SetTreeNode_1):
             t1_0027: SetTreeNode_1[Any] = match_value_2
 
-            def _arrow197(__unit: Unit = UNIT) -> int32:
+            def _arrow189(__unit: Unit = UNIT) -> int32:
                 t_3: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Right(t1_0027))
                 if t_3 is not None:
                     t2_4: SetTreeLeaf_1[Any] = t_3
@@ -228,7 +228,7 @@ def SetTreeModule_rebalance[T](
                 else:
                     return int32.ZERO
 
-            if _arrow197() > (t2h + int32.ONE):
+            if _arrow189() > (t2h + int32.ONE):
                 match_value_3: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Right(t1_0027))
                 if isinstance(match_value_3, SetTreeNode_1):
                     t1r: SetTreeNode_1[Any] = match_value_3

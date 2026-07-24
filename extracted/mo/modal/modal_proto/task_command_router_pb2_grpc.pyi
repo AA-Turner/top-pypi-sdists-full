@@ -113,6 +113,15 @@ class TaskCommandRouterStub:
         modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse,
     ]
     """Snapshot the full task filesystem into a new image."""
+    TaskSnapshotMemory: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskSnapshotMemoryRequest,
+        modal_proto.task_command_router_pb2.TaskSnapshotMemoryResponse,
+    ]
+    """Take a memory snapshot of the task's sandbox container. Idempotency is
+    keyed on the request idempotency_key: concurrent and repeated calls with
+    the same key share one snapshot attempt. A successful snapshot currently
+    terminates the container.
+    """
     TaskUnmountDirectory: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskUnmountDirectoryRequest,
         google.protobuf.empty_pb2.Empty,
@@ -263,6 +272,17 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.task_command_router_pb2.TaskSnapshotFilesystemResponse:
         """Snapshot the full task filesystem into a new image."""
+    @abc.abstractmethod
+    def TaskSnapshotMemory(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskSnapshotMemoryRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskSnapshotMemoryResponse:
+        """Take a memory snapshot of the task's sandbox container. Idempotency is
+        keyed on the request idempotency_key: concurrent and repeated calls with
+        the same key share one snapshot attempt. A successful snapshot currently
+        terminates the container.
+        """
     @abc.abstractmethod
     def TaskUnmountDirectory(
         self,

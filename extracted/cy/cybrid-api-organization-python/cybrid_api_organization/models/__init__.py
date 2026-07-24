@@ -14,6 +14,7 @@ from cybrid_api_organization.model.list_request_page import ListRequestPage
 from cybrid_api_organization.model.list_request_per_page import ListRequestPerPage
 from cybrid_api_organization.model.organization import Organization
 from cybrid_api_organization.model.patch_organization import PatchOrganization
+from cybrid_api_organization.model.patch_subscription import PatchSubscription
 from cybrid_api_organization.model.post_subscription import PostSubscription
 from cybrid_api_organization.model.post_subscription_delivery import PostSubscriptionDelivery
 from cybrid_api_organization.model.subscription import Subscription

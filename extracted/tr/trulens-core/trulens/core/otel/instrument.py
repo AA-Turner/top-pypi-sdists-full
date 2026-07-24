@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 import types
@@ -22,6 +23,18 @@ from opentelemetry.baggage import set_baggage
 import opentelemetry.context as context_api
 from opentelemetry.trace.span import Span
 from trulens.core.otel.function_call_context_manager import (
+    NESTED_RECORD_PARENT_APP_ID_BAGGAGE_KEY,
+)
+from trulens.core.otel.function_call_context_manager import (
+    NESTED_RECORD_PARENT_RECORD_ID_BAGGAGE_KEY,
+)
+from trulens.core.otel.function_call_context_manager import (
+    NESTED_RECORD_PARENT_SPAN_ID_BAGGAGE_KEY,
+)
+from trulens.core.otel.function_call_context_manager import (
+    NESTED_RECORD_UNJOINABLE_PARENT_RECORD_ID_BAGGAGE_KEY,
+)
+from trulens.core.otel.function_call_context_manager import (
     create_function_call_context_manager,
 )
 from trulens.core.otel.recording import Recording
@@ -30,6 +43,15 @@ from trulens.experimental.otel_tracing.core.session import TRULENS_SERVICE_NAME
 from trulens.experimental.otel_tracing.core.span import Attributes
 from trulens.experimental.otel_tracing.core.span import (
     set_function_call_attributes,
+)
+from trulens.experimental.otel_tracing.core.span import (
+    set_genai_generation_attributes,
+)
+from trulens.experimental.otel_tracing.core.span import (
+    set_genai_retrieval_attributes,
+)
+from trulens.experimental.otel_tracing.core.span import (
+    set_genai_tool_attributes,
 )
 from trulens.experimental.otel_tracing.core.span import (
     set_general_span_attributes,
@@ -125,7 +147,10 @@ def _set_span_attributes(
         # Set general span attributes.
         set_general_span_attributes(span, span_type)
         # Set record root span attributes if necessary.
-        if span_type == SpanAttributes.SpanType.RECORD_ROOT:
+        if span_type in (
+            SpanAttributes.SpanType.RECORD_ROOT,
+            SpanAttributes.SpanType.NESTED_RECORD_ROOT,
+        ):
             set_record_root_span_attributes(
                 span,
                 func,
@@ -153,6 +178,44 @@ def _set_span_attributes(
     if resolved_attributes:
         # Set the user-provided attributes.
         set_user_defined_attributes(span, attributes=resolved_attributes)
+    # Emit GenAI semantic convention attributes alongside TruLens-specific
+    # ones so that OTEL-native collectors can consume spans without
+    # needing TruLens-specific attribute knowledge.
+    if span_type == SpanAttributes.SpanType.GENERATION:
+        set_genai_generation_attributes(
+            span,
+            model=resolved_attributes.get(SpanAttributes.COST.MODEL),
+            input_tokens=resolved_attributes.get(
+                SpanAttributes.COST.NUM_PROMPT_TOKENS
+            ),
+            output_tokens=resolved_attributes.get(
+                SpanAttributes.COST.NUM_COMPLETION_TOKENS
+            ),
+            temperature=resolved_attributes.get("temperature"),
+            provider_name=resolved_attributes.get("provider_name"),
+            operation_name=resolved_attributes.get("operation_name"),
+        )
+    elif span_type == SpanAttributes.SpanType.RETRIEVAL:
+        set_genai_retrieval_attributes(
+            span,
+            query_text=resolved_attributes.get(
+                SpanAttributes.RETRIEVAL.QUERY_TEXT
+            ),
+            documents=resolved_attributes.get(
+                SpanAttributes.RETRIEVAL.RETRIEVED_CONTEXTS
+            ),
+        )
+    elif span_type in (
+        SpanAttributes.SpanType.TOOL,
+        SpanAttributes.SpanType.MCP,
+    ):
+        set_genai_tool_attributes(
+            span,
+            # func_name is the instrumented function / tool name.
+            tool_name=func_name,
+            call_arguments=resolved_attributes.get("call_arguments"),
+            call_result=resolved_attributes.get("call_result"),
+        )
 
 
 def _finalize_span(
@@ -339,6 +402,27 @@ class instrument:
                 # Run function.
                 try:
                     ret = await func(*args, **kwargs)
+                except asyncio.CancelledError:
+                    try:
+                        _finalize_span(
+                            span,
+                            self.span_type,
+                            func_name_for_call,
+                            func,
+                            None,
+                            self.attributes,
+                            instance,
+                            args,
+                            kwargs,
+                            ret,
+                            self.only_set_user_defined_attributes,
+                            span_end_callbacks,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Error finalizing span during cancellation."
+                        )
+                    raise
                 except Exception as e:
                     # We want to get into the next clause to allow the users
                     # to still add attributes. It's on the user to deal with
@@ -443,12 +527,16 @@ def instrument_method(
     attributes: Attributes = None,
     must_be_first_wrapper: bool = False,
 ) -> None:
+    method = getattr(cls, method_name)
+    if hasattr(method, TRULENS_INSTRUMENT_WRAPPER_FLAG):
+        return
+
     wrapper = instrument(
         span_type=span_type,
         attributes=attributes,
         must_be_first_wrapper=must_be_first_wrapper,
     )
-    setattr(cls, method_name, wrapper(getattr(cls, method_name)))
+    setattr(cls, method_name, wrapper(method))
 
 
 def instrument_cost_computer(
@@ -506,8 +594,15 @@ class OtelBaseRecordingContext:
 
     # Calling set_baggage does not actually add the baggage to the current context, but returns a new one
     # To avoid issues with remembering to add/remove the baggage, we attach it to the runtime context.
-    def attach_to_context(self, key: str, value: object):
-        if get_baggage(key) or value is None:
+    def attach_to_context(
+        self, key: str, value: object, *, override: bool = False
+    ):
+        # Skip unset values; only overwrite existing baggage when `override=True`
+        # (used by nested TruApp calls to attach parent-linkage keys onto a
+        # context that may already carry an outer app's baggage).
+        if value is None:
+            return
+        if get_baggage(key) and not override:
             return
 
         self.tokens.append(context_api.attach(set_baggage(key, value)))
@@ -557,6 +652,7 @@ class OtelRecordingContext(OtelBaseRecordingContext):
         input_selector: Optional[
             Callable[[Tuple[Any, ...], Dict[str, Any]], Any]
         ] = None,
+        conversation_id: Optional[str] = None,
     ) -> None:
         app_id = AppDefinition._compute_app_id(app_name, app_version)
         super().__init__(
@@ -570,15 +666,61 @@ class OtelRecordingContext(OtelBaseRecordingContext):
         self.input_records_count = input_records_count
         self.ground_truth_output = ground_truth_output
         self.input_selector = input_selector
+        self.conversation_id = conversation_id
 
     # For use as a context manager.
     def __enter__(self) -> Recording:
-        self.attach_to_context("__trulens_app__", self.tru_app)
-        self.attach_to_context(ResourceAttributes.APP_NAME, self.app_name)
-        self.attach_to_context(ResourceAttributes.APP_VERSION, self.app_version)
-        self.attach_to_context(ResourceAttributes.APP_ID, self.app_id)
+        parent_record_id = get_baggage(SpanAttributes.RECORD_ID)
+        parent_app_id = get_baggage(ResourceAttributes.APP_ID)
+        parent_otel_ctx = get_baggage("__trulens_otel_ctx__")
+        parent_recording = get_baggage("__trulens_recording__")
+
+        if (
+            parent_record_id is not None
+            and parent_app_id is not None
+            and parent_otel_ctx is not None
+            and parent_recording is not None
+        ):
+            current_span = trace.get_current_span()
+            current_span_context = current_span.get_span_context()
+            if (
+                current_span_context is not None
+                and current_span_context.is_valid
+            ):
+                self.attach_to_context(
+                    NESTED_RECORD_PARENT_RECORD_ID_BAGGAGE_KEY,
+                    parent_record_id,
+                    override=True,
+                )
+                self.attach_to_context(
+                    NESTED_RECORD_PARENT_SPAN_ID_BAGGAGE_KEY,
+                    str(current_span_context.span_id),
+                    override=True,
+                )
+                self.attach_to_context(
+                    NESTED_RECORD_PARENT_APP_ID_BAGGAGE_KEY,
+                    parent_app_id,
+                    override=True,
+                )
+            else:
+                self.attach_to_context(
+                    NESTED_RECORD_UNJOINABLE_PARENT_RECORD_ID_BAGGAGE_KEY,
+                    parent_record_id,
+                    override=True,
+                )
+
+        self.attach_to_context("__trulens_app__", self.tru_app, override=True)
+        self.attach_to_context(
+            ResourceAttributes.APP_NAME, self.app_name, override=True
+        )
+        self.attach_to_context(
+            ResourceAttributes.APP_VERSION, self.app_version, override=True
+        )
+        self.attach_to_context(
+            ResourceAttributes.APP_ID, self.app_id, override=True
+        )
         # Attach self so child spans can register baggage tokens for cleanup at app exit.
-        self.attach_to_context("__trulens_otel_ctx__", self)
+        self.attach_to_context("__trulens_otel_ctx__", self, override=True)
         self.attach_to_context(SpanAttributes.RUN_NAME, self.run_name)
         self.attach_to_context(SpanAttributes.INPUT_ID, self.input_id)
 
@@ -593,9 +735,13 @@ class OtelRecordingContext(OtelBaseRecordingContext):
         self.attach_to_context(
             "__trulens_input_selector__", self.input_selector
         )
+        if self.conversation_id is not None:
+            self.attach_to_context(
+                SpanAttributes.CONVERSATION_ID, self.conversation_id
+            )
 
         ret = Recording(self.tru_app)
-        self.attach_to_context("__trulens_recording__", ret)
+        self.attach_to_context("__trulens_recording__", ret, override=True)
         return ret
 
 

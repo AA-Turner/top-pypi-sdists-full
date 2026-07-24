@@ -5,7 +5,7 @@ import os
 import re
 import sys
 import tomllib
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -515,30 +515,32 @@ def _script_deps_from(
 
 
 def _build_binary(binary_name: str, options: ScriptOptions):
-    from . import DEFAULT_PROVIDER_NAMES, PROVIDER_CLASS_BY_NAME, Binary, EnvProvider
+    from . import (
+        DEFAULT_PROVIDER_NAMES,
+        PROVIDER_CLASS_BY_INSTALLER_BIN,
+        Binary,
+    )
 
     provider_names = options.provider_names
     if provider_names == list(DEFAULT_PROVIDER_NAMES):
-        for provider_class in PROVIDER_CLASS_BY_NAME.values():
-            if provider_class.model_fields["INSTALLER_BIN"].default != binary_name:
-                continue
-            preferred = getattr(provider_class, "INSTALLER_BINPROVIDERS", None)
-            if preferred:
-                provider_names = [
-                    name for name in preferred if name in options.provider_names
-                ]
-            break
+        owner_class = PROVIDER_CLASS_BY_INSTALLER_BIN.get(binary_name)
+        preferred = (
+            owner_class.INSTALLER_BINPROVIDERS if owner_class is not None else None
+        )
+        if preferred:
+            provider_names = [
+                name for name in preferred if name in options.provider_names
+            ]
 
     providers = _build_providers(provider_names, options)
     explicit_abspath = Path(binary_name).expanduser()
+    inferred_overrides: dict[str, Any] | None = None
     if explicit_abspath.is_absolute():
         for provider in providers:
-            if type(provider) is EnvProvider:
-                provider.PATH = provider._merge_PATH(
-                    explicit_abspath.parent,
-                    PATH=provider.PATH,
-                    prepend=True,
-                )
+            inferred_overrides = merge_binary_overrides(
+                inferred_overrides,
+                provider.explicit_abspath_overrides(explicit_abspath),
+            )
 
     kwargs: dict[str, Any] = {
         "name": binary_name,
@@ -548,8 +550,9 @@ def _build_binary(binary_name: str, options: ScriptOptions):
         value = getattr(options, key)
         if value is not None:
             kwargs[key] = value
-    if options.overrides is not None:
-        kwargs["overrides"] = options.overrides
+    overrides = merge_binary_overrides(inferred_overrides, options.overrides)
+    if overrides is not None:
+        kwargs["overrides"] = overrides
     return Binary(**kwargs)
 
 
@@ -585,15 +588,6 @@ def _same_runtime_provider(provider, loaded_provider) -> bool:
 
 
 def _load_or_install_script_binary(binary_name: str, options: ScriptOptions):
-    if options.provider_names and options.provider_names[0] == "env":
-        host_binary = _build_binary(
-            binary_name,
-            replace(options, provider_names=["env"]),
-        )
-        try:
-            return host_binary.load(no_cache=options.no_cache)
-        except ABXPkgError:
-            pass
     return _build_binary(binary_name, options).install(
         dry_run=options.dry_run,
         no_cache=options.no_cache,

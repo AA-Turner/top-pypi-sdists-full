@@ -38,7 +38,7 @@ class TableCell(Canvas):
         self.align = align
         self.valign = valign
         self._width = None
-        self.line_width = None
+        self.line_width: list[int] = []
         self.vertical_padding = 0
 
     def normalize_blocks(self) -> int:
@@ -127,8 +127,10 @@ class TableCell(Canvas):
 
         # the easy case - the cell has only one line :)
         if len(self.blocks) == 1:
+            content_width = self.line_width[0]
+            result = horizontal_shift(self.annotations, content_width, self.width, self.align, idx)
             self.line_width[0] = self.width
-            return horizontal_shift(self.annotations, self.line_width[0], self.width, self.align, idx)
+            return result
 
         # the more challenging one - multiple cell lines
         line_break_pos = list(accumulate(self.line_width))

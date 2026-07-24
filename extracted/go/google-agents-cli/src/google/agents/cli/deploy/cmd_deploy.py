@@ -26,6 +26,7 @@ import click
 import requests
 
 from google.agents.cli import _tools
+from google.agents.cli._gcp_project import resolve_gcp_project
 from google.agents.cli._project import (
     ProjectConfig,
     chdir_project_root,
@@ -33,7 +34,6 @@ from google.agents.cli._project import (
     find_project_root,
     read_project_config,
     require_deployment_target,
-    resolve_gcp_project,
 )
 from google.agents.cli._runner import popen_resolved, run, run_resolved
 from google.agents.cli.auth import get_access_token
@@ -688,6 +688,8 @@ def cmd_deploy(
         env_var_map = read_project_dotenv(project_root)
         env_var_map.update(parse_key_value_pairs(update_env_vars))
         env_var_map.setdefault("AGENT_VERSION", get_project_version(project_root))
+        # Fail closed: ADK defaults content-in-spans to true; keep it off for bare deploys.
+        env_var_map.setdefault("ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS", "false")
 
         # Set APP_URL so the service knows its own URL (used by A2A agent cards, etc.)
         if "APP_URL" not in env_var_map and project:
@@ -1043,6 +1045,8 @@ def _deploy_gke(
     env_var_map = read_project_dotenv(project_root)
     env_var_map.update(parse_key_value_pairs(update_env_vars))
     env_var_map.setdefault("AGENT_VERSION", get_project_version(project_root))
+    # Fail closed: ADK defaults content-in-spans to true; keep it off for bare deploys.
+    env_var_map.setdefault("ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS", "false")
 
     click.echo("\n🌐 Getting service IP...")
     ip_result = run(

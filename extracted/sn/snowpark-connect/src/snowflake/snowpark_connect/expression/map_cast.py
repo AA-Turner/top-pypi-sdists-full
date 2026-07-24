@@ -536,6 +536,15 @@ def map_cast(
         case (StringType(), BinaryType()):
             result_exp = snowpark_fn.to_binary(col, "UTF-8")
         case (_IntegralType(), BinaryType()):
+            if spark_sql_ansi_enabled:
+                from_type_name = _spark_source_type_name(from_type)
+                exception = AnalysisException(
+                    f'[DATATYPE_MISMATCH.CAST_WITH_CONF_SUGGESTION] Cannot resolve "CAST({col_name} AS BINARY)" '
+                    f'due to data type mismatch: cannot cast "{from_type_name}" to "BINARY" with ANSI mode on. '
+                    f'If you have to cast "{from_type_name}" to "BINARY", you can set "spark.sql.ansi.enabled" as \'false\'.'
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
+                raise exception
             type_name = type(from_type).__name__.lower().replace("type", "")
             match type_name:
                 case "byte":

@@ -13,6 +13,7 @@ from snowflake.snowpark.types import (
     MapType,
     StructField,
     StructType,
+    _IntegralType,
 )
 
 
@@ -41,6 +42,14 @@ def datatypes_equal(
 
     if isinstance(dt1, DecimalType):
         return dt1.precision == dt2.precision and dt1.scale == dt2.scale
+
+    if isinstance(dt1, _IntegralType):
+        # Under integral type emulation two same-class integral types (e.g. two
+        # LongTypes) can carry different ``_precision`` values that resolve to
+        # different emulated types. ``_IntegralType.__eq__`` already compares
+        # ``_precision`` when compatible mode is enabled and ignores it
+        # otherwise, so delegate to it rather than treating them as equal.
+        return dt1 == dt2
 
     return True
 

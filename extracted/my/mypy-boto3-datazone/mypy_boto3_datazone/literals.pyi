@@ -388,7 +388,7 @@ NotebookExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 NotebookRunStatusType = Literal[
     "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
 ]
-NotebookStatusType = Literal["ACTIVE", "ARCHIVED"]
+NotebookStatusType = Literal["ACTIVE", "ARCHIVED", "SYNC_FAILED", "SYNC_IN_PROGRESS"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"
@@ -840,6 +840,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

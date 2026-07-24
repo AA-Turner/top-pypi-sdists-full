@@ -2092,25 +2092,6 @@ class ConversationFilterFieldName(pycarlo.lib.types.Enum):
     )
 
 
-class ConversationLookupStatus(pycarlo.lib.types.Enum):
-    """Outcome of a per-space point lookup of the target conversation.
-    ``FOUND`` (HTTP 200), ``FORBIDDEN`` (403 — exists but this
-    principal cannot read     it), ``NOT_FOUND`` (404 — not in this
-    space), ``ERROR`` (transport/other). Values     match :class:`~...
-    databricks_agent_discovery.GenieConversationLookup.status`.
-
-    Enumeration Choices:
-
-    * `ERROR`None
-    * `FORBIDDEN`None
-    * `FOUND`None
-    * `NOT_FOUND`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("ERROR", "FORBIDDEN", "FOUND", "NOT_FOUND")
-
-
 class ConversationSortField(pycarlo.lib.types.Enum):
     """Fields that can be used for sorting conversations.
 
@@ -4353,29 +4334,6 @@ class GenericScalar(sgqlc.types.Scalar):
     __schema__ = schema
 
 
-class GenieCanManageVia(pycarlo.lib.types.Enum):
-    """How the run-as principal holds CAN MANAGE on a Genie space.
-    ``DIRECT`` — a direct principal (user / service-principal) ACL
-    entry grants it.     ``GROUP`` — no direct entry, but the
-    principal effectively has manage (the ACL     was readable) so it
-    is inherited via a group grant; group-permission propagation
-    is eventually-consistent and is the prime suspect for a transient,
-    self-resolving     ``PERMISSION_FALLBACK``. ``NONE`` — the
-    principal lacks CAN MANAGE (ACL not     readable). ``UNKNOWN`` —
-    the ACL could not be parsed.
-
-    Enumeration Choices:
-
-    * `DIRECT`None
-    * `GROUP`None
-    * `NONE`None
-    * `UNKNOWN`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("DIRECT", "GROUP", "NONE", "UNKNOWN")
-
-
 class GenieCollectorGrantKind(pycarlo.lib.types.Enum):
     """A Databricks grant the install gate verifies before a Genie
     registration.      The collector needs all four to install and run
@@ -4438,42 +4396,20 @@ class GenieCollectorRunStatus(pycarlo.lib.types.Enum):
     __choices__ = ("CANCELLED", "FAILED", "RUNNING", "SUCCESS")
 
 
-class GenieCollectorVerdict(pycarlo.lib.types.Enum):
-    """Classified cause of a Genie "no new traces" report.      Ordered
-    by the precedence :func:`_classify_genie_collector_verdict`
-    applies.
+class GithubActionTriggerDispatchStatus(pycarlo.lib.types.Enum):
+    """Lifecycle state of a draft-PR workflow dispatch execution.
 
     Enumeration Choices:
 
-    * `CADENCE`None
-    * `CONVERSATION_PERMISSION`None
-    * `COVERAGE_GAP`None
-    * `DATA_PERMISSION`None
-    * `GENUINELY_IDLE`None
-    * `INDETERMINATE`None
-    * `LIST_INCOMPLETE`None
-    * `MC_COLLECTION_GAP`None
-    * `OWNERSHIP_SCOPE`None
-    * `PERMISSION_FALLBACK`None
-    * `SURFACE_MISMATCH`None
-    * `VISIBILITY_PERMISSION`None
+    * `DISPATCHED`None
+    * `EXPIRED`None
+    * `FAILED`None
+    * `RUNNING`None
+    * `SUCCEEDED`None
     """
 
     __schema__ = schema
-    __choices__ = (
-        "CADENCE",
-        "CONVERSATION_PERMISSION",
-        "COVERAGE_GAP",
-        "DATA_PERMISSION",
-        "GENUINELY_IDLE",
-        "INDETERMINATE",
-        "LIST_INCOMPLETE",
-        "MC_COLLECTION_GAP",
-        "OWNERSHIP_SCOPE",
-        "PERMISSION_FALLBACK",
-        "SURFACE_MISMATCH",
-        "VISIBILITY_PERMISSION",
-    )
+    __choices__ = ("DISPATCHED", "EXPIRED", "FAILED", "RUNNING", "SUCCEEDED")
 
 
 class HasErrorsValue(pycarlo.lib.types.Enum):
@@ -7808,7 +7744,6 @@ String = sgqlc.types.String
 class TableAnomalyModelReason(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
-    * `AGENT`: Agent Anomaly
     * `AGENT_EVALUATION`: Agent Evaluation Anomaly
     * `AGENT_METRIC`: Agent Metric Anomaly
     * `COMPARISON_RULE`: Comparison Rule Anomaly
@@ -7827,7 +7762,6 @@ class TableAnomalyModelReason(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
-        "AGENT",
         "AGENT_EVALUATION",
         "AGENT_METRIC",
         "COMPARISON_RULE",
@@ -8361,16 +8295,28 @@ class TriageBatchSource(pycarlo.lib.types.Enum):
 
 
 class TriageDenialReason(pycarlo.lib.types.Enum):
-    """Why triage is unavailable for the account — availability surface.
+    """Why triage is unavailable/denied for an account.      Shared by
+    the reactive manual-triage denial (``triage_alerts`` maps the
+    reason to a message and raises) and the proactive availability
+    surface     (``getTriageAvailability``). The values are a stable
+    GraphQL enum     (``graphene.Enum.from_enum``), so never rename an
+    existing member.
 
     Enumeration Choices:
 
     * `AI_FEATURES_OFF`None
+    * `DAILY_RUN_LIMIT_REACHED`None
+    * `MONTHLY_RUN_LIMIT_REACHED`None
     * `MONTHLY_USAGE_LIMIT_REACHED`None
     """
 
     __schema__ = schema
-    __choices__ = ("AI_FEATURES_OFF", "MONTHLY_USAGE_LIMIT_REACHED")
+    __choices__ = (
+        "AI_FEATURES_OFF",
+        "DAILY_RUN_LIMIT_REACHED",
+        "MONTHLY_RUN_LIMIT_REACHED",
+        "MONTHLY_USAGE_LIMIT_REACHED",
+    )
 
 
 class TriagePriority(pycarlo.lib.types.Enum):
@@ -20721,7 +20667,7 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     """A remediation addressing one or more issues."""
 
     __schema__ = schema
-    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids")
+    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids", "is_actionable_fix")
     id = sgqlc.types.Field(String, graphql_name="id")
     """Action id."""
 
@@ -20737,6 +20683,12 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="addressesIssueIds"
     )
     """Issue id(s) this fix resolves."""
+
+    is_actionable_fix = sgqlc.types.Field(Boolean, graphql_name="isActionableFix")
+    """True when this action is a directly-applicable fix — a concrete
+    grounded change to apply; False when it only offers investigation
+    leads.
+    """
 
 
 class AgentHealthResolvedIssue(sgqlc.types.Type):
@@ -25956,7 +25908,10 @@ class ConversationClusterType(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="exemplars",
     )
-    """Representative user asks for this cluster."""
+    """Representative user asks for this cluster. Empty when data
+    sampling is disabled for the owning warehouse or the caller lacks
+    raw-data access.
+    """
 
     ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
     """Display order within the taxonomy."""
@@ -26304,37 +26259,6 @@ class ConversationFilterValue(sgqlc.types.Type):
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
     """Number of conversations with this value"""
-
-
-class ConversationLookupResult(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "status",
-        "http_status",
-        "created_ms",
-        "owner_user_id",
-        "content_read_http_status",
-        "content_read_error_message",
-        "query_result_http_status",
-        "query_result_error_message",
-    )
-    status = sgqlc.types.Field(
-        sgqlc.types.non_null(ConversationLookupStatus), graphql_name="status"
-    )
-
-    http_status = sgqlc.types.Field(Int, graphql_name="httpStatus")
-
-    created_ms = sgqlc.types.Field(Float, graphql_name="createdMs")
-
-    owner_user_id = sgqlc.types.Field(String, graphql_name="ownerUserId")
-
-    content_read_http_status = sgqlc.types.Field(Int, graphql_name="contentReadHttpStatus")
-
-    content_read_error_message = sgqlc.types.Field(String, graphql_name="contentReadErrorMessage")
-
-    query_result_http_status = sgqlc.types.Field(Int, graphql_name="queryResultHttpStatus")
-
-    query_result_error_message = sgqlc.types.Field(String, graphql_name="queryResultErrorMessage")
 
 
 class ConversationMessageContentChunkV2(sgqlc.types.Type):
@@ -31048,144 +30972,6 @@ class DeauthorizeSlackAppMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
-
-
-class DebugGenieCollectorResult(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "verdict",
-        "verdict_explanation",
-        "remediation",
-        "run_as_identity",
-        "spaces_seen_count",
-        "spaces",
-    )
-    verdict = sgqlc.types.Field(sgqlc.types.non_null(GenieCollectorVerdict), graphql_name="verdict")
-
-    verdict_explanation = sgqlc.types.Field(
-        sgqlc.types.non_null(String), graphql_name="verdictExplanation"
-    )
-
-    remediation = sgqlc.types.Field(String, graphql_name="remediation")
-
-    run_as_identity = sgqlc.types.Field(String, graphql_name="runAsIdentity")
-
-    spaces_seen_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="spacesSeenCount")
-
-    spaces = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("DebugGenieSpaceFacts"))),
-        graphql_name="spaces",
-    )
-
-
-class DebugGenieSpaceFacts(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "space_id",
-        "display_name",
-        "registered_as_agent",
-        "can_manage",
-        "can_manage_via",
-        "include_all_effective",
-        "own_conversations_first_page",
-        "live_newest_created_ms",
-        "live_scanned_count",
-        "live_truncated",
-        "live_newest_is_collected",
-        "contains_requested_conversation",
-        "conversation_lookup",
-        "data_rooms_newest_created_ms",
-        "data_rooms_scanned_count",
-        "list_surfaces_diverge",
-        "data_room_http_status",
-        "data_room_error_message",
-        "distinct_owner_sample_live",
-        "clone_siblings",
-        "genie_traces_row_count",
-        "collected_max_created_ts",
-        "collected_max_collected_ts",
-        "collected_owners_by_day",
-        "collected_conversations_by_day",
-    )
-    space_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spaceId")
-
-    display_name = sgqlc.types.Field(String, graphql_name="displayName")
-
-    registered_as_agent = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="registeredAsAgent"
-    )
-
-    can_manage = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="canManage")
-
-    can_manage_via = sgqlc.types.Field(
-        sgqlc.types.non_null(GenieCanManageVia), graphql_name="canManageVia"
-    )
-
-    include_all_effective = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="includeAllEffective"
-    )
-
-    own_conversations_first_page = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="ownConversationsFirstPage"
-    )
-
-    live_newest_created_ms = sgqlc.types.Field(Float, graphql_name="liveNewestCreatedMs")
-
-    live_scanned_count = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="liveScannedCount"
-    )
-
-    live_truncated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="liveTruncated")
-
-    live_newest_is_collected = sgqlc.types.Field(Boolean, graphql_name="liveNewestIsCollected")
-
-    contains_requested_conversation = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="containsRequestedConversation"
-    )
-
-    conversation_lookup = sgqlc.types.Field(
-        ConversationLookupResult, graphql_name="conversationLookup"
-    )
-
-    data_rooms_newest_created_ms = sgqlc.types.Field(Float, graphql_name="dataRoomsNewestCreatedMs")
-
-    data_rooms_scanned_count = sgqlc.types.Field(Int, graphql_name="dataRoomsScannedCount")
-
-    list_surfaces_diverge = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="listSurfacesDiverge"
-    )
-
-    data_room_http_status = sgqlc.types.Field(Int, graphql_name="dataRoomHttpStatus")
-
-    data_room_error_message = sgqlc.types.Field(String, graphql_name="dataRoomErrorMessage")
-
-    distinct_owner_sample_live = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="distinctOwnerSampleLive",
-    )
-
-    clone_siblings = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="cloneSiblings",
-    )
-
-    genie_traces_row_count = sgqlc.types.Field(Int, graphql_name="genieTracesRowCount")
-
-    collected_max_created_ts = sgqlc.types.Field(String, graphql_name="collectedMaxCreatedTs")
-
-    collected_max_collected_ts = sgqlc.types.Field(String, graphql_name="collectedMaxCollectedTs")
-
-    collected_owners_by_day = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("GenieOwnerDayCount"))),
-        graphql_name="collectedOwnersByDay",
-    )
-
-    collected_conversations_by_day = sgqlc.types.Field(
-        sgqlc.types.non_null(
-            sgqlc.types.list_of(sgqlc.types.non_null("GenieDayConversationCount"))
-        ),
-        graphql_name="collectedConversationsByDay",
-    )
 
 
 class DeleteAccessToken(sgqlc.types.Type):
@@ -36155,26 +35941,6 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
 
-class GenieDayConversationCount(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("day", "conversation_count")
-    day = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="day")
-
-    conversation_count = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="conversationCount"
-    )
-
-
-class GenieOwnerDayCount(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("user_id", "day", "turn_count")
-    user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="userId")
-
-    day = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="day")
-
-    turn_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="turnCount")
-
-
 class GetAccountAuditLogsResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("records", "page_info")
@@ -36303,6 +36069,98 @@ class GithubActionTriggerAppInstallation(sgqlc.types.Type):
     )
     """Live permission and repository-scope info from GitHub; null when
     GitHub cannot be reached
+    """
+
+
+class GithubActionTriggerDispatch(sgqlc.types.Type):
+    """One draft-PR workflow dispatch execution and its tracked outcome.
+    Created when GitHub accepts the dispatch, then advanced
+    automatically: DISPATCHED (accepted, run not yet linked) → RUNNING
+    (run linked) → SUCCEEDED or FAILED from the run's conclusion;
+    EXPIRED when the run never resolves within 24 hours. Run tracking
+    relies on the customer workflow embedding the monteCarloId input
+    in its run-name; the draft PR link relies on the workflow writing
+    a Monte-Carlo-Id marker into the PR body and on the Monte Carlo
+    GitHub App being installed on the organization — without them the
+    execution still tracks, but the run link (and record resolution)
+    or the PR link degrade gracefully.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "status",
+        "source",
+        "gh_org",
+        "repo",
+        "workflow_file",
+        "ref",
+        "gh_run_url",
+        "pr_url",
+        "pr_number",
+        "error",
+        "created_time",
+        "completed_time",
+        "dispatched_by",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Execution UUID; also sent to the customer workflow as its
+    monteCarloId input, correlating the run and PR back to this record
+    """
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(GithubActionTriggerDispatchStatus), graphql_name="status"
+    )
+    """Lifecycle state, advanced by run polling (about every 5 minutes)"""
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="source")
+    """Monte Carlo feature that triggered the dispatch, e.g.
+    "reinforcement_loop"
+    """
+
+    gh_org = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ghOrg")
+    """GitHub organization the workflow was dispatched to"""
+
+    repo = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="repo")
+    """Repository the workflow was dispatched to"""
+
+    workflow_file = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflowFile")
+    """Workflow file that was dispatched"""
+
+    ref = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ref")
+    """Git ref the workflow was dispatched on"""
+
+    gh_run_url = sgqlc.types.Field(String, graphql_name="ghRunUrl")
+    """Link to the GitHub Actions run; null until the run has been linked"""
+
+    pr_url = sgqlc.types.Field(String, graphql_name="prUrl")
+    """Link to the draft PR the workflow opened; null until the PR has
+    been found
+    """
+
+    pr_number = sgqlc.types.Field(Int, graphql_name="prNumber")
+    """Number of the draft PR the workflow opened; null until the PR has
+    been found
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Failure detail (run conclusion and failed job/step names) when
+    status is FAILED
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When GitHub accepted the dispatch"""
+
+    completed_time = sgqlc.types.Field(DateTime, graphql_name="completedTime")
+    """When the execution reached a terminal state
+    (SUCCEEDED/FAILED/EXPIRED)
+    """
+
+    dispatched_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dispatchedBy")
+    """Display label for the user that triggered the dispatch. Returns
+    the user's email for human users; for agent users, returns a
+    derived display label (e.g. ``Agent on <domain>``) — never the
+    agent's internal address.
     """
 
 
@@ -57508,6 +57366,18 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="clearAllDomainOverrides", default=None),
                 ),
                 (
+                    "clear_max_automated_triage_runs_per_day",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="clearMaxAutomatedTriageRunsPerDay", default=None
+                    ),
+                ),
+                (
+                    "clear_max_automated_triage_runs_per_month",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="clearMaxAutomatedTriageRunsPerMonth", default=None
+                    ),
+                ),
+                (
                     "domain_overrides",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(
@@ -57515,6 +57385,16 @@ class Mutation(sgqlc.types.Type):
                         ),
                         graphql_name="domainOverrides",
                         default=None,
+                    ),
+                ),
+                (
+                    "max_automated_triage_runs_per_day",
+                    sgqlc.types.Arg(Int, graphql_name="maxAutomatedTriageRunsPerDay", default=None),
+                ),
+                (
+                    "max_automated_triage_runs_per_month",
+                    sgqlc.types.Arg(
+                        Int, graphql_name="maxAutomatedTriageRunsPerMonth", default=None
                     ),
                 ),
                 (
@@ -57535,11 +57415,25 @@ class Mutation(sgqlc.types.Type):
     * `clear_all_domain_overrides` (`Boolean`): When true, remove
       every per-domain override so the account-level settings apply to
       all domains again. Applied before any domainOverrides entries.
+    * `clear_max_automated_triage_runs_per_day` (`Boolean`): When
+      true, remove the per-account daily limit (the fixed safety limit
+      on automated triage still applies).
+    * `clear_max_automated_triage_runs_per_month` (`Boolean`): When
+      true, remove the per-account monthly limit.
     * `domain_overrides` (`[TriageAutomationDomainOverrideInput!]`):
       Domain overrides to set or remove. An entry with both
       triageEnabled and tsaThreshold null removes the domain's
       override so it inherits the account-level settings. When a
       domain appears more than once, the last entry wins.
+    * `max_automated_triage_runs_per_day` (`Int`): Set the optional
+      per-account daily limit on triage runs (counts automated and
+      manual triage). Must be between 1 and 2000 (2000 is a fixed
+      safety limit on automated triage a per-account limit can only
+      tighten). Requires account-settings edit access.
+    * `max_automated_triage_runs_per_month` (`Int`): Set the optional
+      per-account monthly limit on triage runs (counts automated and
+      manual triage; at least 1). The primary customer-facing volume
+      control. Requires account-settings edit access.
     * `tsa_automation_threshold` (`TsaAutomationThreshold`): New
       account-level threshold at or above which the troubleshooting
       agent auto-runs on a triaged alert.
@@ -68291,7 +68185,6 @@ class Query(sgqlc.types.Type):
         "get_linear_teams",
         "get_linear_integration",
         "get_available_platform_agents",
-        "debug_genie_collector",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
         "get_traces_filters",
@@ -68439,6 +68332,7 @@ class Query(sgqlc.types.Type):
         "get_github_integrations",
         "get_github_action_trigger_integrations",
         "get_github_action_trigger_dispatch_target",
+        "get_github_action_trigger_dispatches",
         "get_gitlab_integrations",
         "get_gitlab_integration",
         "get_github_pull_requests",
@@ -69663,62 +69557,6 @@ class Query(sgqlc.types.Type):
       Snowflake agents for a Snowflake warehouse — in one call, never
       crossing platforms.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID to filter agents by
-    """
-
-    debug_genie_collector = sgqlc.types.Field(
-        sgqlc.types.non_null(DebugGenieCollectorResult),
-        graphql_name="debugGenieCollector",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "warehouse_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
-                    ),
-                ),
-                (
-                    "connection_uuid",
-                    sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
-                ),
-                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
-                (
-                    "conversation_id",
-                    sgqlc.types.Arg(String, graphql_name="conversationId", default=None),
-                ),
-                (
-                    "max_conversations_per_space",
-                    sgqlc.types.Arg(Int, graphql_name="maxConversationsPerSpace", default=None),
-                ),
-                (
-                    "probe_query_result",
-                    sgqlc.types.Arg(Boolean, graphql_name="probeQueryResult", default=True),
-                ),
-            )
-        ),
-    )
-    """(experimental) Triage a Genie 'no new traces' report: classifies
-    the cause (coverage gap, permission fallback, collection gap,
-    cadence, idle, ...) across the live Genie API, the collected
-    genie_traces table, and the space ACL. Read-only, Monte Carlo
-    staff only.
-
-    Arguments:
-
-    * `warehouse_uuid` (`UUID!`): Warehouse whose Databricks
-      connection to query
-    * `connection_uuid` (`UUID`): Connection UUID (optional, defaults
-      to the warehouse's SQL connection)
-    * `since` (`DateTime`): The reported time — activity newer than
-      this is the freeze signal
-    * `conversation_id` (`String`): Conversation to locate across
-      visible spaces
-    * `max_conversations_per_space` (`Int`): Per-space conversation
-      scan cap (bounded)
-    * `probe_query_result` (`Boolean`): Probe a found conversation's
-      query-result attachment (the SQL data behind the answer) to
-      detect a data-layer permission gap distinct from conversation-
-      content access. Default true; set false to skip if the query-
-      result fetch is slow on a workspace. (default: `true`)
     """
 
     evaluate_platform_agent_data_source = sgqlc.types.Field(
@@ -74020,6 +73858,31 @@ class Query(sgqlc.types.Type):
       dispatch target for
     """
 
+    get_github_action_trigger_dispatches = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(GithubActionTriggerDispatch)),
+        graphql_name="getGithubActionTriggerDispatches",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Draft-PR workflow dispatch executions for a
+    finding, newest first — each with its run status and, once found,
+    the draft PR link. History stays available even when new
+    dispatches are not.
+
+    Arguments:
+
+    * `finding_uuid` (`UUID!`): UUID of the finding whose dispatch
+      executions to list
+    """
+
     get_gitlab_integrations = sgqlc.types.Field(GitlabAppInfo, graphql_name="getGitlabIntegrations")
     """(experimental) Gitlab integration info"""
 
@@ -78166,7 +78029,7 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Fetch exact stored evaluated rows for a ClickHouse
+    """(experimental) Fetch exact stored evaluated rows for an
     AgentEvaluation monitor run.
 
     Arguments:
@@ -83779,11 +83642,16 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Returns a domain's latest top-level MONITORING_GAP
-    monitoring-plan finding (the container produced by a monitoring
-    run), or null when the domain has no plan. Monitor-permission-
+    finding — the outcome of its most recent monitoring run — or null
+    when the domain has none. The finding is either a staged plan
+    (staged=true; read its phases and staged monitors via
+    getDomainMonitoringPlanChildren) or a no-suggestion outcome
+    (staged=false) whose `summary` explains why the run suggested
+    nothing (e.g. the important tables are already adequately covered,
+    or there were no use cases / monitorable assets in scope). Branch
+    on `staged` to render the plan vs. the reason. Monitor-permission-
     gated (monitors/management write or propose) — NOT alerts/access —
-    so a monitor-only user who ran the plan can read it back. Read its
-    phases and staged monitors via getDomainMonitoringPlanChildren.
+    so a monitor-only user who ran the plan can read it back.
 
     Arguments:
 
@@ -99816,7 +99684,13 @@ class TriageAutomationConfigOutput(sgqlc.types.Type):
     """Account-level automated-triage configuration."""
 
     __schema__ = schema
-    __field_names__ = ("triage_enabled_default", "tsa_automation_threshold", "domain_configs")
+    __field_names__ = (
+        "triage_enabled_default",
+        "tsa_automation_threshold",
+        "max_automated_triage_runs_per_day",
+        "max_automated_triage_runs_per_month",
+        "domain_configs",
+    )
     triage_enabled_default = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="triageEnabledDefault"
     )
@@ -99830,6 +99704,28 @@ class TriageAutomationConfigOutput(sgqlc.types.Type):
     """Account-level threshold at or above which the troubleshooting
     agent auto-runs on a triaged alert. Domains inherit it unless
     overridden.
+    """
+
+    max_automated_triage_runs_per_day = sgqlc.types.Field(
+        Int, graphql_name="maxAutomatedTriageRunsPerDay"
+    )
+    """Optional per-account daily limit on triage runs, counting both
+    automated and manual triage that are in flight or completed (runs
+    that failed and won't be retried don't count). Null means no per-
+    account daily limit (a fixed safety limit still applies to
+    automated triage). When set, triage pauses for the rest of the UTC
+    day once the limit is reached; resets at UTC midnight.
+    """
+
+    max_automated_triage_runs_per_month = sgqlc.types.Field(
+        Int, graphql_name="maxAutomatedTriageRunsPerMonth"
+    )
+    """Optional per-account monthly limit on triage runs, counting both
+    automated and manual triage that are in flight or completed (runs
+    that failed and won't be retried don't count). Null means no
+    monthly limit. When set, triage pauses for the rest of the UTC
+    month once the limit is reached; resets at the start of the UTC
+    month. The primary customer-facing volume control.
     """
 
     domain_configs = sgqlc.types.Field(
@@ -99894,9 +99790,11 @@ class TriageAutomationDomainConfigOutput(sgqlc.types.Type):
 
 class TriageAvailability(sgqlc.types.Type):
     """Whether triage can run for the caller's account, plus the free-
-    allowance snapshot. Accounts restricted to the free tier pause
-    triage — automated and manual — when the month's allowance is used
-    up.
+    allowance and run-volume snapshots. Triage — automated and manual
+    — pauses when the free monthly allowance is used up, when the
+    account's daily run limit is reached (resumes at UTC midnight), or
+    when its monthly run limit is reached (resumes at the start of the
+    UTC month).
     """
 
     __schema__ = schema
@@ -99906,6 +99804,12 @@ class TriageAvailability(sgqlc.types.Type):
         "monthly_free_budget",
         "monthly_completed_count",
         "remaining_free_budget",
+        "daily_run_limit",
+        "daily_run_count",
+        "remaining_daily_runs",
+        "monthly_run_limit",
+        "monthly_run_count",
+        "remaining_monthly_runs",
     )
     enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
     """True when triage is available to the account right now."""
@@ -99929,6 +99833,49 @@ class TriageAvailability(sgqlc.types.Type):
     remaining_free_budget = sgqlc.types.Field(Int, graphql_name="remainingFreeBudget")
     """Free triages left this month for restricted accounts (never
     negative); null when the account is unrestricted.
+    """
+
+    daily_run_limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="dailyRunLimit")
+    """Effective daily ceiling on triage runs. When the account has a
+    per-account daily limit set, this is that limit and triage —
+    automated and manual — pauses for the rest of the UTC day once it
+    is reached; resets at UTC midnight. When no per-account daily
+    limit is set, this is a high fixed safety ceiling that pauses only
+    automated triage.
+    """
+
+    daily_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="dailyRunCount")
+    """Triage runs today (UTC) counting against the daily limit. When a
+    per-account daily limit is set, this counts automated and manual
+    runs that are in flight or completed (runs that failed and won't
+    be retried are excluded). When no per-account daily limit is set,
+    it matches the auto-only safety ceiling — automated runs
+    regardless of outcome.
+    """
+
+    remaining_daily_runs = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="remainingDailyRuns"
+    )
+    """Triage runs left today (UTC) against the daily limit; never
+    negative.
+    """
+
+    monthly_run_limit = sgqlc.types.Field(Int, graphql_name="monthlyRunLimit")
+    """Per-account monthly cap on triage runs; null when the account has
+    no monthly limit. Triage — automated and manual — pauses for the
+    rest of the UTC month once this many runs are in flight or
+    completed; resets at the start of the UTC month.
+    """
+
+    monthly_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monthlyRunCount")
+    """Triage runs this UTC month counting against the monthly limit,
+    across automated and manual triage: those in flight or completed.
+    Runs that failed and won't be retried are excluded.
+    """
+
+    remaining_monthly_runs = sgqlc.types.Field(Int, graphql_name="remainingMonthlyRuns")
+    """Triage runs left this UTC month against the monthly limit (never
+    negative); null when the account has no monthly limit.
     """
 
 
@@ -100049,8 +99996,8 @@ class TriggerCustomRule(sgqlc.types.Type):
 
 class TriggerGithubActionDraftPrWorkflow(sgqlc.types.Type):
     """Dispatch the customer's draft-PR workflow with a finding's
-    context.  Sends compact finding context (finding UUID, title,
-    action context) as workflow_dispatch inputs to the workflow
+    context.  Sends compact finding context (monteCarloId, title,
+    context, source) as workflow_dispatch inputs to the workflow
     configured for the finding's agent. The customer's workflow
     performs the code change and opens the draft PR with its own
     credentials. Fails when the finding's agent has no dispatch target
@@ -100059,10 +100006,17 @@ class TriggerGithubActionDraftPrWorkflow(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("success",)
+    __field_names__ = ("success", "dispatch")
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
     """True when GitHub accepted the dispatch (the run itself is
     asynchronous)
+    """
+
+    dispatch = sgqlc.types.Field(
+        sgqlc.types.non_null(GithubActionTriggerDispatch), graphql_name="dispatch"
+    )
+    """Execution record created for this dispatch; follow its status via
+    getGithubActionTriggerDispatches
     """
 
 

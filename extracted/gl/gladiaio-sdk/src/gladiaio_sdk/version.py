@@ -1,2 +1,2 @@
 # This file is auto-generated. Do not edit manually.
-SDK_VERSION = "1.0.4"
+SDK_VERSION = "1.0.5"

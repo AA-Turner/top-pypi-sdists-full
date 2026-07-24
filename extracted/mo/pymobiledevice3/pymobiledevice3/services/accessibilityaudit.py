@@ -4,6 +4,7 @@ import typing
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from enum import Enum, IntEnum
+from types import TracebackType
 
 from packaging.version import Version
 
@@ -13,12 +14,12 @@ from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 
 
 class SerializedObject:
-    def __init__(self, fields: dict):
+    def __init__(self, fields: dict[str, typing.Any]):
         self._fields = fields
 
 
 class AXAuditInspectorFocus_v1(SerializedObject):
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
 
     @property
@@ -67,7 +68,7 @@ class AXAuditInspectorFocus_v1(SerializedObject):
 
         return uid
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, typing.Any]:
         """Serializes the focus element into a dictionary."""
         return {
             "platform_identifier": self.platform_identifier,
@@ -81,7 +82,7 @@ class AXAuditInspectorFocus_v1(SerializedObject):
 
 
 class AXAuditElement_v1(SerializedObject):
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
 
     @property
@@ -93,19 +94,19 @@ class AXAuditElement_v1(SerializedObject):
 
 
 class AXAuditInspectorSection_v1(SerializedObject):
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
 
 
 class AXAuditElementAttribute_v1(SerializedObject):
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
 
 
 class AXAuditDeviceSetting_v1(SerializedObject):
     FIELDS = ("IdentiifierValue_v1", "CurrentValueNumber_v1")
 
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
         for k in self.FIELDS:
             if k not in self._fields:
@@ -159,7 +160,7 @@ class AXAuditIssue_v1(SerializedObject):
         "ForegroundColorValue_v1",
     )
 
-    def __init__(self, fields):
+    def __init__(self, fields: dict[str, typing.Any]):
         super().__init__(fields)
 
         for k in self.FIELDS:
@@ -198,8 +199,8 @@ class AXAuditIssue_v1(SerializedObject):
     def background_color(self) -> typing.Any:
         return self._fields["BackgroundColorValue_v1"]
 
-    def json(self) -> dict:
-        resp = {
+    def json(self) -> dict[str, typing.Any]:
+        resp: dict[str, typing.Any] = {
             "element_rect_value": self.rect,
             "issue_classification": self.issue_type,
             "font_size": self.font_size,
@@ -216,7 +217,7 @@ class AXAuditIssue_v1(SerializedObject):
         return json.dumps(self.json())
 
 
-SERIALIZABLE_OBJECTS = {
+SERIALIZABLE_OBJECTS: dict[str, type[SerializedObject]] = {
     "AXAuditDeviceSetting_v1": AXAuditDeviceSetting_v1,
     "AXAuditInspectorFocus_v1": AXAuditInspectorFocus_v1,
     "AXAuditElement_v1": AXAuditElement_v1,
@@ -252,15 +253,16 @@ class Direction(Enum):
     Last = 6
 
 
-def deserialize_object(d) -> typing.Any:
+def deserialize_object(d: typing.Any) -> typing.Any:
     if not isinstance(d, dict):
         if isinstance(d, list):
-            return [deserialize_object(x) for x in d]
+            return [deserialize_object(x) for x in typing.cast(list[typing.Any], d)]
         return d
 
+    d = typing.cast(dict[str, typing.Any], d)
     if "ObjectType" not in d:
         # simple dictionary
-        new_dict = {}
+        new_dict: dict[str, typing.Any] = {}
         for k, v in d.items():
             new_dict[k] = deserialize_object(v)
         return new_dict
@@ -268,7 +270,7 @@ def deserialize_object(d) -> typing.Any:
     if d["ObjectType"] == "passthrough":
         return deserialize_object(d["Value"])
     else:
-        return SERIALIZABLE_OBJECTS[d["ObjectType"]](deserialize_object(d["Value"]))
+        return typing.cast(typing.Any, SERIALIZABLE_OBJECTS[d["ObjectType"]](deserialize_object(d["Value"])))
 
 
 class _AccessibilityAuditProvider(DtxServiceProvider):
@@ -316,7 +318,12 @@ class AccessibilityAudit:
         else:
             return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: typing.Optional[type[BaseException]],
+        exc_val: typing.Optional[BaseException],
+        exc_tb: typing.Optional[TracebackType],
+    ):
         await self.close()
 
     async def close(self) -> None:
@@ -349,10 +356,10 @@ class AccessibilityAudit:
     def _extract_event_payload(args: list[typing.Any]) -> typing.Any:
         if not args:
             return None
-        payload = args[0] if len(args) == 1 else args
+        payload: typing.Any = args[0] if len(args) == 1 else args
         if isinstance(payload, list) and payload and isinstance(payload[0], dict) and "value" in payload[0]:
-            return [x["value"] for x in payload]
-        return payload
+            return [x["value"] for x in typing.cast(list[typing.Any], payload)]
+        return typing.cast(typing.Any, payload)
 
     async def _ensure_ready(self) -> None:
         await self._provider.connect()
@@ -377,7 +384,7 @@ class AccessibilityAudit:
         await self._ensure_ready()
         return await self._invoke("deviceCapabilities")
 
-    async def run_audit(self, value: list) -> list[AXAuditIssue_v1]:
+    async def run_audit(self, value: list[typing.Any]) -> list[AXAuditIssue_v1]:
         """
         Run accessibility audits on the device and wait for the results.
 
@@ -403,7 +410,7 @@ class AccessibilityAudit:
                 continue
             return deserialize_object(payload)[0]["value"]
 
-    async def supported_audits_types(self) -> list:
+    async def supported_audits_types(self) -> list[typing.Any]:
         """
         Query the audit types (iOS 15+) or audit case IDs (older versions) the device supports.
 
@@ -464,7 +471,7 @@ class AccessibilityAudit:
         await self._invoke("deviceInspectorShowVisuals:", int(value), expects_reply=False)
 
     async def iter_events(
-        self, app_monitoring_enabled=True, monitored_event_type: typing.Optional[int] = None
+        self, app_monitoring_enabled: bool = True, monitored_event_type: typing.Optional[int] = None
     ) -> AsyncGenerator[Event, None]:
         """
         Stream accessibility events from the device indefinitely.
@@ -501,7 +508,7 @@ class AccessibilityAudit:
         :param element: The platform element value identifying the target element.
         """
         await self._ensure_ready()
-        serialized_element = {
+        serialized_element: dict[str, typing.Any] = {
             "ObjectType": "AXAuditElement_v1",
             "Value": {
                 "ObjectType": "passthrough",
@@ -512,7 +519,7 @@ class AccessibilityAudit:
             },
         }
 
-        action = {
+        action: dict[str, typing.Any] = {
             "ObjectType": "AXAuditElementAttribute_v1",
             "Value": {
                 "ObjectType": "passthrough",
@@ -558,7 +565,7 @@ class AccessibilityAudit:
         :param direction: The `Direction` to move the focus (previous, next, first, or last).
         """
         await self._ensure_ready()
-        options = {
+        options: dict[str, typing.Any] = {
             "ObjectType": "passthrough",
             "Value": {
                 "allowNonAX": {
@@ -586,7 +593,7 @@ class AccessibilityAudit:
         :param value: The new value to assign to the setting.
         """
         await self._ensure_ready()
-        setting = {
+        setting: dict[str, typing.Any] = {
             "ObjectType": "AXAuditDeviceSetting_v1",
             "Value": {
                 "ObjectType": "passthrough",
@@ -628,7 +635,7 @@ class AccessibilityAudit:
 
         # Every focus change is expected to publish "hostInspectorCurrentElementChanged:".
         await self.move_focus_next()
-        visited_identifiers = set()
+        visited_identifiers: set[typing.Any] = set()
         consecutive_timeouts = 0
 
         while True:
@@ -652,9 +659,9 @@ class AccessibilityAudit:
 
             # each such event should contain exactly one element that became in focus
             if isinstance(event.data, list):
-                if not event.data:
+                if not typing.cast(typing.Any, event).data:
                     continue
-                current_item = event.data[0]
+                current_item = typing.cast(list[typing.Any], event.data)[0]
             else:
                 current_item = event.data
             current_identifier = current_item.platform_identifier

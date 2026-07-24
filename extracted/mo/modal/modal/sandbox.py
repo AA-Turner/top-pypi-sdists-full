@@ -52,10 +52,13 @@ from .exception import (
     ClientClosed,
     ConflictError,
     ExecutionError,
+    InternalError,
     InvalidError,
     NotFoundError,
     SandboxTerminatedError,
     SandboxTimeoutError,
+    SnapshotCreationError,
+    TimeoutError,
 )
 from .file_io import _FileIO, ls, mkdir, rm, watch
 from .io_streams import (
@@ -77,6 +80,8 @@ from .stream_type import StreamType
 from .types import FileWatchEvent, FileWatchEventType, SandboxConnectCredentials
 
 _default_image: _Image = _Image.debian_slim()
+_EXIT_SNAPSHOT_POLL_INTERVAL_SECONDS = 1.0
+_EXIT_SNAPSHOT_NOT_FOUND_ERROR_CODES = frozenset((api_pb2.SandboxGetExitSnapshotResponse.ERROR_CODE_TIMEOUT,))
 
 
 async def _gather_load_with_timings(
@@ -332,6 +337,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     _attached: bool
     _filesystem: _SandboxFilesystem | None
     _is_v2: bool = False
+    _app_id: str | None
 
     @staticmethod
     def _default_pty_info() -> api_pb2.PTYInfo:
@@ -349,7 +355,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         gpu: str | None = None,
         cloud: str | None = None,
         region: str | Sequence[str] | None = None,
-        cpu: float | None = None,
+        cpu: float | tuple[float, float] | None = None,
         memory: int | tuple[int, int] | None = None,
         mounts: Sequence[_Mount] = (),
         network_file_systems: dict[str | os.PathLike, _NetworkFileSystem] = {},
@@ -471,7 +477,7 @@ class _Sandbox(_Object, type_prefix="sb"):
                 nfs_mounts=network_file_system_mount_protos(validated_network_file_systems),
                 runtime=config.get("function_runtime"),
                 runtime_debug=config.get("function_runtime_debug"),
-                cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts),
+                cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts)[0],
                 volume_mounts=volume_mounts,
                 pty_info=pty_info,
                 scheduler_placement=scheduler_placement,
@@ -500,7 +506,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             create_resp = await load_context.client.stub.SandboxCreate(create_req)
             rpc_elapsed = time.monotonic() - rpc_start
             sandbox_id = create_resp.sandbox_id
-            self._hydrate(sandbox_id, load_context.client, None)
+            self._hydrate(sandbox_id, load_context.client, create_resp.metadata)
 
             if logger.isEnabledFor(logging.DEBUG):
                 total_elapsed = time.monotonic() - load_start
@@ -823,8 +829,8 @@ class _Sandbox(_Object, type_prefix="sb"):
         timeout: int = 300,
         idle_timeout: int | None = None,
         workdir: str | None = None,
-        cpu: float | None = None,
-        memory: int | None = None,
+        cpu: float | tuple[float, float] | None = None,
+        memory: int | tuple[int, int] | None = None,
         cloud: str | None = None,
         region: str | Sequence[str] | None = None,
         block_network: bool = False,
@@ -842,18 +848,27 @@ class _Sandbox(_Object, type_prefix="sb"):
         experimental_options: dict[str, Any] | None = None,
         include_oidc_identity_token: bool = False,
         verbose: bool = False,
+        custom_domain: str | None = None,
         client: _Client | None = None,
+        _experimental_enable_snapshot: bool = False,
     ) -> "_Sandbox":
         """Create a sandbox using the V2 backend.
 
         Supported features include exec, encrypted tunnels, wait/poll/terminate,
         CPU and memory configuration, region placement, private IPv6 networking
         (i6pn), volumes, cloud bucket mounts (with static credentials via
-        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
-        filesystem snapshots.
+        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies,
+        filesystem snapshots, and custom domains (`custom_domain=...` allows
+        connections to the sandbox via a subdomain of that parent domain rather
+        than a default Modal domain; requires prior setup by Modal).
 
-        Features like memory snapshots, network file systems, GPUs, and custom
-        domains are not supported.
+        `cpu` and `memory` accept either a scalar request or a `(request, limit)`
+        tuple that additionally sets a hard limit (fractional CPU cores; memory
+        in MiB), matching `Sandbox.create()`.
+
+        Pass `_experimental_enable_snapshot=True` to create a sandbox that can be
+        snapshotted with `._experimental_snapshot()`. Features like network
+        file systems and GPUs are not supported.
 
         Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
         workspace can address each other directly at their `i6pn.modal.local`
@@ -953,8 +968,9 @@ class _Sandbox(_Object, type_prefix="sb"):
             for _, vol in validated_volumes:
                 dep_tasks.append(resolver.load(vol, load_context))
             for _, cloud_bucket_mount in cloud_bucket_mounts:
-                if cloud_bucket_mount.secret:
-                    dep_tasks.append(resolver.load(cloud_bucket_mount.secret, load_context))
+                if secret := cloud_bucket_mount.secret:
+                    if not secret._is_ephemeral:
+                        dep_tasks.append(resolver.load(cloud_bucket_mount.secret, load_context))
             if proxy:
                 dep_tasks.append(resolver.load(proxy, load_context))
             dep_timings = await _gather_load_with_timings(dep_tasks) if dep_tasks else []
@@ -962,6 +978,10 @@ class _Sandbox(_Object, type_prefix="sb"):
             validate_volumes_by_object_id(validated_volumes)
 
             volume_mounts = [_volume_to_mount_proto(path, volume) for path, volume in validated_volumes]
+
+            cloud_bucket_mount_protos, cloud_bucket_credientials = cloud_bucket_mounts_to_proto(
+                cloud_bucket_mounts, split_ephemeral_credentials=True
+            )
 
             definition = api_pb2.Sandbox(
                 entrypoint_args=args,
@@ -987,11 +1007,13 @@ class _Sandbox(_Object, type_prefix="sb"):
                 inbound_cidr_allowlist=list(inbound_cidr_allowlist) if inbound_cidr_allowlist is not None else [],
                 i6pn_enabled=i6pn,
                 volume_mounts=volume_mounts,
-                cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts),
+                cloud_bucket_mounts=cloud_bucket_mount_protos,
                 readiness_probe=(readiness_probe._to_proto() if readiness_probe else None),
                 experimental_options_v2=(
                     {k: str(v) for k, v in experimental_options.items()} if experimental_options else None
                 ),
+                custom_domain=custom_domain,
+                enable_snapshot=_experimental_enable_snapshot,
             )
 
             tag_protos = [api_pb2.SandboxTag(tag_name=k, tag_value=v) for k, v in tags.items()] if tags else []
@@ -1000,6 +1022,7 @@ class _Sandbox(_Object, type_prefix="sb"):
                 definition=definition,
                 ephemeral_secrets=api_pb2.StringMap(contents=env_dict) if env_dict else None,
                 tags=tag_protos,
+                cloud_bucket_mount_credentials=cloud_bucket_credientials,
             )
             assert load_context.client._auth_token_manager
             auth_token = await load_context.client._auth_token_manager.get_token()
@@ -1009,14 +1032,18 @@ class _Sandbox(_Object, type_prefix="sb"):
             )
             rpc_elapsed = time.monotonic() - rpc_start
             sandbox_id = create_resp.sandbox_id
-            self._hydrate(sandbox_id, load_context.client, None)
+            self._hydrate(sandbox_id, load_context.client, create_resp.metadata)
             self._is_v2 = True
             self._task_id = create_resp.task_id
             self._hydrate_metadata_v2()
-            self._tunnels = {
-                t.container_port: Tunnel(t.host, t.port, t.unencrypted_host, t.unencrypted_port)
-                for t in create_resp.tunnels
-            }
+            # Unencrypted tunnel endpoints are not known at create time. Only
+            # cache a complete set so tunnels() fetches the rest otherwise.
+            create_resp_has_all_tunnels = len(create_resp.tunnels) == len(open_ports)
+            if create_resp_has_all_tunnels:
+                self._tunnels = {
+                    t.container_port: Tunnel(t.host, t.port, t.unencrypted_host, t.unencrypted_port)
+                    for t in create_resp.tunnels
+                }
 
             if logger.isEnabledFor(logging.DEBUG):
                 total_elapsed = time.monotonic() - load_start
@@ -1058,7 +1085,22 @@ class _Sandbox(_Object, type_prefix="sb"):
             await resolver.load(obj, load_context)
         return obj
 
-    def _hydrate_metadata(self, handle_metadata: Message | None):
+    def _get_metadata(self) -> api_pb2.SandboxHandleMetadata:
+        metadata = api_pb2.SandboxHandleMetadata(app_id=self._app_id or "")
+        if hasattr(self, "_result") and self._result is not None:
+            metadata.result.CopyFrom(self._result)
+        return metadata
+
+    def _hydrate_metadata(self, handle_metadata: Message | None) -> None:
+        self._app_id = None
+        self._result = None
+        if handle_metadata is not None:
+            assert isinstance(handle_metadata, api_pb2.SandboxHandleMetadata), (
+                f"{type(handle_metadata)} is not SandboxHandleMetadata"
+            )
+            self._app_id = handle_metadata.app_id
+            if handle_metadata.HasField("result"):
+                self._result = handle_metadata.result
         self._stdout = StreamReader(
             _StreamReaderThroughServerParams(
                 file_descriptor=api_pb2.FILE_DESCRIPTOR_STDOUT,
@@ -1076,13 +1118,14 @@ class _Sandbox(_Object, type_prefix="sb"):
             by_line=True,
         )
         self._stdin = StreamWriter(_StreamWriterThroughServerParams(object_id=self.object_id, client=self._client))
-        self._result = None
         self._task_id = None
         self._tunnels = None
         self._enable_snapshot = False
         self._command_router_client = None
         self._filesystem = None
-        self._is_v2 = False
+        self._is_v2 = _is_v2_sandbox_id(self.object_id)
+        if self._is_v2:
+            self._hydrate_metadata_v2()
 
     def _hydrate_metadata_v2(self) -> None:
         """Wire up V2 stdio readers that read directly from the worker. Cheap
@@ -1121,11 +1164,13 @@ class _Sandbox(_Object, type_prefix="sb"):
         super()._initialize_from_other(other)
         self._attached = other._attached
         self._is_v2 = other._is_v2
+        self._app_id = other._app_id
 
     def _initialize_from_empty(self):
         super()._initialize_from_empty()
         self._attached = True
         self._is_v2 = False
+        self._app_id = None
 
     async def detach(self):
         """Disconnects your client from the sandbox and cleans up resources assoicated with the connection.
@@ -1188,7 +1233,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         req = api_pb2.SandboxGetFromNameRequest(sandbox_name=name, app_name=app_name, environment_name=env_name)
         resp = await client.stub.SandboxGetFromName(req)
-        return _Sandbox._new_hydrated(resp.sandbox_id, client, None)
+        return _Sandbox._new_hydrated(resp.sandbox_id, client, resp.metadata)
 
     @staticmethod
     async def _experimental_from_name(
@@ -1223,7 +1268,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         auth_token = await client._auth_token_manager.get_token()
         resp = await client.stub.SandboxGetFromNameV2(req, metadata=[("x-modal-auth-token", auth_token)])
 
-        obj = _Sandbox._new_hydrated(resp.sandbox_id, client, None)
+        obj = _Sandbox._new_hydrated(resp.sandbox_id, client, resp.metadata)
         obj._is_v2 = True
         obj._hydrate_metadata_v2()
         return obj
@@ -1254,7 +1299,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         else:
             resp = await client.stub.SandboxWait(req)
 
-        obj = _Sandbox._new_hydrated(sandbox_id, client, None)
+        obj = _Sandbox._new_hydrated(sandbox_id, client, resp.metadata)
         obj._is_v2 = is_v2
         if is_v2:
             obj._hydrate_metadata_v2()
@@ -1313,6 +1358,31 @@ class _Sandbox(_Object, type_prefix="sb"):
             )
             await stub.SandboxTagsSet(req)
 
+    async def _experimental_set_name(self, name: str) -> None:
+        """Assign a name to a running V2 Sandbox that was created without one.
+
+        This is only supported for V2 sandboxes, ie sandboxes created via
+        `modal.Sandbox._experimental_create`. A name may only be set once and
+        only on a Sandbox that has never had one; afterwards the Sandbox can
+        be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+
+        Args:
+            name: Name to assign to the Sandbox. Must be unique within the App.
+
+        Raises:
+            AlreadyExistsError: If another running Sandbox in the App already holds the name.
+            ConflictError: If the Sandbox already has a name or is no longer running.
+        """
+        self._ensure_attached()
+        if not self._is_v2:
+            raise InvalidError("Sandbox._experimental_set_name() is only supported for V2 sandboxes")
+        check_object_name(name, "Sandbox")
+
+        req = api_pb2.SandboxSetNameRequest(sandbox_id=self.object_id, name=name)
+        assert self._client._auth_token_manager
+        auth_token = await self._client._auth_token_manager.get_token()
+        await self._client.stub.SandboxSetName(req, metadata=[("x-modal-auth-token", auth_token)])
+
     async def _experimental_set_outbound_network_policy(
         self,
         *,
@@ -1345,6 +1415,68 @@ class _Sandbox(_Object, type_prefix="sb"):
         req = sr_pb2.TaskSetNetworkAccessRequest(task_id=task_id, network_access=network_access)
         await command_router_client.set_network_access(req)
 
+    async def _experimental_get_exit_snapshot(self, timeout: float | None = 60) -> _Image:
+        """Get the exit filesystem snapshot image.
+
+        Args:
+            timeout: Client-side deadline in seconds (default 60). Use `None` to
+                poll until the snapshot reaches a terminal state. Use `0` to
+                perform an immediate check.
+
+        Returns:
+            The exit snapshot Image.
+
+        Raises:
+            InvalidError: If `timeout` is negative, or if exit snapshot is not
+                enabled for the sandbox.
+            TimeoutError: If `timeout` elapses before the snapshot reaches a
+                terminal state. This includes `timeout=0` when the snapshot is
+                still pending.
+            SnapshotCreationError: If no exit snapshot image will be produced.
+            NotFoundError: If the sandbox does not exist.
+            PermissionDeniedError: If the caller cannot access the sandbox.
+            InternalError: If persisted snapshot state is malformed.
+            ServiceError: If a transient client/server communication failure occurs.
+        """
+        if timeout is not None and timeout < 0:
+            raise InvalidError("timeout must be non-negative or None")
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        timeout_message = f"timed out waiting for exit snapshot for Sandbox {self.object_id}"
+
+        while True:
+            resp: api_pb2.SandboxGetExitSnapshotResponse = await self._client.stub.SandboxGetExitSnapshot(
+                api_pb2.SandboxGetExitSnapshotRequest(sandbox_id=self.object_id)
+            )
+            outcome = resp.WhichOneof("outcome")
+
+            if outcome == "success":
+                if not resp.success.image_id:
+                    raise InternalError("Exit snapshot result is missing image ID")
+                return _Image._new_hydrated(resp.success.image_id, self._client, None)
+
+            if outcome == "error":
+                if resp.error.error_code in _EXIT_SNAPSHOT_NOT_FOUND_ERROR_CODES:
+                    message = resp.error.message or "No exit snapshot image will be produced"
+                    raise SnapshotCreationError(message)
+                message = resp.error.message or "Exit snapshot state is malformed"
+                raise InternalError(message)
+
+            if outcome != "pending":
+                raise InternalError("Exit snapshot response is missing an outcome")
+
+            sleep_for = _EXIT_SNAPSHOT_POLL_INTERVAL_SECONDS
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(timeout_message)
+                sleep_for = min(sleep_for, remaining)
+
+            await asyncio.sleep(sleep_for)
+
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError(timeout_message)
+
     async def snapshot_filesystem(
         self,
         timeout: int = 55,
@@ -1362,7 +1494,7 @@ class _Sandbox(_Object, type_prefix="sb"):
                 the image indefinitely.
 
         Returns:
-            An [`Image`](https://modal.com/docs/sdk/py/latest/modal.Image) object which can be used to spawn a new
+            An [`Image`](https://modal.com/docs/sdk/py/latest/Image) object which can be used to spawn a new
             Sandbox with the same filesystem.
         """
         if os.environ.get("MODAL_USE_LEGACY_FILESYSTEM_SNAPSHOT") == "1" and not self._is_v2:
@@ -1845,7 +1977,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     ):
         """Execute a command in the Sandbox and return a ContainerProcess handle.
 
-        See the [`ContainerProcess`](https://modal.com/docs/sdk/py/latest/modal.container_process#modalcontainer_processcontainerprocess)
+        See the [`ContainerProcess`](https://modal.com/docs/sdk/py/latest/container_process#containerprocess)
         docs for more information.
 
         Args:
@@ -2023,19 +2155,27 @@ class _Sandbox(_Object, type_prefix="sb"):
         )
 
     async def _experimental_snapshot(self) -> _SandboxSnapshot:
-        self._ensure_v1("_experimental_snapshot")
-        await self._get_task_id()
-        snap_req = api_pb2.SandboxSnapshotRequest(sandbox_id=self.object_id)
-        snap_resp = await self._client.stub.SandboxSnapshot(snap_req)
+        if self._is_v2:
+            task_id = await self._get_task_id()
+            command_router_client = await self._get_command_router_client(task_id)
+            snap_v2_resp = await command_router_client.snapshot_memory(
+                sr_pb2.TaskSnapshotMemoryRequest(task_id=task_id, idempotency_key=str(uuid.uuid4())),
+                timeout=55.0,
+            )
+            snapshot_id = snap_v2_resp.snapshot_id
+        else:
+            await self._get_task_id()
+            snap_req = api_pb2.SandboxSnapshotRequest(sandbox_id=self.object_id)
+            snap_resp = await self._client.stub.SandboxSnapshot(snap_req)
 
-        snapshot_id = snap_resp.snapshot_id
+            snapshot_id = snap_resp.snapshot_id
 
-        # wait for the snapshot to succeed. this is implemented as a second idempotent rpc
-        # because the snapshot itself may take a while to complete.
-        wait_req = api_pb2.SandboxSnapshotWaitRequest(snapshot_id=snapshot_id, timeout=55.0)
-        wait_resp = await self._client.stub.SandboxSnapshotWait(wait_req)
-        if wait_resp.result.status != api_pb2.GenericResult.GENERIC_STATUS_SUCCESS:
-            raise ExecutionError(wait_resp.result.exception)
+            # wait for the snapshot to succeed. this is implemented as a second idempotent rpc
+            # because the snapshot itself may take a while to complete.
+            wait_req = api_pb2.SandboxSnapshotWaitRequest(snapshot_id=snapshot_id, timeout=55.0)
+            wait_resp = await self._client.stub.SandboxSnapshotWait(wait_req)
+            if wait_resp.result.status != api_pb2.GenericResult.GENERIC_STATUS_SUCCESS:
+                raise ExecutionError(wait_resp.result.exception)
 
         async def _load(
             self: _SandboxSnapshot, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None
@@ -2046,7 +2186,8 @@ class _Sandbox(_Object, type_prefix="sb"):
         rep = "SandboxSnapshot()"
         # TODO: use ._new_hydrated instead
         obj = _SandboxSnapshot._from_loader(_load, rep, hydrate_lazily=True, load_context_overrides=LoadContext.empty())
-        obj._hydrate(snapshot_id, self._client, None)
+        metadata = api_pb2.SandboxSnapshotHandleMetadata(is_v2=self._is_v2)
+        obj._hydrate(snapshot_id, self._client, metadata)
 
         return obj
 
@@ -2057,27 +2198,41 @@ class _Sandbox(_Object, type_prefix="sb"):
         *,
         name: str | None = _DEFAULT_SANDBOX_NAME_OVERRIDE,
     ):
+        """Restore a Sandbox from a memory snapshot.
+
+        The restore targets the same backend the snapshot was taken from. A V1
+        snapshot restores as a V1 sandbox, a V2 snapshot as a V2 sandbox.
+        """
         client = client or await _Client.from_env()
+
+        if snapshot._is_v2 is None:
+            await snapshot.hydrate(client=client)
+        use_v2 = bool(snapshot._is_v2)
 
         if name is not None and name != _DEFAULT_SANDBOX_NAME_OVERRIDE:
             check_object_name(name, "Sandbox")
 
         if name is _DEFAULT_SANDBOX_NAME_OVERRIDE:
-            restore_req = api_pb2.SandboxRestoreRequest(
-                snapshot_id=snapshot.object_id,
-                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_UNSPECIFIED,
-            )
+            override_type = api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_UNSPECIFIED
+            name_override = None
         elif name is None:
-            restore_req = api_pb2.SandboxRestoreRequest(
-                snapshot_id=snapshot.object_id,
-                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_NONE,
-            )
+            override_type = api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_NONE
+            name_override = None
         else:
-            restore_req = api_pb2.SandboxRestoreRequest(
-                snapshot_id=snapshot.object_id,
-                sandbox_name_override=name,
-                sandbox_name_override_type=api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_STRING,
+            override_type = api_pb2.SandboxRestoreRequest.SANDBOX_NAME_OVERRIDE_TYPE_STRING
+            name_override = name
+
+        if use_v2:
+            return await _Sandbox._experimental_from_snapshot_v2(
+                snapshot, client, override_type=override_type, name_override=name_override
             )
+
+        restore_req = api_pb2.SandboxRestoreRequest(
+            snapshot_id=snapshot.object_id,
+            sandbox_name_override_type=override_type,
+        )
+        if name_override is not None:
+            restore_req.sandbox_name_override = name_override
         # Pin the restored Sandbox to a specific worker when MODAL_WORKER_ID is
         # set.
         if worker_id := config.get("worker_id"):
@@ -2097,13 +2252,36 @@ class _Sandbox(_Object, type_prefix="sb"):
             raise ExecutionError(resp.task_result.exception)
         return sandbox
 
+    @staticmethod
+    async def _experimental_from_snapshot_v2(
+        snapshot: _SandboxSnapshot,
+        client: _Client,
+        *,
+        override_type: "api_pb2.SandboxRestoreRequest.SandboxNameOverrideType.ValueType",
+        name_override: str | None,
+    ) -> "_Sandbox":
+        restore_req = api_pb2.SandboxRestoreV2Request(
+            snapshot_id=snapshot.object_id,
+            sandbox_name_override_type=override_type,
+        )
+        if name_override is not None:
+            restore_req.sandbox_name_override = name_override
+        if worker_id := config.get("worker_id"):
+            restore_req.worker_id = worker_id
+
+        assert client._auth_token_manager
+        auth_token = await client._auth_token_manager.get_token()
+        restore_resp: api_pb2.SandboxRestoreV2Response = await client.stub.SandboxRestoreV2(
+            restore_req, metadata=[("x-modal-auth-token", auth_token)]
+        )
+
+        sandbox = await _Sandbox.from_id(restore_resp.sandbox_id, client)
+        sandbox._task_id = restore_resp.task_id
+        return sandbox
+
     @property
     def filesystem(self) -> _SandboxFilesystem:
-        """Namespace for filesystem APIs.
-
-        Returns:
-            A `SandboxFilesystem` helper bound to this sandbox.
-        """
+        """Namespace for Sandbox filesystem APIs."""
         self._ensure_attached()
         if self._filesystem is None:
             self._filesystem = _SandboxFilesystem(self)
@@ -2138,7 +2316,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         **Deprecated (2026-03-09):** Use the `Sandbox.filesystem` APIs instead for improved reliability.
 
-        See the [`FileIO`](https://modal.com/docs/sdk/py/latest/modal.file_io#modalfile_iofileio)
+        See the [`FileIO`](https://modal.com/docs/sdk/py/latest/file_io#fileio)
         docs for more information.
 
         Args:
@@ -2242,7 +2420,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     @property
     def stdout(self) -> _StreamReader[str]:
         """
-        [`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        [`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the sandbox's stdout stream.
 
         Returns:
@@ -2254,7 +2432,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     @property
     def stderr(self) -> _StreamReader[str]:
         """
-        [`StreamReader`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamreader)
+        [`StreamReader`](https://modal.com/docs/sdk/py/latest/io_streams#streamreader)
         for the Sandbox's stderr stream.
 
         Returns:
@@ -2266,7 +2444,7 @@ class _Sandbox(_Object, type_prefix="sb"):
     @property
     def stdin(self) -> _StreamWriter:
         """
-        [`StreamWriter`](https://modal.com/docs/sdk/py/latest/modal.io_streams#modalio_streamsstreamwriter)
+        [`StreamWriter`](https://modal.com/docs/sdk/py/latest/io_streams#streamwriter)
         for the Sandbox's stdin stream.
 
         Returns:
@@ -2323,7 +2501,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
             for sandbox_info in resp.sandboxes:
                 sandbox_info: api_pb2.SandboxInfo
-                obj = _Sandbox._new_hydrated(sandbox_info.id, client, None)
+                obj = _Sandbox._new_hydrated(sandbox_info.id, client, sandbox_info.metadata)
                 obj._result = sandbox_info.task_info.result  # TODO: send SandboxInfo as metadata to _new_hydrated?
                 yield obj
 
@@ -2378,7 +2556,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
             for sandbox_info in resp.sandboxes:
                 sandbox_info: api_pb2.SandboxInfo
-                obj = _Sandbox._new_hydrated(sandbox_info.id, client, None)
+                obj = _Sandbox._new_hydrated(sandbox_info.id, client, sandbox_info.metadata)
                 # SandboxListV2 only returns V2 sandboxes; mark them as such so
                 # operations like wait/terminate/exec use the V2 RPCs and stdio.
                 obj._is_v2 = True
@@ -2494,7 +2672,7 @@ class _SidecarContainer:
 
     @property
     def filesystem(self) -> _SandboxFilesystem:
-        """Namespace for filesystem APIs."""
+        """Namespace for Sandbox filesystem APIs."""
         if self._filesystem is None:
             self._filesystem = _SandboxFilesystem(self)
         return self._filesystem

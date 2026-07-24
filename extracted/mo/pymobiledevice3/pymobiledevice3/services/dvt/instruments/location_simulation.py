@@ -1,5 +1,6 @@
 from pymobiledevice3.dtx import DTXService, dtx_method
 from pymobiledevice3.dtx_service import DtxService
+from pymobiledevice3.dtx_service_provider import DtxServiceProvider
 from pymobiledevice3.services.dvt.instruments.location_simulation_base import LocationSimulationBase
 
 
@@ -22,8 +23,8 @@ class LocationSimulation(DtxService[LocationSimulationService], LocationSimulati
     and used as an async context manager to open the channel.
     """
 
-    def __init__(self, dvt):
-        DtxService.__init__(self, dvt)
+    def __init__(self, dvt: DtxServiceProvider):
+        super().__init__(dvt)
         LocationSimulationBase.__init__(self)
 
     async def set(self, latitude: float, longitude: float) -> None:

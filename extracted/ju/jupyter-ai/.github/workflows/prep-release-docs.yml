@@ -1,0 +1,185 @@
+name: "Step 0: Prep release documentation"
+
+# Generates the docs "Releases" page for a new version and opens it as a draft
+# PR against the target branch. The docs Releases section — not Jupyter
+# Releaser's changelog and not the GitHub release — is the source of truth for
+# Jupyter AI release notes.
+#
+# This is a thin wrapper: all the work lives in scripts/generate_release_notes.py
+# so it runs identically locally and here. The script resolves, per submodule,
+# the PR window between its version floor at the previous release and its floor
+# at this version (from pyproject.toml), and reuses Jupyter Releaser's own
+# changelog builder to aggregate PRs + contributors.
+#
+# Run this as "Step 0", before "Step 1: Prep Release": the new version's floors
+# must already be bumped in the target branch's pyproject.toml (see the
+# prep-jupyter-ai-release tooling), since the script reads them from the
+# working tree.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version being released, e.g. v3.1.0 or v3.0.4"
+        required: true
+      target-branch:
+        description: >-
+          Branch to target. Patch releases of older minors are cut from
+          maintenance branches (e.g. 3.0.x), not always main. The docs PR is
+          opened against this branch.
+        required: true
+        default: "main"
+
+permissions: {}
+
+concurrency:
+  group: prep-release-docs-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prep-release-docs:
+    name: Generate release-notes page and open draft PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release-notes branch
+      pull-requests: write # open the draft PR
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.inputs.target-branch }}
+          # Full history + tags so the script can resolve the previous release
+          # tag reachable on the target branch and read its pyproject.toml.
+          fetch-depth: 0
+          # Credentials are not persisted; the push below authenticates
+          # explicitly with the ephemeral GITHUB_TOKEN.
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install generator dependencies
+        # packaging: floor/tag resolution. jupyter-releaser + github-activity:
+        # the reused PR aggregation. tomli: TOML parsing (tomllib is stdlib on
+        # 3.11 but tomli keeps the script portable to 3.10).
+        run: pip install packaging jupyter-releaser github-activity tomli
+
+      - name: Check out the release-docs branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.event.inputs.version }}
+          TARGET_BRANCH: ${{ github.event.inputs.target-branch }}
+        run: |
+          set -euo pipefail
+
+          # Normalize the version to a v-prefix for branch/title consistency.
+          case "$VERSION" in
+            v*) V="$VERSION" ;;
+            *) V="v$VERSION" ;;
+          esac
+          BRANCH="release-docs/${V}"
+          echo "V=${V}" >> "$GITHUB_ENV"
+          echo "BRANCH=${BRANCH}" >> "$GITHUB_ENV"
+
+          # If the branch already exists on the remote, reuse it — generating on
+          # top of it and committing (not force-pushing) below, so each run adds
+          # a commit and the diff between runs is visible. Otherwise start a new
+          # branch from the target checkout.
+          # A merge (below) records a commit, so identify the committer up front.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch ${BRANCH} exists; adding a commit on top of it."
+            git fetch --quiet origin "$BRANCH" "$TARGET_BRANCH"
+            git checkout -B "$BRANCH" "origin/${BRANCH}"
+            # Bring the branch up to date with the target branch before
+            # generating, so the run reads the CURRENT pyproject floors (which
+            # may have advanced since this branch was first cut) rather than the
+            # stale ones frozen on the branch. -X theirs resolves any conflict in
+            # the generated page toward the target branch; the page is
+            # regenerated next anyway, and the contributor-owned summary lives
+            # only on this branch, outside the target's files, so it is preserved.
+            git merge --no-edit -X theirs "origin/${TARGET_BRANCH}" \
+              || { echo "error: could not merge ${TARGET_BRANCH} into ${BRANCH}" >&2; exit 1; }
+          else
+            echo "Branch ${BRANCH} does not exist; creating it."
+            git checkout -b "$BRANCH"
+          fi
+
+      - name: Generate release-notes page
+        env:
+          # The generator uses the token for the GitHub search/PR API. The
+          # built-in token is sufficient for public read + label lookups.
+          GITHUB_TOKEN: ${{ github.token }}
+          # Pass workflow inputs via env (not inline ${{ }} in run:) so an
+          # attacker-controllable value can't be expanded into the shell.
+          VERSION: ${{ github.event.inputs.version }}
+          TARGET_BRANCH: ${{ github.event.inputs.target-branch }}
+        run: |
+          python scripts/generate_release_notes.py \
+            --version "$VERSION" \
+            --target-branch "$TARGET_BRANCH"
+
+      - name: Commit, push, and open a draft PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event.inputs.target-branch }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Commit the regenerated page if it changed. This is separate from the
+          # push decision below: even with no page change, the branch may still
+          # be ahead of its remote because of the target-branch merge made during
+          # checkout (e.g. picking up unrelated docs that landed on the target).
+          git add docs/source/releases
+          if git diff --cached --quiet; then
+            echo "No release-notes changes since the last run."
+          else
+            git commit -m "docs: add release notes for ${V}"
+          fi
+
+          # Push whenever the local branch is ahead of the remote — which covers
+          # both a new release-notes commit and the merge commit from checkout.
+          # Gating the push on the page diff alone would strip the merge, leaving
+          # the branch missing changes that landed on the target branch. Plain
+          # push (no force) appends to the branch; we only ever push to the
+          # dedicated release-docs branch, never to $TARGET_BRANCH.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 \
+            && [ -z "$(git rev-list "origin/${BRANCH}..HEAD")" ]; then
+            echo "Branch ${BRANCH} is already up to date on the remote; nothing to push."
+          else
+            git push \
+              "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              "HEAD:${BRANCH}"
+          fi
+
+          # Reuse the PR for this branch only if one is currently OPEN; a re-run
+          # then just adds a commit to it. `gh pr view` matches closed/merged PRs
+          # too, so we must filter by state explicitly — otherwise a previously
+          # closed PR for this branch name would suppress opening a new one.
+          PR_URL="$(gh pr list --state open --head "$BRANCH" --json url --jq '.[0].url // ""')"
+          if [ -n "$PR_URL" ]; then
+            echo "PR already open for ${BRANCH}: ${PR_URL}"
+          else
+            PR_URL="$(gh pr create \
+              --draft \
+              --base "$TARGET_BRANCH" \
+              --head "$BRANCH" \
+              --title "docs: add release notes for ${V}" \
+              --label documentation \
+              --body "Adds the \`Releases\` documentation page for **${V}**, generated by \`scripts/generate_release_notes.py\` (\"Step 0: Prep release documentation\"). Review the aggregated per-subpackage PRs and contributors before merging.")"
+            echo "Opened draft PR: ${PR_URL}"
+          fi
+
+          # Fail loudly if no PR ended up open — pushing the branch alone must
+          # never count as success.
+          if [ -z "${PR_URL:-}" ]; then
+            echo "error: no pull request was opened for ${BRANCH}" >&2
+            exit 1
+          fi

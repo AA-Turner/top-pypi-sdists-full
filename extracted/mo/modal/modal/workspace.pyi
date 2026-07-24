@@ -148,7 +148,10 @@ class Workspace(modal.object.Object):
     @property
     def name(self) -> typing.Optional[str]: ...
     @property
-    def members(self) -> WorkspaceMembersManager: ...
+    def members(self) -> WorkspaceMembersManager:
+        """Namespace with methods for managing the membership of a Workspace."""
+        ...
+
     @staticmethod
     def from_context(*, client: typing.Optional[modal.client.Client] = None) -> Workspace:
         """Look up the Workspace associated with the current context.
@@ -161,16 +164,25 @@ class Workspace(modal.object.Object):
         ...
 
     @property
-    def billing(self) -> WorkspaceBillingManager: ...
+    def billing(self) -> WorkspaceBillingManager:
+        """Namespace for Workspace billing APIs."""
+        ...
+
     @property
-    def proxy_tokens(self) -> WorkspaceProxyTokenManager: ...
+    def proxy_tokens(self) -> WorkspaceProxyTokenManager:
+        """Namespace with methods for managing the proxy tokens in a Workspace.
+
+        See [the guide](https://modal.com/docs/guide/webhook-proxy-auth) for more information on proxy tokens.
+        """
+        ...
+
     @property
-    def settings(self) -> WorkspaceSettingsManager: ...
+    def settings(self) -> WorkspaceSettingsManager:
+        """Namespace for Workspace settings APIs."""
+        ...
 
 class WorkspaceMembersManager:
-    """mdmd:namespace
-    Namespace with methods for managing the membership of a Workspace.
-    """
+    """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
         """mdmd:hidden"""
         ...
@@ -203,9 +215,7 @@ class WorkspaceMembersManager:
     list: __list_spec
 
 class WorkspaceBillingManager:
-    """mdmd:namespace
-    Namespace for Workspace billing APIs.
-    """
+    """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
         """mdmd:hidden"""
         ...
@@ -243,7 +253,7 @@ class WorkspaceBillingManager:
                 - [`modal billing report`](https://modal.com/docs/cli/latest/billing#modal-billing-report):
                   A workspace report CLI that has convenience features around relative time range queries
                   and JSON/CSV output.
-                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Environment#billingreport):
+                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/Environment#billingreport):
                   An analogous report API that is scoped to a specific Environment.
             """
             ...
@@ -280,19 +290,86 @@ class WorkspaceBillingManager:
                 - [`modal billing report`](https://modal.com/docs/cli/latest/billing#modal-billing-report):
                   A workspace report CLI that has convenience features around relative time range queries
                   and JSON/CSV output.
-                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Environment#billingreport):
+                - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/Environment#billingreport):
                   An analogous report API that is scoped to a specific Environment.
             """
             ...
 
     report: __report_spec
 
-class WorkspaceProxyTokenManager:
-    """mdmd:namespace
-    Namespace with methods for managing the proxy tokens in a Workspace.
+    class __summary_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, cycle: typing.Union[str, datetime.datetime, None] = None
+        ) -> modal.types.WorkspaceBillingSummary:
+            """Return a summary of workspace cost over a single billing cycle determined by `cycle`
 
-    See [the guide](https://modal.com/docs/guide/webhook-proxy-auth) for more information on proxy tokens.
-    """
+            Args:
+                cycle: Start of the summary, inclusive. Must be the first of a month, and must be in UTC
+                    or timezone-naive (interpreted as UTC). If provided as a string, it must either be
+                    formatted as an ISO 8601 month (YYYY-MM), or must be one of the convenience spellings
+                    "this month" or "last month". If not provided, `cycle` defaults to the first of the
+                    current month (in which case a summary is generated for the current billing cycle).
+
+            Returns:
+                A single `WorkspaceBillingSummary` dataclass containing the following fields:
+                - `metered_cost` representing cost before any adjustments,
+                - `billed_cost` representing the cost actually invoiced, including all adjustments,
+                - `adjustments` containing a breakdown of the adjustments that make up the difference
+                  between `metered_cost` and `billed_cost`. This can include discounts for free volume
+                  storage, adjustments due to plan credits, etc. The exact keys of this are subject to
+                  change as Modal's billing model evolves.
+                - `metered_cost_breakdown` containing a breakdown of that cost by the Modal resources
+                  that generated it. The exact keys of this are subject to change as Modal's billing
+                  model evolves.
+
+                All values are reported as `decimal.Decimal`s.
+
+            See also:
+                - [`modal billing summary`](https://modal.com/docs/cli/latest/billing#modal-billing-summary):
+                  A workspace summary CLI that has convenience features around relative time range queries.
+                - [`Environment.billing.summary()`](https://modal.com/docs/sdk/py/latest/Environment#billingsummary):
+                  An analogous summary API that is scoped to a specific Environment.
+            """
+            ...
+
+        async def aio(
+            self, /, cycle: typing.Union[str, datetime.datetime, None] = None
+        ) -> modal.types.WorkspaceBillingSummary:
+            """Return a summary of workspace cost over a single billing cycle determined by `cycle`
+
+            Args:
+                cycle: Start of the summary, inclusive. Must be the first of a month, and must be in UTC
+                    or timezone-naive (interpreted as UTC). If provided as a string, it must either be
+                    formatted as an ISO 8601 month (YYYY-MM), or must be one of the convenience spellings
+                    "this month" or "last month". If not provided, `cycle` defaults to the first of the
+                    current month (in which case a summary is generated for the current billing cycle).
+
+            Returns:
+                A single `WorkspaceBillingSummary` dataclass containing the following fields:
+                - `metered_cost` representing cost before any adjustments,
+                - `billed_cost` representing the cost actually invoiced, including all adjustments,
+                - `adjustments` containing a breakdown of the adjustments that make up the difference
+                  between `metered_cost` and `billed_cost`. This can include discounts for free volume
+                  storage, adjustments due to plan credits, etc. The exact keys of this are subject to
+                  change as Modal's billing model evolves.
+                - `metered_cost_breakdown` containing a breakdown of that cost by the Modal resources
+                  that generated it. The exact keys of this are subject to change as Modal's billing
+                  model evolves.
+
+                All values are reported as `decimal.Decimal`s.
+
+            See also:
+                - [`modal billing summary`](https://modal.com/docs/cli/latest/billing#modal-billing-summary):
+                  A workspace summary CLI that has convenience features around relative time range queries.
+                - [`Environment.billing.summary()`](https://modal.com/docs/sdk/py/latest/Environment#billingsummary):
+                  An analogous summary API that is scoped to a specific Environment.
+            """
+            ...
+
+    summary: __summary_spec
+
+class WorkspaceProxyTokenManager:
+    """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
         """mdmd:hidden"""
         ...
@@ -481,9 +558,7 @@ class WorkspaceProxyTokenManager:
     _environment_id: ___environment_id_spec
 
 class WorkspaceSettingsManager:
-    """mdmd:namespace
-    Namespace for Workspace settings APIs.
-    """
+    """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
         """mdmd:hidden"""
         ...

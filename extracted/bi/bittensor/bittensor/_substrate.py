@@ -88,6 +88,10 @@ class Substrate(Protocol):
         """Seconds per block, detected from the chain."""
         ...
 
+    async def spec_version(self) -> int:
+        """The connected runtime's ``spec_version`` (at the chain head)."""
+        ...
+
     async def get_block(
         self, block_number: Optional[int] = None, block_hash: Optional[str] = None
     ) -> Optional[dict]:
@@ -140,6 +144,10 @@ class Substrate(Protocol):
 
     def blocks(self, *, finalized: bool = False) -> AsyncIterator[dict]:
         """Stream decoded block headers as they are produced (or finalized)."""
+        ...
+
+    async def events(self, block_hash: Optional[str] = None) -> list[dict]:
+        """Decoded ``System.Events`` records for a block."""
         ...
 
     # Calls and fees -------------------------------------------------------------
@@ -356,6 +364,15 @@ class RpcSubstrate:
             self._block_time = int(await self.constant("Aura", "SlotDuration")) / 1000.0
         return self._block_time
 
+    async def spec_version(self) -> int:
+        """The connected runtime's ``spec_version``.
+
+        Read from the transport's head codec (TTL-validated against
+        ``state_getRuntimeVersion``), so a runtime upgrade mid-session is
+        picked up within about a block.
+        """
+        return await self._read(lambda raw: raw.runtime_spec_version())
+
     async def get_block(
         self, block_number: Optional[int] = None, block_hash: Optional[str] = None
     ) -> Optional[dict]:
@@ -451,6 +468,10 @@ class RpcSubstrate:
                 yield {"header": header}
         except SubstrateRequestException as error:
             raise ChainError(str(error)) from error
+
+    async def events(self, block_hash: Optional[str] = None) -> list[dict]:
+        """Decoded ``System.Events`` records for a block."""
+        return await self._read(lambda raw: raw.get_events(block_hash))
 
     async def compose(self, call):
         """Compose a chain call from a generated ``Call`` (module, function, params)."""

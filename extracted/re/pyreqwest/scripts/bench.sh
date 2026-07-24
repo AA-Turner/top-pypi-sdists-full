@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-uv sync --all-groups
+uv sync --all-groups --no-group build
 uv run maturin develop --uv --all-features --release
 
 libs=(
@@ -13,7 +13,7 @@ libs=(
   "urllib3"
   "httpx"
   "rnet"
-  "ry"
+  # "ry"
   "niquests"
   "curl_cffi"
 )

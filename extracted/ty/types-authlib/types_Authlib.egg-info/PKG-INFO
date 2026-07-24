@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Authlib
-Version: 1.7.2.20260723
+Version: 1.7.2.20260724
 Summary: Typing stubs for Authlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -36,4 +36,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`a8887d5ba9061d90d2a671961b3341a420704c54`](https://github.com/python/typeshed/commit/a8887d5ba9061d90d2a671961b3341a420704c54).
+[`97e83f65cee88c0c978fa34668d9f59b8c362fce`](https://github.com/python/typeshed/commit/97e83f65cee88c0c978fa34668d9f59b8c362fce).

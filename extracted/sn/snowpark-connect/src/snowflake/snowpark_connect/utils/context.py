@@ -7,6 +7,7 @@ import re
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import Iterator, Mapping, Optional
 
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
@@ -53,7 +54,43 @@ _sql_aggregate_function_count = ContextVar[int](
 _STARTING_SQL_PLAN_ID = 0x80000000
 
 _next_sql_plan_id = ContextVar[int]("_next_sql_plan_id")
-_sql_plan_name_map = ContextVar[dict[str, int]]("_sql_plan_name_map")
+
+
+@dataclass
+class _SqlScopeFrame:
+    """One lexical scope in the SQL plan-name resolution stack.
+
+    - ``names`` maps a FROM-clause relation qualifier to its plan_id (or
+      AMBIGUOUS_PLAN_ID) for this scope only.
+    - ``reg_db`` tracks the database/schema active when each name was
+      registered, used for same-table collision detection: an unqualified "t1"
+      registered in context "mydb1" has identity "mydb1.t1", which equals the
+      explicitly qualified "mydb1.t1" -> same table -> not ambiguous.
+    - ``is_boundary`` is True when entering this scope crossed a subquery
+      correlation boundary (push_sql_scope(is_boundary=True)).  It is False for
+      same-query-level scopes (push_sql_scope), across which outer names remain
+      fully visible.  Correlated resolution may cross at most one boundary,
+      matching Spark's single-level correlation.
+    """
+
+    names: dict[str, int] = field(default_factory=dict)
+    reg_db: dict[str, str | None] = field(default_factory=dict)
+    is_boundary: bool = False
+
+
+# Stack of lexical scopes for spark.sql() plan-name resolution.  The bottom of
+# the stack is the outermost query; the top is the current scope.  Registration
+# targets the top frame (isolating each subquery namespace); resolution walks
+# the stack downward (making outer names visible), crossing at most one subquery
+# boundary.  There is always at least one base frame (seeded in
+# clear_context_data).
+_sql_plan_scope_stack: ContextVar[list[_SqlScopeFrame]] = ContextVar(
+    "_sql_plan_scope_stack"
+)
+
+# Sentinel plan_id indicating that a qualifier maps to more than one relation.
+# When get_sql_plan() returns this value the caller must raise AMBIGUOUS_REFERENCE.
+AMBIGUOUS_PLAN_ID = -1
 _sql_named_args = ContextVar[dict[str, expressions_proto.Expression]]("_sql_named_args")
 _sql_pos_args = ContextVar[dict[int, expressions_proto.Expression]]("_sql_pos_args")
 
@@ -409,19 +446,39 @@ def push_evaluating_join_condition(join_type, left_keys, right_keys):
 
 
 @contextmanager
-def push_sql_scope():
+def push_sql_scope(is_boundary: bool = False):
     """
-    Creates a new variable scope when evaluating nested SQL expressions.
-    E.g., in `SELECT x, (SELECT 1 AS x)`, the two `x`s are different variables.
+    Creates a new plan-name scope frame on the SQL scope stack.
+
+    Registration targets the new top frame, so each scope's relation names are
+    isolated for collision detection.  Resolution (get_sql_plan) walks the stack
+    downward, so outer names remain visible.
+
+    ``is_boundary`` selects the scope kind:
+
+    - ``False`` (default) -- a same-query-level scope, e.g. in
+      `SELECT x, (SELECT 1 AS x)` the two `x`s are different variables.  Outer
+      plan names stay fully visible via get_sql_plan()'s downward walk.
+
+    - ``True`` -- a subquery correlation boundary for SubqueryAlias complex
+      children and expression-level subqueries (EXISTS, ScalarSubquery,
+      InSubquery, FunctionTableSubquery).  Inner table registrations cannot
+      collide with identically-named outer relations, get_sql_plan() crosses at
+      most one boundary (matching Spark's single-level correlation), and deeper
+      frames remain available to is_out_of_scope_correlated_qualifier() so it
+      can distinguish a grandparent reference (which Spark rejects) from a
+      genuinely fully-qualified name.
     """
-    cur = _sql_plan_name_map.get()
-    map_token = _sql_plan_name_map.set(cur.copy())
+    stack = _sql_plan_scope_stack.get()
+    stack_token = _sql_plan_scope_stack.set(
+        stack + [_SqlScopeFrame(is_boundary=is_boundary)]
+    )
     agg_token = _sql_aggregate_function_count.set(0)
     try:
         yield
     finally:
         _sql_aggregate_function_count.reset(agg_token)
-        _sql_plan_name_map.reset(map_token)
+        _sql_plan_scope_stack.reset(stack_token)
 
 
 @contextmanager
@@ -511,12 +568,157 @@ def get_current_operation_scope() -> str:
     return _current_operation.get()
 
 
+def _get_current_registration_db() -> str | None:
+    """Return the current Spark/SQL database for table identity computation.
+
+    Reads the Snowflake session's current schema, which is the authoritative
+    source of truth: every Spark `USE <db>` command is translated to
+    `session.sql("USE SCHEMA <db>")`, so the session schema always reflects the
+    most recent USE across requests.
+    """
+    try:
+        from snowflake.snowpark import Session
+
+        session = Session.get_active_session()
+        if session is not None:
+            schema = session.get_current_schema()
+            if schema:
+                return _normalize(schema.strip('"'))
+    except Exception:
+        pass
+    return None
+
+
+def _table_identity(name: str, reg_db: str | None) -> str:
+    """Canonical table identity used for same-table collision detection.
+
+    For a 1-part unqualified name "t1" registered with db="mydb1" the identity
+    is "mydb1.t1".  For an already-qualified name "mydb1.t1" the identity is
+    just the normalised name itself.  This lets the collision check distinguish
+    "same table, different plan occurrence" from "two tables with same short name".
+    """
+    parts = name.split(".")
+    if len(parts) == 1 and reg_db:
+        return f"{reg_db}.{name}"
+    return name
+
+
 def set_sql_plan_name(name: str, plan_id: int) -> None:
-    _sql_plan_name_map.get()[name] = plan_id
+    """Register a FROM-clause relation `name` → `plan_id` for qualifier lookup.
+
+    Collisions are resolved into AMBIGUOUS_PLAN_ID using table identity (db +
+    table), so that a self-join of the same physical table is distinguished from
+    two genuinely different tables that merely share a short name.  See
+    _table_identity for how unqualified names are expanded with the current db.
+    """
+    plan_map = _sql_plan_scope_stack.get()[-1].names
+    reg_db_map = _sql_plan_scope_stack.get()[-1].reg_db
+    name = _normalize(name)
+    current_db = _get_current_registration_db()
+    new_identity = _table_identity(name, current_db)
+
+    def same_table_at(key: str) -> bool:
+        # Does the relation currently registered under `key` denote the same
+        # physical table as the one we are registering now?
+        return _table_identity(key, reg_db_map.get(key)) == new_identity
+
+    # --- Register the full name --------------------------------------------
+    existing = plan_map.get(name)
+    if existing is None:
+        plan_map[name] = plan_id
+        reg_db_map[name] = current_db
+    elif existing not in (plan_id, AMBIGUOUS_PLAN_ID):
+        if same_table_at(name):
+            # Same table re-registered at the same key (e.g. a copied scope
+            # for a CTE/subquery shadowing the outer relation): keep the
+            # latest plan_id rather than flagging ambiguity.
+            plan_map[name] = plan_id
+            reg_db_map[name] = current_db
+        else:
+            plan_map[name] = AMBIGUOUS_PLAN_ID
+
+    # --- Register the short last-part of a multi-part name -----------------
+    # e.g. "mydb1.t1" also registers "t1" so an unqualified SELECT qualifier
+    # can find this relation.
+    parts = name.split(".")
+    if len(parts) <= 1:
+        return
+    short = parts[-1]
+    # The short alias inherits the db embedded in the qualified name itself
+    # ("mydb1" for "mydb1.t1"), independent of the active session schema.
+    alias_db = parts[-2]
+    existing_short = plan_map.get(short)
+    if existing_short is None:
+        plan_map[short] = plan_id
+        reg_db_map[short] = alias_db
+    elif existing_short != plan_id:
+        if same_table_at(short):
+            # Self-join: `FROM t1, mydb1.t1` after `USE mydb1` — both sides are
+            # the same physical table, so EVERY qualifier (short or fully
+            # qualified) is ambiguous.
+            plan_map[short] = AMBIGUOUS_PLAN_ID
+            plan_map[name] = AMBIGUOUS_PLAN_ID
+        else:
+            # Different tables sharing a short name (e.g. `mydb2.t1` vs
+            # `mydb1.t1`): only the short qualifier is ambiguous; the fully
+            # qualified name still resolves to its unique source.
+            plan_map[short] = AMBIGUOUS_PLAN_ID
 
 
-def get_sql_plan(name: str) -> int:
-    return _sql_plan_name_map.get().get(name)
+def get_sql_plan(name: str) -> int | None:
+    """Resolve a FROM-clause qualifier to its plan_id across the scope stack.
+
+    Searches from the current (top) scope downward so that outer table
+    qualifiers -- e.g. `bonus.emp_name` referenced inside an EXISTS or scalar
+    subquery -- still resolve, without the outer scope's names polluting inner
+    collision detection.  Same-query-level frames (push_sql_scope) are traversed
+    freely; correlated resolution crosses at most ONE subquery boundary, matching
+    Spark, which correlates a subquery to its single enclosing query rather than
+    arbitrary grandparents.
+    """
+    normalized = _normalize(name)
+    boundaries_crossed = 0
+    for frame in reversed(_sql_plan_scope_stack.get()):
+        result = frame.names.get(normalized)
+        if result is not None:
+            return result
+        if frame.is_boundary:
+            boundaries_crossed += 1
+            if boundaries_crossed >= 2:
+                break
+    return None
+
+
+def is_out_of_scope_correlated_qualifier(name: str) -> bool:
+    """Return True if `name` is a relation alias visible only beyond the single
+    correlation level Spark allows -- i.e. in a grandparent scope reachable only
+    after crossing a second subquery boundary.
+
+    Such a reference is an out-of-scope correlated reference.  Spark rejects it
+    with UNRESOLVED_COLUMN for a no-FROM scalar subquery (e.g. the inner
+    `(SELECT d.d_budget)` of a doubly-nested correlated subquery), whereas
+    Snowflake would happily resolve the correlation and return a result.  The
+    caller uses this to raise a Spark-compatible AnalysisException instead of
+    silently diverging.
+
+    The check is scoped to the no-FROM case (empty current scope) so that
+    references resolvable within the current or immediate-parent scope -- and
+    genuinely fully-qualified names that appear in no scope at all -- are left
+    untouched.
+    """
+    normalized = _normalize(name)
+    stack = _sql_plan_scope_stack.get()
+    if stack[-1].names:
+        # The current subquery has its own FROM-clause relations; defer to the
+        # normal resolution / fully-qualified passthrough behaviour.
+        return False
+    boundaries_crossed = 0
+    for frame in reversed(stack):
+        if frame.is_boundary:
+            boundaries_crossed += 1
+        if boundaries_crossed >= 2 and normalized in frame.names:
+            return True
+    return False
 
 
 def add_sql_aggregate_function() -> None:
@@ -625,7 +827,7 @@ def clear_context_data() -> None:
     _request_external_tables.set([])
     _view_process_context.set([])
     _next_sql_plan_id.set(_STARTING_SQL_PLAN_ID)
-    _sql_plan_name_map.set({})
+    _sql_plan_scope_stack.set([_SqlScopeFrame()])
     _sql_aggregate_function_count.set(0)
     _sql_named_args.set({})
     _sql_pos_args.set({})

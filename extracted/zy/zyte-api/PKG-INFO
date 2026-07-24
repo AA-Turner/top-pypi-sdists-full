@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zyte-api
-Version: 0.10.0
+Version: 0.11.0
 Summary: Python interface to Zyte API
 Project-URL: Homepage, https://github.com/zytedata/python-zyte-api
 Project-URL: Documentation, https://python-zyte-api.readthedocs.io/en/stable/
@@ -47,6 +47,7 @@ Requires-Python: >=3.10
 Requires-Dist: aiohttp>=3.8.0
 Requires-Dist: attrs>=20.1.0
 Requires-Dist: brotli>=0.5.2
+Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: runstats>=0.0.1
 Requires-Dist: tenacity>=8.2.0
 Requires-Dist: tqdm>=4.16.0

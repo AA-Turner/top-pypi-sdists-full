@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yfinance
-Version: 1.5.1
+Version: 1.5.2
 Summary: Download market data from Yahoo! Finance API
 Home-page: https://github.com/ranaroussi/yfinance
 Author: Ran Aroussi

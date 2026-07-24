@@ -28,8 +28,9 @@ import tempfile
 import time
 import uuid
 from collections import deque
+from collections.abc import Awaitable
 from pathlib import Path
-from typing import Optional, Protocol, cast
+from typing import Any, Optional, Protocol, cast
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -527,7 +528,7 @@ class _KernelUdp:
 
     async def sendto(self, data: bytes, ip: str, port: int) -> None:
         # loop.sock_sendto exists since Python 3.11; absent from the 3.9 typeshed baseline.
-        await self._loop.sock_sendto(self._sock, data, (ip, port, 0, 0))  # pyright: ignore[reportAttributeAccessIssue]
+        await cast(Any, self._loop).sock_sendto(self._sock, data, (ip, port, 0, 0))
 
     def close(self) -> None:
         with contextlib.suppress(Exception):
@@ -711,8 +712,8 @@ class ScreenStreamServer:
         self._active_service: Optional[DisplayService] = None
         self._active_session_id: Optional[uuid.UUID] = None
         self._active_sock: Optional[UdpMediaTransport] = None
-        self._active_recv_task: Optional[asyncio.Task] = None
-        self._active_rtcp_task: Optional[asyncio.Task] = None
+        self._active_recv_task: Optional[asyncio.Task[None]] = None
+        self._active_rtcp_task: Optional[asyncio.Task[None]] = None
         self._stream_lock = asyncio.Lock()
         self._stream_dirty = True  # True → next request must restart the stream
 
@@ -722,7 +723,7 @@ class ScreenStreamServer:
         self._audio_service: Optional[DisplayService] = None
         self._audio_session_id: Optional[uuid.UUID] = None
         self._audio_sock: Optional[UdpMediaTransport] = None
-        self._audio_recv_task: Optional[asyncio.Task] = None
+        self._audio_recv_task: Optional[asyncio.Task[None]] = None
         self._audio_subscribers: dict[asyncio.Queue[bytes], None] = {}
         self._audio_lock = asyncio.Lock()
         # Audio RTCP bookkeeping -- parallel to the video fields below.
@@ -735,7 +736,7 @@ class ScreenStreamServer:
         self._audio_remote_ssrc: int = 0
         self._audio_rtp_highest_seq: int = 0
         self._audio_rtp_packets_received: int = 0
-        self._audio_rtcp_task: Optional[asyncio.Task] = None
+        self._audio_rtcp_task: Optional[asyncio.Task[None]] = None
         # Xcode's Mirror uses ONE client_session_id for both the audio
         # and video mediastreamstart calls (confirmed verbatim in the
         # remotexpc-sniff4 capture: same UUID in both 'CoreDevice.input'
@@ -765,10 +766,10 @@ class ScreenStreamServer:
         self._rtp_last_frame_pkts: int = 0
         self._rtp_jitter: float = 0.0
         self._rtp_prev_transit: Optional[float] = None
-        self._rctl_task: Optional[asyncio.Task] = None
+        self._rctl_task: Optional[asyncio.Task[None]] = None
         # PLI tasks in flight -- keep a reference so the GC doesn't drop
         # them while awaiting the sendto (and ruff is happy with create_task).
-        self._pli_tasks: set[asyncio.Task] = set()
+        self._pli_tasks: set[asyncio.Task[None]] = set()
         # Timestamp of the last PLI we sent. The refresh loop paces its
         # triggers on it, and the recovery paths rate-limit on it so a
         # loss burst / slow subscriber / stuck client can't turn into a
@@ -777,7 +778,7 @@ class ScreenStreamServer:
         # (timestamp, AU bytes) entries pruned to the last 1 s -- the
         # refresh loop's motion detector, also logged with every PLI so
         # post-mortems can tell a quiet-screen PLI from a mid-motion one.
-        self._au_byte_window: deque = deque()
+        self._au_byte_window: deque[tuple[float, int]] = deque()
 
         # Lazy-opened HID services for browser-driven touch / buttons. The
         # auth gate is already held open by the active media stream above,
@@ -795,7 +796,7 @@ class ScreenStreamServer:
         # handling latency from device-write latency so a touch flood
         # can't starve the stream-broadcast loop.
         self._hid_queue: asyncio.Queue[tuple[str, bytes]] = asyncio.Queue()
-        self._hid_worker_task: Optional[asyncio.Task] = None
+        self._hid_worker_task: Optional[asyncio.Task[None]] = None
 
         # Stall-detection bookkeeping. Updated whenever an AU is forwarded;
         # the watchdog restarts the stream (forcing a fresh IDR) if no AU
@@ -820,7 +821,7 @@ class ScreenStreamServer:
         # 30 s -- 2 min) and the encoder stops emitting AUs; restarts
         # also can't recover because a locked device won't start a
         # fresh DisplayService session cleanly.
-        self._keep_awake_task: Optional[asyncio.Task] = None
+        self._keep_awake_task: Optional[asyncio.Task[None]] = None
 
         # Disconnect-recovery state. The stall watchdog sets
         # ``_reconnect_signal`` when it detects "tunnel is dead" errors
@@ -831,7 +832,7 @@ class ScreenStreamServer:
         # keep running through the gap -- the browser's offline overlay
         # masks the freeze, and AUs resume after rebind.
         self._reconnect_signal = asyncio.Event()
-        self._reconnect_task: Optional[asyncio.Task] = None
+        self._reconnect_task: Optional[asyncio.Task[None]] = None
         self._reconnect_poll_interval = 2.0
 
     # ----- per-session UDP receiver -----------------------------------------
@@ -1700,7 +1701,7 @@ class ScreenStreamServer:
         "accessibilityExtraExtraExtraLarge",
     )
 
-    async def _accessibility_list(self) -> list[dict]:
+    async def _accessibility_list(self) -> list[dict[str, Any]]:
         """Read every supported knob and return a viewer-friendly list.
 
         Each entry is ``{key, value, type, options?}`` where ``type`` is
@@ -1708,9 +1709,9 @@ class ScreenStreamServer:
         as checkboxes, floats as 0..1 sliders, and enums as dropdowns.
         """
         async with self._accessibility_lock:
-            results: list[dict] = []
+            results: list[dict[str, Any]] = []
 
-            async def _read(meth):
+            async def _read(meth: str) -> Any:
                 async with ConfigurationService(self._rsd) as cfg:
                     return await getattr(cfg, meth)()
 
@@ -1751,7 +1752,7 @@ class ScreenStreamServer:
             results.append({"key": "liquid_glass_opacity", "type": "float", "value": 1.0})
             return results
 
-    async def _accessibility_set(self, key: str, value) -> None:
+    async def _accessibility_set(self, key: str, value: Any) -> None:
         """Apply one knob change. Raises ValueError for unknown keys so
         the HTTP layer can return 400 instead of swallowing typos."""
         async with self._accessibility_lock, ConfigurationService(self._rsd) as cfg:
@@ -2917,7 +2918,7 @@ class ScreenStreamServer:
 
                 loop.add_signal_handler(getattr(signal, signame), _request_stop)
 
-        async def _bounded(coro, label, timeout=3.0):
+        async def _bounded(coro: Awaitable[Any], label: str, timeout: float = 3.0) -> None:
             """Run an async cleanup step with a hard timeout so a hung
             RPC can't keep us alive at shutdown."""
             try:

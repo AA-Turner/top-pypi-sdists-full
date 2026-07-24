@@ -41,8 +41,8 @@ setup(
     ],
     python_requires=">=3.10,<3.13",
     install_requires=[
-        "snowpark-connect-deps-1==3.56.5",  # Spark JAR dependencies (59MB)
-        "snowpark-connect-deps-2==3.56.5",  # Other JAR dependencies (53MB)
+        "snowpark-connect-deps-1==3.56.6",  # Spark JAR dependencies (59MB)
+        "snowpark-connect-deps-2==3.56.6",  # Other JAR dependencies (53MB)
         "certifi>=2025.1.31",  # prod-297255-inc0132291
         "cloudpickle",
         "fsspec",
@@ -56,7 +56,7 @@ setup(
         # (see https://github.com/jpype-project/jpype/issues/1357).
         "jpype1; sys_platform != 'darwin' or platform_machine != 'arm64'",
         "jpype1!=1.7.0,!=1.7.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
-        "protobuf>=4.25.3,<6.34",
+        "protobuf>=3.20.2,<6.34",
         "s3fs>=2025.3.0",  # prod-297255-inc0132291
         "snowflake.core>=1.0.5,<2",
         "snowflake-snowpark-python[pandas]>=1.53.0,<1.54.0",
@@ -70,15 +70,23 @@ setup(
         # The following are dependencies for the vendored pyspark
         "py4j>=0.10.9.7, <0.10.10.0",
         "pandas>=1.0.5,<3.0",
-        "pyarrow>=23.0.1,<25.0.0",
-        "grpcio>=1.56.0,<=1.78.0",
-        "grpcio-status>=1.56.0,<=1.78.0",
+        "pyarrow>=14.0.1,<25.0.0,!=15.*,!=16.*,!=17.*,!=18.*,!=19.*,!=20.*,!=21.*,!=22.*,!=23.0.0",
+        "grpcio>=1.48.2,<=1.78.0",
+        "grpcio-status>=1.41.1,<=1.78.0",
         "googleapis-common-protos>=1.56.4",
         "numpy>=1.15",
         "gcsfs>=2025.2.0",
     ],
     extras_require={
-        "jdk": ["jdk4py==17.0.9.2"],
+        # Linux ARM (Graviton) is the ONLY platform with no JDK 17 jdk4py
+        # wheel (aarch64 Linux wheels first appear at 21.0.4.0), so it must
+        # run JRE 21 + the Arrow MemoryUtil shim. Everything else — Linux
+        # x86_64, Windows, and BOTH Intel and Apple-Silicon macOS — has a
+        # 17.0.9.2 wheel and stays on the Spark-3.5-supported JDK 17.
+        "jdk": [
+            "jdk4py>=21.0.4.0 ; platform_system=='Linux' and platform_machine=='aarch64'",
+            "jdk4py==17.0.9.2 ; platform_system!='Linux' or platform_machine!='aarch64'",
+        ],
         "iceberg": ["snowpark-connect-deps-iceberg>=1.0.2"],
     },
 )

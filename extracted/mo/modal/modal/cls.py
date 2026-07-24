@@ -86,6 +86,8 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
 
         method_metadata = service_function._method_handle_metadata[method_name]
         new_function._hydrate(service_function.object_id, service_function.client, method_metadata)
+        if not new_function._app_id:
+            new_function._app_id = service_function._app_id
 
     async def _load(fun: "_Function", resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
         # there is currently no actual loading logic executed to create each method on
@@ -426,6 +428,7 @@ class _Obj:
                 )
             await resolver.load(method_function, load_context)  # get the appropriate method handle (lazy)
             fun._hydrate_from_other(method_function)
+            fun._app_id = method_function._app_id
 
         # The reason we don't *always* use this lazy loader is because it precludes attribute access
         # on local classes.
@@ -444,10 +447,10 @@ Obj = synchronize_api(_Obj)
 class _Cls(_Object, type_prefix="cs"):
     """
     Cls adds method pooling and [lifecycle hook](https://modal.com/docs/guide/lifecycle-functions) behavior
-    to [modal.Function](https://modal.com/docs/sdk/py/latest/modal.Function).
+    to [modal.Function](https://modal.com/docs/sdk/py/latest/Function).
 
     Generally, you will not construct a Cls directly.
-    Instead, use the [`@app.cls()`](https://modal.com/docs/sdk/py/latest/modal.App#cls) decorator on the App object.
+    Instead, use the [`@app.cls()`](https://modal.com/docs/sdk/py/latest/App#cls) decorator on the App object.
     """
 
     _class_service_function: _Function | None  # The _Function (read "service") serving *all* methods of the class

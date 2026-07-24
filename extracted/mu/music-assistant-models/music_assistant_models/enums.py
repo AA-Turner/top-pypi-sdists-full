@@ -51,6 +51,20 @@ class MediaType(StrEnum, metaclass=MediaTypeMeta):
         return cls.UNKNOWN
 
 
+class DashboardType(StrEnum):
+    """Enum with the dashboards that can be cast to a display device."""
+
+    PARTY = "party"
+    NOW_PLAYING = "now_playing"
+    MUSIC_QUIZ = "music_quiz"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> DashboardType:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
+
+
 class SourceControl(StrEnum):
     """Control actions issued to a live AudioSource by the player controller."""
 
@@ -587,8 +601,15 @@ class EventType(StrEnum):
     # object_id = provider instance_id (optionally suffixed with /sub_scope),
     # data = provider-defined payload
     PROVIDER_EVENT = "provider_event"
+    # setup_flow_updated: a running setup flow produced a new/updated step;
+    # object_id is the flow_id
+    SETUP_FLOW_UPDATED = "setup_flow_updated"
     SYNC_TASKS_UPDATED = "sync_tasks_updated"
     TASKS_UPDATED = "tasks_updated"
+    DASHBOARD_SHOW = "dashboard_show"
+    DASHBOARD_HIDE = "dashboard_hide"
+    DASHBOARDS_UPDATED = "dashboards_updated"
+    DASHBOARD_SESSIONS_UPDATED = "dashboard_sessions_updated"
     MUSIC_SYNC_COMPLETED = "music_sync_completed"
     AUTH_SESSION = "auth_session"
     CORE_STATE_UPDATED = "core_state_updated"
@@ -747,10 +768,39 @@ class ConfigEntryType(StrEnum):
     ACTION = "action"
     ICON = "icon"
     ALERT = "alert"
+    IMAGE = "image"
     UNKNOWN = "unknown"
 
     @classmethod
     def _missing_(cls, value: object) -> ConfigEntryType:  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return cls.UNKNOWN
+
+
+class FlowStepType(StrEnum):
+    """Enum with the possible types of a setup flow step."""
+
+    # form: render config entries and wait for the user to submit
+    FORM = "form"
+
+    # external: the user must open an external url (e.g. OAuth);
+    # the server advances the flow on the callback
+    EXTERNAL = "external"
+
+    # progress: the server is working/waiting on something; no user input
+    PROGRESS = "progress"
+
+    # finish: the flow completed; result references the created/updated object
+    FINISH = "finish"
+
+    # abort: the flow ended without a result
+    ABORT = "abort"
+
+    # fallback
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: object) -> FlowStepType:  # noqa: ARG003
         """Set default enum member if an unknown value is provided."""
         return cls.UNKNOWN
 

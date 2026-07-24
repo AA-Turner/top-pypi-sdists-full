@@ -291,6 +291,51 @@ fn encoded_levels_for_column(ds: &Dataset, col: ColIdx) -> Vec<(u64, String)> {
         .collect()
 }
 
+/// Internal option key carrying the row count that n-scaling BASIS DEFAULTS
+/// (radial center counts, spatial plans) must size from. A factor-by smooth
+/// expands into per-level blocks that each see ONLY their level's rows, so
+/// sizing the default from the pooled row count over-provisions every level —
+/// measured on the #1561 by-group location-scale fixture: `s(x, bs='tp',
+/// by=group)` at n=200 (100/group) got ~50 centers PER LEVEL, an
+/// ill-conditioned 100-column mean block whose truth-recovery floor (0.111)
+/// no λ could beat, while the same smooth sized for the level's own 100 rows
+/// recovers to ~0.036. Explicit user `centers=`/`k=` bypass the default and
+/// are unaffected. Stripped at the top of [`build_smooth_basis`] like
+/// `__by_col`, so per-kind option allow-lists never see it.
+const DEFAULT_SIZING_ROWS_OPTION: &str = "__default_sizing_rows";
+
+/// The smallest per-level row count of a categorical by-column: the effective
+/// sample size each by-level smooth block actually fits. `None` when the
+/// column has no finite rows (callers fall back to the pooled count).
+fn min_categorical_by_level_rows(ds: &Dataset, by_col: usize) -> Option<usize> {
+    let mut counts: BTreeMap<u64, usize> = BTreeMap::new();
+    for value in ds.values.column(by_col) {
+        if value.is_finite() {
+            *counts
+                .entry(gam_data::canonical_level_bits(*value))
+                .or_insert(0) += 1;
+        }
+    }
+    counts.values().copied().min()
+}
+
+/// Insert [`DEFAULT_SIZING_ROWS_OPTION`] into `inner_options` when the by
+/// column is categorical (numeric-by smooths keep one shared block over all
+/// rows, so pooled sizing stays correct there).
+fn inject_by_level_sizing_rows(
+    inner_options: &mut BTreeMap<String, String>,
+    ds: &Dataset,
+    by_col: usize,
+) {
+    if matches!(
+        ds.column_kinds.get(by_col).copied(),
+        Some(ColumnKindTag::Categorical)
+    ) && let Some(min_rows) = min_categorical_by_level_rows(ds, by_col)
+    {
+        inner_options.insert(DEFAULT_SIZING_ROWS_OPTION.to_string(), min_rows.to_string());
+    }
+}
+
 pub fn column_map_with_alias(
     col_map: &HashMap<String, usize>,
     alias: &str,
@@ -353,6 +398,7 @@ pub fn build_termspec(
                         coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                         coefficient_min: *coefficient_min,
                         coefficient_max: *coefficient_max,
+                        frozen_function_mass: None,
                     });
                 } else {
                     match auto_kind {
@@ -366,6 +412,7 @@ pub fn build_termspec(
                                 coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                                 coefficient_min: *coefficient_min,
                                 coefficient_max: *coefficient_max,
+                                frozen_function_mass: None,
                             });
                         }
                         ColumnKindTag::Categorical => {
@@ -423,6 +470,7 @@ pub fn build_termspec(
                     },
                     coefficient_min: None,
                     coefficient_max: None,
+                    frozen_function_mass: None,
                 });
             }
             ParsedTerm::RandomEffect {
@@ -483,6 +531,14 @@ pub fn build_termspec(
                     Some(raw) => crate::smooth::parse_shape_constraint(&raw)
                         .map_err(TermBuilderError::invalid_option)?,
                 };
+                // A categorical by= expands into per-level blocks below; size
+                // the inner basis's n-scaling defaults from the smallest
+                // level's rows, not the pooled count (see
+                // `DEFAULT_SIZING_ROWS_OPTION`).
+                if let Some(by_name) = by_name.as_deref() {
+                    let by_col = resolve_col(col_map, by_name)?;
+                    inject_by_level_sizing_rows(&mut inner_options, ds, by_col);
+                }
                 let inner_basis = build_smooth_basis(
                     *kind,
                     &smooth_vars,
@@ -723,6 +779,7 @@ pub fn build_termspec(
                         coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                         coefficient_min: None,
                         coefficient_max: None,
+                        frozen_function_mass: None,
                     });
                     inference_notes.push(format!(
                         "wired linear interaction `{}` as product of numeric columns",
@@ -805,6 +862,7 @@ pub fn build_termspec(
                             coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                             coefficient_min: None,
                             coefficient_max: None,
+                            frozen_function_mass: None,
                         });
                     }
                     let all_treatment_coded = !any_dummy_coded;
@@ -1735,21 +1793,43 @@ pub fn build_smooth_basis(
     policy: &ResourcePolicy,
     smooth_coordinate_count: usize,
 ) -> Result<SmoothBasisSpec, String> {
+    // Strip the internal by-level sizing carrier before any per-kind option
+    // allow-list runs (the `__by_col` pattern): `sizing_rows` feeds every
+    // n-scaling BASIS DEFAULT below; explicit user counts are untouched.
+    let stripped_sizing_options;
+    let (options, sizing_rows) = match options.get(DEFAULT_SIZING_ROWS_OPTION) {
+        Some(raw) => {
+            let rows = raw.parse::<usize>().map_err(|_| {
+                format!("internal by-level sizing rows carrier is not a count: '{raw}'")
+            })?;
+            let mut cleaned = options.clone();
+            cleaned.remove(DEFAULT_SIZING_ROWS_OPTION);
+            stripped_sizing_options = cleaned;
+            (&stripped_sizing_options, rows)
+        }
+        None => (options, ds.values.nrows()),
+    };
     // Fail fast on degenerate input: a smooth whose (non-categorical) coordinate
     // columns collapse to a SINGLE distinct point can only ever fit the response
     // mean — its design matrix is rank-1. For a UNIVARIATE smooth this is exactly
     // "the one column is constant": `smooth(x)`/`matern(x)` on constant `x` would
     // otherwise silently fit the mean of `y` with no visible cue (Duchon already
     // errors loudly via the basis layer; this makes the diagnosis explicit and
-    // uniform). For a MULTIVARIATE smooth (tensor, sphere, tps, ...) a single
-    // constant coordinate is NOT degenerate — the basis still varies along the
-    // other coordinate(s) and the penalty absorbs the rank-deficient direction
-    // (e.g. a constant-longitude meridian arc on the sphere is a well-posed 1-D
-    // slice of S²). Such a term is degenerate only when EVERY coordinate is
-    // constant at once, i.e. the joint input is a single point. Test the JOINT
-    // cardinality, not each column independently, so the loud diagnosis still
-    // fires for the genuinely rank-1 case without rejecting well-posed
-    // lower-dimensional slices.
+    // uniform). For a general MULTIVARIATE Euclidean smooth (tensor, tps,
+    // matern, ...) a single constant coordinate is NOT degenerate — the basis
+    // still varies along the other coordinate(s) and the penalty absorbs the
+    // rank-deficient direction (a constant-`x2` slice of `tps(x1, x2)` is a
+    // well-posed 1-D function of `x1`). Such a term is degenerate only when
+    // EVERY coordinate is constant at once, i.e. the joint input is a single
+    // point. Test the JOINT cardinality, not each column independently, so the
+    // loud diagnosis still fires for the genuinely rank-1 case without rejecting
+    // well-posed lower-dimensional slices.
+    //
+    // The SPHERE/SOS term is the exception (handled separately just below): its
+    // spherical-harmonic / Wahba basis is intrinsically a function of BOTH
+    // angular coordinates, so a constant latitude or longitude is not an honest
+    // lower-D slice but an unidentifiable axis (every point on a single meridian
+    // or parallel) — that case is rejected per-coordinate.
     let coord_cols: Vec<(&String, usize)> = vars
         .iter()
         .zip(cols.iter().copied())
@@ -1794,6 +1874,47 @@ pub fn build_smooth_basis(
             })
             .to_string());
         }
+
+        // Sphere/SOS exception: the S² smooth is intrinsically a function of
+        // BOTH angular coordinates, so a single constant axis is unidentifiable
+        // (every point on one meridian or one parallel), not an honest 1-D
+        // slice. Reject it per-coordinate at fit-time with a coordinate-named
+        // error. This runs ONLY during term construction (build_smooth_basis);
+        // predict rebuilds the design from the frozen resolvedspec and never
+        // re-enters this path, so a constant predict grid (e.g. a single query
+        // point on a fixed meridian) is never re-validated (#frozen-mass).
+        if matches!(
+            resolve_smooth_type_name(kind, cols.len(), options).as_str(),
+            "sphere" | "s2" | "sos"
+        ) {
+            for (axis, (var, col)) in coord_cols.iter().enumerate() {
+                let column = ds.values.column(*col);
+                let mut distinct = std::collections::HashSet::<u64>::new();
+                for &value in column.iter() {
+                    distinct.insert(gam_data::canonical_level_bits(value));
+                    if distinct.len() > 1 {
+                        break;
+                    }
+                }
+                if distinct.len() <= 1 {
+                    // Axis 0 is latitude, axis 1 longitude (formula order
+                    // `sphere(lat, lon)`); name the collapsed slice accordingly.
+                    let slice = if axis == 0 {
+                        "a single parallel (constant latitude)"
+                    } else {
+                        "a single meridian (constant longitude)"
+                    };
+                    return Err(TermBuilderError::degenerate_data(format!(
+                        "sphere smooth has a constant '{var}' column — every point lies on \
+                         {slice}, so the 2-sphere term is degenerate and unidentifiable along \
+                         that axis. A spherical smooth needs genuine variation in BOTH latitude \
+                         and longitude; vary '{var}', drop the term, or fit a 1-D smooth on the \
+                         varying coordinate."
+                    ))
+                    .to_string());
+                }
+            }
+        }
     }
     if let Some(by_name) = options.get("by").cloned() {
         let by_col = options
@@ -1805,6 +1926,10 @@ pub fn build_smooth_basis(
         inner_options.remove("by");
         inner_options.remove("__by_col");
         inner_options.remove("id");
+        // Size the inner basis's n-scaling defaults from the smallest
+        // by-level's rows (see `DEFAULT_SIZING_ROWS_OPTION`); numeric-by
+        // smooths keep pooled sizing.
+        inject_by_level_sizing_rows(&mut inner_options, ds, by_col);
         let inner = build_smooth_basis(
             kind,
             vars,
@@ -2457,7 +2582,7 @@ pub fn build_smooth_basis(
                 ],
             )?;
             let plan = plan_spatial_basis(
-                ds.values.nrows(),
+                sizing_rows,
                 cols.len(),
                 CenterCountRequest::Default,
                 DuchonNullspaceOrder::Linear,
@@ -2591,7 +2716,7 @@ pub fn build_smooth_basis(
                             option_usize_any(options, &["k", "basis_dim", "basis-dim", "basisdim"])
                                 .and_then(|k| (1..=128).find(|&l| l * (l + 2) >= k))
                         })
-                        .unwrap_or_else(|| default_spherical_harmonic_degree(ds.values.nrows()));
+                        .unwrap_or_else(|| default_spherical_harmonic_degree(sizing_rows));
                 if degree == 0 {
                     return Err("sphere smooth requires degree/max_degree >= 1".to_string());
                 }
@@ -2612,7 +2737,7 @@ pub fn build_smooth_basis(
                 let mut centers = parse_countwith_basis_alias(
                     options,
                     "centers",
-                    default_num_centers(ds.values.nrows(), cols.len()),
+                    default_num_centers(sizing_rows, cols.len()),
                 )?;
                 if penalty_order >= 4 {
                     centers = centers.max(30);
@@ -2686,7 +2811,7 @@ pub fn build_smooth_basis(
             let centers = parse_countwith_basis_alias(
                 options,
                 "centers",
-                default_num_centers(ds.values.nrows(), cols.len()),
+                default_num_centers(sizing_rows, cols.len()),
             )?;
             if centers < 2 {
                 return Err("curvature smooth requires at least 2 centers".to_string());
@@ -2783,7 +2908,7 @@ pub fn build_smooth_basis(
             let centers = parse_countwith_basis_alias(
                 options,
                 "centers",
-                default_num_centers(ds.values.nrows(), cols.len()),
+                default_num_centers(sizing_rows, cols.len()),
             )?;
             if centers < 3 {
                 return Err("measurejet smooth requires at least 3 centers".to_string());
@@ -2859,7 +2984,7 @@ pub fn build_smooth_basis(
                 ],
             )?;
             let plan = plan_spatial_basis(
-                ds.values.nrows(),
+                sizing_rows,
                 cols.len(),
                 CenterCountRequest::Default,
                 DuchonNullspaceOrder::Zero,
@@ -2881,7 +3006,7 @@ pub fn build_smooth_basis(
                 cap_default_spatial_centers(
                     options,
                     default_matern_center_count(
-                        ds.values.nrows(),
+                        sizing_rows,
                         cols.len(),
                         plan.centers,
                         univariate_floor,
@@ -3061,7 +3186,7 @@ pub fn build_smooth_basis(
                 }
             };
             let plan = plan_spatial_basis(
-                ds.values.nrows(),
+                sizing_rows,
                 cols.len(),
                 CenterCountRequest::Default,
                 nullspace_order,
@@ -3086,7 +3211,7 @@ pub fn build_smooth_basis(
                 0
             };
             let default_centers = default_duchon_center_count(
-                ds.values.nrows(),
+                sizing_rows,
                 cols.len(),
                 plan.centers,
                 polynomial_cols,
@@ -5014,6 +5139,64 @@ mod tests {
             SmoothBasisSpec::MeasureJet { spec, .. } => &spec.center_strategy,
             other => panic!("expected curvature or measure-jet basis, got {other:?}"),
         }
+    }
+
+    /// Build a `sphere(lat, lon)` term over columns 1 (lat) and 2 (lon) of `ds`.
+    fn build_sphere_over_lat_lon(ds: &Dataset) -> Result<SmoothBasisSpec, String> {
+        let mut options = BTreeMap::new();
+        options.insert("bs".to_string(), "sphere".to_string());
+        options.insert("k".to_string(), "10".to_string());
+        options.insert("kernel".to_string(), "sobolev".to_string());
+        let mut notes = Vec::new();
+        build_smooth_basis(
+            SmoothKind::S,
+            &["lat".to_string(), "lon".to_string()],
+            &[1, 2],
+            &options,
+            ds,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+    }
+
+    /// A sphere/SOS smooth is intrinsically a function of BOTH angular
+    /// coordinates: a constant longitude puts every point on one meridian, an
+    /// unidentifiable 1-D slice of S² that must be rejected at term construction
+    /// with a coordinate-named error — not fit silently. Varying both angular
+    /// coordinates is accepted.
+    #[test]
+    fn sphere_rejects_constant_longitude_but_accepts_varying() {
+        // lat varies across [-70, 70]; lon is pinned at 0 (a single meridian).
+        let rows_const_lon: Vec<Vec<f64>> = (0..60)
+            .map(|i| {
+                let lat = -70.0 + 140.0 * (i as f64) / 59.0;
+                vec![0.0, lat, 0.0] // y, lat, lon(const)
+            })
+            .collect();
+        let ds_const = continuous_dataset(&["y", "lat", "lon"], rows_const_lon);
+        let err = build_sphere_over_lat_lon(&ds_const)
+            .expect_err("a constant-longitude sphere smooth must be rejected as degenerate");
+        let lower = err.to_lowercase();
+        assert!(
+            (lower.contains("constant") || lower.contains("degenerate") || lower.contains("unique"))
+                && lower.contains("lon"),
+            "rejection must flag degeneracy and name the constant longitude coordinate: {err}"
+        );
+
+        // Both angular coordinates vary: a well-posed 2-sphere smooth builds.
+        let rows_ok: Vec<Vec<f64>> = (0..60)
+            .map(|i| {
+                let lat = -70.0 + 140.0 * (i as f64) / 59.0;
+                // A well-spread longitude (deterministic, no RNG) so the input
+                // genuinely covers both angular axes.
+                let lon = -170.0 + 340.0 * ((i * 17 % 60) as f64) / 59.0;
+                vec![0.0, lat, lon]
+            })
+            .collect();
+        let ds_ok = continuous_dataset(&["y", "lat", "lon"], rows_ok);
+        build_sphere_over_lat_lon(&ds_ok)
+            .expect("a sphere smooth over varying latitude and longitude must build");
     }
 
     #[test]
@@ -7785,5 +7968,133 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// #1561 by-group representation floor: a factor-by radial smooth's
+    /// per-level blocks each see only their level's rows, so the n-scaling
+    /// DEFAULT center count must size from the smallest level, not the pooled
+    /// row count (measured: pooled sizing gave ~50 centers per 100-row level
+    /// and an unconditionable mean block whose truth-recovery no λ could fix).
+    #[test]
+    fn by_level_thin_plate_sizes_default_centers_from_the_smallest_level() {
+        let n_a = 60usize;
+        let n_b = 180usize;
+        let rows: Vec<Vec<f64>> = (0..(n_a + n_b))
+            .map(|i| {
+                let in_a = i < n_a;
+                let x = if in_a {
+                    i as f64 / (n_a - 1) as f64
+                } else {
+                    (i - n_a) as f64 / (n_b - 1) as f64
+                };
+                let g = if in_a { 0.0 } else { 1.0 };
+                vec![x + g, x, g]
+            })
+            .collect();
+        let ds = Dataset {
+            headers: vec!["y".into(), "x".into(), "g".into()],
+            values: Array2::from_shape_vec(
+                (rows.len(), 3),
+                rows.into_iter().flat_map(|row| row.into_iter()).collect(),
+            )
+            .expect("rectangular by-level test data"),
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "y".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "x".into(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "g".into(),
+                        kind: ColumnKindTag::Categorical,
+                        levels: vec!["a".into(), "b".into()],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Categorical,
+            ],
+        };
+        let build_tp = |with_by: bool| -> SmoothBasisSpec {
+            let mut options = BTreeMap::new();
+            options.insert("bs".to_string(), "tps".to_string());
+            if with_by {
+                options.insert("by".to_string(), "g".to_string());
+                options.insert("__by_col".to_string(), "2".to_string());
+            }
+            let mut notes = Vec::new();
+            build_smooth_basis(
+                SmoothKind::S,
+                &["x".to_string()],
+                &[1],
+                &options,
+                &ds,
+                &mut notes,
+                &ResourcePolicy::default_library(),
+                1,
+            )
+            .expect("thin-plate basis builds")
+        };
+        let pooled = build_tp(false);
+        let by_level = build_tp(true);
+        let tp_centers = |basis: &SmoothBasisSpec| -> usize {
+            match basis {
+                SmoothBasisSpec::ThinPlate { spec, .. } => {
+                    spec.center_strategy.planned_num_centers(1)
+                }
+                SmoothBasisSpec::BySmooth { smooth, .. } => match smooth.as_ref() {
+                    SmoothBasisSpec::ThinPlate { spec, .. } => {
+                        spec.center_strategy.planned_num_centers(1)
+                    }
+                    other => panic!("expected ThinPlate inside BySmooth, got {other:?}"),
+                },
+                other => panic!("expected ThinPlate, got {other:?}"),
+            }
+        };
+        let pooled_centers = tp_centers(&pooled);
+        let by_centers = tp_centers(&by_level);
+        assert!(
+            by_centers < pooled_centers,
+            "by-level default centers must size from the smallest level: \
+             by={by_centers} pooled={pooled_centers}"
+        );
+        // The by-level default must agree with a direct build on a dataset of
+        // the smallest level's size (the block's true effective sample).
+        let ds_small = continuous_dataset(
+            &["y", "x"],
+            (0..n_a)
+                .map(|i| {
+                    let x = i as f64 / (n_a - 1) as f64;
+                    vec![x, x]
+                })
+                .collect(),
+        );
+        let mut small_options = BTreeMap::new();
+        small_options.insert("bs".to_string(), "tps".to_string());
+        let mut notes = Vec::new();
+        let small = build_smooth_basis(
+            SmoothKind::S,
+            &["x".to_string()],
+            &[1],
+            &small_options,
+            &ds_small,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+            1,
+        )
+        .expect("small-level thin-plate basis builds");
+        assert_eq!(
+            by_centers,
+            tp_centers(&small),
+            "by-level default must equal the smallest level's own default"
+        );
     }
 }

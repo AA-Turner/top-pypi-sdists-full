@@ -4,7 +4,7 @@
 //!
 //! Requires network access and benches/data/enwik8 (1MB used).
 
-#![cfg(feature = "hf")]
+#![cfg(feature = "build")]
 
 use std::path::Path;
 
@@ -47,6 +47,81 @@ fn compare_model(tokiers_repo: &str, hf_model: &str, text: &str) -> (bool, Optio
             .unwrap_or(tokie_ids.len().min(hf_ids.len()));
         (false, Some(diff))
     }
+}
+
+/// Load up to `max_bytes` of the OpenWebText sample and split into documents.
+///
+/// Web text exercises unicode the enwik8 XML dump never does (typographic
+/// quotes/ellipses before newlines, No-category numerics like ¹ ❶ ½, format
+/// chars like U+200B/U+00AD, O'Toole-style contractions) — exactly the
+/// patterns where hand-rolled pretokenizers historically diverged from HF.
+fn load_owt_docs(max_bytes: usize) -> Vec<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("benches/data/owt_sample.txt");
+    let data = std::fs::read(&path).unwrap_or_else(|e| {
+        panic!(
+            "Failed to read {}: {e}\nDownload it with:\n  curl -sL \
+             https://huggingface.co/datasets/stanford-cs336/owt-sample/resolve/main/owt_train.txt.gz \
+             | gunzip -c | head -c 50000000 > benches/data/owt_sample.txt",
+            path.display()
+        )
+    });
+    let truncated = &data[..data.len().min(max_bytes)];
+    let text = String::from_utf8_lossy(truncated);
+    text.split("<|endoftext|>")
+        .filter(|d| !d.is_empty())
+        .map(|d| d.to_string())
+        .collect()
+}
+
+/// Compare tokie against HuggingFace per document, panicking with a readable
+/// report (doc index + text fragment around the first divergence).
+///
+/// Loads tokie from the model's tokenizer.json explicitly: `from_pretrained`
+/// would silently prefer a pre-built tokiers/*.tkz when one exists, bypassing
+/// the detection path these tests exist to exercise.
+fn compare_model_docs(hf_model: &str, docs: &[String]) {
+    let api = hf_hub::api::sync::ApiBuilder::new().build().unwrap();
+    let json_path = api
+        .repo(hf_hub::Repo::model(hf_model.to_string()))
+        .get("tokenizer.json")
+        .unwrap_or_else(|e| panic!("Failed to download tokenizer.json for {hf_model}: {e}"));
+    let tok = Tokenizer::from_json(&json_path)
+        .unwrap_or_else(|e| panic!("Failed to load tokie from json {hf_model}: {e}"));
+    let mut hf = HfTokenizer::from_pretrained(hf_model, None)
+        .unwrap_or_else(|e| panic!("Failed to load HF {hf_model}: {e}"));
+    let _ = hf.with_truncation(None);
+
+    let mut failures = Vec::new();
+    for (i, doc) in docs.iter().enumerate() {
+        let tokie_ids = tok.encode(doc, false).ids;
+        let hf_enc = hf.encode(doc.as_str(), false)
+            .unwrap_or_else(|e| panic!("HF encode failed for {hf_model} doc {i}: {e}"));
+        let hf_ids = hf_enc.get_ids();
+        if tokie_ids.as_slice() != hf_ids {
+            let diff = tokie_ids.iter().zip(hf_ids.iter())
+                .position(|(a, b)| a != b)
+                .unwrap_or(tokie_ids.len().min(hf_ids.len()));
+            let byte = hf_enc.get_offsets().get(diff).map_or(0, |o| o.0);
+            let lo = (0..=byte.min(doc.len())).rev().take(40).find(|&p| doc.is_char_boundary(p)).unwrap_or(0);
+            let hi = (byte..=doc.len()).take(80).filter(|&p| doc.is_char_boundary(p)).last().unwrap_or(doc.len());
+            failures.push(format!(
+                "doc {i}: first divergence at token {diff} (byte {byte}): {:?}",
+                &doc[lo..hi]
+            ));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{}/{} docs mismatch HF for {hf_model}:\n{}",
+        failures.len(),
+        docs.len(),
+        failures[..failures.len().min(5)].join("\n")
+    );
 }
 
 // ============================================================================
@@ -154,6 +229,127 @@ accuracy_test!(qwen3_5_0_8b,            "tokiers/Qwen3.5-0.8B",                 
 accuracy_test!(qwen3_5_4b,              "tokiers/Qwen3.5-4B",                       "Qwen/Qwen3.5-4B");
 
 // ============================================================================
+// Added-token probe accuracy — interleaves every added token with plain text,
+// exercising the per-token flags (lstrip/rstrip/normalized/single_word), the
+// HF id reassignment, and the per-segment metaspace prepend semantics. These
+// held 13 repos out of the v13 regeneration; keep them loud.
+// ============================================================================
+
+/// A probe string interleaving the model's added tokens with normal text,
+/// mirroring scripts/regen_tokiers_v13.py.
+fn added_token_probe(hf: &HfTokenizer) -> String {
+    let mut added: Vec<(u32, String)> = hf
+        .get_added_tokens_decoder()
+        .into_iter()
+        .map(|(id, tok)| (id, tok.content))
+        .collect();
+    added.sort();
+    let mut parts = vec!["The quick brown fox".to_string()];
+    for (_, content) in added.into_iter().take(40) {
+        parts.push(content);
+        parts.push("jumps over 123 dogs".to_string());
+    }
+    parts.join(" ")
+}
+
+/// Compare tokie against HF on the added-token probe plus a set of edge-case
+/// strings around the first special token.
+fn compare_added_token_probe(hf_model: &str) {
+    let tok = Tokenizer::from_pretrained(hf_model)
+        .unwrap_or_else(|e| panic!("Failed to load tokie {hf_model}: {e}"));
+    let mut hf = HfTokenizer::from_pretrained(hf_model, None)
+        .unwrap_or_else(|e| panic!("Failed to load HF {hf_model}: {e}"));
+    let _ = hf.with_truncation(None);
+    hf.with_padding(None);
+
+    let mut cases = vec![added_token_probe(&hf), " leading space".into(), "trailing space ".into()];
+    if let Some((_, first_special)) = hf
+        .get_added_tokens_decoder()
+        .into_iter()
+        .filter(|(_, t)| t.special)
+        .map(|(id, t)| (id, t.content))
+        .min()
+    {
+        let s = first_special;
+        cases.extend([
+            format!("Hello {s} world"),
+            format!("Hello {s}world"),
+            format!("Hello{s} world"),
+            format!("{s} lead"),
+            format!("tail {s}"),
+            format!("a  {s}  b"),
+            s,
+        ]);
+    }
+    for text in &cases {
+        let tokie_ids = tok.encode(text, false).ids;
+        let hf_enc = hf
+            .encode(text.as_str(), false)
+            .unwrap_or_else(|e| panic!("HF encode failed for {hf_model}: {e}"));
+        assert_eq!(
+            tokie_ids.as_slice(),
+            hf_enc.get_ids(),
+            "added-token probe mismatch for {hf_model} on {text:?}"
+        );
+    }
+}
+
+macro_rules! probe_test {
+    ($name:ident, $hf:expr) => {
+        #[test]
+        #[ignore] // Requires network
+        fn $name() {
+            compare_added_token_probe($hf);
+        }
+    };
+}
+
+// The 13 repos held back from the v13 regeneration:
+probe_test!(probe_roberta_base,        "FacebookAI/roberta-base");                       // <mask> lstrip
+probe_test!(probe_modernbert_base,     "answerdotai/ModernBERT-base");                   // <mask> lstrip + NFC
+probe_test!(probe_jina_v2_base_code,   "jinaai/jina-embeddings-v2-base-code");           // <mask> lstrip
+probe_test!(probe_bge_m3,              "BAAI/bge-m3");                                   // <mask> lstrip, SP
+probe_test!(probe_snowflake_arctic_v2, "Snowflake/snowflake-arctic-embed-l-v2.0");       // <mask> lstrip, SP
+probe_test!(probe_mxbai_de,            "mixedbread-ai/deepset-mxbai-embed-de-large-v1"); // stale ids remapped by HF
+probe_test!(probe_mistral_7b,          "mistralai/Mistral-7B-v0.1");                     // Metaspace prepend_scheme=first
+probe_test!(probe_phi_3_mini,          "microsoft/Phi-3-mini-4k-instruct");              // rstrip specials
+probe_test!(probe_voyage_code_2,       "voyageai/voyage-code-2");                        // normalized specials (▁-fused)
+probe_test!(probe_voyage_law_2,        "voyageai/voyage-law-2");                         // normalized specials (▁-fused)
+probe_test!(probe_voyage_finance_2,    "voyageai/voyage-finance-2");                     // mixed normalized specials
+probe_test!(probe_voyage_multi_2,      "voyageai/voyage-multilingual-2");                // mixed normalized specials
+probe_test!(probe_potion_multilingual, "minishlab/potion-multilingual-128M");            // punct-pad normalizer chain
+
+// Regression guards: models whose current behavior must survive the flag work.
+probe_test!(probe_tinyllama,           "TinyLlama/TinyLlama-1.1B-Chat-v1.0");            // unconditional ▁ per segment
+probe_test!(probe_xlm_roberta,         "FacebookAI/xlm-roberta-base");                   // SP precompiled, no flags
+probe_test!(probe_all_mpnet,           "sentence-transformers/all-mpnet-base-v2");       // lstrip no-op under Bert pretok
+
+// ============================================================================
+// Web-text (OpenWebText) per-document accuracy — one representative per
+// pretokenizer family / algorithm, loaded from the ORIGINAL HF repo so the
+// tokenizer.json detection path is exercised (tokiers/*.tkz bypasses it).
+// ============================================================================
+
+macro_rules! owt_accuracy_test {
+    ($name:ident, $hf:expr) => {
+        #[test]
+        #[ignore] // Requires network + benches/data/owt_sample.txt
+        fn $name() {
+            let docs = load_owt_docs(25_000_000);
+            compare_model_docs($hf, &docs);
+        }
+    };
+}
+
+owt_accuracy_test!(owt_gpt2,        "openai-community/gpt2");          // GPT-2 pretok
+owt_accuracy_test!(owt_qwen3,       "Qwen/Qwen3-0.6B");                // Qwen pretok
+owt_accuracy_test!(owt_smollm2,     "HuggingFaceTB/SmolLM2-135M");     // SmolLM pretok
+owt_accuracy_test!(owt_deepseek_v3, "deepseek-ai/DeepSeek-V3");        // DeepSeek pretok
+owt_accuracy_test!(owt_bert,        "google-bert/bert-base-uncased");  // WordPiece
+owt_accuracy_test!(owt_xlm_roberta,  "FacebookAI/xlm-roberta-base");  // SP-Unigram (precompiled charsmap)
+owt_accuracy_test!(owt_mistral_7b,  "mistralai/Mistral-7B-v0.1");      // SP-BPE
+
+// ============================================================================
 // tiktoken models (CL100K, O200K) — compared against tiktoken-rs
 // ============================================================================
 
@@ -191,3 +387,38 @@ macro_rules! tiktoken_accuracy_test {
 
 tiktoken_accuracy_test!(tiktoken_cl100k, "tokiers/cl100k", "gpt-4");
 tiktoken_accuracy_test!(tiktoken_o200k,  "tokiers/o200k",  "gpt-4o");
+
+/// SentencePiece added-token splitting: HF normalizes each segment around
+/// a special token independently, so the Prepend("▁") + Replace(" "→"▁")
+/// sequence emits ▁ tokens on both sides of the special ("Hello </s>
+/// world" -> ▁Hello ▁ </s> ▁ ▁world). tokie used to skip the prepend on
+/// space-leading segments and drop those ▁ tokens.
+#[test]
+#[ignore] // Requires network
+fn sp_added_token_segment_prepend() {
+    let hf_model = "TinyLlama/TinyLlama-1.1B-Chat-v1.0";
+    let tok = Tokenizer::from_pretrained(hf_model)
+        .unwrap_or_else(|e| panic!("Failed to load tokie {hf_model}: {e}"));
+    let mut hf = HfTokenizer::from_pretrained(hf_model, None)
+        .unwrap_or_else(|e| panic!("Failed to load HF {hf_model}: {e}"));
+    let _ = hf.with_truncation(None);
+    let cases = [
+        "Hello </s> world",
+        "Hello </s>world",
+        "Hello</s> world",
+        "</s>",
+        " </s>",
+        "multi </s> tokens </s> here",
+        " spaces lead",
+        "Hello  </s>  world",
+    ];
+    for text in cases {
+        let tokie_ids = tok.encode(text, false).ids;
+        let hf_ids = hf.encode(text, false).unwrap();
+        assert_eq!(
+            tokie_ids.as_slice(),
+            hf_ids.get_ids(),
+            "mismatch on {text:?}"
+        );
+    }
+}

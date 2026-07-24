@@ -340,6 +340,23 @@ class TestBasicClient:
         assert not events
         assert c.data_to_send() == f.serialize()
 
+    def test_end_stream_exceptions(self, frame_factory) -> None:
+        c = h2.connection.H2Connection()
+        c.initiate_connection()
+        c.send_headers(1, self.example_request_headers, end_stream=False)
+        c.clear_outbound_data_buffer()
+
+        with pytest.raises(h2.exceptions.NoSuchStreamError):
+            c.end_stream(42)
+
+        c.end_stream(1)
+
+        c.send_headers(5, self.example_request_headers, end_stream=False)
+
+        with pytest.raises(h2.exceptions.StreamClosedError):
+            c.end_stream(3)
+
+
     def test_cannot_send_headers_on_lower_stream_id(self) -> None:
         """
         Once stream ID x has been used, cannot use stream ID y where y < x.
@@ -983,6 +1000,22 @@ class TestBasicServer:
         preamble = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 
         events = c.receive_data(preamble)
+        assert not events
+        assert not c.data_to_send()
+
+    @pytest.mark.parametrize("data_wrapper", [bytearray, memoryview])
+    def test_receive_data_accepts_buffer_types(
+        self,
+        data_wrapper,
+        frame_factory,
+    ) -> None:
+        """
+        ``receive_data`` accepts byte-like buffers and handles their contents.
+        """
+        c = h2.connection.H2Connection(config=self.server_config)
+
+        events = c.receive_data(data_wrapper(frame_factory.preamble()))
+
         assert not events
         assert not c.data_to_send()
 

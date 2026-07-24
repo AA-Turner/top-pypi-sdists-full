@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
 from typing import cast
 from typing import IO
 from typing import NoReturn
-from typing import Optional
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl
 
@@ -28,12 +27,12 @@ if TYPE_CHECKING:
     from .wrappers.request import Body
 
 StreamFactory = Callable[
-    [Optional[int], Optional[str], Optional[str], Optional[int]],
+    [int | None, str | None, str | None, int | None],
     IO[bytes],
 ]
 
 ParserFunc = Callable[
-    ["FormDataParser", "Body", str, Optional[int], dict[str, str]],
+    ["FormDataParser", "Body", str, int | None, dict[str, str]],
     Awaitable[tuple[MultiDict, MultiDict]],
 ]
 
@@ -113,14 +112,10 @@ class FormDataParser:
         content_length: int | None,
         options: dict[str, str],
     ) -> tuple[MultiDict, MultiDict]:
-        try:
-            form = parse_qsl(
-                (await body).decode(),
-                keep_blank_values=True,
-                max_num_fields=self.max_form_parts,
-            )
-        except ValueError:
-            raise RequestEntityTooLarge() from None
+        form = parse_qsl(
+            (await body).decode(),
+            keep_blank_values=True,
+        )
         return self.cls(form), self.cls()
 
     parse_functions: dict[str, ParserFunc] = {

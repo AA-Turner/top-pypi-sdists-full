@@ -99,8 +99,23 @@ fn asinh_jet5(eta: f64) -> AsinhJet5 {
     let t = eta / q;
     let t2 = t * t;
     let t4 = t2 * t2;
+    // `f64::asinh` computes `ln(x + sqrt(x*x + 1))`, whose `x*x` overflows to
+    // `inf` near `±f64::MAX` even though `asinh(±f64::MAX) ≈ ±710.48` is finite
+    // and well inside range. An `inf` value here would poison the far-tail SAS
+    // jet with `0·∞` once the bounded map saturates (`g^(k)=0 · inf`), so fall
+    // back to the overflow-free asymptotic `sign(x)·(ln|x| + ln 2)` — exact to
+    // full f64 precision wherever `x*x` overflows — when the library result is
+    // non-finite. In the finite region this is bit-identical to `asinh`.
+    let value = {
+        let v = eta.asinh();
+        if v.is_finite() {
+            v
+        } else {
+            eta.signum() * (eta.abs().ln() + std::f64::consts::LN_2)
+        }
+    };
     AsinhJet5 {
-        value: eta.asinh(),
+        value,
         d1: inv_q,
         d2: -t * inv_q2,
         d3: (2.0 * t2 - inv_q2) * inv_q3,
@@ -738,61 +753,116 @@ pub fn state_from_beta_logisticspec(spec: SasLinkSpec) -> Result<SasLinkState, S
     })
 }
 
-#[inline]
-fn tanh_bound(value: f64, bound: f64) -> f64 {
-    let b = bound.max(f64::EPSILON);
-    b * (value / b).tanh()
+/// Interior half-width fraction of the bounded latent map. The map is the EXACT
+/// identity on `|x| <= SPLICE_INTERIOR_FRAC * B`; the compact-support saturation
+/// splice then runs from there to `±B` at `(2 - SPLICE_INTERIOR_FRAC) * B`.
+const SPLICE_INTERIOR_FRAC: f64 = 0.8;
+
+/// Value and first five derivatives of the bounded latent map `g` at one point.
+#[derive(Clone, Copy, Debug)]
+struct SmoothBoundJet {
+    g: f64,
+    d1: f64,
+    d2: f64,
+    d3: f64,
+    d4: f64,
+    d5: f64,
 }
 
+/// Interior-exact bounded latent map for the sinh-arcsinh link, replacing the
+/// everywhere-soft `B·tanh(x/B)`.
+///
+/// `tanh` distorts *every* interior point by a relative `(x/B)²/3` — at the mild
+/// SAS point `η=−1, ε=0, δ=1` that is a `~1e-4` perturbation of the latent, which
+/// (a) breaks the `SAS(ε=0, δ=1) ≡ probit` reduction identity by `~2e-4` in `μ`
+/// and (b) leaves a spurious optimizer-visible kink where the fast probit path
+/// (`|ε|<1e-12 ∧ |δ−1|<1e-12`) meets the full composition. This map removes both:
+/// it is the exact identity on the whole interior, so the reduction is exact and
+/// the surfaces agree bitwise across `ε=0`.
+///
+/// Three regions (odd in `x`; `B = bound`, `a = 0.8B`, `c = 1.2B`):
+///
+///   |x| ≤ a:      g(x) = x            (exact identity — every g^(k≥2) is 0)
+///   a < |x| < c:  C⁵ splice of x → ±B
+///   |x| ≥ c:      g(x) = ±B           (compact support — every g^(k≥1) is 0)
+///
+/// On the splice `g'(x) = 1 − S(w)`, `w = (|x|−a)/(c−a)`, with `S` the order-4
+/// smoothstep `70w⁹−315w⁸+540w⁷−420w⁶+126w⁵` (its first four derivatives vanish
+/// at `w = 0, 1`), so `g` is C⁵ at both seams — the order the SAS jet tower needs.
+/// `S` is symmetric with `∫₀¹S = ½`, so matching `g(c)=B` fixes `c = 2B − a` with
+/// no free constant and keeps `g` non-expansive (`0 ≤ g′ ≤ 1`) and monotone.
+///
+/// Compact support (rather than an asymptotic `tanh` tail) makes the fully
+/// saturated regime *exact*: `g ≡ ±B` with every derivative identically zero, so
+/// a saturated row contributes exactly zero Fisher weight and, crucially, the
+/// `g^(k)=0` factors annihilate the `0·∞` that an overflowing `asinh(±f64::MAX)`
+/// would otherwise inject into the far-tail jet.
 #[inline]
-fn tanh_bound_d1(value: f64, bound: f64) -> f64 {
+fn smooth_bound_jet(value: f64, bound: f64) -> SmoothBoundJet {
     let b = bound.max(f64::EPSILON);
-    let t = (value / b).tanh();
-    1.0 - t * t
-}
-
-#[inline]
-fn tanh_bound_d2(value: f64, bound: f64) -> f64 {
-    let b = bound.max(f64::EPSILON);
-    let t = (value / b).tanh();
-    let s = 1.0 - t * t;
-    -2.0 * t * s / b
-}
-
-#[inline]
-fn tanh_bound_d3(value: f64, bound: f64) -> f64 {
-    let b = bound.max(f64::EPSILON);
-    let t = (value / b).tanh();
-    let s = 1.0 - t * t;
-    -2.0 * s * (1.0 - 3.0 * t * t) / (b * b)
-}
-
-#[inline]
-fn tanh_bound_d4(value: f64, bound: f64) -> f64 {
-    let b = bound.max(f64::EPSILON);
-    let t = (value / b).tanh();
-    let s = 1.0 - t * t;
-    8.0 * t * s * (2.0 - 3.0 * t * t) / (b * b * b)
-}
-
-#[inline]
-fn tanh_bound_d5(value: f64, bound: f64) -> f64 {
-    // 5th derivative of B * tanh(x/B):
-    //   g5 = 8 * s * (2 - 15*t^2 + 15*t^4) / B^4
-    // where t = tanh(x/B) and s = 1 - t^2.
-    let b = bound.max(f64::EPSILON);
-    let t = (value / b).tanh();
-    let s = 1.0 - t * t;
-    let t2 = t * t;
-    let b4 = b * b * b * b;
-    8.0 * s * (2.0 - 15.0 * t2 + 15.0 * t2 * t2) / b4
+    let a = SPLICE_INTERIOR_FRAC * b; // interior half-width
+    let l = 2.0 * (b - a); // splice width; c = a + l = (2 - frac) * b
+    let ax = value.abs();
+    if ax <= a {
+        // Interior: exact identity. The value carries the sign of `value`.
+        return SmoothBoundJet {
+            g: value,
+            d1: 1.0,
+            d2: 0.0,
+            d3: 0.0,
+            d4: 0.0,
+            d5: 0.0,
+        };
+    }
+    let sign = if value < 0.0 { -1.0 } else { 1.0 };
+    if ax >= a + l {
+        // Compact-support saturation: g ≡ ±B, every derivative exactly zero.
+        return SmoothBoundJet {
+            g: sign * b,
+            d1: 0.0,
+            d2: 0.0,
+            d3: 0.0,
+            d4: 0.0,
+            d5: 0.0,
+        };
+    }
+    // Splice seam. `w ∈ (0, 1)`; `S` is the order-4 smoothstep and `Sp..Spppp`
+    // its w-derivatives (all vanish at the endpoints, giving C⁵ seams).
+    let w = (ax - a) / l;
+    let w2 = w * w;
+    let w3 = w2 * w;
+    let w4 = w3 * w;
+    let w5 = w4 * w;
+    let w6 = w5 * w;
+    let w7 = w6 * w;
+    let w8 = w7 * w;
+    let w9 = w8 * w;
+    let w10 = w9 * w;
+    let s = 70.0 * w9 - 315.0 * w8 + 540.0 * w7 - 420.0 * w6 + 126.0 * w5;
+    let sp = 630.0 * w8 - 2520.0 * w7 + 3780.0 * w6 - 2520.0 * w5 + 630.0 * w4;
+    let spp = 5040.0 * w7 - 17640.0 * w6 + 22680.0 * w5 - 12600.0 * w4 + 2520.0 * w3;
+    let sppp = 35280.0 * w6 - 105840.0 * w5 + 113400.0 * w4 - 50400.0 * w3 + 7560.0 * w2;
+    let spppp = 211680.0 * w5 - 529200.0 * w4 + 453600.0 * w3 - 151200.0 * w2 + 15120.0 * w;
+    // `I(w) = ∫₀ʷ (1 − S)` is the nonneg-branch value offset above `a`.
+    let iw = w - 7.0 * w10 + 35.0 * w9 - 67.5 * w8 + 60.0 * w7 - 21.0 * w6;
+    let g0 = a + l * iw;
+    // `g'(x) = 1 − S(w)`; higher x-orders differentiate `−S(w)` through the `1/l`
+    // chain, then odd symmetry sets the parities (value/d2/d4 odd; d1/d3/d5 even).
+    let l2 = l * l;
+    SmoothBoundJet {
+        g: sign * g0,
+        d1: 1.0 - s,
+        d2: sign * (-sp / l),
+        d3: -spp / l2,
+        d4: sign * (-sppp / (l2 * l)),
+        d5: -spppp / (l2 * l2),
+    }
 }
 
 #[inline]
 fn sas_effective_log_delta(raw_log_delta: f64) -> (f64, f64) {
-    let ld_eff = tanh_bound(raw_log_delta, SAS_LOG_DELTA_BOUND);
-    let dld_eff_draw = tanh_bound_d1(raw_log_delta, SAS_LOG_DELTA_BOUND);
-    (ld_eff, dld_eff_draw)
+    let sb = smooth_bound_jet(raw_log_delta, SAS_LOG_DELTA_BOUND);
+    (sb.g, sb.d1)
 }
 
 #[inline]
@@ -1222,6 +1292,129 @@ pub fn inverse_link_mu_d1_for_inverse_link(
     }
 }
 
+/// Stable complement `1 - mu(eta)` for a Bernoulli inverse link, evaluated
+/// directly from `eta` rather than as `1.0 - mu`.
+///
+/// The forward `mu` rounds to exactly `1.0` in f64 far inside the tail — cloglog
+/// at `eta ≈ 3.62`, probit at `eta ≈ 8.29` — after which the naive `1.0 - mu` is
+/// a hard zero even though the true complement is a representable quantity down
+/// to `~1e-300`. Both the Bernoulli variance `mu(1-mu)` and the working residual
+/// `y - mu` depend on that complement, so recovering it exactly is what lets a
+/// saturating cloglog/probit row proceed instead of being refused. This mirrors
+/// the tail-complement already carried on the canonical logit path.
+///
+/// Each link with a cancellation-free closed form for `1 - mu` uses it; links
+/// without one fall back to `1.0 - mu` (unchanged behaviour). The complement is
+/// clamped into `[0, 1]` only against round-off just past the boundary.
+pub(crate) fn inverse_link_complement_for_inverse_link(
+    link: &InverseLink,
+    eta: f64,
+    mu: f64,
+) -> f64 {
+    let raw = match link {
+        InverseLink::Standard(link_fn) => standard_link_complement(*link_fn, eta, mu),
+        InverseLink::Sas(state) => sas_link_complement(eta, state.epsilon, state.log_delta, mu),
+        // No cancellation-free closed form wired for these yet; the naive
+        // complement leaves their saturation behaviour exactly as it was.
+        InverseLink::LatentCLogLog(_) | InverseLink::BetaLogistic(_) | InverseLink::Mixture(_) => {
+            1.0 - mu
+        }
+    };
+    if raw.is_nan() {
+        raw
+    } else {
+        raw.clamp(0.0, 1.0)
+    }
+}
+
+/// Cancellation-free `1 - mu(eta)` for the standard Bernoulli links.
+#[inline]
+fn standard_link_complement(link: StandardLink, eta: f64, mu: f64) -> f64 {
+    match link {
+        StandardLink::Probit => {
+            // 1 - Phi(eta) = Phi(-eta); the reflected CDF keeps the tiny upper-tail
+            // mass that `1 - Phi(eta)` cancels away.
+            if eta.is_nan() {
+                f64::NAN
+            } else if eta == f64::INFINITY {
+                0.0
+            } else if eta == f64::NEG_INFINITY {
+                1.0
+            } else {
+                normal_cdf(-eta)
+            }
+        }
+        StandardLink::CLogLog => {
+            // mu = 1 - exp(-exp(eta))  =>  1 - mu = exp(-exp(eta)).
+            if eta.is_nan() {
+                f64::NAN
+            } else {
+                let t = eta.exp();
+                if !t.is_finite() { 0.0 } else { (-t).exp() }
+            }
+        }
+        StandardLink::LogLog => {
+            // mu = exp(-exp(-eta))  =>  1 - mu = -expm1(-exp(-eta)).
+            if eta.is_nan() {
+                f64::NAN
+            } else {
+                let r = (-eta).exp();
+                if !r.is_finite() { 1.0 } else { -(-r).exp_m1() }
+            }
+        }
+        StandardLink::Cauchit => {
+            // mu = 1/2 + atan(eta)/pi  =>  1 - mu = 1/2 - atan(eta)/pi. For eta > 0
+            // this cancels toward zero; atan(1/eta) = pi/2 - atan(eta) exactly, so
+            // 1 - mu = atan(1/eta)/pi with no loss.
+            if eta.is_nan() {
+                f64::NAN
+            } else if !eta.is_finite() {
+                if eta > 0.0 { 0.0 } else { 1.0 }
+            } else if eta > 0.0 {
+                (1.0 / eta).atan() / std::f64::consts::PI
+            } else {
+                0.5 - eta.atan() / std::f64::consts::PI
+            }
+        }
+        // Logit carries its own tail complement on the canonical path; identity
+        // and log are not Bernoulli-variance links. The naive complement is
+        // exact enough for these here.
+        StandardLink::Logit | StandardLink::Identity | StandardLink::Log => 1.0 - mu,
+    }
+}
+
+/// Cancellation-free `1 - mu` for the SAS inverse link. `mu = Phi(z)` with
+/// `z = sinh(smooth_bound(delta*asinh(eta) + epsilon, SAS_U_CLAMP))`, so the exact
+/// complement is `Phi(-z)`, mirroring the `sas_inverse_link_mu_d1` forward map.
+/// `Phi(-z)` keeps the tiny upper-tail mass that `1 - Phi(z)` cancels; it
+/// underflows to `0` only once the row is genuinely fully saturated (`z` at the
+/// `SAS_U_CLAMP` sinh scale), which is the correct value there. `Phi(-z)` is
+/// always in `[0, 1]`, so no clamp is needed.
+///
+/// The latent `asinh(eta)` is taken through the overflow-free [`asinh_jet5`]
+/// value — exactly as `sas_inverse_link_mu_d1` does — NOT the raw `f64::asinh`.
+/// The library `asinh` forms `x·x` internally, which overflows to `±∞` for
+/// `|eta| > 1.34e154` even though `asinh(±f64::MAX) ≈ ±710` is finite and well
+/// inside range. With a compressing `delta < 1` the true latent `delta·asinh`
+/// then stays in the map's identity interior (finite, unsaturated `mu`), so an
+/// overflowing complement would saturate to `±B` and return `Phi(∓sinh B) ∈
+/// {0,1}` — disagreeing with the forward `1 - mu` by up to ~0.15 and poisoning
+/// any `log(1 - mu)` tail term at extreme eta (#2389).
+#[inline]
+pub(crate) fn sas_link_complement(eta: f64, epsilon: f64, log_delta: f64, mu: f64) -> f64 {
+    let eta = match finite_inverse_link_eta("SAS inverse link complement", eta) {
+        Ok(value) => value,
+        Err(_) => return 1.0 - mu,
+    };
+    let delta = sas_delta_from_raw_log_delta(log_delta);
+    if epsilon.abs() < 1e-12 && (delta - 1.0).abs() < 1e-12 {
+        return standard_link_complement(StandardLink::Probit, eta, mu);
+    }
+    let u_raw = delta * asinh_jet5(eta).value + epsilon;
+    let u = smooth_bound_jet(u_raw, SAS_U_CLAMP).g;
+    normal_cdf(-u.sinh())
+}
+
 fn link_function_mu_d1(link: LinkFunction, eta: f64) -> Result<(f64, f64), EstimationError> {
     match link {
         LinkFunction::Identity => Ok((eta, 1.0)),
@@ -1325,8 +1518,9 @@ fn sas_inverse_link_mu_d1(
     let asinh = asinh_jet5(eta);
     let delta = delta_id;
     let u_raw = delta * asinh.value + epsilon;
-    let u = tanh_bound(u_raw, SAS_U_CLAMP);
-    let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
+    let sb = smooth_bound_jet(u_raw, SAS_U_CLAMP);
+    let u = sb.g;
+    let g1 = sb.d1;
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
@@ -2245,8 +2439,11 @@ pub fn beta_logistic_inverse_link_jetwith_param_partials(
 }
 
 /// SAS inverse-link jet for:
-///   mu(eta) = Phi(sinh(delta * asinh(eta) + epsilon)),
-///   delta = exp(B * tanh(log_delta / B)), B = SAS_LOG_DELTA_BOUND.
+///   mu(eta) = Phi(sinh(smooth_bound(delta * asinh(eta) + epsilon, SAS_U_CLAMP))),
+///   delta = exp(smooth_bound(log_delta, SAS_LOG_DELTA_BOUND)).
+/// `smooth_bound` is the interior-exact bounded latent map (see
+/// [`smooth_bound_jet`]); on the interior it is the identity, so this reduces to
+/// the pure probit jet exactly at `epsilon=0, delta=1`.
 ///
 /// The mathematical solver domain is every finite `f64` eta. Non-finite eta
 /// returns [`EstimationError::InverseLinkDomainViolation`]; no value is
@@ -2265,10 +2462,11 @@ pub fn sas_inverse_link_jet(
     let asinh = asinh_jet5(eta);
     let delta = delta_id;
     let u_raw = delta * asinh.value + epsilon;
-    let u = tanh_bound(u_raw, SAS_U_CLAMP);
-    let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
-    let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
-    let g3 = tanh_bound_d3(u_raw, SAS_U_CLAMP);
+    let sb = smooth_bound_jet(u_raw, SAS_U_CLAMP);
+    let u = sb.g;
+    let g1 = sb.d1;
+    let g2 = sb.d2;
+    let g3 = sb.d3;
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
@@ -2295,7 +2493,7 @@ pub fn sas_inverse_link_pdfthird_derivative(
     // SAS link with bounded latent transform:
     //
     //   a  = asinh(eta),
-    //   u  = tanh_bound(delta * a + epsilon),
+    //   u  = smooth_bound(delta * a + epsilon),
     //   z  = sinh(u),
     //   mu = Phi(z).
     //
@@ -2322,7 +2520,7 @@ pub fn sas_inverse_link_pdfthird_derivative(
     //
     // The needed fourth derivative of `u(eta)` is obtained from the nested
     // composition `u(eta) = g(r(eta))` with
-    //   g = tanh_bound, r = delta * asinh(eta) - epsilon:
+    //   g = smooth_bound, r = delta * asinh(eta) - epsilon:
     //
     //   u4 = g'''' r1^4 + 6 g''' r1² r2 + 3 g'' r2² + 4 g'' r1 r3 + g' r4,
     //
@@ -2331,11 +2529,12 @@ pub fn sas_inverse_link_pdfthird_derivative(
     let asinh = asinh_jet5(eta);
     let delta = sas_delta_from_raw_log_delta(log_delta);
     let u_raw = delta * asinh.value + epsilon;
-    let u = tanh_bound(u_raw, SAS_U_CLAMP);
-    let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
-    let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
-    let g3 = tanh_bound_d3(u_raw, SAS_U_CLAMP);
-    let g4 = tanh_bound_d4(u_raw, SAS_U_CLAMP);
+    let sb = smooth_bound_jet(u_raw, SAS_U_CLAMP);
+    let u = sb.g;
+    let g1 = sb.d1;
+    let g2 = sb.d2;
+    let g3 = sb.d3;
+    let g4 = sb.d4;
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
@@ -2393,12 +2592,13 @@ pub fn sas_inverse_link_pdffourth_derivative(
     let asinh = asinh_jet5(eta);
     let delta = sas_delta_from_raw_log_delta(log_delta);
     let u_raw = delta * asinh.value + epsilon;
-    let u = tanh_bound(u_raw, SAS_U_CLAMP);
-    let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
-    let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
-    let g3 = tanh_bound_d3(u_raw, SAS_U_CLAMP);
-    let g4 = tanh_bound_d4(u_raw, SAS_U_CLAMP);
-    let g5 = tanh_bound_d5(u_raw, SAS_U_CLAMP);
+    let sb = smooth_bound_jet(u_raw, SAS_U_CLAMP);
+    let u = sb.g;
+    let g1 = sb.d1;
+    let g2 = sb.d2;
+    let g3 = sb.d3;
+    let g4 = sb.d4;
+    let g5 = sb.d5;
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
@@ -2467,17 +2667,19 @@ pub fn sas_inverse_link_jetwith_param_partials(
 ) -> Result<SasJetWithParamPartials, EstimationError> {
     let eta = finite_inverse_link_eta("SAS inverse link", eta)?;
     let asinh = asinh_jet5(eta);
-    let (ld_eff, dld_eff_draw) = sas_effective_log_delta(log_delta);
-    let d2ld_eff_draw2 = tanh_bound_d2(log_delta, SAS_LOG_DELTA_BOUND);
+    let ld_sb = smooth_bound_jet(log_delta, SAS_LOG_DELTA_BOUND);
+    let (ld_eff, dld_eff_draw) = (ld_sb.g, ld_sb.d1);
+    let d2ld_eff_draw2 = ld_sb.d2;
     let delta = ld_eff.exp();
     let ddelta_draw = delta * dld_eff_draw;
     let d2delta_draw2 = delta * (dld_eff_draw * dld_eff_draw + d2ld_eff_draw2);
     let u_raw = delta * asinh.value + epsilon;
-    let u = tanh_bound(u_raw, SAS_U_CLAMP);
-    let g1 = tanh_bound_d1(u_raw, SAS_U_CLAMP);
-    let g2 = tanh_bound_d2(u_raw, SAS_U_CLAMP);
-    let g3 = tanh_bound_d3(u_raw, SAS_U_CLAMP);
-    let g4 = tanh_bound_d4(u_raw, SAS_U_CLAMP);
+    let sb = smooth_bound_jet(u_raw, SAS_U_CLAMP);
+    let u = sb.g;
+    let g1 = sb.d1;
+    let g2 = sb.d2;
+    let g3 = sb.d3;
+    let g4 = sb.d4;
     let s = u.sinh();
     let c = u.cosh();
     let z = s;
@@ -3128,10 +3330,19 @@ mod tests {
         let out = sas_inverse_link_jetwith_param_partials(0.0, 0.0, 0.0)
             .expect("finite SAS center");
         let phi0 = normal_pdf(0.0);
-        let expected_epsilon_d1 = -2.0 * phi0 / (SAS_U_CLAMP * SAS_U_CLAMP);
+        // At the reduction center (η=0, ε=0, log_δ=0) the bounded latent map is on
+        // its exact-identity interior, so `u = ε + asinh(η)/… ` composes with no
+        // bounded-map curvature. The ε–ε second partial of `d1 = μ'` is therefore
+        // the TRUE sinh-arcsinh value 0 — not the old `-2·φ(0)/SAS_U_CLAMP²`, which
+        // was precisely the spurious `tanh` third-derivative `g'''(0) = -2/B²` that
+        // this fix removes. Expanding `d1(ε) = φ(sinh ε)·cosh ε = φ(0)(1 + O(ε⁴))`
+        // at η=0 confirms `∂²d1/∂ε² = 0` exactly.
         assert_eq!(out.d2mu_dparams2, Array2::<f64>::zeros((2, 2)));
         assert_eq!(out.d2d1_dparams2[[0, 1]], out.d2d1_dparams2[[1, 0]]);
-        assert!((out.d2d1_dparams2[[0, 0]] - expected_epsilon_d1).abs() < 1.0e-15);
+        assert_eq!(
+            out.d2d1_dparams2[[0, 0]], 0.0,
+            "ε–ε ∂²(μ') must be exactly zero at the identity-interior center"
+        );
         assert!((out.d2d1_dparams2[[1, 1]] - phi0).abs() < 1.0e-15);
         assert_eq!(out.d2d1_dparams2[[0, 1]], 0.0);
     }
@@ -3519,28 +3730,198 @@ mod tests {
 
     #[test]
     fn sas_center_matches_probit_at_delta1_epsilon0() {
+        // `(ε=0, δ=1)` takes the fast probit reduction path, which returns the
+        // probit jet bitwise. This pins that contract exactly (no tolerance).
         let etas = [-3.0, -1.2, -0.3, 0.0, 0.4, 1.7, 3.0];
         for eta in etas {
             let sas = sas_inverse_link_jet(eta, 0.0, 0.0).expect("finite SAS eta");
             let probit = ProbitLinkKernel.jet(eta).expect("probit");
-            // SAS implementation uses a smooth bounded latent (`tanh_bound`) for
-            // numerical robustness, so the probit center is approximate in practice.
+            assert_eq!(sas.mu.to_bits(), probit.mu.to_bits(), "mu at eta={eta}");
+            assert_eq!(sas.d1.to_bits(), probit.d1.to_bits(), "d1 at eta={eta}");
+            assert_eq!(sas.d2.to_bits(), probit.d2.to_bits(), "d2 at eta={eta}");
+            assert_eq!(sas.d3.to_bits(), probit.d3.to_bits(), "d3 at eta={eta}");
+        }
+    }
+
+    /// #2389 regression: the interior-exact bounded latent map makes the
+    /// `SAS(ε=0, δ=1) ≡ probit` reduction hold on the FULL composition path (not
+    /// just the fast short-circuit), and removes the `μ(ε)` cliff at `ε=0`.
+    ///
+    /// The old `B·tanh(x/B)` distorted the latent by `~1e-4` at every interior
+    /// point, so (1) the full path returned `Φ(sinh(tanh_bound(asinh η))) ≈
+    /// Φ(0.99987·η)` — off probit by `~2e-4` in μ — and (2) crossing the
+    /// `|ε|<1e-12` fast-path threshold jumped μ between the two surfaces by that
+    /// same `2e-4`. Both are gone: the full path is machine-exact probit, and
+    /// μ is smooth through `ε=0`.
+    #[test]
+    fn sas_probit_reduction_is_exact_on_full_path_and_smooth_across_epsilon_zero() {
+        let etas = [-3.0, -1.2, -0.3, 0.0, 0.4, 1.7, 3.0];
+        for &eta in &etas {
+            let probit = ProbitLinkKernel.jet(eta).expect("probit");
+            // Full composition path, just outside the fast-path window in ε. With
+            // the identity interior, `sinh(smooth_bound(asinh η)) = η` exactly, so
+            // the whole jet collapses to probit up to sinh∘asinh round-off.
+            for &eps in &[1e-11_f64, -1e-11] {
+                let sas = sas_inverse_link_jet(eta, eps, 0.0).expect("finite SAS eta");
+                // ε=1e-11 shifts the latent by 1e-11, a first-order μ move of
+                // φ(η)·1e-11 ≲ 4e-12; everything beyond that must be < 1e-11.
+                assert!(
+                    (sas.mu - probit.mu).abs() < 1e-11,
+                    "full-path μ off probit at eta={eta} eps={eps}: {} vs {}",
+                    sas.mu,
+                    probit.mu
+                );
+                assert!(
+                    (sas.d1 - probit.d1).abs() < 1e-10,
+                    "full-path d1 off probit at eta={eta} eps={eps}"
+                );
+            }
+            // No cliff at ε=0: the fast-path value (ε exactly 0) and the full-path
+            // values on either side agree to first order — the jump is O(ε), not
+            // the old O(2e-4) surface gap.
+            let center = sas_inverse_link_jet(eta, 0.0, 0.0).expect("fast path").mu;
+            let lo = sas_inverse_link_jet(eta, -1e-11, 0.0).expect("full path").mu;
+            let hi = sas_inverse_link_jet(eta, 1e-11, 0.0).expect("full path").mu;
             assert!(
-                (sas.mu - probit.mu).abs() < 6e-4,
-                "mu mismatch at eta={eta}"
+                (hi - center).abs() < 1e-11 && (center - lo).abs() < 1e-11,
+                "μ cliff across ε=0 at eta={eta}: lo={lo} center={center} hi={hi}"
             );
-            assert!(
-                (sas.d1 - probit.d1).abs() < 6e-4,
-                "d1 mismatch at eta={eta}"
-            );
-            assert!(
-                (sas.d2 - probit.d2).abs() < 2e-3,
-                "d2 mismatch at eta={eta}"
-            );
-            assert!(
-                (sas.d3 - probit.d3).abs() < 4e-3,
-                "d3 mismatch at eta={eta}"
-            );
+        }
+    }
+
+    /// #2389 design point (b): all-order FD gate on the interior-exact bounded
+    /// latent map's jet tower, at interior / splice / saturation points. The map
+    /// underpins every SAS evaluation, yet the SAS-level tests only reach its
+    /// interior (the splice needs `|δ·asinh(η)+ε| ∈ (0.8B, 1.2B)`, i.e. η≈1e17).
+    /// This pins `smooth_bound_jet` directly: exact identities in the two flat
+    /// regimes and at the seams, odd symmetry, non-expansiveness, and a
+    /// derivative ladder (`d_{k} = d/dx d_{k-1}`) through fifth order in the
+    /// splice — where a wrong smoothstep coefficient would otherwise hide.
+    #[test]
+    fn smooth_bound_jet_tower_is_c5_and_fd_exact() {
+        let b = SAS_U_CLAMP;
+        let a = SPLICE_INTERIOR_FRAC * b; // 40
+        let c = (2.0 - SPLICE_INTERIOR_FRAC) * b; // 60
+        let jet = |x: f64| smooth_bound_jet(x, b);
+
+        // Interior |x| ≤ a: exact identity, every higher derivative exactly 0.
+        for &x in &[0.0, 0.5, 17.3, a - 1e-9, a] {
+            let j = jet(x);
+            assert_eq!(j.g, x, "interior identity value at x={x}");
+            assert_eq!(j.d1, 1.0, "interior d1 at x={x}");
+            assert_eq!((j.d2, j.d3, j.d4, j.d5), (0.0, 0.0, 0.0, 0.0));
+        }
+        // Saturation |x| ≥ c: exact ±B plateau, every derivative exactly 0.
+        for &x in &[c, c + 1e-9, 75.0, 1e12, f64::MAX] {
+            let j = jet(x);
+            assert_eq!(j.g, b, "saturation value at x={x}");
+            assert_eq!((j.d1, j.d2, j.d3, j.d4, j.d5), (0.0, 0.0, 0.0, 0.0, 0.0));
+        }
+        // Seam value + compactness: g(c) = B exactly (the c = 2B − a closure).
+        assert_eq!(jet(c).g, b);
+
+        // Odd symmetry: g,d2,d4 flip sign; d1,d3,d5 are even.
+        for &x in &[3.0, a - 2.0, 44.0, 50.0, 56.0, 100.0] {
+            let p = jet(x);
+            let m = jet(-x);
+            assert_eq!(m.g, -p.g, "g odd at x={x}");
+            assert_eq!(m.d1, p.d1, "d1 even at x={x}");
+            assert_eq!(m.d2, -p.d2, "d2 odd at x={x}");
+            assert_eq!(m.d3, p.d3, "d3 even at x={x}");
+            assert_eq!(m.d4, -p.d4, "d4 odd at x={x}");
+            assert_eq!(m.d5, p.d5, "d5 even at x={x}");
+        }
+
+        // Non-expansive + monotone + bounded across the whole range.
+        for i in 0..=240 {
+            let x = -80.0 + 160.0 * (i as f64) / 240.0;
+            let j = jet(x);
+            assert!((0.0..=1.0).contains(&j.d1), "d1 out of [0,1] at x={x}: {}", j.d1);
+            assert!(j.g.abs() <= b + 1e-12, "|g| exceeds B at x={x}: {}", j.g);
+        }
+
+        // FD derivative ladder through fifth order, at splice-INTERIOR points
+        // (kept ≥ 5 away from both seams so the O(h²) truncation stays small and
+        // the h-stencil never straddles a regime change). d_k must be the
+        // x-derivative of d_{k-1}; per-order tolerances track the realistic
+        // central-difference error, still orders of magnitude below the O(1)
+        // shift any wrong smoothstep coefficient would produce.
+        let h = 0.02;
+        for &x0 in &[45.0, 47.5, 50.0, 52.5, 55.0, -47.5, -52.5] {
+            let jp = jet(x0 + h);
+            let jm = jet(x0 - h);
+            let j0 = jet(x0);
+            let fd = |hi: f64, lo: f64| (hi - lo) / (2.0 * h);
+            let checks = [
+                ("d1", j0.d1, fd(jp.g, jm.g), 2e-6),
+                ("d2", j0.d2, fd(jp.d1, jm.d1), 2e-5),
+                ("d3", j0.d3, fd(jp.d2, jm.d2), 2e-4),
+                ("d4", j0.d4, fd(jp.d3, jm.d3), 2e-3),
+                ("d5", j0.d5, fd(jp.d4, jm.d4), 2e-2),
+            ];
+            for (name, analytic, numeric, tol) in checks {
+                assert!(
+                    (analytic - numeric).abs() < tol * (1.0 + analytic.abs()),
+                    "smooth_bound {name} FD mismatch at x={x0}: analytic={analytic:e} fd={numeric:e}"
+                );
+            }
+        }
+    }
+
+    /// #2389 general-case follow-up: the cancellation-free SAS complement must
+    /// live on the SAME latent surface as the forward inverse-link, so that
+    /// `μ + (1−μ) = 1` holds to full precision across the ENTIRE finite-`f64`
+    /// eta domain — including `|η| > 1.34e154`, where `η·η` overflows.
+    ///
+    /// The forward map routes `asinh` through the overflow-free [`asinh_jet5`]
+    /// (`hypot`-based value with an asymptotic `ln|η|+ln2` fallback), but
+    /// `sas_link_complement` used the raw `f64::asinh`, whose internal `x·x`
+    /// overflows to `+∞` near the domain edge. With a compressing `δ<1` the true
+    /// latent `δ·asinh(η)` stays deep in the map's identity interior (finite,
+    /// unsaturated μ), yet the overflowing complement drove `u_raw→∞`, saturated
+    /// to `±B`, and returned `Φ(∓sinh B)=0` — a full ~0.15 disagreement with the
+    /// forward `1−μ`, silently poisoning any `log(1−μ)` tail term at extreme η.
+    #[test]
+    fn sas_link_complement_mirrors_forward_map_across_finite_domain() {
+        let params = [
+            (0.0, 0.0),     // fast probit reduction
+            (0.25, -0.35),  // generic interior skew/scale
+            (0.0, -6.0),    // strong compression δ≈2.5e-3
+            (-0.5, -6.0),
+            (0.3, 6.0),     // strong dilation δ≈4e2
+        ];
+        let etas = [
+            -f64::MAX,
+            -1e160, // η·η overflows here; asinh(η)≈-369 is finite and in range
+            -1e6,
+            -3.0,
+            -0.2,
+            0.0,
+            0.4,
+            3.0,
+            1e6,
+            1e160,
+            f64::MAX,
+        ];
+        for &(epsilon, log_delta) in &params {
+            for &eta in &etas {
+                let mu = sas_inverse_link_jet(eta, epsilon, log_delta)
+                    .expect("finite SAS eta")
+                    .mu;
+                let complement = sas_link_complement(eta, epsilon, log_delta, mu);
+                assert!(
+                    complement.is_finite() && (0.0..=1.0).contains(&complement),
+                    "SAS complement out of [0,1] at η={eta} ε={epsilon} log_δ={log_delta}: {complement}"
+                );
+                // μ + (1−μ) = 1 on one consistent surface. Both endpoints are
+                // Φ(±z) for the same z, so equality holds to erfc round-off.
+                let sum = mu + complement;
+                assert!(
+                    (sum - 1.0).abs() < 1e-12,
+                    "SAS complement off the forward surface at η={eta} ε={epsilon} \
+                     log_δ={log_delta}: μ={mu} complement={complement} μ+comp={sum}"
+                );
+            }
         }
     }
 

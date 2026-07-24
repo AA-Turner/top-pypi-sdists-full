@@ -1380,6 +1380,8 @@ class CIDs:
                 eo_vars.append("S2S")
             if any(c.startswith(("ONI_", "MEI_")) for c in df_group.columns):
                 eo_vars.append("ENSO")
+            if "aridity" in df_group.columns:
+                eo_vars.append("Aridity")
             for eo_var in eo_vars:
                 df_eo = self.compute_eo_indices(
                     df_time_period,
@@ -1522,6 +1524,8 @@ class CIDs:
             dict_eo = di.dict_hindex
         elif var == "AEF":
             dict_eo = di.dict_aef
+        elif var == "Aridity":
+            dict_eo = di.dict_aridity
         elif var == "FLDAS":
             dict_eo = di.dict_fldas
         elif var == "S2S":
@@ -1544,9 +1548,19 @@ class CIDs:
                 if enso_key in emitted_fldas_inits:
                     continue
                 emitted_fldas_inits.add(enso_key)
+            # Aridity is static per region (one climatology value, identical
+            # across every stage window) — emit it once per (region, year) so
+            # the pivot yields a single AI column, not one per stage.
+            if var == "Aridity" and emitted_fldas_inits is not None:
+                ar_key = ("__aridity__", iname)
+                if ar_key in emitted_fldas_inits:
+                    continue
+                emitted_fldas_inits.add(ar_key)
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
+            elif iname == "AI":
+                col_name = "aridity"  # Global Aridity Index static column
             elif iname in di.fldas_col_map:
                 col_name = di.fldas_col_map[iname]
             elif iname in di.s2s_col_map:
@@ -1707,6 +1721,9 @@ class CIDs:
             # AEF bands are static per region (no temporal variation),
             # so default to MEAN which returns the constant value.
             if aggregator is None and iname.startswith("AEF_"):
+                aggregator = "MEAN"
+            # Aridity: single static value per region -> MEAN returns it verbatim.
+            if aggregator is None and iname == "AI":
                 aggregator = "MEAN"
             # ENSO scalars are constant across every row of a harvest year;
             # MEAN of the constant returns the scalar cleanly.

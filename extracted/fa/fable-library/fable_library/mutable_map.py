@@ -221,20 +221,20 @@ def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: 
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow15(__unit: Unit = UNIT) -> list[Any]:
+    def _arrow16(__unit: Unit = UNIT) -> list[Any]:
         return out_arg
 
     def _arrow17(v: list[Any]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow15, _arrow17)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow16, _arrow17)), out_arg)
     if match_value[0]:
 
-        def _arrow18(pair: Any, this: Any = this, k: Any = k) -> bool:
+        def _arrow19(pair: Any, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, pair[0])
 
-        return (True, h, find_index(_arrow18, match_value[1]))
+        return (True, h, find_index(_arrow19, match_value[1]))
 
     else:
         return (False, h, int32.NEG_ONE)

@@ -16,11 +16,13 @@ from modal_proto import api_pb2
 from ._load_context import LoadContext
 from ._object import _Object
 from ._resolver import Resolver
+from ._utils.deprecation import deprecation_warning
 from ._utils.name_utils import check_environment_name
+from ._utils.time_utils import is_utc_month_aligned, parse_billing_cycle
 from .client import _Client
 from .config import config, logger
 from .exception import InvalidError, WorkspaceManagementError
-from .types import BillingReportItem
+from .types import BillingReportItem, EnvironmentBillingSummary
 
 
 @dataclass(frozen=True)
@@ -103,63 +105,38 @@ class _EnvironmentManager:
         await client.stub.EnvironmentDelete(api_pb2.EnvironmentDeleteRequest(name=name))
 
 
-def _role_to_proto(role: str) -> "api_pb2.EnvironmentRole.ValueType":
-    match role:
-        case "viewer":
-            return api_pb2.ENVIRONMENT_ROLE_VIEWER
-        case "contributor":
-            return api_pb2.ENVIRONMENT_ROLE_CONTRIBUTOR
-        case _:
-            raise InvalidError(f"Invalid Environment role: {role!r} (expected 'viewer' or 'contributor')")
-
-
-def _role_from_proto(proto_value: int) -> str:
-    match proto_value:
-        case api_pb2.ENVIRONMENT_ROLE_VIEWER:
-            return "viewer"
-        case api_pb2.ENVIRONMENT_ROLE_CONTRIBUTOR:
-            return "contributor"
-        case _:
-            raise ValueError(f"Unknown environment role: {proto_value}")
-
-
-class _EnvironmentMembersManager:
-    """mdmd:namespace
-    Namespace with methods for managing the membership of a restricted Environment.
-
-    See https://modal.com/docs/guide/rbac for more information on restricted Environments.
-    """
+class _EnvironmentRolesManager:
+    """mdmd:namespace"""
 
     def __init__(self, environment: "_Environment"):
         """mdmd:hidden"""
         self._environment = environment
 
     async def list(self) -> dict[Literal["users", "service_users"], dict[str, str]]:
-        """Return the members of a restricted Environment with their roles.
+        """Enumerate the Environment Role for each user and service user in the workspace.
 
         **Examples:**
 
         ```python notest
-        members = modal.Environment.from_name("my-restricted-env").members.list()
-        print(members)
+        roles = modal.Environment.from_name("my-env").roles.list()
+        print(roles)
         # {
-        #     "users": {"alice": "contributor", "bob": "viewer"},
-        #     "service_users": {"alice-bot": "contributor"},
+        #     "users": {"alice": "contributor", "bob": "viewer", "carol": "contributor"},
+        #     "service_users": {"alice-bot": "contributor", "ops-bot": "viewer", "ci-bot": "no-access"},
         # }
         ```
         """
         await self._environment.hydrate()
-        req = api_pb2.EnvironmentGetManagedRequest(environment_id=self._environment.object_id)
-        resp = await self._environment.client.stub.EnvironmentGetManaged(req)
+        req = api_pb2.EnvironmentGetRolesRequest(environment_id=self._environment.object_id)
+        resp = await self._environment.client.stub.EnvironmentGetRoles(req)
 
         users: dict[str, str] = {}
         service_users: dict[str, str] = {}
         for principal in resp.principal_roles:
-            role = _role_from_proto(principal.role)
             if principal.user_id:
-                users[principal.user_name] = role
+                users[principal.user_name] = principal.role_str
             elif principal.service_user_id:
-                service_users[principal.service_user_name] = role
+                service_users[principal.service_user_name] = principal.role_str
 
         return {"users": users, "service_users": service_users}
 
@@ -169,16 +146,17 @@ class _EnvironmentMembersManager:
         users: Mapping[str, str] | None = None,
         service_users: Mapping[str, str] | None = None,
     ) -> None:
-        """Add or modify roles for members of a restricted Environment.
+        """Update the Environment Role of users and service users.
 
-        Each user or service user will be added to the Environment if not currently a member;
-        if already a member, the user or service user's role will be updated.
+        Each role is one of 'contributor', 'viewer', or 'no-access'. Service users can be
+        assigned a role on any Environment, while workspace members can only be assigned a
+        role on restricted Environments.
 
         **Examples:**
 
         ```python notest
         env = modal.Environment.from_name("my-restricted-env")
-        env.members.update(
+        env.roles.update(
             users={"alice": "contributor", "bob": "viewer"},
             service_users={"alice-bot": "contributor"},
         )
@@ -188,13 +166,13 @@ class _EnvironmentMembersManager:
         users = users or {}
         service_users = service_users or {}
 
-        req = api_pb2.EnvironmentGetManagedRequest(environment_id=self._environment.object_id)
-        resp = await self._environment.client.stub.EnvironmentGetManaged(req)
+        req = api_pb2.EnvironmentGetRolesRequest(environment_id=self._environment.object_id)
+        resp = await self._environment.client.stub.EnvironmentGetRoles(req)
 
-        # Both current members and additional eligible workspace principals can be assigned a role
+        # EnvironmentGetRoles returns every workspace principal
         user_name_to_id: dict[str, str] = {}
         service_user_name_to_id: dict[str, str] = {}
-        for principal in [*resp.principal_roles, *resp.additional_roles]:
+        for principal in resp.principal_roles:
             if principal.user_id:
                 user_name_to_id[principal.user_name] = principal.user_id
             elif principal.service_user_id:
@@ -207,7 +185,7 @@ class _EnvironmentMembersManager:
             requests[f"User {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
                 environment_id=self._environment.object_id,
                 user_id=user_name_to_id[name],
-                role=_role_to_proto(role),
+                role_str=role,
             )
         for name, role in service_users.items():
             if name not in service_user_name_to_id:
@@ -215,60 +193,7 @@ class _EnvironmentMembersManager:
             requests[f"Service user {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
                 environment_id=self._environment.object_id,
                 service_user_id=service_user_name_to_id[name],
-                role=_role_to_proto(role),
-            )
-
-        await self._dispatch_role_updates(requests)
-
-    async def remove(
-        self,
-        *,
-        users: Iterable[str] | None = None,
-        service_users: Iterable[str] | None = None,
-    ) -> None:
-        """Remove members from a restricted Environment.
-
-        **Examples:**
-
-        ```python notest
-        env = modal.Environment.from_name("my-restricted-env")
-        env.members.remove(
-            users=["alice"],
-            service_users=["alice-bot"],
-        )
-        ```
-        """
-        await self._environment.hydrate()
-        users = users or []
-        service_users = service_users or []
-
-        req = api_pb2.EnvironmentGetManagedRequest(environment_id=self._environment.object_id)
-        resp = await self._environment.client.stub.EnvironmentGetManaged(req)
-
-        user_name_to_id: dict[str, str] = {}
-        service_user_name_to_id: dict[str, str] = {}
-        for principal in resp.principal_roles:
-            if principal.user_id:
-                user_name_to_id[principal.user_name] = principal.user_id
-            elif principal.service_user_id:
-                service_user_name_to_id[principal.service_user_name] = principal.service_user_id
-
-        requests: dict[str, api_pb2.EnvironmentRoleSetRequest] = {}
-        for name in users:
-            if name not in user_name_to_id:
-                raise InvalidError(f"User {name!r} is not a member of this Environment")
-            requests[f"User {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
-                environment_id=self._environment.object_id,
-                user_id=user_name_to_id[name],
-                role=api_pb2.ENVIRONMENT_ROLE_UNSPECIFIED,
-            )
-        for name in service_users:
-            if name not in service_user_name_to_id:
-                raise InvalidError(f"Service user {name!r} is not a member of this Environment")
-            requests[f"Service user {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
-                environment_id=self._environment.object_id,
-                service_user_id=service_user_name_to_id[name],
-                role=api_pb2.ENVIRONMENT_ROLE_UNSPECIFIED,
+                role_str=role,
             )
 
         await self._dispatch_role_updates(requests)
@@ -282,9 +207,84 @@ class _EnvironmentMembersManager:
         errors = [(label, result) for label, result in zip(requests.keys(), results) if isinstance(result, Exception)]
         if errors:
             n = len(errors)
-            header = f"{n} error{'s' if n != 1 else ''} occurred while updating Environment members:"
+            header = f"{n} error{'s' if n != 1 else ''} occurred while updating Environment roles:"
             details = "\n".join(f"  - {label}: {e}" for label, e in errors)
             raise WorkspaceManagementError(f"{header}\n{details}")
+
+
+# Deprecated alias for `_EnvironmentRolesManager`; each method warns and delegates.
+class _EnvironmentMembersManager:
+    """mdmd:hidden"""
+
+    def __init__(self, environment: "_Environment"):
+        """mdmd:hidden"""
+        self._environment = environment
+
+    async def list(self) -> dict[Literal["users", "service_users"], dict[str, str]]:
+        deprecation_warning(
+            (2026, 7, 23),
+            "`Environment.members.list()` is deprecated; use `Environment.roles.list()` instead.",
+        )
+        return await _EnvironmentRolesManager(self._environment).list()
+
+    async def update(
+        self,
+        *,
+        users: Mapping[str, str] | None = None,
+        service_users: Mapping[str, str] | None = None,
+    ) -> None:
+        deprecation_warning(
+            (2026, 7, 23),
+            "`Environment.members.update()` is deprecated; use `Environment.roles.update()` instead.",
+        )
+        await _EnvironmentRolesManager(self._environment).update(users=users, service_users=service_users)
+
+    async def remove(
+        self,
+        *,
+        users: Iterable[str] | None = None,
+        service_users: Iterable[str] | None = None,
+    ) -> None:
+        """Remove the Environment Role of users and service users, reverting them to the default."""
+        deprecation_warning(
+            (2026, 7, 23),
+            "`Environment.members.remove()` is deprecated. Environment Roles are now explicit; "
+            "set a role (e.g. 'no-access') with `Environment.roles.update()` instead.",
+        )
+        await self._environment.hydrate()
+        users = users or []
+        service_users = service_users or []
+
+        req = api_pb2.EnvironmentGetRolesRequest(environment_id=self._environment.object_id)
+        resp = await self._environment.client.stub.EnvironmentGetRoles(req)
+
+        user_name_to_id: dict[str, str] = {}
+        service_user_name_to_id: dict[str, str] = {}
+        for principal in resp.principal_roles:
+            if principal.user_id:
+                user_name_to_id[principal.user_name] = principal.user_id
+            elif principal.service_user_id:
+                service_user_name_to_id[principal.service_user_name] = principal.service_user_id
+
+        requests: dict[str, api_pb2.EnvironmentRoleSetRequest] = {}
+        for name in users:
+            if name not in user_name_to_id:
+                raise InvalidError(f"User {name!r} not found in workspace")
+            requests[f"User {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
+                environment_id=self._environment.object_id,
+                user_id=user_name_to_id[name],
+                role=api_pb2.ENVIRONMENT_ROLE_UNSPECIFIED,
+            )
+        for name in service_users:
+            if name not in service_user_name_to_id:
+                raise InvalidError(f"Service user {name!r} not found in workspace")
+            requests[f"Service user {name!r}"] = api_pb2.EnvironmentRoleSetRequest(
+                environment_id=self._environment.object_id,
+                service_user_id=service_user_name_to_id[name],
+                role=api_pb2.ENVIRONMENT_ROLE_UNSPECIFIED,
+            )
+
+        await _EnvironmentRolesManager(self._environment)._dispatch_role_updates(requests)
 
 
 class _Environment(_Object, type_prefix="en"):
@@ -308,7 +308,17 @@ class _Environment(_Object, type_prefix="en"):
         return _EnvironmentManager()
 
     @property
+    def roles(self) -> "_EnvironmentRolesManager":
+        """Namespace with methods for managing the Environment Roles of users and service users.
+
+        See https://modal.com/docs/guide/rbac for more information on Environment Roles.
+        """
+        return _EnvironmentRolesManager(self)
+
+    @property
     def members(self) -> "_EnvironmentMembersManager":
+        """mdmd:hidden"""
+        # Deprecated alias for `Environment.roles`.
         return _EnvironmentMembersManager(self)
 
     # TODO(michael) Keeping this private for now until we decide what else should be in it
@@ -393,13 +403,12 @@ class _Environment(_Object, type_prefix="en"):
 
     @property
     def billing(self) -> "_EnvironmentBillingManager":
+        """Namespace for Environment billing APIs."""
         return _EnvironmentBillingManager(self)
 
 
 class _EnvironmentBillingManager:
-    """mdmd:namespace
-    Namespace for Environment billing APIs
-    """
+    """mdmd:namespace"""
 
     def __init__(self, environment: _Environment):
         """mdmd:ignore"""
@@ -436,7 +445,7 @@ class _EnvironmentBillingManager:
             - [`modal environment billing report`](https://modal.com/docs/cli/latest/environment#modal-environment-billing-report):
               An environment report CLI that has convenience features around relative time range queries
               and JSON/CSV output.
-            - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/modal.Workspace#billingreport):
+            - [`Workspace.billing.report()`](https://modal.com/docs/sdk/py/latest/Workspace#billingreport):
               An analogous report API for the entire Workspace.
 
         """
@@ -471,6 +480,71 @@ class _EnvironmentBillingManager:
             BillingReportItem._from_proto(pb_item)
             async for pb_item in self._environment.client.stub.WorkspaceBillingReport.unary_stream(request)
         ]
+
+    async def summary(
+        self,
+        cycle: str | datetime | None = None,  # Start of the summary, inclusive
+    ) -> EnvironmentBillingSummary:
+        """Return a summary of environment cost over a single billing cycle determined by `cycle`.
+
+        Unlike the analogous `Workspace.billing.summary()`, this API only emits metered cost
+        information. This is because billing adjustments due to credits, free storage, etc. are
+        applied at the Workspace level, and thus cannot be attributed to individual Environments.
+
+        Args:
+            cycle: Start of the summary, inclusive. Must be the first of a month, and must be in UTC
+                or timezone-naive (interpreted as UTC). If provided as a string, it must either be
+                formatted as an ISO 8601 month (YYYY-MM), or must be one of the convenience spellings
+                "this month" or "last month". If not provided, `cycle` defaults to the first of the
+                current month (in which case a summary is generated for the current billing cycle).
+
+        Returns:
+            A single `EnvironmentBillingSummary` dataclass containing the following fields:
+            - `metered_cost` representing cost before any adjustments, and
+            - `metered_cost_breakdown` containing a breakdown of that cost by the Modal resources
+              that generated it. The exact keys of this are subject to change as Modal's billing
+              model evolves.
+
+            All values are reported as `decimal.Decimal`s.
+
+        See also:
+            - [`modal environment billing summary`](https://modal.com/docs/cli/latest/billing#modal-environment-billing-summary):
+              An environment summary CLI that has convenience features around relative time range queries.
+            - [`Environment.billing.report()`](https://modal.com/docs/sdk/py/latest/Environment#billingreport):
+              An analogous report API that is scoped to a specific Environment.
+        """
+
+        if cycle is None:
+            cycle = datetime.now(timezone.utc).replace(
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+        elif isinstance(cycle, str):
+            cycle = parse_billing_cycle(cycle)
+
+        if cycle.tzinfo is None:
+            cycle = cycle.replace(tzinfo=timezone.utc)
+        elif cycle.tzinfo != timezone.utc:
+            raise InvalidError("Timezone-aware 'cycle' parameter must be in UTC.")
+
+        if not is_utc_month_aligned(cycle):
+            raise InvalidError("Provided 'cycle' parameter must be the first of a month.")
+
+        if cycle > datetime.now(timezone.utc):
+            raise InvalidError("Provided 'cycle' parameter cannot be in the future.")
+
+        if not self._environment.is_hydrated:
+            await self._environment.hydrate()
+
+        request = api_pb2.EnvironmentBillingSummaryRequest(environment_id=self._environment.object_id)
+        request.start_timestamp.FromDatetime(cycle)
+
+        return EnvironmentBillingSummary._from_proto(
+            await self._environment.client.stub.EnvironmentBillingSummary(request)
+        )
 
 
 ENVIRONMENT_CACHE: dict[str, _Environment] = {}
@@ -547,4 +621,4 @@ def ensure_env(environment_name: str | None = None) -> str:
     if environment_name is not None:
         config.override_locally("environment", environment_name)
 
-    return config.get("environment")
+    return config.get("environment") or ""

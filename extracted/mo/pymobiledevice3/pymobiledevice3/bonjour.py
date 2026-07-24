@@ -9,8 +9,10 @@ import socket
 import struct
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Callable, Optional, TypeVar
+from types import TracebackType
+from typing import Any, Callable, Optional, TypeVar, cast
 
 import ifaddr  # pip install ifaddr
 from typing_extensions import dataclass_transform
@@ -47,7 +49,7 @@ _T = TypeVar("_T")
 
 # --- Dataclass decorator shim (adds slots only on 3.10+)
 @dataclass_transform(field_specifiers=(field,))
-def dataclass_compat(*d_args, **d_kwargs) -> Callable[[type[_T]], type[_T]]:
+def dataclass_compat(*d_args: Any, **d_kwargs: Any) -> Callable[[type[_T]], type[_T]]:
     if sys.version_info < (3, 10):
         d_kwargs.pop("slots", None)  # ignore on 3.9
     return dataclass(*d_args, **d_kwargs)
@@ -70,8 +72,8 @@ class ServiceInstance:
     instance: str  # "<Instance Name>._type._proto.local."
     host: Optional[str]  # "host.local" (without trailing dot), or None if unresolved
     port: int  # SRV port (always present — browse_service skips port-less SRV entries)
-    addresses: list[Address] = field(default_factory=list)  # IPs with interface names
-    properties: dict[str, str] = field(default_factory=dict)  # TXT key/values
+    addresses: list[Address] = field(default_factory=list[Address])  # IPs with interface names
+    properties: dict[str, str] = field(default_factory=dict[str, str])  # TXT key/values
 
 
 # ---------------- DNS helpers ----------------
@@ -91,7 +93,7 @@ def encode_name(name: str) -> bytes:
 
 
 def decode_name(data: bytes, off: int) -> tuple[str, int]:
-    labels = []
+    labels: list[str] = []
     jumped = False
     orig_end = off
     for _ in range(128):  # loop guard
@@ -127,7 +129,7 @@ def build_query(name: str, qtype: int, unicast: bool = False) -> bytes:
     return hdr + encode_name(name) + struct.pack("!HH", qtype, qclass)
 
 
-def parse_rr(data: bytes, off: int):
+def parse_rr(data: bytes, off: int) -> tuple[dict[str, Any], int]:
     name, off = decode_name(data, off)
     if off + 10 > len(data):
         raise ValueError("truncated RR header")
@@ -136,7 +138,7 @@ def parse_rr(data: bytes, off: int):
     rdata = data[off : off + rdlen]
     off += rdlen
 
-    rr = {"name": name, "type": rtype, "class": rclass & 0x7FFF, "ttl": ttl}
+    rr: dict[str, Any] = {"name": name, "type": rtype, "class": rclass & 0x7FFF, "ttl": ttl}
     if rtype == QTYPE_PTR:
         target, _ = decode_name(data, off - rdlen)
         rr["ptrdname"] = target
@@ -145,7 +147,7 @@ def parse_rr(data: bytes, off: int):
         target, _ = decode_name(data, off - rdlen + 6)
         rr.update({"priority": priority, "weight": weight, "port": port, "target": target})
     elif rtype == QTYPE_TXT:
-        kv = {}
+        kv: dict[str, str] = {}
         i = 0
         while i < rdlen:
             b = rdata[i]
@@ -169,7 +171,7 @@ def parse_rr(data: bytes, off: int):
     return rr, off
 
 
-def parse_mdns_message(data: bytes):
+def parse_mdns_message(data: bytes) -> list[dict[str, Any]]:
     if len(data) < 12:
         return []
     _, _, qd, an, ns, ar = struct.unpack("!HHHHHH", data[:12])
@@ -177,7 +179,7 @@ def parse_mdns_message(data: bytes):
     for _ in range(qd):
         _, off = decode_name(data, off)
         off += 4
-    rrs = []
+    rrs: list[dict[str, Any]] = []
     for _ in range(an + ns + ar):
         rr, off = parse_rr(data, off)
         rrs.append(rr)
@@ -189,7 +191,7 @@ def parse_mdns_message(data: bytes):
 
 class _Adapters:
     def __init__(self):
-        self.adapters = ifaddr.get_adapters() if ifaddr is not None else []
+        self.adapters: Iterable[ifaddr.Adapter] = ifaddr.get_adapters() if ifaddr is not None else []
 
     def pick_iface_for_ip(self, ip_str: str, family: int, v6_scopeid: Optional[int]) -> Optional[str]:
         # Prefer scope id for IPv6 link-local
@@ -203,7 +205,7 @@ class _Adapters:
         if not self.adapters:
             return None
         ip = ipaddress.ip_address(ip_str)
-        best = (None, -1)  # (name, prefix_len)
+        best: tuple[Optional[str], int] = (None, -1)  # (name, prefix_len)
         for ad in self.adapters:
             for ipn in ad.ips:
                 if isinstance(ipn.ip, str):
@@ -226,15 +228,15 @@ class _Adapters:
 
 
 class _DatagramProtocol(asyncio.DatagramProtocol):
-    def __init__(self, queue: asyncio.Queue):
+    def __init__(self, queue: asyncio.Queue[tuple[bytes, Any]]):
         self.queue = queue
 
-    def datagram_received(self, data, addr):
+    def datagram_received(self, data: bytes, addr: Any) -> None:
         # addr: IPv4 -> (host, port); IPv6 -> (host, port, flowinfo, scopeid)
         self.queue.put_nowait((data, addr))
 
 
-async def _bind_ipv4(queue: asyncio.Queue):
+async def _bind_ipv4(queue: asyncio.Queue[tuple[bytes, Any]]):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if hasattr(socket, "SO_REUSEPORT"):
@@ -250,7 +252,7 @@ async def _bind_ipv4(queue: asyncio.Queue):
     return transport, s
 
 
-async def _bind_ipv6_all_ifaces(queue: asyncio.Queue):
+async def _bind_ipv6_all_ifaces(queue: asyncio.Queue[tuple[bytes, Any]]):
     s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     if hasattr(socket, "SO_REUSEPORT"):
@@ -268,8 +270,10 @@ async def _bind_ipv6_all_ifaces(queue: asyncio.Queue):
     return transport, s
 
 
-async def _open_mdns_sockets():
-    queue = asyncio.Queue()
+async def _open_mdns_sockets() -> tuple[
+    list[tuple[asyncio.DatagramTransport, socket.socket]], asyncio.Queue[tuple[bytes, Any]]
+]:
+    queue: asyncio.Queue[tuple[bytes, Any]] = asyncio.Queue()
     transports: list[tuple[asyncio.DatagramTransport, socket.socket]] = []
     t4, s4 = await _bind_ipv4(queue)
     transports.append((t4, s4))
@@ -280,7 +284,7 @@ async def _open_mdns_sockets():
     return transports, queue
 
 
-async def _send_query_all(transports, pkt: bytes):
+async def _send_query_all(transports: list[tuple[asyncio.DatagramTransport, socket.socket]], pkt: bytes):
     for transport, sock in transports:
         if sock.family == socket.AF_INET:
             transport.sendto(pkt, (MDNS_MCAST_V4, MDNS_PORT))
@@ -306,16 +310,16 @@ async def browse_service(service_type: str, timeout: float = 4.0) -> list[Servic
     adapters = _Adapters()
 
     ptr_targets: set[str] = set()
-    srv_map: dict[str, list[dict]] = defaultdict(list)  # instance_name -> list of {"target", "port"}
-    txt_map: dict[str, dict] = {}
+    srv_map: dict[str, list[dict[str, Any]]] = defaultdict(list)  # instance_name -> list of {"target", "port"}
+    txt_map: dict[str, dict[str, Any]] = {}
     host_addrs: dict[str, list[Address]] = defaultdict(list)  # host -> list[(ip, iface)]
 
-    def _record_addr(rr_name: str, ip_str: str, pkt_addr):
+    def _record_addr(rr_name: str, ip_str: str, pkt_addr: Any) -> None:
         # Determine family and possible scopeid from the packet that delivered this RR
         family = socket.AF_INET6 if ":" in ip_str else socket.AF_INET
-        scopeid = None
-        if isinstance(pkt_addr, tuple) and len(pkt_addr) == 4:  # IPv6 remote tuple
-            scopeid = pkt_addr[3]
+        scopeid: Optional[int] = None
+        if isinstance(pkt_addr, tuple) and len(cast(tuple[Any, ...], pkt_addr)) == 4:  # IPv6 remote tuple
+            scopeid = cast(Optional[int], pkt_addr[3])
         iface = adapters.pick_iface_for_ip(ip_str, family, scopeid)
         if iface is None:
             return
@@ -336,7 +340,7 @@ async def browse_service(service_type: str, timeout: float = 4.0) -> list[Servic
             for rr in parse_mdns_message(data):
                 t = rr.get("type")
                 if t == QTYPE_PTR and rr.get("name") == service_type:
-                    ptr_targets.add(rr.get("ptrdname"))
+                    ptr_targets.add(cast(str, rr.get("ptrdname")))
                 elif t == QTYPE_SRV:
                     srv_map[rr["name"]].append({"target": rr.get("target"), "port": rr.get("port")})
                 elif t == QTYPE_TXT:
@@ -494,11 +498,11 @@ class MDNSResponder:
         # Every local IPv4 interface to steer multicast egress through (see _send_to_all)
         self._ipv4_send_addresses = [ip for family, ip in self.addresses if family == socket.AF_INET]
         self._transports: list[tuple[asyncio.DatagramTransport, socket.socket]] = []
-        self._queue: Optional[asyncio.Queue] = None
-        self._serve_task: Optional[asyncio.Task] = None
+        self._queue: Optional[asyncio.Queue[tuple[bytes, Any]]] = None
+        self._serve_task: Optional[asyncio.Task[None]] = None
 
     def _address_records(self) -> list[bytes]:
-        records = []
+        records: list[bytes] = []
         for family, ip in self.addresses:
             if family == socket.AF_INET:
                 records.append(
@@ -596,7 +600,12 @@ class MDNSResponder:
             await asyncio.sleep(0.25)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if self._serve_task is not None:
             self._serve_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

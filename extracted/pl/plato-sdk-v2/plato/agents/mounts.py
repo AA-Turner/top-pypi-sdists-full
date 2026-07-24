@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from plato.transports import NFSTransport, RsyncTransport, SSHFSTransport, Transport
+from plato.transports.fuse import FuseDirectTransport
 from plato.transports.git import GitTransport
 from plato.utils.tool_execution import tool_execution_spool_path
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from plato.worlds.workspace import Workspace
 
 
-TransportKind = Literal["git", "nfs", "sshfs", "rsync"]
+TransportKind = Literal["git", "nfs", "sshfs", "rsync", "fuse"]
 GitSyncMode = Literal["merge_to_main", "push_branch", "publish_ref", "none"]
 
 
@@ -255,4 +256,6 @@ def _transport_kind(transport: Transport) -> TransportKind:
         return "sshfs"
     if isinstance(transport, RsyncTransport):
         return "rsync"
+    if isinstance(transport, FuseDirectTransport):
+        return "fuse"
     raise TypeError(f"Unsupported transport type: {type(transport).__name__}")

@@ -1,6 +1,7 @@
 import logging
 import os
 import plistlib
+from typing import Any, cast
 
 import click
 import coloredlogs
@@ -21,7 +22,7 @@ def save_notifications(notifications: list[str]):
 
 @click.command()
 @click.argument("root_fs", type=click.Path(dir_okay=True, file_okay=False, exists=True))
-def main(root_fs):
+def main(root_fs: str):
     """
     Add notifications registered to `com.apple.notifyd.matching` from a given IPSW `root_fs` (extracted filesystem)
     into `notifications.txt`
@@ -49,7 +50,7 @@ def main(root_fs):
             if not isinstance(v, dict):
                 logging.error(f"error parsing: {filename}")
                 continue
-            notification = v.get("Notification")
+            notification = cast(Any, v).get("Notification")
             if notification is None:
                 continue
 
@@ -61,5 +62,5 @@ def main(root_fs):
 
 
 if __name__ == "__main__":
-    coloredlogs.install(level=logging.DEBUG)
+    cast(Any, coloredlogs).install(level=logging.DEBUG)
     main()

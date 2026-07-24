@@ -101,6 +101,12 @@ class UdtfMonitor:
         self._lock = ReadWriteLock()
         self._cached: dict[int, object] = {}
         self._registered: dict[str, tuple] = {}
+        # name -> callable(flat_col_types, table_arg_layout) -> SnowparkUDTF | None.
+        # Set at registration; lets a table-argument call site re-emit the physical
+        # function with native per-column params (no VARIANT row packing).
+        self._recreate_fns: dict[str, object] = {}
+        # name -> {signature_key -> SnowparkUDTF} cache of native-signature variants.
+        self._native_variants: dict[str, dict[str, object]] = {}
 
     # -- registered (by user-facing name) ------------------------------------
 
@@ -121,6 +127,8 @@ class UdtfMonitor:
         entries that reference the same Snowflake function name."""
         with self._lock.writer():
             udtf_entry = self._registered.pop(name, None)
+            self._recreate_fns.pop(name, None)
+            self._native_variants.pop(name, None)
             if udtf_entry is not None:
                 udtf_obj = (
                     udtf_entry[0] if isinstance(udtf_entry, tuple) else udtf_entry
@@ -132,6 +140,24 @@ class UdtfMonitor:
                         for k, v in self._cached.items()
                         if getattr(v, "name", None) != sf_name
                     }
+
+    # -- native table-arg recreation (by user-facing name) -------------------
+
+    def set_recreate_fn(self, name: str, fn) -> None:
+        with self._lock.writer():
+            self._recreate_fns[name] = fn
+
+    def get_recreate_fn(self, name: str):
+        with self._lock.reader():
+            return self._recreate_fns.get(name)
+
+    def get_native_variant(self, name: str, signature_key: str):
+        with self._lock.reader():
+            return self._native_variants.get(name, {}).get(signature_key)
+
+    def set_native_variant(self, name: str, signature_key: str, udtf) -> None:
+        with self._lock.writer():
+            self._native_variants.setdefault(name, {})[signature_key] = udtf
 
     # -- cached (by proto hash) ----------------------------------------------
 
@@ -152,11 +178,15 @@ class UdtfMonitor:
     def clear_registered(self) -> None:
         with self._lock.writer():
             self._registered.clear()
+            self._recreate_fns.clear()
+            self._native_variants.clear()
 
     def clear(self) -> None:
         with self._lock.writer():
             self._cached.clear()
             self._registered.clear()
+            self._recreate_fns.clear()
+            self._native_variants.clear()
 
 
 class _ArtifactStoreWriter:

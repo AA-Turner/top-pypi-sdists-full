@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Union, Iterable
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
+from .._types import SequenceNotStr
 from .._utils import PropertyInfo
 
 __all__ = [
@@ -344,6 +345,12 @@ class SearchMemoriesParams(TypedDict, total=False):
 
     This can be an ID for your user, a project ID, or any other identifier you wish
     to use to filter memories.
+    """
+
+    container_tags: Annotated[SequenceNotStr[str], PropertyInfo(alias="containerTags")]
+    """Optional tags this search should be containerized by.
+
+    Search is scoped to memories under these tags.
     """
 
     filepath: str

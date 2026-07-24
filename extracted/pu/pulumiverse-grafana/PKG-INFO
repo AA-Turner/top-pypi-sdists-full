@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumiverse_grafana
-Version: 2.34.1
+Version: 2.35.0
 Summary: A Pulumi package for creating and managing grafana.
 License: Apache-2.0
 Project-URL: Homepage, https://grafana.com

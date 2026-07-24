@@ -6,7 +6,7 @@ import copy
 import os
 import shutil
 import uuid
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -65,6 +65,7 @@ from snowflake.snowpark_connect.config import (
     get_parquet_metadata_generation_enabled,
     get_success_file_generation_enabled,
     global_config,
+    is_column_nullability_tracking_enabled,
     sessions_config,
     str_to_bool,
 )
@@ -149,6 +150,11 @@ _column_order_for_write = "name"
 TARGET_FILE_SIZE_ACCEPTABLE_VALUES = ("AUTO", "16MB", "32MB", "64MB", "128MB")
 
 _FILE_READ_FORMATS = frozenset(("parquet", "csv", "json", "text"))
+
+# Iceberg format version supported by Snowflake
+_SUPPORTED_ICEBERG_FORMAT_VERSIONS = (1, 2, 3)
+# Milliseconds per day
+_MS_PER_DAY = 86_400_000
 
 
 def _input_is_file_read(rel: relation_proto.Relation) -> bool:
@@ -403,30 +409,111 @@ def _alter_iceberg_add_column(
         raise exc from e
 
 
+def _raise_optional_into_required(
+    data_field_name: str, table_field_name: str, snowpark_table_name: str
+) -> None:
+    """Mirror Iceberg: writing an optional (nullable) source into a required target."""
+    exception = AnalysisException(
+        f"[INCOMPATIBLE_DATA_FOR_TABLE.NULLABLE_COLUMN_OR_FIELD] "
+        f"Cannot write incompatible dataset to table with schema "
+        f"{snowpark_table_name}: "
+        f"Cannot write optional field '{data_field_name}' to required "
+        f"(non-nullable) field '{table_field_name}'."
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+    raise exception
+
+
+def _raise_missing_required(table_field_name: str, snowpark_table_name: str) -> None:
+    """Mirror Iceberg: a required target column absent from the source schema."""
+    exception = AnalysisException(
+        f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_FIND_DATA] "
+        f"Cannot write incompatible data for the table {snowpark_table_name}: "
+        f"Cannot find data for the required (non-nullable) output column "
+        f"'{table_field_name}'."
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+    raise exception
+
+
 def _evolve_iceberg_schema_if_needed(
     session: snowpark.Session,
     snowpark_table_name: str,
     table_struct: StructType,
     input_df: snowpark.DataFrame,
+    check_nullability: bool,
+    check_ordering: bool,
 ) -> snowpark.DataFrame:
-    """Merge-aware Iceberg schema: ALTER new columns, validate overlaps, pad missing columns."""
+    """Merge-aware Iceberg schema: validate overlaps, ALTER new columns, pad missing columns.
+
+    Validates the source against the target BEFORE any ALTER, so a rejected write
+    leaves the table untouched (mirrors Iceberg's validateOrMergeWriteSchema).
+    check_nullability has no default so every caller opts in explicitly; V1
+    passes False.
+
+    When ``check_ordering`` is True, the data's original column order is
+    validated against the *computed* merged schema (existing table columns
+    followed by newly added columns) BEFORE any ALTER runs, so an out-of-order
+    write is rejected without mutating the table — matching Iceberg, where the
+    ordering check fires even under mergeSchema.
+
+    ``check_ordering`` is required (no default) so every caller makes an explicit
+    choice: the V2 writer passes the value resolved via
+    ``_resolve_iceberg_check_ordering`` (public default True, per Iceberg's
+    ``check-ordering``), while the V1 path passes False until it resolves the
+    option itself.
+    """
     data_struct = input_df.schema
     table_by_key = {comparable_col_name(f.name): f for f in table_struct.fields}
     data_by_key = {comparable_col_name(f.name): f for f in data_struct.fields}
 
     new_keys = set(data_by_key) - set(table_by_key)
     shared_keys = set(table_by_key) & set(data_by_key)
+    missing_keys = set(table_by_key) - set(data_by_key)
 
+    # Validate before ALTER so a failure never half-evolves the table.
     for k in shared_keys:
-        t_dt = table_by_key[k].datatype
-        d_dt = data_by_key[k].datatype
+        t_field = table_by_key[k]
+        d_field = data_by_key[k]
+        if check_nullability and not t_field.nullable and d_field.nullable:
+            _raise_optional_into_required(
+                d_field.name, t_field.name, snowpark_table_name
+            )
+        t_dt = t_field.datatype
+        d_dt = d_field.datatype
         _validate_schema_for_append(
             t_dt,
             d_dt,
             snowpark_table_name,
             compare_structs=isinstance(t_dt, StructType)
             and isinstance(d_dt, StructType),
+            check_nullability=check_nullability,
+            check_ordering=check_ordering,
         )
+
+    # Validate ordering against the merged schema before mutating the table.
+    # ALTER ... ADD COLUMN appends new columns at the end, so the merged order
+    # is the existing table columns followed by the new columns in data order.
+    if check_ordering:
+        new_fields_in_data_order = [
+            f for f in data_struct.fields if comparable_col_name(f.name) in new_keys
+        ]
+        merged_fields = list(table_struct.fields) + new_fields_in_data_order
+        _check_top_level_field_ordering(
+            merged_fields,
+            data_struct.fields,
+            snowpark_table_name,
+            comparable_col_name,
+        )
+
+    # Top-level only; nested required fields omitted from source are not caught
+    # here (nullable→required below does recurse). Minor asymmetry vs Spark.
+    # Also over-rejects required cols with Iceberg write-defaults: StructField
+    # doesn't expose them, so we can't tell "fill default" from "missing required".
+    if check_nullability:
+        for k in missing_keys:
+            if not table_by_key[k].nullable:
+                _raise_missing_required(table_by_key[k].name, snowpark_table_name)
 
     for k in new_keys:
         _alter_iceberg_add_column(session, snowpark_table_name, data_by_key[k])
@@ -483,17 +570,35 @@ def _prepare_iceberg_write_dataframe(
     snowpark_table_name: str,
     table_schema_or_error: DataType | SnowparkSQLException | None,
     merge_schema: bool,
+    check_nullability: bool,
+    check_ordering: bool,
 ) -> tuple[snowpark.DataFrame, DataType | SnowparkSQLException | None]:
-    """Evolve Iceberg schema if mergeSchema is enabled, return (df, refreshed_schema)."""
+    """Evolve Iceberg schema if mergeSchema is enabled, return (df, refreshed_schema).
+
+    check_nullability has no default so every caller opts in explicitly; V1
+    passes False.
+
+    ``check_ordering`` is required (no default) so every caller makes an explicit
+    choice: the V2 writer passes the value resolved via
+    ``_resolve_iceberg_check_ordering`` (public default True), while the V1 path
+    passes False until it resolves the option itself.
+    """
     if not merge_schema or not isinstance(table_schema_or_error, StructType):
         return input_df, table_schema_or_error
     evolved_df = _evolve_iceberg_schema_if_needed(
-        session, snowpark_table_name, table_schema_or_error, input_df
+        session,
+        snowpark_table_name,
+        table_schema_or_error,
+        input_df,
+        check_nullability=check_nullability,
+        check_ordering=check_ordering,
     )
     # Use the evolved DataFrame's schema as the refreshed schema rather than
     # re-fetching from Snowflake: session.table(name).schema returns an empty
     # StructType for CLD (catalog-linked) tables, and evolved_df.schema is
     # already correct by construction from _evolve_iceberg_schema_if_needed.
+    # It's already reshaped to the table, so the caller's re-validation is a
+    # no-op (nullability was checked pre-ALTER).
     return evolved_df, evolved_df.schema
 
 
@@ -1300,6 +1405,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         snowpark_table_name,
                         table_schema_or_error,
                         merge_schema,
+                        # V1 doesn't support check-nullability (V2-only).
+                        check_nullability=False,
+                        # V1 writer does not yet resolve the check-ordering option;
+                        # disable enforcement here to preserve existing V1 behavior.
+                        check_ordering=False,
                     )
                     if is_cld:
                         # CLD tables don't use iceberg_config
@@ -1767,6 +1877,19 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         is_cld,
     )
     table_type = "iceberg" if is_iceberg else "fdn"
+
+    # Mirrors Spark case insensitivity
+    write_options_v2 = {k.lower(): v for k, v in write_op.options.items()}
+    check_nullability = (
+        _resolve_iceberg_check_nullability(write_options_v2) if is_iceberg else False
+    )
+    # SNOW-3310108: enforce column ordering by default for Iceberg V2 writes
+    # (matches Iceberg check-ordering=true). Customers writing reordered columns
+    # must pass option("check-ordering", "false") to restore the prior behaviour.
+    check_ordering = (
+        _resolve_iceberg_check_ordering(write_options_v2) if is_iceberg else False
+    )
+
     # FDN tables have no user-defined partitioning; reject partitionedBy
     # uniformly across all write modes (SNOW-3310107). Iceberg targets honor it.
     if not is_iceberg:
@@ -1829,14 +1952,40 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     # now-existing table.
     cld_create_options = dict(write_op.table_properties)
 
-    # `comment` (Spark's reserved table property) maps to Snowflake's COMMENT
-    # clause; only the create/replace modes rebuild the table definition.
-    # overwrite() preserves table definition and does not apply the comment.
+    # Some properties are extracted as named scalars and popped (comment,
+    # format-version, max-snapshot-age.ms); the remainder is forwarded to
+    # `_create_cld_iceberg_table` as the `options` bag. That includes
+    # `base_location` / `location` and the storage-property keys consumed by
+    # `_build_storage_serialization_policy_clause` /
+    # `_build_target_file_size_clause` (`storage_serialization_policy`,
+    # `iceberg.storage_serialization_policy`, `write.target-file-size`,
+    # `target_file_size`).
     table_comment = cld_create_options.pop("comment", None)
     cld_create_options.pop("format-version", None)
     cld_create_options.pop("iceberg.format-version", None)
+    cld_create_options.pop("max-snapshot-age.ms", None)
+    cld_create_options.pop("iceberg.max-snapshot-age.ms", None)
     table_format_version = (
         iceberg_config.get("iceberg_version") if iceberg_config else None
+    )
+    # `max-snapshot-age.ms` maps to DATA_RETENTION_TIME_IN_DAYS. Only create/replace
+    # valid for modes
+    # DATA_RETENTION_TIME_IN_DAYS is not supported for CLD tables.
+    _reject_max_snapshot_age_for_cld(
+        is_cld=is_cld,
+        table_properties=dict(write_op.table_properties),
+    )
+    table_data_retention_days = (
+        _extract_max_snapshot_age_days(dict(write_op.table_properties))
+        if is_iceberg
+        and not is_cld
+        and write_op.mode
+        in (
+            commands_proto.WriteOperationV2.MODE_CREATE,
+            commands_proto.WriteOperationV2.MODE_REPLACE,
+            commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE,
+        )
+        else None
     )
 
     match write_op.mode:
@@ -1863,6 +2012,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     column_order=_column_order_for_write,
                     iceberg_config=iceberg_config,
                     comment=table_comment,
+                    data_retention_time=table_data_retention_days,
                 )
 
         case commands_proto.WriteOperationV2.MODE_APPEND:
@@ -1879,9 +2029,22 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     snowpark_table_name,
                     table_schema_or_error,
                     merge_schema,
+                    check_nullability=check_nullability,
+                    check_ordering=check_ordering,
                 )
+            # Nullability is validated pre-ALTER inside
+            # _prepare_iceberg_write_dataframe, so a rejected write never mutates
+            # the table. Iceberg instead lets the commit fail and roll back; we
+            # reach the same net behavior by checking first, without a transaction.
+            # This post-ALTER check is therefore a no-op when we evolved, and only
+            # does real work on the non-merge path.
             _validate_schema_and_get_writer(
-                input_df, "append", snowpark_table_name, table_schema_or_error
+                input_df,
+                "append",
+                snowpark_table_name,
+                table_schema_or_error,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             ).saveAsTable(
                 table_name=snowpark_table_name,
                 mode="append",
@@ -1906,6 +2069,8 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     snowpark_table_name,
                     table_schema_or_error,
                     merge_schema,
+                    check_nullability=check_nullability,
+                    check_ordering=check_ordering,
                 )
             # SNOW-3310119: V2 overwrite preserves the table definition (schema,
             # partitioning, properties) and only replaces rows — unlike replace()
@@ -1915,7 +2080,12 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             # write via an atomic INSERT OVERWRITE (table_exists=True) rather
             # than a CREATE OR REPLACE.
             writer = _validate_schema_and_get_writer(
-                input_df, "append", snowpark_table_name, table_schema_or_error
+                input_df,
+                "append",
+                snowpark_table_name,
+                table_schema_or_error,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             )
 
             overwrite_cond = None
@@ -1927,12 +2097,16 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 )
 
             if overwrite_cond is not None:
-                writer.saveAsTable(
-                    table_name=snowpark_table_name,
-                    table_exists=True,
-                    mode="overwrite",
-                    column_order=_column_order_for_write,
+                # CLD (unmanaged) Iceberg tables reject the atomic
+                # overwrite_condition transaction (091586); the helper falls
+                # back to a non-atomic DELETE + APPEND for those tables while
+                # leaving FDN and managed Iceberg on the fast atomic path.
+                _overwrite_with_condition_and_cld_fallback(
+                    writer=writer,
+                    snowpark_table_name=snowpark_table_name,
                     overwrite_condition=overwrite_cond,
+                    session=session,
+                    is_iceberg=is_iceberg,
                     iceberg_config=iceberg_config,
                 )
             else:
@@ -1970,6 +2144,8 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     snowpark_table_name,
                     table_schema_or_error,
                     merge_schema,
+                    check_nullability=check_nullability,
+                    check_ordering=check_ordering,
                 )
             # Iceberg: build a per-partition overwrite condition from the table's
             # partition spec. FDN tables have no user-defined partitioning, so
@@ -2019,7 +2195,8 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                             table_schema_or_error,
                             overwrite_condition,
                             session,
-                            merge_schema=merge_schema,
+                            check_nullability=check_nullability,
+                            check_ordering=check_ordering,
                         )
                     return
 
@@ -2080,7 +2257,8 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                             table_schema_or_error,
                             overwrite_condition,
                             session,
-                            merge_schema=merge_schema,
+                            check_nullability=check_nullability,
+                            check_ordering=check_ordering,
                         )
                     return
 
@@ -2090,6 +2268,8 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 "truncate",
                 snowpark_table_name,
                 table_schema_or_error,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             ).saveAsTable(
                 table_name=snowpark_table_name,
                 table_exists=True,
@@ -2132,6 +2312,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     session=session,
                     input_df=input_df,
                     comment=table_comment,
+                    data_retention_time_days=table_data_retention_days,
                 )
             else:
                 writer.saveAsTable(
@@ -2139,6 +2320,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     mode="overwrite",
                     column_order=_column_order_for_write,
                     comment=table_comment,
+                    data_retention_time=table_data_retention_days,
                 )
 
         case commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE:
@@ -2168,6 +2350,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     session=session,
                     input_df=input_df,
                     comment=table_comment,
+                    data_retention_time_days=table_data_retention_days,
                 )
             else:
                 writer.saveAsTable(
@@ -2175,6 +2358,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     mode="overwrite",
                     column_order=_column_order_for_write,
                     comment=table_comment,
+                    data_retention_time=table_data_retention_days,
                 )
 
         case _:
@@ -2222,6 +2406,8 @@ def _validate_schema_and_get_writer(
     write_mode: str,
     snowpark_table_name: str,
     table_schema_or_error: DataType | SnowparkSQLException | None = None,
+    check_nullability: bool = False,
+    check_ordering: bool = False,
 ) -> snowpark.DataFrameWriter:
     if write_mode is not None and write_mode.lower() in (
         "replace",
@@ -2260,7 +2446,13 @@ def _validate_schema_and_get_writer(
         # If table does not exist, we can skip the schema validation
         return _get_writer_for_table_creation(input_df)
 
-    _validate_schema_for_append(table_schema, input_df.schema, snowpark_table_name)
+    _validate_schema_for_append(
+        table_schema,
+        input_df.schema,
+        snowpark_table_name,
+        check_nullability=check_nullability,
+        check_ordering=check_ordering,
+    )
 
     # If table exists, rename/cast columns to match the existing table schema using a
     # single select() instead of per-column withColumnRenamed/withColumn to avoid
@@ -2336,6 +2528,36 @@ def _store_assignment_policy() -> str:
 
 def _store_assignment_is_legacy() -> bool:
     return _store_assignment_policy() == "LEGACY"
+
+
+def _resolve_iceberg_check_nullability(write_options: dict) -> bool:
+    """Return whether to enforce nullability for this Iceberg write.
+
+    An explicit ``check-nullability`` option is always honored. When omitted,
+    the implicit default follows ``snowpark.connect.nullability.trackColumns``
+    rather than Iceberg's hardcoded ``true``: with tracking off (SCOS's default),
+    SCOS declines to surface real column nullability to the client, so enforcing
+    Iceberg's default would police a contract it does not track. Enable
+    ``trackColumns`` (or pass ``check-nullability=true``) for Spark-faithful
+    enforcement. The write-time check itself reads the underlying Snowpark
+    schema, not the widened client-facing ``df.schema``.
+    """
+    raw = write_options.get("check-nullability")
+    if raw is not None:
+        return str_to_bool(raw)
+    return is_column_nullability_tracking_enabled()
+
+
+def _resolve_iceberg_check_ordering(write_options: dict[str, str]) -> bool:
+    """Return whether to enforce column ordering for this Iceberg write.
+
+    Matches Iceberg's SparkWriteOptions.CHECK_ORDERING behaviour:
+    per-write option "check-ordering" defaults to true.
+    """
+    raw = write_options.get("check-ordering")
+    if raw is not None:
+        return str_to_bool(raw)
+    return True
 
 
 def _use_try_cast(source_type: DataType, target_type: DataType) -> bool:
@@ -2447,16 +2669,61 @@ def _coerce_to_unstructured_complex_target(
     return None
 
 
+def _check_top_level_field_ordering(
+    target_fields: list[StructField],
+    data_fields: list[StructField],
+    snowpark_table_name: str,
+    comparable_fn: Callable[[str], str],
+) -> None:
+    """Raise if ``data_fields`` are not in the same relative order as ``target_fields``.
+
+    Only the positions of columns that appear in the data are checked, so a
+    data schema that omits columns (NULL-padded on a mergeSchema write) or
+    appends brand-new columns (added at the end of the merged schema) still
+    validates, as long as the shared columns preserve the target's relative
+    order. This mirrors Iceberg's check-ordering, which fires even under
+    mergeSchema (SparkWriteBuilder validates the merged schema before
+    committing the ALTER).
+    """
+    target_positions = {comparable_fn(f.name): i for i, f in enumerate(target_fields)}
+    last_pos = -1
+    last_data_field_name = None
+    for data_field in data_fields:
+        pos = target_positions.get(comparable_fn(data_field.name))
+        if pos is None:
+            # Column not present in the target ordering (e.g. a data column
+            # that is neither in the table nor being merged). Ordering has no
+            # meaning for it here; column-set validation handles it elsewhere.
+            continue
+        if pos <= last_pos:
+            exception = AnalysisException(
+                f"[INCOMPATIBLE_DATA_FOR_TABLE.INCOMPATIBLE_SCHEMA] "
+                f"Cannot write incompatible dataset to table with schema "
+                f"{snowpark_table_name}: "
+                f"field '{data_field.name}' is out of order, before "
+                f"'{last_data_field_name}'"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+        last_pos = pos
+        last_data_field_name = data_field.name
+
+
 def _validate_schema_for_append(
     table_schema: DataType,
     data_schema: DataType,
     snowpark_table_name: str,
     compare_structs: bool = False,
+    check_nullability: bool = False,
+    check_ordering: bool = False,
 ):
     """Validate that data_schema can be appended to table_schema.
 
     ANSI/STRICT modes consult _validate_store_assignment_field for atomic pairs;
-    LEGACY uses the permissive atomic fallback.
+    LEGACY uses the permissive atomic fallback. When check_nullability is True,
+    raises if a nullable source field maps to a non-nullable target (like Iceberg).
+    When check_ordering is True, raises if the data schema's column order does
+    not match the table schema's column order (matching Iceberg behaviour).
     """
     policy = _store_assignment_policy()
     match (table_schema, data_schema):
@@ -2504,7 +2771,7 @@ def _validate_schema_for_append(
 
             if len(table_struct.fields) != len(data_struct.fields):
                 exception = AnalysisException(
-                    f"The column number of the existing table {snowpark_table_name} ({table_schema.simple_string()}) doesn't match the data schema ({data_schema.simple_string()}).)"
+                    f"The column number of the existing table {snowpark_table_name} ({table_schema.simple_string()}) doesn't match the data schema ({data_schema.simple_string()})."
                 )
                 attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                 raise exception
@@ -2519,6 +2786,14 @@ def _validate_schema_for_append(
             if table_field_names != data_field_names:
                 invalid_struct_schema()
 
+            if check_ordering:
+                _check_top_level_field_ordering(
+                    table_struct.fields,
+                    data_struct.fields,
+                    snowpark_table_name,
+                    _comparable_col_name,
+                )
+
             table_field_by_key = {
                 _comparable_col_name(f.name): f for f in table_struct.fields
             }
@@ -2530,11 +2805,23 @@ def _validate_schema_for_append(
                 if matching_table_field is None:
                     invalid_struct_schema()
                 else:
+                    if (
+                        check_nullability
+                        and not matching_table_field.nullable
+                        and data_field.nullable
+                    ):
+                        _raise_optional_into_required(
+                            data_field.name,
+                            matching_table_field.name,
+                            snowpark_table_name,
+                        )
                     _validate_schema_for_append(
                         matching_table_field.datatype,
                         data_field.datatype,
                         snowpark_table_name,
                         compare_structs=True,
+                        check_nullability=check_nullability,
+                        check_ordering=check_ordering,
                     )
 
             return
@@ -2586,16 +2873,37 @@ def _validate_schema_for_append(
             return
 
         case (ArrayType() as table_array, ArrayType() as data_array):
+            # Recurse on the element type only. Element nullability
+            # (contains_null) is intentionally not checked: Snowflake-backed
+            # Iceberg cannot create a non-nullable array element (DDL error
+            # 093208), so a required-element target can't exist and there is
+            # nothing to diverge from.
             _validate_schema_for_append(
-                table_array.element_type, data_array.element_type, snowpark_table_name
+                table_array.element_type,
+                data_array.element_type,
+                snowpark_table_name,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             )
 
         case (MapType() as table_map, MapType() as data_map):
+            # Recurse on key/value types only. Value nullability
+            # (value_contains_null) is not checked for the same reason as array
+            # elements above: a non-nullable map value is unrepresentable in
+            # Snowflake (093208).
             _validate_schema_for_append(
-                table_map.key_type, data_map.key_type, snowpark_table_name
+                table_map.key_type,
+                data_map.key_type,
+                snowpark_table_name,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             )
             _validate_schema_for_append(
-                table_map.value_type, data_map.value_type, snowpark_table_name
+                table_map.value_type,
+                data_map.value_type,
+                snowpark_table_name,
+                check_nullability=check_nullability,
+                check_ordering=check_ordering,
             )
 
         case (TimestampType(), _) if isinstance(data_schema, (DateType, TimestampType)):
@@ -2656,7 +2964,7 @@ def _validate_data_columns_present_in_table(
         if comparable_name not in table_col_names:
             exception = AnalysisException(
                 f"[INCOMPATIBLE_DATA_FOR_TABLE.EXTRA_COLUMNS] Cannot write incompatible data for the table "
-                f"`{snowpark_table_name}`: Data contains extra columns not found in the target table: `{unquote_if_quoted(data_field.name)}`."
+                f"`{snowpark_table_name}`: Cannot write extra columns `{unquote_if_quoted(data_field.name)}`."
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception
@@ -2805,6 +3113,50 @@ def _build_base_location_clause(
     return f"BASE_LOCATION = '{escaped}'"
 
 
+def _build_storage_serialization_policy_clause(options: dict | None = None) -> str:
+    """Return the ``STORAGE_SERIALIZATION_POLICY = '<value>'`` fragment (no
+    padding) for a CLD ``CREATE ICEBERG TABLE``, or ``''`` when unset.
+
+    Reads the DataFrameWriter table properties ``storage_serialization_policy``
+    / ``iceberg.storage_serialization_policy``. SCOS does not validate the
+    value (``COMPATIBLE`` / ``OPTIMIZED``) — Snowflake validates it server-side,
+    matching the managed ``iceberg_config`` path (SNOW-3310116).
+    """
+    if not options:
+        return ""
+    value = options.get("storage_serialization_policy") or options.get(
+        "iceberg.storage_serialization_policy"
+    )
+    if not value:
+        return ""
+    escaped = str(value).strip().replace("'", "''")
+    if not escaped:
+        return ""
+    return f"STORAGE_SERIALIZATION_POLICY = '{escaped}'"
+
+
+def _build_target_file_size_clause(options: dict | None = None) -> str:
+    """Return the ``TARGET_FILE_SIZE = '<value>'`` fragment (no padding) for a
+    CLD ``CREATE ICEBERG TABLE``, or ``''`` when unset.
+
+    Reads the DataFrameWriter table properties ``write.target-file-size`` /
+    ``target_file_size`` and validates against the same allow-list as the
+    managed path (:func:`_validate_target_file_size`). Unlike the managed
+    ``iceberg_config`` path, no ``spark.sql.files.maxPartitionBytes`` fallback
+    is applied — only an explicit per-table property is threaded, so a CLD
+    write never acquires a ``TARGET_FILE_SIZE`` the user did not request
+    (SNOW-3310116).
+    """
+    if not options:
+        return ""
+    value = options.get("write.target-file-size") or options.get("target_file_size")
+    if not value:
+        return ""
+    _validate_target_file_size(value)
+    escaped = str(value).strip().replace("'", "''")
+    return f"TARGET_FILE_SIZE = '{escaped}'"
+
+
 def _create_cld_iceberg_table_then_load(
     session: snowpark.Session,
     writer: snowpark.DataFrameWriter,
@@ -2946,6 +3298,14 @@ def _create_cld_iceberg_table(
     if base_location:
         parts.append(base_location)
 
+    storage_serialization_policy = _build_storage_serialization_policy_clause(options)
+    if storage_serialization_policy:
+        parts.append(storage_serialization_policy)
+
+    target_file_size = _build_target_file_size_clause(options)
+    if target_file_size:
+        parts.append(target_file_size)
+
     if comment:
         parts.append(f"COMMENT = '{escape_sql_comment(comment)}'")
 
@@ -3010,15 +3370,6 @@ def _build_iceberg_config(
     return config if config else None
 
 
-# Spark Iceberg's ``tableProperty("format-version", ...)`` value is always a
-# string (PySpark serializes table-property values as strings). Snowflake's
-# ``CREATE ICEBERG TABLE`` accepts ``ICEBERG_VERSION = <integer>`` with valid
-# values ``1``, ``2``, ``3``. We restrict to that set so an invalid spec
-# fails fast at the SCOS boundary with a clear ``AnalysisException`` rather
-# than a Snowflake-side DDL error.
-_SUPPORTED_ICEBERG_FORMAT_VERSIONS = (1, 2, 3)
-
-
 def _extract_iceberg_format_version(options: dict) -> int | None:
     """Pull Spark Iceberg's ``format-version`` table property out of an
     options dict and convert it to the integer Snowpark wants for the
@@ -3061,6 +3412,74 @@ def _extract_iceberg_format_version(options: dict) -> int | None:
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
     return version
+
+
+def _reject_max_snapshot_age_for_cld(is_cld: bool, table_properties: dict) -> None:
+    """Raise ``AnalysisException`` when ``max-snapshot-age.ms`` is specified
+    for a CLD (Catalog-Linked Database) Iceberg table. ``max-snapshot-age.ms``
+    is only supported for non-CLD iceberg tables.
+    """
+    if not is_cld:
+        return
+    if (
+        "max-snapshot-age.ms" in table_properties
+        or "iceberg.max-snapshot-age.ms" in table_properties
+    ):
+        exception = AnalysisException(
+            "The 'max-snapshot-age.ms' table property is not supported for "
+            "Catalog-Linked Database (CLD) Iceberg tables."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def _extract_max_snapshot_age_days(options: dict) -> int | None:
+    """Convert Spark Iceberg's ``max-snapshot-age.ms`` table property to the
+    integer days value Snowflake expects for ``DATA_RETENTION_TIME_IN_DAYS``.
+
+    Accepts the canonical key ``max-snapshot-age.ms`` and the iceberg-prefixed
+    alias ``iceberg.max-snapshot-age.ms``.  Returns ``None`` when neither key
+    is present so callers don't override Snowflake's default unintentionally.
+
+    The value must be an exact whole-day multiple (a multiple of
+    ``_MS_PER_DAY`` = 86 400 000 ms).  Non-multiples, negative values, and
+    non-numeric strings raise ``AnalysisException`` with ``INVALID_INPUT``
+    rather than silently truncating; Snowflake's edition-specific upper bound
+    (90 days for Enterprise, 1 day for Standard) is enforced server-side.
+    A value of 0 is valid and disables Time Travel.
+    """
+    if "max-snapshot-age.ms" in options:
+        raw = options["max-snapshot-age.ms"]
+    elif "iceberg.max-snapshot-age.ms" in options:
+        raw = options["iceberg.max-snapshot-age.ms"]
+    else:
+        return None
+    try:
+        ms = int(raw)
+    except (TypeError, ValueError):
+        exception = AnalysisException(
+            "Iceberg 'max-snapshot-age.ms' table property must be a non-negative "
+            f"integer number of milliseconds; got {raw!r}."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    if ms < 0:
+        exception = AnalysisException(
+            "Iceberg 'max-snapshot-age.ms' table property must be a non-negative "
+            f"integer number of milliseconds; got {ms}."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    if ms % _MS_PER_DAY != 0:
+        exception = AnalysisException(
+            f"Iceberg 'max-snapshot-age.ms' must be an exact multiple of "
+            f"{_MS_PER_DAY} ms (1 day) because Snowflake's "
+            f"DATA_RETENTION_TIME_IN_DAYS only accepts whole days; "
+            f"got {ms} ms ({ms / _MS_PER_DAY:.4f} days)."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    return ms // _MS_PER_DAY
 
 
 def _is_external_catalog_error(exc: SnowparkSQLException) -> bool:
@@ -3111,6 +3530,80 @@ def _is_unmanaged_transaction_error(exc: SnowparkSQLException) -> bool:
     return "cannot be modified within a multi-statement transaction" in str(exc)
 
 
+def _overwrite_with_condition_and_cld_fallback(
+    writer: snowpark.DataFrameWriter,
+    snowpark_table_name: str,
+    overwrite_condition: snowpark.Column,
+    session: snowpark.Session,
+    is_iceberg: bool,
+    iceberg_config: dict | None = None,
+) -> None:
+    """Shared core for condition-targeted overwrites with a non-atomic fallback
+    for unmanaged (CLD / external-catalog) Iceberg tables.
+
+    Used by overwrite with a condition and overwrite partitions.
+
+    The normal path is Snowpark's ``overwrite_condition``, an *atomic*
+    DELETE+INSERT wrapped in a transaction. CLD tables reject multi-statement
+    transactions (Snowflake error 091586), so on that error we fall back to a
+    non-atomic DELETE + APPEND. For non-iceberg (FDN) tables or any non-091586
+    error, the ``SnowparkSQLException`` is wrapped in an ``AnalysisException``
+    with table context and re-raised (``is_iceberg=False`` disables the CLD
+    fallback path entirely).
+
+    The fallback is not atomic: if the APPEND fails after the DELETE commits,
+    the matched rows are left absent until the next successful write (same
+    trade-off as ``_overwrite_iceberg_with_fallback``).
+    """
+    extra = {"iceberg_config": iceberg_config} if iceberg_config is not None else {}
+    try:
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            table_exists=True,
+            mode="overwrite",
+            column_order=_column_order_for_write,
+            overwrite_condition=overwrite_condition,
+            **extra,
+        )
+    except SnowparkSQLException as exc:
+        if not (is_iceberg and _is_unmanaged_transaction_error(exc)):
+            exception = AnalysisException(
+                f"Failed to overwrite table {snowpark_table_name} with condition: "
+                f"{exc.message or str(exc)}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception from exc
+
+        # CLD (unmanaged) Iceberg tables reject the atomic DELETE+INSERT
+        # transaction (Snowflake error 091586: "Unmanaged Iceberg tables cannot
+        # be modified within a multi-statement transaction"). Fall back to a
+        # non-atomic targeted DELETE followed by an APPEND.
+        #
+        # The rejected atomic write is compiled as BEGIN TRANSACTION; DELETE;
+        # INSERT; COMMIT run as separate statements. BEGIN succeeded and the
+        # DELETE then failed, so the transaction is left OPEN on the session;
+        # without this ROLLBACK the fallback DML below runs inside that same
+        # transaction and hits 091586 again.
+        logger.warning(
+            "Unmanaged (CLD) Iceberg table %s rejected the atomic "
+            "overwrite-with-condition write (Snowflake error 091586 — "
+            "unmanaged tables cannot be modified within a multi-statement "
+            "transaction). Falling back to a non-atomic DELETE + APPEND. "
+            "If the APPEND fails after the DELETE commits, the matched rows "
+            "will be absent until the next successful write.",
+            snowpark_table_name,
+        )
+        session.sql("ROLLBACK").collect()
+        session.table(snowpark_table_name).delete(overwrite_condition)
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            table_exists=True,
+            mode="append",
+            column_order=_column_order_for_write,
+            **extra,
+        )
+
+
 def _overwrite_partitions_with_unmanaged_fallback(
     input_df: snowpark.DataFrame,
     snowpark_table_name: str,
@@ -3118,7 +3611,8 @@ def _overwrite_partitions_with_unmanaged_fallback(
     overwrite_condition: snowpark.Column,
     session: snowpark.Session,
     iceberg_config: dict | None = None,
-    merge_schema: bool = False,
+    check_nullability: bool = False,
+    check_ordering: bool = True,
 ) -> None:
     """Apply a partition-targeted overwrite, with a non-atomic fallback for
     unmanaged (external-catalog / CLD) Iceberg tables.
@@ -3131,52 +3625,36 @@ def _overwrite_partitions_with_unmanaged_fallback(
     partitions are replaced) — unlike the full-table TRUNCATE fallback used for
     plain overwrite. The fallback is not atomic: if the append fails after the
     delete, the targeted partitions are left empty (same tradeoff as
-    ``_overwrite_iceberg_with_fallback``); the input schema was already validated
-    by the caller.
+    ``_overwrite_iceberg_with_fallback``); schema validation is performed here
+    via ``_validate_schema_for_append`` (SNOW-3310108), so the caller does not
+    need to validate separately.
     """
-    extra = {"iceberg_config": iceberg_config} if iceberg_config is not None else {}
-    # After evolution, column names already match the table's stored identifiers.
-    # "overwrite" mode would uppercase them via _get_writer_for_table_creation,
-    # breaking case-sensitive columns like '"age"'. "append" aligns to the live schema.
-    writer_mode = "append" if merge_schema else "overwrite"
+    # Partition overwrite is an INSERT OVERWRITE into an existing table, so the
+    # writer must match the table's stored identifiers — never impose fresh
+    # casing. "overwrite" mode would uppercase names via
+    # _get_writer_for_table_creation, breaking quoted-lowercase columns like
+    # '"age"' (CLD / external-catalog Iceberg or externally-created tables) and
+    # skipping schema validation + type-cast alignment. "append" validates,
+    # aligns to the live schema, and casts to the table's column types — correct
+    # for both the mergeSchema and non-mergeSchema cases. Threading
+    # check_nullability through the validating append path enforces Iceberg's
+    # nullability check (Iceberg applies it to overwritePartitions too).
     writer = _validate_schema_and_get_writer(
-        input_df, writer_mode, snowpark_table_name, table_schema_or_error
+        input_df,
+        "append",
+        snowpark_table_name,
+        table_schema_or_error,
+        check_nullability=check_nullability,
+        check_ordering=check_ordering,
     )
-    try:
-        writer.saveAsTable(
-            table_name=snowpark_table_name,
-            table_exists=True,
-            mode="overwrite",
-            column_order=_column_order_for_write,
-            overwrite_condition=overwrite_condition,
-            **extra,
-        )
-    except SnowparkSQLException as exc:
-        if not _is_unmanaged_transaction_error(exc):
-            raise
-        logger.info(
-            "Atomic partition overwrite rejected for unmanaged iceberg table %s "
-            "(multi-statement transaction not allowed); falling back to a "
-            "non-atomic targeted DELETE + APPEND.",
-            snowpark_table_name,
-        )
-        # The rejected atomic write is compiled as BEGIN TRANSACTION; DELETE;
-        # INSERT; COMMIT run as separate statements. BEGIN succeeded and the
-        # DELETE then failed, so the transaction is left OPEN on the session;
-        # without this ROLLBACK the fallback DML below runs inside that same
-        # transaction and hits 091586 again.
-        session.sql("ROLLBACK").collect()
-        # NON-ATOMIC fallback: two independent statements (no transaction). If the
-        # APPEND fails after the DELETE commits, the targeted partitions are left
-        # empty — similar issue to SNOW-3517523.
-        session.table(snowpark_table_name).delete(overwrite_condition)
-        writer.saveAsTable(
-            table_name=snowpark_table_name,
-            table_exists=True,
-            mode="append",
-            column_order=_column_order_for_write,
-            **extra,
-        )
+    _overwrite_with_condition_and_cld_fallback(
+        writer=writer,
+        snowpark_table_name=snowpark_table_name,
+        overwrite_condition=overwrite_condition,
+        session=session,
+        is_iceberg=True,  # this function is only called for Iceberg tables
+        iceberg_config=iceberg_config,
+    )
 
 
 def _overwrite_iceberg_with_fallback(
@@ -3186,6 +3664,7 @@ def _overwrite_iceberg_with_fallback(
     session: snowpark.Session,
     input_df: snowpark.DataFrame | None = None,
     comment: str | None = None,
+    data_retention_time_days: int | None = None,
 ) -> None:
     """Try a normal Snowpark ``mode='overwrite'`` (CREATE OR REPLACE).
 
@@ -3216,6 +3695,7 @@ def _overwrite_iceberg_with_fallback(
             iceberg_config=iceberg_config,
             copy_grants=True,
             comment=comment,
+            data_retention_time=data_retention_time_days,
         )
     except SnowparkSQLException as e:
         if not _is_external_catalog_error(e):

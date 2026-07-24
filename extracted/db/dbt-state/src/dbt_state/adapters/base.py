@@ -394,6 +394,35 @@ class BaseAdapterExtension(abc.ABC):
 
         return all_results
 
+    def get_available_last_modified_epochs(
+        self, tables: t.Iterable[str | exp.Table]
+    ) -> dict[str, t.Optional[int]]:
+        """Return already-resolved last-modified epochs for the given tables without
+        claiming, fetching, or blocking.
+
+        For each requested table the returned mapping contains its fully-qualified,
+        quoted FQN string (same key format as get_last_modified_epoch) mapped to:
+        the cached epoch if the cache entry is already resolved (may be None for a
+        known-missing table), or None if the entry is still in flight or was never
+        fetched. Every requested table is present in the result.
+        """
+        table_map = {self._sql(fqn): fqn for fqn in [self._to_fqn(table) for table in tables]}
+
+        results: t.Dict[str, t.Optional[int]] = {}
+        with self._last_modified_epoch_cache as cache:
+            for fqn, table in table_map.items():
+                if self._is_system_metadata_table(table):
+                    results[fqn] = None
+                    continue
+
+                future = cache.resolve(fqn)
+                if future is not None and future.done() and not future.exception():
+                    results[fqn] = future.result()
+                else:
+                    results[fqn] = None
+
+        return results
+
     def prefetch_last_modified_epochs(
         self,
         table_fqns: t.Collection[str],

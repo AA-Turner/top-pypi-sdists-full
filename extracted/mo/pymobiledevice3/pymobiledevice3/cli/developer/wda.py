@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import suppress
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional, cast
 
 import typer
 from defusedxml import ElementTree as DefusedET
@@ -45,7 +45,7 @@ WdaClientDep = Annotated[
 ]
 
 
-async def wait_for_xctest_app(service_provider: LockdownServiceProvider, xctrunner: str) -> asyncio.Future:
+async def wait_for_xctest_app(service_provider: LockdownServiceProvider, xctrunner: str) -> asyncio.Future[None]:
     cfg = await TestConfig.create_for(service_provider, runner_bundle_id=xctrunner)
 
     ts = XCUITestService(service_provider)
@@ -90,14 +90,14 @@ def wda_xctest_dep(
             help="Bundle id of an XCUITest runner to start (e.g. com.facebook.WebDriverAgentRunner.xctrunner).",
         ),
     ] = None,
-) -> Optional[asyncio.Future]:
+) -> Optional[asyncio.Future[None]]:
     if xctrunner is None:
         return None
     return get_asyncio_loop().run_until_complete(wait_for_xctest_app(service_provider, xctrunner))
 
 
 WdaXcRunnerDep = Annotated[
-    Optional[asyncio.Future],
+    Optional[asyncio.Future[None]],
     Depends(wda_xctest_dep),
 ]
 
@@ -269,7 +269,7 @@ async def wda_list_items(
         "XCUIElementTypeImage",
     }
     if types:
-        custom = set()
+        custom: set[str] = set()
         for entry in types:
             for item in entry.split(","):
                 item = item.strip()
@@ -282,7 +282,7 @@ async def wda_list_items(
         if custom:
             clickable_types = custom
 
-    items = []
+    items: list[dict[str, Any]] = []
     for elem in root.iter():
         attrs = elem.attrib
         elem_type = elem.tag
@@ -311,15 +311,18 @@ async def wda_list_items(
                 rect = None
         if not (name or label or value or rect):
             continue
-        item = {
-            "type": elem_type,
-            "name": name,
-            "label": label,
-            "value": value,
-            "enabled": enabled,
-            "visible": visible,
-            "hittable": hittable,
-        }
+        item = cast(
+            dict[str, Any],
+            {
+                "type": elem_type,
+                "name": name,
+                "label": label,
+                "value": value,
+                "enabled": enabled,
+                "visible": visible,
+                "hittable": hittable,
+            },
+        )
         if with_rect:
             item["rect"] = rect
         items.append(item)

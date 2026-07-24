@@ -80,7 +80,11 @@ def create_udtf_in_sproc(
     called_from: str,
     artifact_repository: str | None = None,
     resource_constraint: dict[str, str] | None = None,
+    call_site_types: list | None = None,
 ) -> SnowparkUDTF | str:
+    # ``call_site_types`` is accepted for signature parity with ``create_udtf`` (both
+    # are invoked from the same kwargs dict) but is unused here: sproc-mode UDTFs are
+    # never re-emitted with native per-column params.
     sproc_name = _get_or_create_udtf_sproc_helper(
         session,
         udtf_proto.python_udtf.python_ver,

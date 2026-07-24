@@ -157,6 +157,13 @@ dict_aef = {
     for i in range(1, 65)
 }
 
+# Global Aridity Index (Zomer 2022) — static per-region climatology of
+# MA-Precip / MA-ET0 (higher = wetter, lower = more arid). One value per
+# admin region (no time dimension), extracted by geoprepare's process_aridity.
+dict_aridity = {
+    "AI": ["Aridity", "Global Aridity Index (MA-P / MA-ET0, Zomer 2022; higher = wetter)"]
+}
+
 # FLDAS forecast variables (5 variables × 6 lead times, monthly resolution)
 FLDAS_VARIABLES = [
     "SoilMoist_tavg", "TotalPrecip_tavg", "Tair_tavg", "Evap_tavg", "TWS_tavg"

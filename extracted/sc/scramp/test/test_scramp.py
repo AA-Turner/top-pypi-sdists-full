@@ -10,8 +10,12 @@ from scramp import (
     make_channel_binding,
 )
 from scramp.core import (
+    Gs2Header,
+    Nonce,
     SERVER_ERROR_INVALID_PROOF,
+    Salt,
     _check_client_key,
+    _get_client_final,
     _parse_message,
     _set_client_final,
     _set_client_first,
@@ -19,7 +23,7 @@ from scramp.core import (
     _username_unescape,
     _validate_channel_binding,
 )
-from scramp.utils import b64dec
+from scramp.utils import b64dec, b64enc
 
 
 @pytest.mark.parametrize(
@@ -35,7 +39,7 @@ from scramp.utils import b64dec
             "c=jk,d=kln",
             [{"a", "b", "c"}],
             "Malformed trial message. Expected the attribute set to be one of "
-            "[{a, b, c}] but found {c, d}: extensions-not-supported",
+            "[{a, b, c}] but found {c}: other-error",
         ],
         [
             "c=jk,c=kln",
@@ -47,7 +51,7 @@ from scramp.utils import b64dec
             "e=error",
             [{"c"}],
             "Malformed trial message. Expected the attribute set to be one of [{c}] "
-            "but found {e}: extensions-not-supported",
+            "but found {e}: other-error",
         ],
     ],
 )
@@ -61,9 +65,10 @@ def test_parse_message_fail(msg, att_sets, error_msg):
 @pytest.mark.parametrize(
     "msg,att_sets,result",
     [
-        ["c=jk,d=kln", [{"c", "d"}], {"c": "jk", "d": "kln"}],
-        ["c=jk,d=kln", [{"a", "b", "c"}, {"c", "d"}], {"c": "jk", "d": "kln"}],
+        ["c=jk,i=kln", [{"c", "i"}], {"c": "jk", "i": "kln"}],
+        ["c=jk,i=kln", [{"a", "b", "c"}, {"c", "i"}], {"c": "jk", "i": "kln"}],
         ["c=", [{"c"}], {"c": ""}],
+        ["k=k,c=", [{"c"}], {"c": ""}],
     ],
 )
 def test_parse_message_succeed(msg, att_sets, result):
@@ -92,10 +97,7 @@ def test_validate_channel_binding_fail(cb, msg):
     "username, expected_username",
     [
         # RFC 5802, section 5.1
-        [
-            "u=3Dse=2Cr",
-            "u=se,r",
-        ],
+        ["u=3Dse=2Cr", "u=se,r"],
     ],
 )
 def test_username_unescape(username, expected_username):
@@ -124,13 +126,42 @@ def test_username_unescape_error(username, error_msg, server_error):
 
 
 @pytest.mark.parametrize(
+    "gs2_char,cb_name,expected",
+    [
+        ["p", "aname", "p=aname,,"],
+    ],
+)
+def test_Gs2Header_str(gs2_char, cb_name, expected):
+    gs2_header = Gs2Header(gs2_char, cb_name)
+    assert str(gs2_header) == expected
+
+
+@pytest.mark.parametrize(
+    "gs2_char,cb_name",
+    [
+        ["p", "aname"],
+    ],
+)
+def test_Gs2Header_eq(gs2_char, cb_name):
+    gs2_header_a = Gs2Header(gs2_char, cb_name)
+    gs2_header_b = Gs2Header(gs2_char, cb_name)
+    assert gs2_header_a == gs2_header_b
+
+
+@pytest.mark.parametrize(
     "password,iteration_count,salt,msg",
     [
         [
             "pencil",
             1,
-            b"",
+            b"a",
             "The iteration count is not valid: The value must not be < 10000",
+        ],
+        [
+            "pencil",
+            20000,
+            "",
+            "The 'salt' must be of type bytes, but found type <class 'str'>",
         ],
     ],
 )
@@ -417,8 +448,9 @@ params = [
 
 @pytest.mark.parametrize("x", params)
 def test_get_client_first(x):
+    gs2_header = Gs2Header.from_binding(x["c_channel_binding"], x["c_use_binding"])
     cfirst_bare, cfirst = core._get_client_first(
-        x["username"], x["c_nonce"], x["c_channel_binding"], x["c_use_binding"]
+        x["username"], x["c_nonce"], gs2_header
     )
 
     assert cfirst_bare == x["cfirst_bare"]
@@ -437,16 +469,18 @@ def test_make_auth_message(x):
 
 @pytest.mark.parametrize("x", params)
 def test_get_client_final(x):
-    server_signature, cfinal = core._get_client_final(
+    gs2_header = Gs2Header.from_binding(x["c_channel_binding"], x["c_use_binding"])
+    salt = Salt.from_str(x["salt"])
+    server_signature, cfinal = _get_client_final(
         x["hf"],
         x["password"],
-        x["salt"],
+        salt,
         x["iterations"],
         x["nonce"],
         x["cfirst_bare"],
         x["sfirst"],
         x["c_channel_binding"],
-        x["c_use_binding"],
+        gs2_header,
     )
 
     assert server_signature == x["server_signature"]
@@ -485,14 +519,47 @@ def test_client(x):
 
 @pytest.mark.parametrize("x", params)
 def test_set_client_first(x):
-    nonce, user, cfirst_bare, upgrade_mechanism = core._set_client_first(
-        x["cfirst"], x["s_nonce"], x["s_channel_binding"], x["s_init_use_binding"]
+    m = ScramMechanism(mechanism=x["s_mechanism"])
+    salt_in = Salt.from_str(x["salt"])
+
+    def auth_fn(username):
+        lookup = {
+            x["username"]: m.make_auth_info(
+                x["password"],
+                salt=bytes(salt_in),
+                iteration_count=x["iterations"],
+            )
+        }
+        return lookup[username]
+
+    (
+        nonce,
+        cfirst_bare,
+        upgrade_mechanism,
+        gs2_header,
+        salt,
+        stored_key,
+        server_key,
+        i,
+    ) = _set_client_first(
+        x["cfirst"],
+        Nonce(x["s_nonce"]),
+        x["s_channel_binding"],
+        x["s_init_use_binding"],
+        auth_fn,
     )
 
-    assert nonce == x["nonce"]
-    assert user == x["username"]
+    assert nonce == Nonce(x["nonce"])
     assert cfirst_bare == x["cfirst_bare"]
     assert upgrade_mechanism == (x["s_init_use_binding"] != x["s_use_binding"])
+    expected_gs2_header = Gs2Header.from_binding(
+        x["c_channel_binding"], x["c_use_binding"]
+    )
+    assert gs2_header == expected_gs2_header
+    assert salt == salt_in
+    assert b64enc(stored_key) == x["stored_key"]
+    assert b64enc(server_key) == x["server_key"]
+    assert i == x["iterations"]
 
 
 @pytest.mark.parametrize("x", params)
@@ -504,16 +571,17 @@ def test_get_server_first(x):
 
 @pytest.mark.parametrize("x", params)
 def test_set_client_final(x):
+    gs2_header = Gs2Header.from_binding(x["c_channel_binding"], x["c_use_binding"])
     server_signature = core._set_client_final(
         x["hf"],
         x["cfinal"],
-        x["nonce"],
+        Nonce(x["nonce"]),
         b64dec(x["stored_key"]),
         b64dec(x["server_key"]),
         x["cfirst_bare"],
         x["sfirst"],
         x["s_channel_binding"],
-        x["s_use_binding"],
+        gs2_header,
     )
 
     assert server_signature == x["server_signature"]
@@ -586,7 +654,7 @@ def test_check_stage():
         # Client requires channel binding but the server doesn't
         [
             "p=tls-unique,,n=user,r=rOprNGfwEbeRWgbNEkqO",
-            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
             None,
             False,
             "Received GS2 flag 'p' which indicates that the client "
@@ -597,7 +665,7 @@ def test_check_stage():
         # Client first is invalid
         [
             "junk",
-            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
             None,
             False,
             "The client sent a malformed first message: other-error",
@@ -606,7 +674,7 @@ def test_check_stage():
         # Client first bare message malformed
         [
             "n,,junk",
-            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
             None,
             False,
             "Malformed client first bare message. Attributes must be separated by a "
@@ -617,10 +685,19 @@ def test_check_stage():
         # authzid must be empty
         [
             "n,anid,n=user,r=rOprNGfwEbeRWgbNEkqO",
-            "%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
             None,
             False,
             "The GS2 authzid anid must be empty: other-error",
+            "other-error",
+        ],
+        # gs2-cbind-flag must be valid
+        [
+            "n=invalid,,n=user,r=rOprNGfwEbeRWgbNEkqO",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
+            None,
+            False,
+            "Received GS2 flag n=invalid which isn't recognized: other-error",
             "other-error",
         ],
     ],
@@ -628,15 +705,40 @@ def test_check_stage():
 def test_set_client_first_error(
     client_first, s_nonce, channel_binding, use_binding, error_msg, server_error
 ):
+
+    salt, stored_key, server_key = b"a", b"b", b"c"
+
+    def auth_fn(username):
+        lookup = {"user": (salt, stored_key, server_key)}
+        return lookup[username]
+
     with pytest.raises(ScramException) as exc_info:
-        _set_client_first(client_first, s_nonce, channel_binding, use_binding)
+        _set_client_first(client_first, s_nonce, channel_binding, use_binding, auth_fn)
 
     assert str(exc_info.value) == error_msg
     assert str(exc_info.value.server_error) == server_error
 
 
+def test_set_client_first_error_auth_fn():
+
+    def auth_fn(_):
+        raise Exception()
+
+    with pytest.raises(ScramException) as exc_info:
+        _set_client_first(
+            "n,,n=user,r=rOprNGfwEbeRWgbNEkqO",
+            Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
+            None,
+            False,
+            auth_fn,
+        )
+
+    assert str(exc_info.value) == "Unknown user: unknown-user"
+    assert str(exc_info.value.server_error) == "unknown-user"
+
+
 @pytest.mark.parametrize(
-    "hf,client_final,s_nonce,stored_key,server_key,client_first_bare,server_first,"
+    "hf,client_final,nonce,stored_key,server_key,client_first_bare,server_first,"
     "channel_binding,use_binding,error_msg,server_error",
     # Malformed client final message
     [
@@ -650,7 +752,7 @@ def test_set_client_first_error(
             "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
             "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
             None,
-            True,
+            Gs2Header("n", None),
             "Malformed client final message. Attributes must be separated by a ',' "
             "and each attribute must start with a letter followed by a '=': "
             "other-error",
@@ -667,7 +769,7 @@ def test_set_client_first_error(
             "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
             "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
             None,
-            False,
+            Gs2Header("n", None),
             "Server nonce doesn't match.: other-error",
             "other-error",
         ],
@@ -683,16 +785,33 @@ def test_set_client_first_error(
             "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
             "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
             None,
-            True,
+            Gs2Header("n", None),
             "The channel binding isn't correctly b64 encoded: invalid-encoding",
             "invalid-encoding",
+        ],
+        # Even if channel binding isn't used, check it's valid
+        [
+            hashlib.sha256,
+            "c=rOprNGfwEbeRWgbNEkqO,"
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=",
+            "rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0",
+            b64dec("WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY="),
+            b64dec("wfPLwcE6nTWhTAmQ7tl2KeoiWGPlZqQxSrmfPwDl2dU="),
+            "n=user,r=rOprNGfwEbeRWgbNEkqO",
+            "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+            "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096",
+            None,
+            Gs2Header("n", None),
+            "The channel bindings don't match.: channel-bindings-dont-match",
+            "channel-bindings-dont-match",
         ],
     ],
 )
 def test_set_client_final_error(
     hf,
     client_final,
-    s_nonce,
+    nonce,
     stored_key,
     server_key,
     client_first_bare,
@@ -706,7 +825,7 @@ def test_set_client_final_error(
         _set_client_final(
             hf,
             client_final,
-            s_nonce,
+            nonce,
             stored_key,
             server_key,
             client_first_bare,

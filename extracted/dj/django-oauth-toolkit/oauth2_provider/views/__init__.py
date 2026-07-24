@@ -8,13 +8,22 @@ from .application import (
     ApplicationUpdate,
 )
 from .generic import (
+    ClientProtectedResourceMetadataView,
     ClientProtectedResourceView,
     ClientProtectedScopedResourceView,
+    ProtectedResourceMetadataView,
     ProtectedResourceView,
+    ReadWriteScopedProtectedResourceMetadataView,
     ReadWriteScopedResourceView,
+    ScopedProtectedResourceMetadataView,
     ScopedProtectedResourceView,
 )
 from .introspect import IntrospectTokenView
+from .metadata import OAuthProtectedResourceMetadataView, OAuthServerMetadataView
 from .oidc import ConnectDiscoveryInfoView, JwksInfoView, RPInitiatedLogoutView, UserInfoView
 from .token import AuthorizedTokenDeleteView, AuthorizedTokensListView
 from .device import DeviceAuthorizationView, DeviceUserCodeView, DeviceConfirmView, DeviceGrantStatusView
+from .dynamic_client_registration import (
+    DynamicClientRegistrationView,
+    DynamicClientRegistrationManagementView,
+)

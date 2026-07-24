@@ -1411,10 +1411,40 @@ pub(crate) fn fit_survival_marginal_slope_terms_impl(
                 && analytic_joint_hessian_available
                 && !owned.result.outer_hessian.is_analytic()
             {
-                return Err(
-                    "exact survival marginal-slope joint objective did not return an outer Hessian"
-                        .to_string(),
+                // The outer objective was requested WITH its Hessian on the STRICT
+                // analytic route (no finite-difference fallback permitted), and the
+                // family can supply one at a well-conditioned mode — but at THIS
+                // ρ/κ it could not (gam#979). The load-bearing reason is a
+                // genuinely-indefinite constrained inner mode: it is not a Laplace
+                // mode, so no SPD outer-Hessian curvature exists there. That is a
+                // property of the surface, NOT an implementation fault, so it must
+                // not abort the whole fit (the former fatal "did not return an
+                // outer Hessian" stranded the whole fit the first time an ARC
+                // re-seed probe landed on a saddle ρ — the measured survival-
+                // marginal-slope n=2500 centers=12 failure, AFTER ARC had already
+                // descended 1086.6 → 1081.5). An indefinite mode is infeasible for
+                // the Laplace approximation, so report the profiled objective as
+                // +∞: the outer optimizer's infeasible-on-non-finite-cost guard
+                // then REJECTS this ρ and steps back toward the feasible region it
+                // was descending, keeping its best-so-far incumbent — instead of
+                // aborting, and without violating the analytic-route contract
+                // (an infeasible eval owes no Hessian). A genuinely feasible mode
+                // (analytic Hessian present) is byte-identical.
+                log::warn!(
+                    "[survival-marginal-slope/outer-eval] no analytic outer Hessian at this ρ \
+                     (pseudo-objective={:.6e}, mode={:?}) — the constrained inner mode is \
+                     indefinite (not a Laplace mode); reporting the profiled objective as +∞ so \
+                     the outer solver rejects this infeasible ρ and steps back toward the feasible \
+                     region rather than aborting.",
+                    owned.result.objective,
+                    eval_mode,
                 );
+                return Ok(ExactJointEvaluation {
+                    objective: f64::INFINITY,
+                    gradient: owned.result.gradient,
+                    hessian: owned.result.outer_hessian,
+                    mode: owned.mode,
+                });
             }
             Ok(ExactJointEvaluation {
                 objective: owned.result.objective,

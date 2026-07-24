@@ -6,6 +6,44 @@ from . import views
 app_name = "oauth2_provider"
 
 
+metadata_urlpatterns = [
+    # RFC 8414 locates the metadata document at the origin's
+    # /.well-known/oauth-authorization-server. Mount this at the server root, not
+    # under a prefix — see docs/oauth2_server_metadata.rst.
+    path(
+        ".well-known/oauth-authorization-server",
+        views.OAuthServerMetadataView.as_view(),
+        name="oauth-server-metadata",
+    ),
+    # RFC 8414 path-component form: when the issuer has a path (e.g.
+    # https://host/tenant1), the document lives at
+    # /.well-known/oauth-authorization-server/<issuer_path>. The captured suffix
+    # is reflected back into the issuer; the view reads it from the request path.
+    path(
+        ".well-known/oauth-authorization-server/<path:issuer_path>",
+        views.OAuthServerMetadataView.as_view(),
+        name="oauth-server-metadata-issuer",
+    ),
+    # RFC 9728 locates the protected-resource metadata document at the origin's
+    # /.well-known/oauth-protected-resource. Mount this at the server root, not
+    # under a prefix — see docs/protected_resource_metadata.rst.
+    path(
+        ".well-known/oauth-protected-resource",
+        views.OAuthProtectedResourceMetadataView.as_view(),
+        name="oauth-resource-metadata",
+    ),
+    # RFC 9728 path-component form: when the resource identifier has a path (e.g.
+    # https://host/resource1), the document lives at
+    # /.well-known/oauth-protected-resource/<resource_path>. The captured suffix
+    # is reflected back into the resource identifier; the view reads it from the
+    # request path.
+    path(
+        ".well-known/oauth-protected-resource/<path:resource_path>",
+        views.OAuthProtectedResourceMetadataView.as_view(),
+        name="oauth-resource-metadata-path",
+    ),
+]
+
 base_urlpatterns = [
     path("authorize/", views.AuthorizationView.as_view(), name="authorize"),
     path("token/", views.TokenView.as_view(), name="token"),
@@ -57,5 +95,23 @@ oidc_urlpatterns = [
     path("logout/", views.RPInitiatedLogoutView.as_view(), name="rp-initiated-logout"),
 ]
 
+dcr_urlpatterns = [
+    path("register/", views.DynamicClientRegistrationView.as_view(), name="dcr-register"),
+    path(
+        "register/<str:client_id>/",
+        views.DynamicClientRegistrationManagementView.as_view(),
+        name="dcr-register-management",
+    ),
+]
 
-urlpatterns = base_urlpatterns + management_urlpatterns + oidc_urlpatterns
+# The default urlpatterns include metadata_urlpatterns so that a root include
+# (path("", include("oauth2_provider.urls"))) publishes the RFC 8414 well-known
+# endpoint out of the box. Mounted under a prefix (e.g. path("o/", include(...)))
+# these routes serve the issuer + /.well-known/oauth-authorization-server
+# fallback form that some clients use; strict RFC 8414 clients look for the
+# well-known URI at the domain root with the issuer path appended, so prefixed
+# deployments should ALSO mount metadata_urlpatterns separately at the server
+# root — see docs/oauth2_server_metadata.rst.
+urlpatterns = (
+    metadata_urlpatterns + base_urlpatterns + management_urlpatterns + oidc_urlpatterns + dcr_urlpatterns
+)

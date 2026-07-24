@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2
 import sentry_protos.billing.v1.sku_pb2
 import typing
 
@@ -44,17 +45,26 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
 
     CONTRACT_ID_FIELD_NUMBER: builtins.int
     USAGE_START_WATERMARK_TS_FIELD_NUMBER: builtins.int
+    SIMULATED_USAGE_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     @property
     def usage_start_watermark_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def simulated_usage(self) -> sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2.GetUsageResponse:
+        """Instead of getting the usage for the contract at query time, pass in
+        pre-constructed usage data to simulate what the priced usage would be
+        """
+
     def __init__(
         self,
         *,
         contract_id: builtins.int = ...,
         usage_start_watermark_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        simulated_usage: sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2.GetUsageResponse | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["contract_id", b"contract_id", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_simulated_usage", b"_simulated_usage", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_simulated_usage", b"_simulated_usage", "contract_id", b"contract_id", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_simulated_usage", b"_simulated_usage"]) -> typing.Literal["simulated_usage"] | None: ...
 
 global___GetPriceForContractRequest = GetPriceForContractRequest
 

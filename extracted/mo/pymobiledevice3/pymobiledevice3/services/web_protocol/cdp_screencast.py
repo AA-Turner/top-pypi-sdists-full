@@ -3,13 +3,13 @@ import contextlib
 from base64 import b64decode, b64encode
 from datetime import datetime
 from io import BytesIO
-from typing import Optional
+from typing import Any, Optional
 
 from PIL import Image
 
 
 class ScreenCast:
-    def __init__(self, target, format_: str, quality: int, max_width: int, max_height: int):
+    def __init__(self, target: Any, format_: str, quality: int, max_width: int, max_height: int):
         """
         :param pymobiledevice3.services.web_protocol.cdp_target.CdpTarget target:
         :param format_: Image compression format. Allowed values: jpeg, png.
@@ -22,14 +22,14 @@ class ScreenCast:
         self.quality = quality
         self.max_width = max_width
         self.max_height = max_height
-        self.frames_acked = []
+        self.frames_acked: list[int] = []
         self.frame_id = 1
         self.frame_interval = 250
         self.device_width = 0
         self.device_height = 0
         self.page_scale_factor = 0
         self._run = True
-        self.recording_task: Optional[asyncio.Task] = None
+        self.recording_task: Optional[asyncio.Task[None]] = None
 
     def get_scale(self) -> float:
         """The amount screen pixels in one devtools pixel."""
@@ -81,7 +81,9 @@ class ScreenCast:
         :param data: Base64 of JPEG data.
         :return: Base 64 of resized JPEG data.
         """
-        resized_img = Image.open(BytesIO(b64decode(data)))
+        # Pillow's stub coverage for the Image method chain varies across versions/platforms
+        # (partially-unknown resize() signature on CI); pin the local to Any to stay type-clean.
+        resized_img: Any = Image.open(BytesIO(b64decode(data)))
         resized_img = resized_img.resize((self.get_scaled_width(), self.get_scaled_height()), Image.Resampling.LANCZOS)
         resized_img = resized_img.convert("RGB")
         resized = BytesIO()
@@ -102,7 +104,7 @@ class ScreenCast:
             return 0, 0, 0
         return tuple(map(int, frame_size.split(",")))
 
-    async def recording_loop(self, message_id):
+    async def recording_loop(self, message_id: int):
         """
         Fetch screenshots and send to devtools.
         :param message_id: Message id to use when requesting WIR data concerning the screencast.

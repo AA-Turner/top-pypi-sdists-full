@@ -3,9 +3,7 @@ from __future__ import annotations
 import asyncio
 import warnings
 from functools import partial
-from typing import AnyStr
 from typing import cast
-from typing import Optional
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -110,12 +108,12 @@ class ASGIHTTPConnection:
             response = await _handle_exception(self.app, error)
 
         if isinstance(response, Response) and response.timeout != Ellipsis:
-            timeout = cast(Optional[float], response.timeout)
+            timeout = cast(float | None, response.timeout)
         else:
             timeout = self.app.config["RESPONSE_TIMEOUT"]
         try:
             await asyncio.wait_for(self._send_response(send, response), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
     async def _send_response(
@@ -306,7 +304,7 @@ class ASGIWebsocketConnection:
                 cast(WebsocketCloseEvent, {"type": "websocket.close", "code": 1000})
             )
 
-    async def send_data(self, send: ASGISendCallable, data: AnyStr) -> None:
+    async def send_data(self, send: ASGISendCallable, data: str | bytes) -> None:
         if isinstance(data, str):
             await send({"type": "websocket.send", "bytes": None, "text": data})
         else:
@@ -402,7 +400,7 @@ def _convert_version(raw: str) -> list[int]:
 
 
 async def _handle_exception(app: Quart, error: Exception) -> Response:
-    if not app.testing and app.config["PROPAGATE_EXCEPTIONS"]:
+    if not app.testing and not app.config["PROPAGATE_EXCEPTIONS"]:
         return await traceback_response(error)
     else:
         raise error

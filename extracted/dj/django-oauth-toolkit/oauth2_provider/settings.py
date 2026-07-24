@@ -16,11 +16,13 @@ OAuth2 Provider settings, checking for user settings first, then falling
 back to the defaults.
 """
 
+import warnings
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import setting_changed
 from django.http import HttpRequest
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
 from oauthlib.common import Request
 
@@ -81,6 +83,7 @@ DEFAULTS = {
     "ALLOWED_REDIRECT_URI_SCHEMES": ["http", "https"],
     "ALLOWED_SCHEMES": ["https"],
     "ALLOW_URI_WILDCARDS": False,
+    "ALLOW_LOCALHOST_LOOPBACK": False,
     "OIDC_ENABLED": False,
     "OIDC_ISS_ENDPOINT": "",
     "OIDC_USERINFO_ENDPOINT": "",
@@ -101,6 +104,8 @@ DEFAULTS = {
         "client_secret_post",
         "client_secret_basic",
     ],
+    "OIDC_RP_INITIATED_REGISTRATION_ENABLED": False,
+    "OIDC_RP_INITIATED_REGISTRATION_URL": None,
     "OIDC_RP_INITIATED_LOGOUT_ENABLED": False,
     "OIDC_RP_INITIATED_LOGOUT_ALWAYS_PROMPT": True,
     "OIDC_RP_INITIATED_LOGOUT_STRICT_REDIRECT_URIS": False,
@@ -114,15 +119,88 @@ DEFAULTS = {
     "RESOURCE_SERVER_AUTH_TOKEN": None,
     "RESOURCE_SERVER_INTROSPECTION_CREDENTIALS": None,
     "RESOURCE_SERVER_TOKEN_CACHING_SECONDS": 36000,
-    # Authentication Server Exp Timezone: the time zone use dby Auth Server for generate EXP
+    # Resource Server Token Resource Validator (RFC 8707)
+    "RESOURCE_SERVER_TOKEN_RESOURCE_VALIDATOR": (
+        "oauth2_provider.oauth2_validators.validate_resource_as_url_prefix"
+    ),
+    # Deprecated: introspection ``exp`` values are Unix timestamps interpreted as UTC per RFC 7662/
+    # RFC 7519. Setting a non-UTC time zone re-enables the legacy workaround of reinterpreting the
+    # ``exp`` wall-clock time in the configured time zone. Configuring it emits a DeprecationWarning
+    # and the workaround will be removed in a future release.
     "AUTHENTICATION_SERVER_EXP_TIME_ZONE": "UTC",
     # Whether or not PKCE is required
     "PKCE_REQUIRED": True,
+    # RFC 9700 (OAuth 2.0 Security Best Current Practice) gates.
+    #
+    # Each ``COMPLIANT_BCP_RFC9700_*`` flag covers one RFC 9700 recommendation. ``False``
+    # keeps the legacy behavior available but emits a warning whenever it is
+    # exercised; ``True`` enforces the compliant behavior (the insecure request is
+    # rejected, or the secure behavior is performed).
+    #
+    # They all default to ``False`` so upgrading does not change runtime behavior.
+    # These defaults are scheduled to flip to ``True`` in the 4.0 release; set them
+    # to ``True`` now to adopt the compliant behavior early and silence the warnings.
+    "COMPLIANT_BCP_RFC9700_IMPLICIT_GRANT": False,
+    "COMPLIANT_BCP_RFC9700_PASSWORD_GRANT": False,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": False,
+    "COMPLIANT_BCP_RFC9700_ACCESS_TOKEN_TRANSPORT": False,
+    "COMPLIANT_BCP_RFC9700_AUTHZ_RESPONSE_ISS": False,
+    "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": False,
+    # Config-validation gates. Unlike the behavior gates above, these do not change
+    # runtime behavior and do not replace the settings they cover — the canonical
+    # settings (REFRESH_TOKEN_REUSE_PROTECTION, ALLOWED_REDIRECT_URI_SCHEMES,
+    # ALLOW_URI_WILDCARDS, PKCE_REQUIRED) remain in control. Each gate sets the
+    # severity of the ``manage.py check --deploy`` message emitted when the covered
+    # setting is on an RFC 9700 non-compliant value: ``False`` (default) -> Warning,
+    # ``True`` -> Error, so an insecure configuration cannot pass deploy checks.
+    "COMPLIANT_BCP_RFC9700_REFRESH_TOKEN": False,
+    "COMPLIANT_BCP_RFC9700_REDIRECT_URI_SCHEME": False,
+    "COMPLIANT_BCP_RFC9700_REDIRECT_URI_MATCHING": False,
+    "COMPLIANT_BCP_RFC9700_PKCE_REQUIRED": False,
     # Whether to re-create OAuthlibCore on every request.
     # Should only be required in testing.
     "ALWAYS_RELOAD_OAUTHLIB_CORE": False,
     "CLEAR_EXPIRED_TOKENS_BATCH_SIZE": 10000,
     "CLEAR_EXPIRED_TOKENS_BATCH_INTERVAL": 0,
+    # Dynamic Client Registration (RFC 7591/7592)
+    "DCR_ENABLED": False,
+    "DCR_REGISTRATION_PERMISSION_CLASSES": ("oauth2_provider.dcr.IsAuthenticatedDCRPermission",),
+    "DCR_REGISTRATION_SCOPE": "oauth2_provider:registration",
+    "DCR_REGISTRATION_TOKEN_EXPIRE_SECONDS": None,  # None = year 9999 (no expiry)
+    "DCR_ROTATE_REGISTRATION_TOKEN_ON_UPDATE": True,
+    # Client ID Metadata Documents (draft-ietf-oauth-client-id-metadata-document)
+    "CIMD_ENABLED": False,
+    "CIMD_METADATA_FETCHER": "oauth2_provider.cimd.SafeMetadataFetcher",
+    "CIMD_REGISTRATION_PERMISSION_CLASSES": ("oauth2_provider.cimd.AllowAllCIMDPermission",),
+    "CIMD_ALLOWED_HOSTS": [],  # used by HostAllowlistCIMDPermission; ALLOWED_HOSTS syntax
+    "CIMD_FETCH_TIMEOUT_SECONDS": 5,
+    "CIMD_MAX_DOCUMENT_SIZE": 16 * 1024,  # draft §6.6 recommends ~5 KB; headroom, still bounded
+    "CIMD_METADATA_MIN_AGE_SECONDS": 300,
+    "CIMD_METADATA_MAX_AGE_SECONDS": 86400,
+    "CIMD_FAILURE_BACKOFF_SECONDS": 60,
+    "CIMD_MAX_CONCURRENT_FETCHES": 10,  # 0 or None disables the in-flight cap
+    # RFC 8414 Authorization Server Metadata
+    "OAUTH2_RESPONSE_TYPES_SUPPORTED": ["code", "token"],
+    "OAUTH2_TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED": [
+        "client_secret_post",
+        "client_secret_basic",
+    ],
+    "OAUTH2_GRANT_TYPES_SUPPORTED": [
+        "authorization_code",
+        "implicit",
+        "password",
+        "client_credentials",
+        "refresh_token",
+        "urn:ietf:params:oauth:grant-type:device_code",
+    ],
+    # RFC 9728 Protected Resource Metadata
+    "OAUTH2_PROTECTED_RESOURCE_IDENTIFIER": "",
+    "OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS": [],
+    "OAUTH2_PROTECTED_RESOURCE_BEARER_METHODS_SUPPORTED": ["header"],
+    "OAUTH2_PROTECTED_RESOURCE_NAME": "",
+    "OAUTH2_PROTECTED_RESOURCE_DOCUMENTATION": "",
+    "OAUTH2_PROTECTED_RESOURCE_POLICY_URI": "",
+    "OAUTH2_PROTECTED_RESOURCE_TOS_URI": "",
 }
 
 # List of settings that cannot be empty
@@ -154,7 +232,23 @@ IMPORT_STRINGS = (
     "GRANT_ADMIN_CLASS",
     "ID_TOKEN_ADMIN_CLASS",
     "REFRESH_TOKEN_ADMIN_CLASS",
+    "DCR_REGISTRATION_PERMISSION_CLASSES",
+    "RESOURCE_SERVER_TOKEN_RESOURCE_VALIDATOR",
+    "CIMD_METADATA_FETCHER",
+    "CIMD_REGISTRATION_PERMISSION_CLASSES",
 )
+
+
+# Mapping of deprecated setting name to the warning message shown when a user configures it.
+DEPRECATED_SETTINGS = {
+    "AUTHENTICATION_SERVER_EXP_TIME_ZONE": (
+        "The OAUTH2_PROVIDER setting 'AUTHENTICATION_SERVER_EXP_TIME_ZONE' is deprecated. Token "
+        "introspection 'exp' values are Unix timestamps and are always interpreted as UTC per RFC "
+        "7662 and RFC 7519. Setting a non-UTC time zone re-enables the legacy workaround of "
+        "reinterpreting the 'exp' wall-clock time in the configured time zone, but this behavior "
+        "will be removed in a future release."
+    ),
+}
 
 
 def perform_import(val, setting_name):
@@ -203,6 +297,12 @@ class OAuth2ProviderSettings:
         self.import_strings = import_strings or IMPORT_STRINGS
         self.mandatory = mandatory or ()
         self._cached_attrs = set()
+        self._warn_deprecated_settings()
+
+    def _warn_deprecated_settings(self):
+        for attr, message in DEPRECATED_SETTINGS.items():
+            if attr in self.user_settings:
+                warnings.warn(message, DeprecationWarning, stacklevel=2)
 
     @property
     def user_settings(self):
@@ -221,7 +321,7 @@ class OAuth2ProviderSettings:
             # Special case OAUTH2_SERVER_CLASS - if not specified, and OIDC is
             # enabled, use the OIDC_SERVER_CLASS setting instead
             if attr == "OAUTH2_SERVER_CLASS" and self.OIDC_ENABLED:
-                val = self.defaults["OIDC_SERVER_CLASS"]
+                val = self.user_settings.get("OIDC_SERVER_CLASS", self.defaults["OIDC_SERVER_CLASS"])
             else:
                 val = self.defaults[attr]
 
@@ -293,6 +393,69 @@ class OAuth2ProviderSettings:
         self._cached_attrs.clear()
         if hasattr(self, "_user_settings"):
             delattr(self, "_user_settings")
+        self._warn_deprecated_settings()
+
+    def oauth2_metadata_issuer(self, request):
+        """
+        Get the OAuth2 authorization server metadata issuer URL.
+
+        If ``OIDC_ISS_ENDPOINT`` is configured it is returned verbatim.
+        Otherwise the issuer is derived from the incoming request by locating the
+        ``/.well-known/oauth-authorization-server`` marker in the request URL and
+        splitting around it:
+
+        * text *before* the marker is the base — this preserves any mount prefix
+          (e.g. ``https://host/o/.well-known/oauth-authorization-server`` →
+          ``https://host/o``);
+        * text *after* the marker is the RFC 8414 issuer path component, appended
+          back to the base (e.g.
+          ``https://host/.well-known/oauth-authorization-server/tenant1`` →
+          ``https://host/tenant1``).
+
+        Deriving it from the request path (rather than reversing a URL name)
+        keeps working when the view is mounted outside the ``oauth2_provider``
+        namespace, and supports both the root/prefixed mounts and RFC 8414's
+        path-component (nested ``.well-known``) form.
+        """
+        if self.OIDC_ISS_ENDPOINT:
+            return self.OIDC_ISS_ENDPOINT
+        abs_url = request.build_absolute_uri(request.path)
+        base, _, issuer_path = abs_url.partition("/.well-known/oauth-authorization-server")
+        issuer_path = issuer_path.strip("/")
+        if issuer_path:
+            return f"{base}/{issuer_path}"
+        return base
+
+    def oauth2_authorization_server_issuer(self, request):
+        """
+        Get the RFC 9207 issuer identifier for the ``iss`` authorization-response
+        parameter.
+
+        The value must equal the ``issuer`` published in the RFC 8414 metadata
+        document, so it is derived the same way: ``OIDC_ISS_ENDPOINT`` verbatim when
+        configured, otherwise the base of the authorization-server metadata URL
+        (which preserves any mount prefix). Unlike :meth:`oauth2_metadata_issuer`,
+        this can be called from endpoints (e.g. the authorization endpoint) whose own
+        path does not contain the ``.well-known`` marker.
+
+        .. note::
+           The derived value uses the root RFC 8414 metadata URL and therefore does
+           not include an RFC 8414 *path-component* issuer suffix (the
+           ``/.well-known/oauth-authorization-server/<issuer_path>`` form), which is
+           not knowable from the authorization request. Multi-tenant / path-component
+           deployments MUST set ``OIDC_ISS_ENDPOINT`` (per issuer) so the ``iss`` value
+           matches the published metadata ``issuer`` and the RFC 9207 mix-up defense
+           holds.
+        """
+        if self.OIDC_ISS_ENDPOINT:
+            return self.OIDC_ISS_ENDPOINT
+        try:
+            well_known = reverse("oauth2_provider:oauth-server-metadata")
+        except NoReverseMatch:
+            return request.build_absolute_uri("/").rstrip("/")
+        abs_url = request.build_absolute_uri(well_known)
+        base, _, _ = abs_url.partition("/.well-known/oauth-authorization-server")
+        return base
 
     def oidc_issuer(self, request):
         """
@@ -315,6 +478,63 @@ class OAuth2ProviderSettings:
             raise TypeError("request must be a django or oauthlib request: got %r" % request)
         abs_url = django_request.build_absolute_uri(reverse("oauth2_provider:oidc-connect-discovery-info"))
         return abs_url[: -len("/.well-known/openid-configuration")]
+
+    def oauth2_resource_identifier(self, request):
+        """
+        Get the RFC 9728 protected-resource identifier (the ``resource`` value).
+
+        If ``OAUTH2_PROTECTED_RESOURCE_IDENTIFIER`` is configured it is returned
+        verbatim. Otherwise the identifier is derived from the incoming request by
+        locating the ``/.well-known/oauth-protected-resource`` marker in the request
+        URL and splitting around it, mirroring :meth:`oauth2_metadata_issuer`:
+
+        * text *before* the marker is the base — this preserves any mount prefix;
+        * text *after* the marker is the RFC 9728 path component, appended back to
+          the base (e.g.
+          ``https://host/.well-known/oauth-protected-resource/tenant1`` →
+          ``https://host/tenant1``).
+        """
+        if self.OAUTH2_PROTECTED_RESOURCE_IDENTIFIER:
+            return self.OAUTH2_PROTECTED_RESOURCE_IDENTIFIER
+        abs_url = request.build_absolute_uri(request.path)
+        base, _, resource_path = abs_url.partition("/.well-known/oauth-protected-resource")
+        resource_path = resource_path.strip("/")
+        if resource_path:
+            return f"{base}/{resource_path}"
+        return base
+
+    def oauth2_resource_authorization_servers(self, request):
+        """
+        Get the RFC 9728 ``authorization_servers`` list for the protected resource.
+
+        If ``OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS`` is configured it is
+        returned verbatim. Otherwise this server's own authorization-server issuer
+        is used: ``OIDC_ISS_ENDPOINT`` when set, else derived from the RFC 8414
+        metadata route. Returns an empty list when no issuer can be resolved (e.g.
+        the metadata route is not mounted), so the field is omitted.
+        """
+        if self.OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS:
+            return list(self.OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS)
+        if self.OIDC_ISS_ENDPOINT:
+            return [self.OIDC_ISS_ENDPOINT]
+        try:
+            abs_url = request.build_absolute_uri(reverse("oauth2_provider:oauth-server-metadata"))
+        except NoReverseMatch:
+            return []
+        return [abs_url[: -len("/.well-known/oauth-authorization-server")]]
+
+    def oauth2_resource_metadata_url(self, request):
+        """
+        Absolute URL of this server's RFC 9728 protected-resource metadata document.
+
+        Returns ``None`` when the metadata route is not registered, so callers that
+        advertise it in a ``WWW-Authenticate`` challenge can simply omit the
+        ``resource_metadata`` parameter.
+        """
+        try:
+            return request.build_absolute_uri(reverse("oauth2_provider:oauth-resource-metadata"))
+        except NoReverseMatch:
+            return None
 
 
 oauth2_settings = OAuth2ProviderSettings(USER_SETTINGS, DEFAULTS, IMPORT_STRINGS, MANDATORY)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.26.8
+Version: 0.26.9
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0

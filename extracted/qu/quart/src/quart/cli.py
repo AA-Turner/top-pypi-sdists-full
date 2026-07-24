@@ -10,11 +10,12 @@ import platform
 import re
 import sys
 import traceback
+from collections.abc import Callable
 from importlib import import_module
+from importlib.metadata import entry_points
 from operator import attrgetter
 from types import ModuleType
 from typing import Any
-from typing import Callable
 from typing import TYPE_CHECKING
 
 import click
@@ -489,14 +490,6 @@ class QuartGroup(AppGroup):
         if self._loaded_plugin_commands:
             return
 
-        if sys.version_info >= (3, 10):
-            from importlib.metadata import entry_points
-        else:
-            # Use a backport on Python < 3.10. We technically have
-            # importlib.metadata on 3.8+, but the API changed in 3.10,
-            # so use the backport for consistency.
-            from importlib_metadata import entry_points
-
         for point in entry_points(group="quart.commands"):
             self.add_command(point.load(), point.name)
 
@@ -661,6 +654,9 @@ def run_command(
         keyfile=keyfile,
         use_reloader=reload,
     )
+
+
+run_command.params.insert(0, _debug_option)
 
 
 @click.command("shell", short_help="Run a shell in the app context.")

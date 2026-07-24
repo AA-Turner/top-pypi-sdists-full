@@ -1,18 +1,38 @@
-import re
-import imaplib
 import datetime
+import imaplib
+import re
 from collections import UserString
-from typing import Optional, List, Iterable, Sequence, TypeVar, Union, Tuple, Iterator
+from typing import Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union
 
-from .message import MailMessage
+from .consts import MOVE_RESULT_TAG, PYTHON_VERSION_MINOR, UID_PATTERN
+from .errors import (
+    MailboxAppendError,
+    MailboxCopyError,
+    MailboxDeleteError,
+    MailboxExpungeError,
+    MailboxFetchError,
+    MailboxFlagError,
+    MailboxLoginError,
+    MailboxLogoutError,
+    MailboxMoveError,
+    MailboxNumbersError,
+    MailboxStarttlsError,
+    MailboxTaggedResponseError,
+    MailboxUidsError,
+)
 from .folder import MailBoxFolderManager
 from .idle import IdleManager
-from .consts import UID_PATTERN, PYTHON_VERSION_MINOR, MOVE_RESULT_TAG
-from .utils import clean_uids, check_command_status, chunked, encode_folder, clean_flags, check_timeout_arg_support, \
-    chunked_crop, StrOrBytes
-from .errors import MailboxStarttlsError, MailboxLoginError, MailboxLogoutError, MailboxNumbersError, \
-    MailboxFetchError, MailboxExpungeError, MailboxDeleteError, MailboxCopyError, MailboxFlagError, \
-    MailboxAppendError, MailboxUidsError, MailboxTaggedResponseError, MailboxMoveError
+from .message import MailMessage
+from .utils import (
+    StrOrBytes,
+    check_command_status,
+    check_timeout_arg_support,
+    chunked,
+    chunked_crop,
+    clean_flags,
+    clean_uids,
+    encode_folder,
+)
 
 # Maximal line length when calling readline(). This is to prevent reading arbitrary length lines.
 # 20Mb is enough for search response with about 2 000 000 message numbers
@@ -20,6 +40,26 @@ imaplib._MAXLINE = 20 * 1024 * 1024  # 20Mb
 
 Criteria = Union[StrOrBytes, UserString]
 Self = TypeVar("Self", bound="BaseMailBox")
+
+
+def _create_imap4_client(host: str, port: int, timeout: Optional[float]) -> imaplib.IMAP4:
+    if PYTHON_VERSION_MINOR < 9:
+        return imaplib.IMAP4(host, port)
+    elif PYTHON_VERSION_MINOR < 12:
+        return imaplib.IMAP4(host, port, timeout)
+    else:
+        return imaplib.IMAP4(host, port, timeout=timeout)
+
+
+def _create_imap4_ssl_client(
+        host: str, port: int, keyfile, certfile, ssl_context, timeout: Optional[float]) -> imaplib.IMAP4_SSL:
+    if PYTHON_VERSION_MINOR < 9:
+        return imaplib.IMAP4_SSL(host, port, keyfile, certfile, ssl_context)  # noqa
+    elif PYTHON_VERSION_MINOR < 12:
+        return imaplib.IMAP4_SSL(host, port, keyfile, certfile, ssl_context, timeout)  # noqa
+    else:
+        return imaplib.IMAP4_SSL(host, port, ssl_context=ssl_context, timeout=timeout)
+
 
 class BaseMailBox:
     """Working with the email box"""
@@ -48,7 +88,8 @@ class BaseMailBox:
         tagged_commands = self.client.tagged_commands
         response_set = []
         while True:
-            response: bytes = self.client._get_response()  # noqa, example: b'IJDH3 OK IDLE Terminated'
+            # response example: b'IJDH3 OK IDLE Terminated'
+            response: bytes = self.client._get_response()  # noqa
             if tagged_commands[tag]:
                 break
             response_set.append(response)
@@ -58,7 +99,8 @@ class BaseMailBox:
 
     def login(self: Self, username: str, password: str, initial_folder: Optional[str] = 'INBOX') -> Self:
         """Authenticate to account"""
-        login_result = self.client._simple_command('LOGIN', self.client._quote(username), self.client._quote(password))  # noqa
+        login_result = (
+            self.client._simple_command('LOGIN', self.client._quote(username), self.client._quote(password)))  # noqa
         check_command_status(login_result, MailboxLoginError)
         self.client.state = 'AUTH'  # logic from self.client.login
         if initial_folder is not None:
@@ -167,9 +209,9 @@ class BaseMailBox:
             for built_fetch_item in chunked((reversed if reverse else iter)(fetch_result[1]), 2):
                 yield built_fetch_item
 
-    def fetch(self, criteria: Criteria = 'ALL', charset: str = 'US-ASCII', limit: Optional[Union[int, slice]] = None,
+    def fetch(self, criteria: Criteria = 'ALL', charset: str = 'US-ASCII', *, limit: Optional[Union[int, slice]] = None,
               mark_seen=True, reverse=False, headers_only=False, bulk: Union[bool, int] = False,
-              sort: Optional[Union[str, Iterable[str]]] = None) \
+              sort: Optional[Union[str, Iterable[str]]] = None, uid_list: Union[str, Iterable[str]] = None) \
             -> Iterator[MailMessage]:
         """
         Mail message generator in current folder by search criteria
@@ -178,20 +220,26 @@ class BaseMailBox:
         :param limit: int | slice - limit number of read emails | slice emails range for read
                       useful for actions with a large number of messages, like "move" | paging
         :param mark_seen: mark emails as seen on fetch
-        :param reverse: in order from the larger date to the smaller
+        :param reverse: in order from the larger date to the smaller, works at client side
         :param headers_only: get only email headers (without text, html, attachments)
         :param bulk:
             False - fetch each message separately per N commands - low memory consumption, slow
             True  - fetch all messages per 1 command - high memory consumption, fast. Fails on big bulk at server
             int - fetch messages by bulks of the specified size
         :param sort: criteria for sort messages on server, use SortCriteria constants. Charset arg is important for sort
+        :param uid_list: UIDs for fetch. If set: (criteria, charset, sort) will be ignored, SEARCH will not be used.
         :return generator: MailMessage
         """
         message_parts = \
             f"(BODY{'' if mark_seen else '.PEEK'}[{'HEADER' if headers_only else ''}] UID FLAGS RFC822.SIZE)"
         limit_range = slice(0, limit) if type(limit) is int else limit or slice(None)
-        assert type(limit_range) is slice
-        uids = tuple((reversed if reverse else iter)(self.uids(criteria, charset, sort)))[limit_range]
+        if not isinstance(limit_range, slice):
+            raise TypeError(f"slice expected, but received: {type(limit_range).__name__}")
+        if uid_list:
+            uids = clean_uids(uid_list)
+        else:
+            uids = self.uids(criteria, charset, sort)
+        uids = tuple((reversed if reverse else iter)(uids))[limit_range]
         if bulk:
             message_generator = self._fetch_in_bulk(uids, message_parts, reverse, bulk)
         else:
@@ -316,10 +364,7 @@ class BaseMailBox:
         :param flag_set: email message flags, no flags by default. System flags at consts.MailMessageFlags.all
         :return: command results
         """
-        if PYTHON_VERSION_MINOR < 6:
-            timezone = datetime.timezone(datetime.timedelta(hours=0))
-        else:
-            timezone = datetime.datetime.now().astimezone().tzinfo  # system timezone
+        timezone = datetime.datetime.now().astimezone().tzinfo  # system timezone
         cleaned_flags = clean_flags(flag_set or [])
         typ, dat = self.client.append(
             encode_folder(folder),  # noqa
@@ -356,13 +401,8 @@ class MailBox(BaseMailBox):
         super().__init__()
 
     def _get_mailbox_client(self) -> imaplib.IMAP4:
-        if PYTHON_VERSION_MINOR < 9:
-            return imaplib.IMAP4_SSL(self._host, self._port, self._keyfile, self._certfile, self._ssl_context)  # noqa
-        elif PYTHON_VERSION_MINOR < 12:
-            return imaplib.IMAP4_SSL(
-                self._host, self._port, self._keyfile, self._certfile, self._ssl_context, self._timeout)  # noqa
-        else:
-            return imaplib.IMAP4_SSL(self._host, self._port, ssl_context=self._ssl_context, timeout=self._timeout)
+        return _create_imap4_ssl_client(
+            self._host, self._port, self._keyfile, self._certfile, self._ssl_context, self._timeout)
 
 
 class MailBoxUnencrypted(BaseMailBox):
@@ -381,12 +421,7 @@ class MailBoxUnencrypted(BaseMailBox):
         super().__init__()
 
     def _get_mailbox_client(self) -> imaplib.IMAP4:
-        if PYTHON_VERSION_MINOR < 9:
-            return imaplib.IMAP4(self._host, self._port)
-        elif PYTHON_VERSION_MINOR < 12:
-            return imaplib.IMAP4(self._host, self._port, self._timeout)
-        else:
-            return imaplib.IMAP4(self._host, self._port, timeout=self._timeout)
+        return _create_imap4_client(self._host, self._port, self._timeout)
 
 
 class MailBoxStartTls(BaseMailBox):
@@ -409,12 +444,7 @@ class MailBoxStartTls(BaseMailBox):
     def _get_mailbox_client(self) -> imaplib.IMAP4:
         if self._port == 993:
             raise ValueError("Port 993 requires IMAP4_SSL. Use MailBox class for SSL/TLS connection.")
-        if PYTHON_VERSION_MINOR < 9:
-            client = imaplib.IMAP4(self._host, self._port)
-        elif PYTHON_VERSION_MINOR < 12:
-            client = imaplib.IMAP4(self._host, self._port, self._timeout)
-        else:
-            client = imaplib.IMAP4(self._host, self._port, timeout=self._timeout)
+        client = _create_imap4_client(self._host, self._port, self._timeout)
         result = client.starttls(self._ssl_context)
         check_command_status(result, MailboxStarttlsError)
         return client

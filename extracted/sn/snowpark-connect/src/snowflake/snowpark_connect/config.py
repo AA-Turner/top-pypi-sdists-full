@@ -380,6 +380,30 @@ class GlobalConfig:
         # through to the legacy TRY_PARSE_JSON path (which returned NULL rather than
         # erroring) -- an escape hatch for workloads that relied on the old behavior.
         "snowpark.connect.enableInputTypeCheckForFromJsonFunction": "true",
+        # SNOW-3585770: get_json_object requires a STRING (or untyped NULL) input.
+        # When true (default), a non-string input (ARRAY/STRUCT/MAP or scalar
+        # non-string) is rejected at analysis time with
+        # DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE, matching Spark. When false, that
+        # check is skipped and the input falls through to the legacy TRY_PARSE_JSON
+        # path (which returned NULL rather than erroring) -- an escape hatch for
+        # workloads that relied on the old behavior.
+        "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction": "true",
+        # SNOW-3585770: json_tuple requires every argument to be a STRING (or
+        # untyped NULL). When true (default), a non-string input (ARRAY/STRUCT/MAP
+        # or scalar non-string) is rejected at analysis time with
+        # DATATYPE_MISMATCH.NON_STRING_TYPE, matching Spark. When false, that check
+        # is skipped and the input falls through to the legacy TRY_PARSE_JSON path
+        # (which returned NULL rather than erroring) -- an escape hatch for
+        # workloads that relied on the old behavior.
+        "snowpark.connect.enableInputTypeCheckForJsonTupleFunction": "true",
+        # SNOW-3585770: bracket / field extraction (col["key"], col[0]) on a
+        # scalar column (STRING, INT, DOUBLE, BOOLEAN, etc.) is an analysis
+        # error in Spark (INVALID_EXTRACT_BASE_FIELD_TYPE). When true (default),
+        # SCOS raises the same error. When false, the check is skipped and the
+        # scalar falls through to Snowflake's GET / GET_IGNORE_CASE, which
+        # returns NULL -- an escape hatch for workloads that relied on the old
+        # NULL behavior.
+        "snowpark.connect.enableInputTypeCheckForExtractValueFunction": "true",
         # Native app: when set to "DB.SCHEMA" (or a bare "SCHEMA"), SCOS creates
         # its temp objects (tables, stages, file formats, built-in UDFs) in that
         # precreated schema instead of the session's current schema.  Needed when
@@ -391,6 +415,14 @@ class GlobalConfig:
         # IMPORTS paths that resolve against the app's version stage root.
         # The app provider must bundle the SCOS JARs there.
         "snowpark.connect.native_app_mode": "false",
+        # SNOW-3680715 BCR: when true (default), a windowed collect_list/array_agg
+        # over the whole-partition frame (ROWS/RANGE BETWEEN UNBOUNDED PRECEDING
+        # AND UNBOUNDED FOLLOWING) with an ORDER BY is emitted as
+        # ARRAY_AGG(...) WITHIN GROUP (ORDER BY ...) OVER (PARTITION BY ...), which
+        # honors the ORDER BY direction like Spark's collect_list. Set false to
+        # revert to the pre-BCR ARRAY_AGG(...) OVER (... ORDER BY ...) emission
+        # (Snowflake ignores the direction for that frame, returning scan order).
+        "snowpark.connect.window.collectListHonorOrderByDirection": "true",
     }
 
     boolean_config_list = [
@@ -425,8 +457,12 @@ class GlobalConfig:
         "snowpark.connect.config.raiseForUnknownKeys",
         "snowpark.connect.cast.stringToIntegralHighPrecision",
         "snowpark.connect.aggregate.coerceStringToNumeric",
+        "snowpark.connect.window.collectListHonorOrderByDirection",
         "snowpark.connect.use2000AsTwoDigitCenturyStart",
         "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
+        "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
+        "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
+        "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
         "snowpark.connect.native_app_mode",
     ]
 
@@ -595,6 +631,9 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.large_query_breakdown.complexity_upper_bound",
     "snowpark.connect.useUdfForUnsupportedDateTimeFormats",
     "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
+    "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
+    "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
+    "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
     "spark.sql.columnNameOfCorruptRecord",
     # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
     # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
@@ -604,6 +643,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.cast.stringToIntegralHighPrecision",
     "snowpark.connect.aggregate.coerceStringToNumeric",
     "snowpark.connect.use2000AsTwoDigitCenturyStart",
+    "snowpark.connect.window.collectListHonorOrderByDirection",
 }
 
 # Static Spark configs that nonetheless accept a *per-session* override at
@@ -1718,6 +1758,14 @@ def is_cast_string_to_integral_high_precision_enabled() -> bool:
 def is_aggregate_string_coercion_enabled() -> bool:
     return str_to_bool(
         global_config.get("snowpark.connect.aggregate.coerceStringToNumeric", "true")
+    )
+
+
+def is_collect_list_window_order_by_direction_enabled() -> bool:
+    return str_to_bool(
+        global_config.get(
+            "snowpark.connect.window.collectListHonorOrderByDirection", "true"
+        )
     )
 
 

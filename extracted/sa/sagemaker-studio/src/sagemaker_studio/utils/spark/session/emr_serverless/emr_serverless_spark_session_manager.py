@@ -251,18 +251,28 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
         Handles FTA/compatibility mode, executor idle timeout, and S3 Access Grants.
         """
         configs = {}
-        if self._is_fta_supported(application):
+        release_label = application.get("releaseLabel", "")
+        is_compat_mode = self._is_compatibility_mode_enabled(application)
+        is_fta = self._is_fta_supported(application)
+        logger.info(
+            f"EMR-S config decision: releaseLabel={release_label}, "
+            f"is_compatibility_mode_enabled={is_compat_mode}, is_fta_supported={is_fta}"
+        )
+        if is_fta:
             logger.info("FTA supported — applying compatibility mode configs")
             configs.update(self._get_compatibility_mode_configs())
         else:
             # Native Lake Formation FGAC path (FTA not applied). This requires an
             # engine release of at least emr-7.14 / emr-spark-8.1; older releases
             # cannot enforce FGAC, so raise instead of returning an unsafe config.
-            release_label = application.get("releaseLabel", "")
             if not self._supports_native_fgac(release_label):
                 raise RuntimeError(
                     "Lake Formation fine-grained access control requires EMR release "
-                    f">= emr-7.14 / emr-spark-8.1; release '{release_label}' is not supported."
+                    f">= emr-7.14 / emr-spark-8.1; release '{release_label}' is not supported. "
+                    f"(is_compatibility_mode_enabled={is_compat_mode}). "
+                    f"To use FTA/compatibility mode, set "
+                    f"spark.emr-serverless.lakeformation.enabled=false in the application's "
+                    f"runtimeConfiguration spark-defaults."
                 )
             logger.info("Native FGAC active — compatibility mode configs not applied")
         configs["spark.dynamicAllocation.executorIdleTimeout"] = "120s"
@@ -373,27 +383,31 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
 
     @staticmethod
     def _is_compatibility_mode_enabled(application) -> bool:
-        """Check if the EMR-S application has compatibility mode enabled (LF not natively enabled).
+        """Check if the EMR-S application has compatibility mode (FTA) enabled.
 
-        Consistent with SageMakerStudioDataEngineeringSessions._is_compatibility_mode_enabled.
-        Returns True when spark.emr-serverless.lakeformation.enabled is 'false' or absent
-        in the application's runtimeConfiguration spark-defaults.
+        Returns True (FTA/compatibility mode) by default. Only returns False when
+        spark.emr-serverless.lakeformation.enabled is explicitly set to 'true' in
+        the application's runtimeConfiguration spark-defaults — indicating native
+        FGAC mode is intentionally enabled.
         """
         runtime_config = application.get("runtimeConfiguration", None)
         if runtime_config is None:
-            return False
+            return True
         for config in runtime_config:
             if config.get("classification") == "spark-defaults":
                 properties = config.get("properties", None)
                 if properties is not None:
+                    # Only native FGAC when explicitly set to 'true'
                     return (
                         properties.get(
                             "spark.emr-serverless.lakeformation.enabled", "false"
                         ).lower()
-                        == "false"
+                        != "true"
                     )
-                return False
-        return False
+                # spark-defaults exists but has no properties — default to compat mode
+                return True
+        # No spark-defaults classification found — default to compat mode
+        return True
 
     @staticmethod
     def _is_emr_spark_release(release_label: str) -> bool:
@@ -469,7 +483,12 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             )
             logger.debug(f"EMR Serverless session started: {session_id}")
 
-            self._wait_for_emr_serverless_session(application_id, session_id)
+            session_start_timeout = self.config.overrides.get("emr-serverless", {}).get(
+                "session_start_timeout", 120
+            )
+            self._wait_for_emr_serverless_session(
+                application_id, session_id, timeout=session_start_timeout
+            )
 
             logger.debug("Getting session endpoint URL and auth token...")
             get_session_endpoint_response = self.emr_serverless_client.get_session_endpoint(

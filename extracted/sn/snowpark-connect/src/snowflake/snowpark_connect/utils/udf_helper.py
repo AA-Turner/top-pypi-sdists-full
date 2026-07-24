@@ -195,7 +195,86 @@ class SnowparkUDF(SnowparkUdfBase):
 
 
 @dataclass
-class LazySnowparkUdf(SnowparkUdfBase):
+class LazyUdfBase(SnowparkUdfBase):
+    """Shared skeleton for UDFs whose CREATE FUNCTION DDL is deferred to the first call.
+
+    One physical Snowflake function is emitted per distinct call-site type signature (the
+    first reuses the base name; later ones get a short type-hash suffix). Subclasses
+    implement ``_emit_ddl`` (the actual CREATE FUNCTION) and may override
+    ``_invoke_materialized`` to control how a materialized function is called.
+
+    ORDERING CONTRACT: ``_emit_ddl`` MUST populate every per-signature map it owns
+    (return-type overrides, encoding flags, name->types, ...) BEFORE writing the
+    ``_type_to_name`` gate. ``_call`` and per-signature reads (e.g.
+    ``effective_return_type_for``) consult those maps lock-free once the gate shows the
+    key, so the gate must become visible last.
+    """
+
+    # Written for structural symmetry with SnowparkUDF; not read on the lazy path
+    # (decomposes_struct_arg follows the call-site type).
+    input_types: list[DataType] = field(default_factory=list, init=False)
+    # repr(call_site_types) -> materialized physical function name for that signature.
+    _type_to_name: SynchronizedDict = field(
+        default_factory=SynchronizedDict, init=False, repr=False
+    )
+    # materialized name -> that function's PHYSICAL parameter types (for DropFunctionCommand
+    # to emit a DROP FUNCTION with the exact signature).
+    _name_to_types: dict = field(default_factory=dict, init=False, repr=False)
+    # Guards the check+emit+set critical section; _type_to_name gives read-safety for the
+    # outer fast-path gate.
+    _ddl_lock: "threading.Lock" = field(
+        default_factory=threading.Lock, init=False, repr=False
+    )
+
+    def _next_udf_name(self, type_key: str) -> str:
+        """Physical name for a signature: base name for the first, hashed suffix after."""
+        if not self._type_to_name:
+            return self.name
+        suffix = hashlib.md5(type_key.encode()).hexdigest()[:8]
+        return f"{self.name}_{suffix}"
+
+    def _call(
+        self,
+        converted_args: list["snowpark_fn.Column"],
+        typed_args: list[TypedColumn],
+        session: Session,
+    ) -> "snowpark_fn.Column":
+        call_site_types = [tc.typ for tc in typed_args]
+        type_key = repr(call_site_types)
+        if type_key not in self._type_to_name:
+            with self._ddl_lock:
+                if type_key not in self._type_to_name:
+                    self._emit_ddl(call_site_types, session, type_key)
+        return self._invoke_materialized(
+            self._type_to_name[type_key], converted_args, typed_args, type_key
+        )
+
+    def _invoke_materialized(
+        self,
+        name: str,
+        converted_args: list["snowpark_fn.Column"],
+        typed_args: list[TypedColumn],
+        type_key: str,
+    ) -> "snowpark_fn.Column":
+        """Call the materialized physical function.
+
+        Default: the base ``_invoke_udf`` (appends the schema-JSON sentinel by kind).
+        Overridden by ``LazyPythonUdf`` for the per-signature native/VARIANT choice.
+        """
+        return _invoke_udf(self, converted_args, typed_args, name)
+
+    @abstractmethod
+    def _emit_ddl(
+        self,
+        call_site_types: list[DataType],
+        session: Session,
+        type_key: str | None = None,
+    ) -> None:
+        """Create the physical function for ``type_key`` and record it (see ORDERING CONTRACT)."""
+
+
+@dataclass
+class LazySnowparkUdf(LazyUdfBase):
     """Scala UDF registered without input types whose CREATE FUNCTION DDL is deferred.
 
     Created when spark.udf.register is called without explicit input types.  The DDL
@@ -218,44 +297,11 @@ class LazySnowparkUdf(SnowparkUdfBase):
     inline_payload: bytes | None = None
     # Lazy UDFs are always Scala scalars — never UDAFs.
     kind: UdfKind = field(default=UdfKind.SCALA_UDF, init=False)
-    input_types: list[DataType] = field(default_factory=list, init=False)
     _materialized: bool = field(default=False, init=False, repr=False)
-    # Maps repr(call_site_types) -> materialized UDF name for that signature.
-    # NOTE: one persistent Snowflake function is created per distinct call-site type
-    # signature.  AnyRef-typed UDFs applied across many heterogeneous column types will
-    # accumulate functions (name_<md5>) with no eviction; clean-up is session-scoped.
-    _type_to_name: SynchronizedDict = field(
-        default_factory=SynchronizedDict, init=False, repr=False
-    )
-    # Maps materialized UDF name -> call_site_types for that signature.
-    # Used by DropFunctionCommand to issue DROP FUNCTION for every physical variant.
-    _name_to_types: dict = field(default_factory=dict, init=False, repr=False)
-    # Guards the DDL-emission critical section so concurrent threads don't race on
-    # the check+emit+set sequence.  _type_to_name provides independent read-safety
-    # for the outer fast-path check.
-    _ddl_lock: "threading.Lock" = field(
-        default_factory=threading.Lock, init=False, repr=False
-    )
     # Maps repr(call_site_types) -> effective return DataType for that signature.
     # Only populated when the inferred return type differs from original_return_type
     # (e.g. Decimal return type inferred from call-site input).
     _type_to_effective_rt: dict = field(default_factory=dict, init=False, repr=False)
-
-    def _call(
-        self,
-        converted_args: list["snowpark_fn.Column"],
-        typed_args: list[TypedColumn],
-        session: Session,
-    ) -> "snowpark_fn.Column":
-        call_site_types = [tc.typ for tc in typed_args]
-        type_key = repr(call_site_types)
-        if type_key not in self._type_to_name:
-            with self._ddl_lock:
-                if type_key not in self._type_to_name:
-                    self._emit_ddl(call_site_types, session, type_key)
-        return _invoke_udf(
-            self, converted_args, typed_args, self._type_to_name[type_key]
-        )
 
     def effective_return_type_for(self, call_site_types: list[DataType]) -> DataType:
         """Return the effective DDL return type for the given call-site types.
@@ -275,13 +321,7 @@ class LazySnowparkUdf(SnowparkUdfBase):
     ) -> None:
         if type_key is None:
             type_key = repr(call_site_types)
-
-        # First signature reuses the base name; subsequent ones get a short type hash.
-        if not self._type_to_name:
-            udf_name = self.name
-        else:
-            suffix = hashlib.md5(type_key.encode()).hexdigest()[:8]
-            udf_name = f"{self.name}_{suffix}"
+        udf_name = self._next_udf_name(type_key)
 
         effective_rt = _emit_scala_udf_ddl(
             udf_name,
@@ -292,15 +332,139 @@ class LazySnowparkUdf(SnowparkUdfBase):
             inline_payload=self.inline_payload,
         )
         # Store the inferred return type only when it differs from the declared one,
-        # so post-processing casts use the actual DDL return type.
+        # so post-processing casts use the actual DDL return type. Written before the
+        # _type_to_name gate (see LazyUdfBase ORDERING CONTRACT).
         if effective_rt is not None and effective_rt != self.original_return_type:
             self._type_to_effective_rt[type_key] = effective_rt
-        # input_types is written for structural symmetry with SnowparkUDF but is never
-        # read on the lazy path: decomposes_struct_arg uses the call_site_type parameter.
         self.input_types = call_site_types
         self._materialized = True
-        self._type_to_name[type_key] = udf_name
         self._name_to_types[udf_name] = call_site_types
+        self._type_to_name[type_key] = udf_name
+
+
+@dataclass
+class LazyPythonUdf(LazyUdfBase):
+    """Python UDF registered via ``spark.udf.register`` whose DDL is deferred until the first call.
+
+    At registration time no call-site input types are available, so the DDL cannot be
+    emitted with native input types.  On the first call for a given call-site type
+    signature the physical Snowflake UDF is created with native types for scalar
+    positions (int/float/str/bool/bytes/date/datetime/Decimal), avoiding the all-VARIANT
+    round-trip and the schema-JSON coercion wrapper.
+
+    If call-site types contain any non-native position (struct/map/variant/array), the
+    call falls back to the all-VARIANT protocol (same as today) to preserve correctness.
+
+    One physical function is created per distinct call-site type signature.
+    """
+
+    # Parameters needed to create the physical UDF.
+    _proto: expressions_proto.CommonInlineUserDefinedFunction
+    _udf_packages: str
+    _udf_imports: str
+    _artifact_repository: str | None
+    _resource_constraint: dict[str, str] | None
+    _use_sproc: bool
+
+    kind: UdfKind = field(default=UdfKind.PYTHON_REGISTERED, init=False)
+
+    # Maps repr(call_site_types) -> bool (True = all inputs native, False = all-VARIANT).
+    # Read lock-free in _invoke_materialized, so _emit_ddl writes it before the
+    # _type_to_name gate (see LazyUdfBase ORDERING CONTRACT).
+    _type_to_all_native: dict = field(default_factory=dict, init=False, repr=False)
+
+    def _invoke_materialized(
+        self,
+        name: str,
+        converted_args: list["snowpark_fn.Column"],
+        typed_args: list[TypedColumn],
+        type_key: str,
+    ) -> "snowpark_fn.Column":
+        # ``converted_args`` (encoded by the base ``invoke``) is intentionally ignored:
+        # the physical signature (native vs all-VARIANT) is chosen per signature here.
+        # The base ``invoke`` still owns the return-type cast-back.
+        if self._type_to_all_native[type_key]:
+            # Native inputs: pass through with no VARIANT cast and no schema-JSON sidecar.
+            return snowpark_fn.call_udf(name, *(tc.col for tc in typed_args))
+
+        # All-VARIANT fallback: identical to the base path. ``converted_args`` were
+        # already cast to VARIANT by ``invoke`` and ``_invoke_udf`` appends the
+        # schema-JSON sentinel for PYTHON_REGISTERED.
+        return _invoke_udf(self, converted_args, typed_args, name)
+
+    def _emit_ddl(
+        self,
+        call_site_types: list[DataType],
+        session: Session,
+        type_key: str | None = None,
+    ) -> None:
+        from snowflake.snowpark_connect.utils.python_udf_marshal import (
+            python_is_native_input,
+        )
+
+        if type_key is None:
+            type_key = repr(call_site_types)
+
+        all_native = all(python_is_native_input(t) for t in call_site_types)
+
+        udf_name = session.get_fully_qualified_name_if_possible(
+            self._next_udf_name(type_key)
+        )
+
+        # Native signatures declare native SQL params (no schema-JSON wrapper); any
+        # non-native position falls back to the all-VARIANT + coercion protocol.
+        input_types = call_site_types if all_native else None
+        coerce = not all_native
+
+        if self._use_sproc:
+            physical = process_udf_in_sproc(
+                common_inline_user_defined_function=self._proto,
+                called_from="register_udf_lazy",
+                return_type=self.return_type,
+                kind=UdfKind.PYTHON_REGISTERED,
+                input_types=input_types,
+                udf_name=udf_name,
+                replace=True,
+                udf_packages=self._udf_packages,
+                udf_imports=self._udf_imports,
+                original_return_type=self.original_return_type,
+                artifact_repository=self._artifact_repository,
+                resource_constraint=self._resource_constraint,
+                coerce_via_schema_json=coerce,
+            )
+            physical_name = physical.name
+            # The sproc returns the true physical param list (incl. any trailing
+            # schema-JSON StringType) in input_types.
+            physical_input_types = list(physical.input_types)
+        else:
+            udf_processor = udf_utils.ProcessCommonInlineUserDefinedFunction(
+                common_inline_user_defined_function=self._proto,
+                input_types=input_types,
+                called_from="register_udf_lazy",
+                return_type=self.return_type,
+                udf_packages=self._udf_packages,
+                udf_imports=self._udf_imports,
+                original_return_type=self.original_return_type,
+                artifact_repository=self._artifact_repository,
+                resource_constraint=self._resource_constraint,
+                udf_name=udf_name,
+                replace=True,
+                coerce_via_schema_json=coerce,
+            )
+            physical = udf_processor.create_udf()
+            physical_name = getattr(physical, "name", udf_name)
+            # After create_udf the processor holds the true physical param list: the
+            # all-VARIANT default gains a trailing schema-JSON StringType on the
+            # fallback path (and struct args may be decomposed). Capture it so
+            # DropFunctionCommand emits the exact signature.
+            physical_input_types = list(udf_processor._input_types or [])
+
+        # Populate the flag and name->types map BEFORE the _type_to_name gate:
+        # _invoke_materialized reads _type_to_all_native on the lock-free fast path once
+        # the gate shows the key, so the flag must be visible first.
+        self._type_to_all_native[type_key] = all_native
+        self._name_to_types[physical_name] = physical_input_types
+        self._type_to_name[type_key] = physical_name
 
 
 def require_creating_udf_in_sproc(

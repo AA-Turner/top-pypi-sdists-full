@@ -53,6 +53,14 @@ class _ContainerProcess(typing.Generic[T]):
 
     @property
     def returncode(self) -> int: ...
+    async def _stdin_write_stream(self, source: typing.BinaryIO) -> int:
+        """mdmd:hidden
+        Stream `source` into the process's stdin and close it (EOF) on success.
+
+        Returns the total bytes streamed.
+        """
+        ...
+
     async def poll(self) -> typing.Optional[int]:
         """Check if the container process has finished running.
 
@@ -104,6 +112,25 @@ class ContainerProcess(typing.Generic[T]):
 
     @property
     def returncode(self) -> int: ...
+
+    class ___stdin_write_stream_spec(typing_extensions.Protocol):
+        def __call__(self, /, source: typing.BinaryIO) -> int:
+            """mdmd:hidden
+            Stream `source` into the process's stdin and close it (EOF) on success.
+
+            Returns the total bytes streamed.
+            """
+            ...
+
+        async def aio(self, /, source: typing.BinaryIO) -> int:
+            """mdmd:hidden
+            Stream `source` into the process's stdin and close it (EOF) on success.
+
+            Returns the total bytes streamed.
+            """
+            ...
+
+    _stdin_write_stream: ___stdin_write_stream_spec
 
     class __poll_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[int]:

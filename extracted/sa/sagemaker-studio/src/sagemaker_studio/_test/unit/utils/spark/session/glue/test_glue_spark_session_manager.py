@@ -633,7 +633,7 @@ def test_wait_for_glue_session_api_exception_propagates(manager):
 def test_start_glue_session_fta_not_supported_removes_compat_keys(
     mock_session_cls, mock_boto_client, mock_internal_utils
 ):
-    """Ensure compat keys are removed when FTA is not supported (glueVersion < 5.0)."""
+    """Ensure compat configs are NOT applied when FTA is not supported."""
     conn = MagicMock()
     conn._Connection__connection_data = {
         "props": {"sparkGlueProperties": {"glueVersion": "4.0", "numberOfWorkers": 5}},
@@ -658,9 +658,41 @@ def test_start_glue_session_fta_not_supported_removes_compat_keys(
 
     create_call = mock_glue_client.create_session.call_args
     conf_str = create_call[1]["DefaultArguments"]["--conf"]
-    # Compat keys should NOT be present
+    # Compat-mode-specific keys should NOT be present
     assert "spark.hadoop.fs.s3.credentialsResolverClass" not in conf_str
-    assert "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled" not in conf_str
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_fta_supported_includes_compat_keys(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """Ensure compat keys ARE present when FTA is supported (glueVersion >= 5.0)."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1", "numberOfWorkers": 5}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-fta"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    conf_str = create_call[1]["DefaultArguments"]["--conf"]
+    # Compat keys SHOULD be present when FTA is supported
+    assert "spark.hadoop.fs.s3.credentialsResolverClass" in conf_str
+    assert "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver" in conf_str
+    assert "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled" in conf_str
 
 
 # ---------------------------------------------------------------------------

@@ -115,6 +115,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.FromString,
                 )
+        self.TaskSnapshotMemory = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskSnapshotMemory',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryResponse.FromString,
+                )
         self.TaskUnmountDirectory = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskUnmountDirectory',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskUnmountDirectoryRequest.SerializeToString,
@@ -266,6 +271,16 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskSnapshotMemory(self, request, context):
+        """Take a memory snapshot of the task's sandbox container. Idempotency is
+        keyed on the request idempotency_key: concurrent and repeated calls with
+        the same key share one snapshot attempt. A successful snapshot currently
+        terminates the container.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def TaskUnmountDirectory(self, request, context):
         """Unmount an image previously mounted at a directory in the container.
         """
@@ -375,6 +390,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     servicer.TaskSnapshotFilesystem,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.FromString,
                     response_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.SerializeToString,
+            ),
+            'TaskSnapshotMemory': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskSnapshotMemory,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryResponse.SerializeToString,
             ),
             'TaskUnmountDirectory': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskUnmountDirectory,
@@ -728,6 +748,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSnapshotFilesystem',
             modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemRequest.SerializeToString,
             modal__proto_dot_task__command__router__pb2.TaskSnapshotFilesystemResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskSnapshotMemory(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSnapshotMemory',
+            modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskSnapshotMemoryResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

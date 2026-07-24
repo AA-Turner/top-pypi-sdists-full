@@ -61,8 +61,6 @@ class Updated(BaseModel):
 
     should_llm_filter: Optional[bool] = FieldInfo(alias="shouldLLMFilter", default=None)
 
-    workspace_prompt: Optional[str] = FieldInfo(alias="workspacePrompt", default=None)
-
 
 class SettingUpdateResponse(BaseModel):
     org_id: str = FieldInfo(alias="orgId")

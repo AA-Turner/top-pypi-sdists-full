@@ -154,6 +154,7 @@ class PhoneNumbersResource:
         submission_id: str | None = None,
         quantity: int | None = 1,
         reuse: bool | None = None,
+        reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
@@ -168,6 +169,7 @@ class PhoneNumbersResource:
             submission_id=submission_id,
             quantity=quantity,
             reuse=reuse,
+            reuse_option_id=reuse_option_id,
             reuse_from=reuse_from,
             end_user_first_name=end_user_first_name,
             end_user_last_name=end_user_last_name,
@@ -176,6 +178,10 @@ class PhoneNumbersResource:
             address=address,
         )
         return self._client._post("/v1/phone-numbers/kyc", data=payload)
+
+    def view_phone_number_kyc_document(self, document_id: str) -> dict[str, Any]:
+        """View a KYC document on file"""
+        return self._client._get(f"/v1/phone-numbers/kyc/document/{document_id}")
 
     def upload_phone_number_kyc_document(self, x_filename: str) -> dict[str, Any]:
         """Upload a KYC document"""
@@ -320,6 +326,44 @@ class PhoneNumbersResource:
         )
         return self._client._post(f"/v1/phone-numbers/{id}/remediate", data=payload)
 
+    def reply_to_phone_number_reviewer(
+        self,
+        id: str,
+        *,
+        text: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Reply to the regulatory reviewer"""
+        payload = self._build_payload(
+            text=text,
+            attachments=attachments,
+        )
+        return self._client._post(
+            f"/v1/phone-numbers/{id}/remediate/reply", data=payload
+        )
+
+    def respond_to_phone_number_reviewer(
+        self,
+        id: str,
+        *,
+        message: str | None = None,
+        documents: list[dict[str, Any]] | None = None,
+        address: dict[str, Any] | None = None,
+        entity_type: Any | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Respond to the regulatory reviewer (message + corrections)"""
+        payload = self._build_payload(
+            message=message,
+            documents=documents,
+            address=address,
+            entity_type=entity_type,
+            attachments=attachments,
+        )
+        return self._client._post(
+            f"/v1/phone-numbers/{id}/remediate/respond", data=payload
+        )
+
     async def alist_phone_numbers(
         self, *, status: str | None = None, profile_id: str | None = None
     ) -> dict[str, Any]:
@@ -418,6 +462,7 @@ class PhoneNumbersResource:
         submission_id: str | None = None,
         quantity: int | None = 1,
         reuse: bool | None = None,
+        reuse_option_id: str | None = None,
         reuse_from: str | None = None,
         end_user_first_name: str | None = None,
         end_user_last_name: str | None = None,
@@ -432,6 +477,7 @@ class PhoneNumbersResource:
             submission_id=submission_id,
             quantity=quantity,
             reuse=reuse,
+            reuse_option_id=reuse_option_id,
             reuse_from=reuse_from,
             end_user_first_name=end_user_first_name,
             end_user_last_name=end_user_last_name,
@@ -440,6 +486,10 @@ class PhoneNumbersResource:
             address=address,
         )
         return await self._client._apost("/v1/phone-numbers/kyc", data=payload)
+
+    async def aview_phone_number_kyc_document(self, document_id: str) -> dict[str, Any]:
+        """View a KYC document on file (async)"""
+        return await self._client._aget(f"/v1/phone-numbers/kyc/document/{document_id}")
 
     async def aupload_phone_number_kyc_document(
         self, x_filename: str
@@ -592,4 +642,42 @@ class PhoneNumbersResource:
         )
         return await self._client._apost(
             f"/v1/phone-numbers/{id}/remediate", data=payload
+        )
+
+    async def areply_to_phone_number_reviewer(
+        self,
+        id: str,
+        *,
+        text: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Reply to the regulatory reviewer (async)"""
+        payload = self._build_payload(
+            text=text,
+            attachments=attachments,
+        )
+        return await self._client._apost(
+            f"/v1/phone-numbers/{id}/remediate/reply", data=payload
+        )
+
+    async def arespond_to_phone_number_reviewer(
+        self,
+        id: str,
+        *,
+        message: str | None = None,
+        documents: list[dict[str, Any]] | None = None,
+        address: dict[str, Any] | None = None,
+        entity_type: Any | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Respond to the regulatory reviewer (message + corrections) (async)"""
+        payload = self._build_payload(
+            message=message,
+            documents=documents,
+            address=address,
+            entity_type=entity_type,
+            attachments=attachments,
+        )
+        return await self._client._apost(
+            f"/v1/phone-numbers/{id}/remediate/respond", data=payload
         )

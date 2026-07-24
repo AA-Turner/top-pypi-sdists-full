@@ -984,38 +984,20 @@ def generate_report_lite(
 
             base_maps = dir_outlook / "maps" / best / country / crop
 
-            # Accuracy first, then the forecast. Order within a section:
-            #   (a) rRMSEp scorecard  (b) best-model scatter
-            #   (c) predicted-yield table  (d) predicted-yield map
-            #   (e) outlook-index map
-            # (a) sits under the section heading; (b)-(e) each start a new page.
+            # Accuracy first (best-model predicted-vs-observed scatter), then
+            # the forecast. Order within a section:
+            #   (a) best-model scatter  (b) predicted-yield table
+            #   (c) predicted-yield map  (d) outlook-index map
+            # (a) sits under the section heading; (b)-(d) each start a new page.
 
-            # (a) rRMSEp scorecard
-            scorecard = (
-                dir_outlook / "plots" / "model_comparison" / country
-                / f"rrmsep_summary_{country}_{crop}.png"
-            )
-            score_hits = _find_images(scorecard.parent, scorecard.name)
-            if score_hits:
-                report.add_image(
-                    score_hits[0],
-                    caption=f"Model accuracy — rRMSEp, {country_display} {crop_display}.",
-                    description=_desc("rrmsep"),
-                )
-            else:
-                logger.warning(
-                    f"No rRMSEp scorecard for {country}/{crop} "
-                    f"({scorecard}); skipping image"
-                )
-
-            # (b) Best-model predicted-vs-observed scatter (accuracy)
+            # (a) Best-model predicted-vs-observed scatter (replaces the
+            #     rRMSEp scorecard per request)
             scatter = _scatter_plot(dir_outlook, country, crop, best)
             if scatter is not None:
                 report.add_image(
                     scatter,
                     caption=f"Predicted vs. observed {crop_display} yield — {best}.",
                     description=_desc("scatter"),
-                    page_break_before=True,
                 )
             else:
                 logger.warning(

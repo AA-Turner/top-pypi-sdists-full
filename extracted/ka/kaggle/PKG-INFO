@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kaggle
-Version: 2.2.3
+Version: 2.2.4
 Summary: Access Kaggle resources anywhere
 Project-URL: Homepage, https://github.com/Kaggle/kaggle-cli
 Project-URL: Issues, https://github.com/Kaggle/kaggle-cli/issues
@@ -214,7 +214,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
 Requires-Dist: bleach
 Requires-Dist: jupytext
-Requires-Dist: kagglesdk<1.0,>=0.1.30
+Requires-Dist: kagglesdk<1.0,>=0.1.35
 Requires-Dist: packaging
 Requires-Dist: protobuf
 Requires-Dist: python-dateutil
@@ -264,6 +264,14 @@ kaggle --help
 ```
 
 See the [User documentation](docs/README.md) for more examples & tutorials.
+
+## Hosting a competition
+
+End-to-end host commands — scaffold a new competition, author its pages,
+tune its settings, and launch it — are documented in
+[docs/competition_creation.md](docs/competition_creation.md). Covers
+`kaggle competitions init`, `create`, `pages create`, `hosts`,
+`settings get`, `settings update`, and `launch`.
 
 ## Development
 
@@ -332,6 +340,31 @@ After setting up your credentials, you can run the integration tests as follows:
 ```sh
 hatch run test:integration
 ```
+
+### Code Coverage
+
+We measure code coverage using `pytest-cov`.
+
+To run unit tests with coverage and generate reports:
+
+```sh
+hatch run test:cov
+```
+
+This generates:
+*   Terminal output with a coverage summary.
+*   `coverage.xml` (XML report in the root, used by IDE integrations).
+*   `htmlcov/index.html` (HTML report for browser viewing).
+
+#### Editor Integration
+
+##### VSCode
+Install the **Coverage Gutters** extension. After running the coverage command, click the **Watch** button in the status bar to see coverage indicators in the editor margins.
+
+##### JetBrains Rider
+With the **Python** plugin installed:
+*   **Run with Coverage:** Create a Pytest run configuration and click the shield icon ("Run with Coverage").
+*   **Import Report:** Go to **Tools** -> **Show Code Coverage Data**, click **Add** (+), and select `coverage.xml`.
 
 ### Running `hatch` commands inside Docker
 

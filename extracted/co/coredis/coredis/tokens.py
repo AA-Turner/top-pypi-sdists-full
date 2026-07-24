@@ -15,6 +15,125 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
 
     #: Used by:
     #:
+    #:  - ``ARGREP``
+    #:  - ``AROP``
+    #:  - ``BITOP``
+    AND = b"AND"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    EXACT = b"EXACT"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    GLOB = b"GLOB"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    #:  - ``AROP``
+    MATCH = b"MATCH"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    NOCASE = b"NOCASE"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    #:  - ``AROP``
+    #:  - ``BITOP``
+    OR = b"OR"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    RE = b"RE"
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    #:  - ``HRANDFIELD``
+    WITHVALUES = b"WITHVALUES"
+
+    #: Used by:
+    #:
+    #:  - ``ARINFO``
+    #:  - ``XINFO STREAM``
+    FULL = b"FULL"
+
+    #: Used by:
+    #:
+    #:  - ``ARLASTITEMS``
+    #:  - ``ZRANGE``
+    #:  - ``ZRANGESTORE``
+    REV = b"REV"
+
+    #: Used by:
+    #:
+    #:  - ``AROP``
+    #:  - ``BZMPOP``
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
+    #:  - ``TS.ADD``
+    #:  - ``TS.ALTER``
+    #:  - ``TS.CREATE``
+    #:  - ``TS.CREATERULE``
+    #:  - ``ZINTER``
+    #:  - ``ZINTERSTORE``
+    #:  - ``ZMPOP``
+    #:  - ``ZUNION``
+    #:  - ``ZUNIONSTORE``
+    MAX = b"MAX"
+
+    #: Used by:
+    #:
+    #:  - ``AROP``
+    #:  - ``BZMPOP``
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
+    #:  - ``TS.ADD``
+    #:  - ``TS.ALTER``
+    #:  - ``TS.CREATE``
+    #:  - ``TS.CREATERULE``
+    #:  - ``ZINTER``
+    #:  - ``ZINTERSTORE``
+    #:  - ``ZMPOP``
+    #:  - ``ZUNION``
+    #:  - ``ZUNIONSTORE``
+    MIN = b"MIN"
+
+    #: Used by:
+    #:
+    #:  - ``AROP``
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
+    #:  - ``TS.ADD``
+    #:  - ``TS.ALTER``
+    #:  - ``TS.CREATE``
+    #:  - ``TS.CREATERULE``
+    #:  - ``ZINTER``
+    #:  - ``ZINTERSTORE``
+    #:  - ``ZUNION``
+    #:  - ``ZUNIONSTORE``
+    SUM = b"SUM"
+
+    #: Used by:
+    #:
+    #:  - ``AROP``
+    USED = b"USED"
+
+    #: Used by:
+    #:
+    #:  - ``AROP``
+    #:  - ``BITOP``
+    XOR = b"XOR"
+
+    #: Used by:
+    #:
     #:  - ``BGSAVE``
     SCHEDULE = b"SCHEDULE"
 
@@ -33,6 +152,7 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #: Used by:
     #:
     #:  - ``BITFIELD``
+    #:  - ``XNACK``
     FAIL = b"FAIL"
 
     #: Used by:
@@ -44,11 +164,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``BITFIELD``
     WRAP = b"WRAP"
-
-    #: Used by:
-    #:
-    #:  - ``BITOP``
-    AND = b"AND"
 
     #: Used by:
     #:
@@ -79,16 +194,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
 
     #: Used by:
     #:
-    #:  - ``BITOP``
-    OR = b"OR"
-
-    #: Used by:
-    #:
-    #:  - ``BITOP``
-    XOR = b"XOR"
-
-    #: Used by:
-    #:
     #:  - ``BLMOVE``
     #:  - ``BLMPOP``
     #:  - ``LMOVE``
@@ -102,46 +207,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``LMOVE``
     #:  - ``LMPOP``
     RIGHT = b"RIGHT"
-
-    #: Used by:
-    #:
-    #:  - ``BZMPOP``
-    #:  - ``FT.AGGREGATE``
-    #:  - ``FT.HYBRID``
-    #:  - ``TS.ADD``
-    #:  - ``TS.ALTER``
-    #:  - ``TS.CREATE``
-    #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
-    #:  - ``ZINTER``
-    #:  - ``ZINTERSTORE``
-    #:  - ``ZMPOP``
-    #:  - ``ZUNION``
-    #:  - ``ZUNIONSTORE``
-    MAX = b"MAX"
-
-    #: Used by:
-    #:
-    #:  - ``BZMPOP``
-    #:  - ``FT.AGGREGATE``
-    #:  - ``FT.HYBRID``
-    #:  - ``TS.ADD``
-    #:  - ``TS.ALTER``
-    #:  - ``TS.CREATE``
-    #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
-    #:  - ``ZINTER``
-    #:  - ``ZINTERSTORE``
-    #:  - ``ZMPOP``
-    #:  - ``ZUNION``
-    #:  - ``ZUNIONSTORE``
-    MIN = b"MIN"
 
     #: Used by:
     #:
@@ -256,6 +321,7 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``FAILOVER``
     #:  - ``SHUTDOWN``
     #:  - ``XCLAIM``
+    #:  - ``XNACK``
     FORCE = b"FORCE"
 
     #: Used by:
@@ -528,6 +594,7 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``GETEX``
     #:  - ``HGETEX``
+    #:  - ``INCREX``
     PERSIST = b"PERSIST"
 
     #: Used by:
@@ -539,11 +606,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``HOTKEYS START``
     NET = b"NET"
-
-    #: Used by:
-    #:
-    #:  - ``HRANDFIELD``
-    WITHVALUES = b"WITHVALUES"
 
     #: Used by:
     #:
@@ -566,6 +628,16 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``MSETEX``
     #:  - ``SET``
     KEEPTTL = b"KEEPTTL"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    ENX = b"ENX"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    SATURATE = b"SATURATE"
 
     #: Used by:
     #:
@@ -711,8 +783,13 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
 
     #: Used by:
     #:
-    #:  - ``XINFO STREAM``
-    FULL = b"FULL"
+    #:  - ``XNACK``
+    FATAL = b"FATAL"
+
+    #: Used by:
+    #:
+    #:  - ``XNACK``
+    SILENT = b"SILENT"
 
     #: Used by:
     #:
@@ -744,19 +821,12 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``FT.AGGREGATE``
     #:  - ``FT.HYBRID``
-    #:  - ``TS.ADD``
-    #:  - ``TS.ALTER``
-    #:  - ``TS.CREATE``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     #:  - ``ZINTER``
     #:  - ``ZINTERSTORE``
     #:  - ``ZUNION``
     #:  - ``ZUNIONSTORE``
-    SUM = b"SUM"
+    COUNT = b"COUNT"
 
     #: Used by:
     #:
@@ -769,12 +839,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``ZRANGE``
     #:  - ``ZRANGESTORE``
     BYSCORE = b"BYSCORE"
-
-    #: Used by:
-    #:
-    #:  - ``ZRANGE``
-    #:  - ``ZRANGESTORE``
-    REV = b"REV"
 
     #: Used by:
     #:
@@ -794,6 +858,7 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
 
     #: Used by:
     #:
+    #:  - ``JSON.SET``
     #:  - ``VADD``
     #:  - ``VSIM``
     FP32 = b"FP32"
@@ -838,6 +903,21 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``VEMB``
     RAW = b"RAW"
+
+    #: Used by:
+    #:
+    #:  - ``JSON.SET``
+    BF16 = b"BF16"
+
+    #: Used by:
+    #:
+    #:  - ``JSON.SET``
+    FP16 = b"FP16"
+
+    #: Used by:
+    #:
+    #:  - ``JSON.SET``
+    FP64 = b"FP64"
 
     #: Used by:
     #:
@@ -919,10 +999,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``TS.ALTER``
     #:  - ``TS.CREATE``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     FIRST = b"FIRST"
 
     #: Used by:
@@ -931,10 +1007,6 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``TS.ALTER``
     #:  - ``TS.CREATE``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     LAST = b"LAST"
 
     #: Used by:
@@ -950,94 +1022,47 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``FT.AGGREGATE``
     #:  - ``FT.HYBRID``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     AVG = b"AVG"
 
     #: Used by:
     #:
-    #:  - ``FT.AGGREGATE``
-    #:  - ``FT.HYBRID``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
-    COUNT = b"COUNT"
-
-    #: Used by:
-    #:
-    #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     COUNTALL = b"COUNTALL"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     COUNTNAN = b"COUNTNAN"
 
     #: Used by:
     #:
     #:  - ``FT.HYBRID``
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     RANGE = b"RANGE"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     STD_P = b"STD.P"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     STD_S = b"STD.S"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     TWA = b"TWA"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     VAR_P = b"VAR.P"
 
     #: Used by:
     #:
     #:  - ``TS.CREATERULE``
-    #:  - ``TS.MRANGE``
-    #:  - ``TS.MREVRANGE``
-    #:  - ``TS.RANGE``
-    #:  - ``TS.REVRANGE``
     VAR_S = b"VAR.S"
 
     #: Used by:
@@ -1327,6 +1352,12 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``FT.AGGREGATE``
     #:  - ``FT.HYBRID``
+    COLLECT_TOKEN = b"COLLECT"
+
+    #: Used by:
+    #:
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
     COUNT_DISTINCT = b"COUNT_DISTINCT"
 
     #: Used by:
@@ -1339,7 +1370,19 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``FT.AGGREGATE``
     #:  - ``FT.HYBRID``
+    FIELDSALL = b"FIELDS *"
+
+    #: Used by:
+    #:
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
     FIRST_VALUE = b"FIRST_VALUE"
+
+    #: Used by:
+    #:
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
+    LIMIT_TOKEN = b"LIMIT"
 
     #: Used by:
     #:
@@ -1363,7 +1406,13 @@ class PureToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``FT.AGGREGATE``
     #:  - ``FT.HYBRID``
-    REDUCE = b"REDUCE"
+    REDUCE_TOKEN = b"REDUCE"
+
+    #: Used by:
+    #:
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
+    SORTBY_TOKEN = b"SORTBY"
 
     #: Used by:
     #:
@@ -1463,6 +1512,25 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     """
     Enum for internal use when adding prefixes to arguments
     """
+
+    #: Used by:
+    #:
+    #:  - ``ARGREP``
+    #:  - ``ARSCAN``
+    #:  - ``CLUSTER SLOT-STATS``
+    #:  - ``SINTERCARD``
+    #:  - ``SORT``
+    #:  - ``SORT_RO``
+    #:  - ``XADD``
+    #:  - ``XTRIM``
+    #:  - ``ZINTERCARD``
+    #:  - ``ZRANGE``
+    #:  - ``ZRANGEBYLEX``
+    #:  - ``ZRANGEBYSCORE``
+    #:  - ``ZRANGESTORE``
+    #:  - ``ZREVRANGEBYLEX``
+    #:  - ``ZREVRANGEBYSCORE``
+    LIMIT = b"LIMIT"
 
     #: Used by:
     #:
@@ -1614,23 +1682,6 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #: Used by:
     #:
     #:  - ``CLUSTER SLOT-STATS``
-    #:  - ``SINTERCARD``
-    #:  - ``SORT``
-    #:  - ``SORT_RO``
-    #:  - ``XADD``
-    #:  - ``XTRIM``
-    #:  - ``ZINTERCARD``
-    #:  - ``ZRANGE``
-    #:  - ``ZRANGEBYLEX``
-    #:  - ``ZRANGEBYSCORE``
-    #:  - ``ZRANGESTORE``
-    #:  - ``ZREVRANGEBYLEX``
-    #:  - ``ZREVRANGEBYSCORE``
-    LIMIT = b"LIMIT"
-
-    #: Used by:
-    #:
-    #:  - ``CLUSTER SLOT-STATS``
     ORDERBY = b"ORDERBY"
 
     #: Used by:
@@ -1772,6 +1823,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``GETEX``
     #:  - ``HGETEX``
     #:  - ``HSETEX``
+    #:  - ``INCREX``
     #:  - ``MSETEX``
     #:  - ``SET``
     EX = b"EX"
@@ -1781,6 +1833,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``GETEX``
     #:  - ``HGETEX``
     #:  - ``HSETEX``
+    #:  - ``INCREX``
     #:  - ``MSETEX``
     #:  - ``SET``
     EXAT = b"EXAT"
@@ -1790,6 +1843,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``GETEX``
     #:  - ``HGETEX``
     #:  - ``HSETEX``
+    #:  - ``INCREX``
     #:  - ``MSETEX``
     #:  - ``SET``
     PX = b"PX"
@@ -1799,6 +1853,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``GETEX``
     #:  - ``HGETEX``
     #:  - ``HSETEX``
+    #:  - ``INCREX``
     #:  - ``MSETEX``
     #:  - ``SET``
     PXAT = b"PXAT"
@@ -1816,6 +1871,8 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
 
     #: Used by:
     #:
+    #:  - ``FT.AGGREGATE``
+    #:  - ``FT.HYBRID``
     #:  - ``FT.SEARCH``
     #:  - ``HEXPIRE``
     #:  - ``HEXPIREAT``
@@ -1858,6 +1915,26 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:  - ``SSCAN``
     #:  - ``ZSCAN``
     MATCH = b"MATCH"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    BYFLOAT = b"BYFLOAT"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    BYINT = b"BYINT"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    LBOUND = b"LBOUND"
+
+    #: Used by:
+    #:
+    #:  - ``INCREX``
+    UBOUND = b"UBOUND"
 
     #: Used by:
     #:
@@ -1931,6 +2008,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #:
     #:  - ``XACKDEL``
     #:  - ``XDELEX``
+    #:  - ``XNACK``
     IDS = b"IDS"
 
     #: Used by:
@@ -1967,6 +2045,7 @@ class PrefixToken(CaseAndEncodingInsensitiveEnum):
     #: Used by:
     #:
     #:  - ``XCLAIM``
+    #:  - ``XNACK``
     RETRYCOUNT = b"RETRYCOUNT"
 
     #: Used by:

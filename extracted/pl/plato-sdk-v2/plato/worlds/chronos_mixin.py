@@ -10,11 +10,15 @@ import asyncio
 import logging
 import os
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from plato.otel import init_tracing, shutdown_tracing
 from plato.vm_metrics import shutdown_metrics
 from plato.worlds.config import WorkspaceSourceSpec
 from plato.worlds.models import StateHistoryEntry, WorkspaceSnapshot
+
+if TYPE_CHECKING:
+    from plato.chronos.models import SessionPreviewUrlsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,23 @@ class ChronosSessionMixin:
             base_url=self._get_chronos_base_url(),
             api_key=self._get_chronos_api_key(),
         )
+
+    async def publish_preview_url(
+        self,
+        url: str,
+        *,
+        label: str = "Preview",
+    ) -> SessionPreviewUrlsResponse:
+        """Publish a labeled external link in this world's trajectory header."""
+        if not self.chronos.session_id:
+            raise RuntimeError("Cannot publish a preview URL without a Chronos session ID")
+
+        async with self._chronos_client() as client:
+            return await client.publish_preview_url(
+                self.chronos.session_id,
+                url,
+                label=label,
+            )
 
     # -- OTel / session setup ----------------------------------------------
 

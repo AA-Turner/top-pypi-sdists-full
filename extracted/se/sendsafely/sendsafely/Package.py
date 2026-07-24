@@ -35,6 +35,9 @@ class Package:
         """
         :param sendsafely_instance: The authenticated SendSafely object.
         :param package_variables:
+        :param workspace: When True, creates a Workspace and uploads the encrypted keycode to each
+        public key on the package (org Master Key, trusted devices), like finalize() does.
+        If the keycode upload fails, the new Workspace is deleted and UploadKeycodeException raised.
         """
         super().__init__()
         warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
@@ -57,6 +60,16 @@ class Package:
                 self.package_code = response["packageCode"]
             except KeyError:
                 raise CreatePackageFailedException(details=response["message"])
+            if workspace:
+                try:
+                    self._upload_keycodes()
+                except Exception as e:
+                    try:
+                        self.delete_package()
+                    except Exception:
+                        pass
+                    raise UploadKeycodeException(
+                        details="Workspace " + self.package_id + " was created but uploading keycodes failed: " + str(e))
         else:
             self.sendsafely = sendsafely_instance
             self.package_id = package_variables["packageId"]
@@ -93,7 +106,9 @@ class Package:
 
     def add_recipient(self, email):
         """
-        Adds a recipient to this package
+        Adds a recipient to this package, then uploads the encrypted keycode to the
+        recipient's public keys (skipped if this package was loaded without a keycode).
+        If the keycode upload fails the recipient is still added.
         :param email: The email to add to this package
         :return:
         """
@@ -108,6 +123,37 @@ class Package:
             raise AddRecipientFailedException(details=str(e))
         if response["response"] != "SUCCESS":
             raise AddRecipientFailedException(details=response["message"])
+        # Assume checkForPublicKeys when the server omits it. Checking a recipient with no
+        # keys is a no-op; skipping one that has keys locks them out of the keycode.
+        if self.initialized_via_keycode and response.get("recipientId") \
+                and response.get("checkForPublicKeys", True):
+            self._upload_keycodes(recipient_id=response["recipientId"])
+        return response
+
+    def add_recipients(self, emails):
+        """
+        Adds a list of recipients to this package, then uploads the encrypted keycode to the
+        public keys of each recipient the server flags with checkForPublicKeys (skipped if
+        this package was loaded without a keycode). If a keycode upload fails the recipients
+        are still added.
+        :param emails: The list of emails to add to this package
+        :return:
+        """
+        sendsafely = self.sendsafely
+        endpoint = "/package/" + self.package_id + "/recipients/"
+        url = sendsafely.BASE_URL + endpoint
+        body = {'emails': emails}
+        headers = make_headers(sendsafely.API_SECRET, sendsafely.API_KEY, endpoint, request_body=json.dumps(body))
+        try:
+            response = requests.put(url, headers=headers, json=body).json()
+        except Exception as e:
+            raise AddRecipientFailedException(details=str(e))
+        if response["response"] != "SUCCESS":
+            raise AddRecipientFailedException(details=response["message"])
+        if self.initialized_via_keycode:
+            for recipient in response.get("recipients", []):
+                if recipient.get("recipientId") and recipient.get("checkForPublicKeys"):
+                    self._upload_keycodes(recipient_id=recipient["recipientId"])
         return response
 
     def update_recipient_phone_number(self, recipient_id, phone, country_code="US"):
@@ -193,18 +239,28 @@ class Package:
         except Exception as e:
             raise UploadFileException(details=str(e))
 
-    def get_public_keys(self):
-        endpoint = '/package/' + self.package_id + '/public-keys/'
+    def get_public_keys(self, recipient_id=None):
+        """
+        Gets the public keys with access to this package, or just one recipient's keys
+        if recipient_id is passed.
+        """
+        if recipient_id:
+            endpoint = '/package/' + self.package_id + '/' + recipient_id + '/public-keys/'
+        else:
+            endpoint = '/package/' + self.package_id + '/public-keys/'
         url = self.sendsafely.BASE_URL + endpoint
         headers = make_headers(self.sendsafely.API_SECRET, self.sendsafely.API_KEY, endpoint)
-        response = requests.get(url=url, headers=headers).json()
+        try:
+            response = requests.get(url=url, headers=headers).json()
+        except Exception as e:
+            raise GetPublicKeysFailedException(details=str(e))
         if response["response"] != "SUCCESS":
             raise GetPublicKeysFailedException(details=response["message"])
         return response["publicKeys"]
 
-    def _upload_keycodes(self):
+    def _upload_keycodes(self, recipient_id=None):
         # Get public keys available for the users
-        public_keys = self.get_public_keys()
+        public_keys = self.get_public_keys(recipient_id=recipient_id)
         uploaded = []
         # Upload keycodes
         for key in public_keys:

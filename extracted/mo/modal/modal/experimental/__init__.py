@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 
 from modal_proto import api_pb2
 
-from .._clustered_functions import ClusterInfo, get_cluster_info as _get_cluster_info
+from .._clustered_functions import (
+    ClusterInfo,
+    get_cluster_info as _get_cluster_info,
+    get_fabric_peers as _get_fabric_peers,
+)
 from .._functions import _Function
 from .._image import (
     DockerfileSpec as DockerfileSpec,
@@ -51,6 +55,10 @@ def set_local_input_concurrency(concurrency: int):
 
 def get_cluster_info() -> ClusterInfo:
     return _get_cluster_info()
+
+
+def get_fabric_peers() -> list[int]:
+    return _get_fabric_peers()
 
 
 clustered = synchronize_api(_clustered, target_module=__name__)
@@ -141,6 +149,7 @@ async def stop_app(name: str, *, environment_name: str | None = None, client: _C
     """
     client_ = client or await _Client.from_env()
     app = await _App.lookup(name, environment_name=environment_name, client=client_)
+    assert app.app_id
     req = api_pb2.AppStopRequest(app_id=app.app_id, source=api_pb2.APP_STOP_SOURCE_PYTHON_CLIENT)
     await client_.stub.AppStop(req)
 
@@ -174,6 +183,7 @@ async def get_app_objects(
         client = await _Client.from_env()
 
     app = await _App.lookup(app_name, environment_name=environment_name, client=client)
+    assert app.app_id
     req = api_pb2.AppGetLayoutRequest(app_id=app.app_id)
     app_layout_resp = await client.stub.AppGetLayout(req)
 

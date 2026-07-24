@@ -199,12 +199,22 @@ class NoRunResult:
 
 @dataclass
 class CacheBypassedResponse:
-    """A local "response" returned when the cache is in write-only mode, containing the request that would have been sent"""
+    """A local "response" that defers recording the execution outcome until after the node runs.
+
+    Returned when the cache is in write-only mode, and also for a speculative
+    untracked-execute verdict in read-write mode, in both cases containing the request that
+    should be sent once the node has executed.
+
+    When ``speculative`` is set, the request was built from partial (still-prefetching)
+    dependency timestamps, so its timestamps must be finalized against the completed
+    prefetch before the outcome is recorded.
+    """
 
     request: t.Union[
         sql_service_models.SubmitEnrichedSQLRequest, sql_service_models.SubmitValuesRequest
     ]
     node: ModelOrSnapshotOrTestOrSeedNode
+    speculative: bool = False
 
 
 class RunCache:
@@ -243,6 +253,7 @@ class RunCache:
         )
 
         self._prefetch_tables_lock = threading.Lock()
+        self._prefetch_started: bool = False
         self._prefetch_future: t.Optional[Future[None]] = None
         self._prefetch_done: bool = False
 
@@ -386,7 +397,7 @@ class RunCache:
             node: The model node being compiled.
         """
         try:
-            self._prefetch_last_modified()
+            self._start_prefetch_last_modified()
         except Exception as e:
             events.fire_warn_event("Failed to prefetch last modified timestamps: {}", str(e))
 
@@ -562,9 +573,14 @@ class RunCache:
 
         original_request = bypass_response.request
         if isinstance(original_request, sql_service_models.SubmitEnrichedSQLRequest):
+            if bypass_response.speculative:
+                original_request = self._finalize_speculative_request(
+                    bypass_response.node, original_request
+                )
             record.enriched_sql = execution_service_models.SQLExecution.from_submit_sql_request(
                 original_request
             )
+            record.enriched_sql.from_speculative_submit = bypass_response.speculative
         else:
             record.values = execution_service_models.ValuesExecution.from_submit_values_request(
                 original_request
@@ -580,10 +596,41 @@ class RunCache:
                 str(e),
             )
 
+    def _finalize_speculative_request(
+        self,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        request: sql_service_models.SubmitEnrichedSQLRequest,
+    ) -> sql_service_models.SubmitEnrichedSQLRequest:
+        """Fill in real dependency timestamps for a request built speculatively.
+
+        A speculative request is built from whatever timestamps the in-flight prefetch
+        had produced, leaving the rest unset. Before the outcome is recorded we block on
+        the prefetch and refresh the dependency timestamps so the recorded execution
+        reflects the same freshness a normal, non-speculative execution would -- including
+        any dbt source freshness overrides, which the speculative build path skips and
+        which a re-fetch would otherwise miss if the prefetched value has since expired.
+        """
+        self._await_prefetch_last_modified()
+        table_names = [info.name for info in request.tables]
+        if not table_names:
+            return request
+        overrides = (
+            self._resolve_dbt_source_freshness_overrides(node)
+            if isinstance(node, ModelNode)
+            else {}
+        )
+        epochs = self._adapter_ext.get_last_modified_epoch(table_names, table_overrides=overrides)
+        refreshed = {
+            info.name: epochs.get(info.name, info.last_modified_epoch) for info in request.tables
+        }
+        refreshed_tables = [
+            shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
+            for name, epoch in refreshed.items()
+        ]
+        return replace(request, tables=refreshed_tables)
+
     def on_run_result(self, node: ModelOrSnapshotOrSeedNode, result: RunResult) -> None:
-        if not self.is_write_only or not (
-            bypass_response := self._cache_bypass_responses.get(node.unique_id)
-        ):
+        if not (bypass_response := self._cache_bypass_responses.get(node.unique_id)):
             return
 
         target_table_type, last_modified_epoch = (
@@ -681,40 +728,62 @@ class RunCache:
 
         return tables
 
-    def _prefetch_last_modified(self) -> None:
-        """Collect tables for selected models and prefetch their last modified timestamps.
+    def _start_prefetch_last_modified(self) -> None:
+        """Kick off the async last-modified prefetch if not already started.
 
-        On the first call, reads the globally selected resources, collects relevant
-        model/snapshot/source FQNs, and triggers an async prefetch. Subsequent calls
-        block until the prefetch completes, then become no-ops.
+        Reads the globally selected resources and collects relevant model/snapshot/source
+        FQNs, then triggers an async prefetch. Does not block on the result; use
+        `_await_prefetch_last_modified` to wait for it. Idempotent: subsequent calls
+        are no-ops.
+        """
+        with self._prefetch_tables_lock:
+            if self._prefetch_started:
+                return
+            self._prefetch_started = True
+            tables = self._collect_all_prefetch_tables(self._selected_resource_ids)
+            if not tables:
+                self._prefetch_done = True
+                return
+            events.fire_debug_event(
+                "Prefetching last modified timestamps for {} tables",
+                len(tables),
+            )
+            freshness_overrides = {
+                fqn: override
+                for fqn, node in tables.items()
+                if isinstance(node, SourceDefinition)
+                for _, override in self._resolve_dbt_source_freshness_overrides(node).items()
+            }
+            self._prefetch_future = self._adapter_ext.prefetch_last_modified_epochs(
+                tables.keys(), table_overrides=freshness_overrides
+            )
+
+    def _await_prefetch_last_modified(self) -> None:
+        """Ensure the prefetch has started, then block until it completes.
+
+        Idempotent: once the prefetch has completed, subsequent calls are no-ops.
         """
         if self._prefetch_done:
             return
-
+        self._start_prefetch_last_modified()
         with self._prefetch_tables_lock:
-            if self._prefetch_done:
-                return
-            if self._prefetch_future is None:
-                tables = self._collect_all_prefetch_tables(self._selected_resource_ids)
-                if not tables:
-                    self._prefetch_done = True
-                    return
-                events.fire_debug_event(
-                    "Prefetching last modified timestamps for {} tables",
-                    len(tables),
-                )
-                freshness_overrides = {
-                    fqn: override
-                    for fqn, node in tables.items()
-                    if isinstance(node, SourceDefinition)
-                    for _, override in self._resolve_dbt_source_freshness_overrides(node).items()
-                }
-                self._prefetch_future = self._adapter_ext.prefetch_last_modified_epochs(
-                    tables.keys(), table_overrides=freshness_overrides
-                )
             future = self._prefetch_future
-        future.result()
+        if future is not None:
+            future.result()
         self._prefetch_done = True
+
+    def _is_prefetch_ready(self) -> bool:
+        """Whether the prefetch has completed, or there is nothing to prefetch.
+
+        Returns False when the prefetch has not been started yet: callers decide whether
+        to speculate only after starting it (see ``_start_prefetch_last_modified``), so an
+        unstarted prefetch is not "ready".
+        """
+        with self._prefetch_tables_lock:
+            if not self._prefetch_started:
+                return False
+            future = self._prefetch_future
+            return self._prefetch_done or future is None or future.done()
 
     def _commit_if_open(self) -> None:
         self._adapter.connections.get_thread_connection().transaction_open = True
@@ -953,6 +1022,48 @@ class RunCache:
             )
         return True
 
+    def _submit_sql_speculative(
+        self,
+        node: ModelOrSnapshotOrTestNode,
+        request: sql_service_models.SubmitEnrichedSQLRequest,
+        request_id: str,
+    ) -> t.Union[
+        sql_service_models.SkipExecutionResponse,
+        clone_service_models.ReadyToCloneResponse,
+        sql_service_models.ReadyToExecuteUntrackedResponse,
+        None,
+    ]:
+        """Issue a speculative submit and map the verdict onto an actionable response.
+
+        Returns Skip/Clone responses to act on immediately, the ReadyToExecuteUntrackedResponse
+        itself for an untracked-execute verdict (the caller must await the prefetch and rebuild
+        the request with real timestamps before recording it), or None to signal that the caller
+        must block on the prefetch and resubmit non-speculatively (undecided verdict, or any
+        speculative error/timeout).
+        """
+        try:
+            response = self._query_cache_client.submit_sql_speculative(request, request_id)
+        except Exception as e:
+            events.fire_debug_event("Speculative submit failed for node {}: {}", node.name, str(e))
+            return None
+
+        events.fire_debug_event(
+            "Speculative submit for node {} returned {}", node.name, type(response).__name__
+        )
+        if isinstance(
+            response,
+            (sql_service_models.SkipExecutionResponse, clone_service_models.ReadyToCloneResponse),
+        ):
+            if response.execution_decision_id:
+                self._decision_logger.log_execution_decision_id(
+                    node_name=node.name, execution_decision_id=response.execution_decision_id
+                )
+            return response
+        if isinstance(response, sql_service_models.ReadyToExecuteUntrackedResponse):
+            return response
+        # Undecided, or any unexpected response type: block on the prefetch and resubmit.
+        return None
+
     def _submit_sql_request(
         self,
         node: ModelOrSnapshotOrTestNode,
@@ -969,8 +1080,17 @@ class RunCache:
         request_id = uuid.uuid4().hex
         request_start_time = perf_counter()
         try:
+            self._start_prefetch_last_modified()
+            use_speculative = not self.is_write_only and not self._is_prefetch_ready()
+            if not use_speculative:
+                self._await_prefetch_last_modified()
+
             request, timings = self._build_submit_enriched_sql_request(
-                node, sql, execution_type, microbatch_window=microbatch_window
+                node,
+                sql,
+                execution_type,
+                microbatch_window=microbatch_window,
+                speculative=use_speculative,
             )
             request_end_time = perf_counter()
             duration = request_end_time - request_start_time
@@ -990,6 +1110,36 @@ class RunCache:
                 # todo: does a cache bypass still need to submit telemetry?
                 # technically the "enriched" SQL was still prepared, we just didnt use it to ask for a cache decision
                 return CacheBypassedResponse(request, node)
+
+            if use_speculative:
+                events.fire_debug_event(
+                    "Prefetch still in flight for node {}; submitting speculatively", node.name
+                )
+                speculative_result = self._submit_sql_speculative(node, request, request_id)
+                if isinstance(
+                    speculative_result,
+                    (
+                        sql_service_models.SkipExecutionResponse,
+                        clone_service_models.ReadyToCloneResponse,
+                    ),
+                ):
+                    return speculative_result
+                if isinstance(
+                    speculative_result, sql_service_models.ReadyToExecuteUntrackedResponse
+                ):
+                    # Execute the node now; its outcome is recorded after the fact with real
+                    # timestamps (finalized against the completed prefetch) via RecordExecutions.
+                    return CacheBypassedResponse(request, node, speculative=True)
+                # Undecided verdict or a speculative error: block on the prefetch and resubmit
+                # a non-speculative request built with real timestamps.
+                self._await_prefetch_last_modified()
+                request, _ = self._build_submit_enriched_sql_request(
+                    node,
+                    sql,
+                    execution_type,
+                    microbatch_window=microbatch_window,
+                    speculative=False,
+                )
 
             response = self._query_cache_client.submit_sql(request, request_id)
             if response.execution_decision_id:
@@ -1189,6 +1339,7 @@ class RunCache:
         sql: t.Optional[str],
         execution_type: t.Optional[shared_models.ModelExecutionType],
         microbatch_window: t.Optional[t.Tuple[datetime, datetime]] = None,
+        speculative: bool = False,
     ) -> t.Tuple[sql_service_models.SubmitEnrichedSQLRequest, EnrichmentTimings]:
         sql = sql or node.compiled_code or ""
 
@@ -1212,7 +1363,11 @@ class RunCache:
             # and query hash matter, since the query is re-evaluated every time the view is queried
             assert target_table is not None
             last_modified_start = perf_counter()
-            last_modified_epoch = self._adapter_ext.get_last_modified_epoch([target_table])
+            last_modified_epoch = (
+                self._adapter_ext.get_available_last_modified_epochs([target_table])
+                if speculative
+                else self._adapter_ext.get_last_modified_epoch([target_table])
+            )
             last_modified_duration_ms = int((perf_counter() - last_modified_start) * 1000)
             table_infos = [
                 shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
@@ -1254,35 +1409,45 @@ class RunCache:
             all_tables.add(target_table)
         last_modified_start = perf_counter()
 
-        overrides = {}
-        source_freshness_overrides = (
-            self._resolve_dbt_source_freshness_overrides(node)
-            if isinstance(node, ModelNode)
-            else {}
-        )
-        overrides.update(source_freshness_overrides)
+        if speculative:
+            last_modified_epoch = self._adapter_ext.get_available_last_modified_epochs(all_tables)
+            # Views whose definition could not be resolved have no reliable freshness signal.
+            # Force them unset (treated as "now" server-side) even if a stale epoch happens to be
+            # cached, so a speculative decision cannot treat them as fresh — matching the
+            # non-speculative path, which overrides them to "now".
+            for fqn in traversal_result.unresolvable_tables:
+                if fqn in last_modified_epoch:
+                    last_modified_epoch[fqn] = None
+        else:
+            overrides = {}
+            source_freshness_overrides = (
+                self._resolve_dbt_source_freshness_overrides(node)
+                if isinstance(node, ModelNode)
+                else {}
+            )
+            overrides.update(source_freshness_overrides)
 
-        unresolvable = traversal_result.unresolvable_tables
-        if unresolvable:
-            self._adapter_ext.clear_last_modified_cache(unresolvable)
-            now_ms = self._get_heuristic_now_epoch()
-            if now_ms:
-                unresolvable_without_override = [
-                    fqn for fqn in unresolvable if fqn not in overrides
-                ]
-                if unresolvable_without_override:
-                    events.fire_warn_event(
-                        "Could not determine freshness for {}; treating as modified."
-                        " Configure loaded_at_field or loaded_at_query to set freshness timestamp.",
-                        ", ".join(unresolvable_without_override),
+            unresolvable = traversal_result.unresolvable_tables
+            if unresolvable:
+                self._adapter_ext.clear_last_modified_cache(unresolvable)
+                now_ms = self._get_heuristic_now_epoch()
+                if now_ms:
+                    unresolvable_without_override = [
+                        fqn for fqn in unresolvable if fqn not in overrides
+                    ]
+                    if unresolvable_without_override:
+                        events.fire_warn_event(
+                            "Could not determine freshness for {}; treating as modified."
+                            " Configure loaded_at_field or loaded_at_query to set freshness timestamp.",
+                            ", ".join(unresolvable_without_override),
+                        )
+                    overrides.update(
+                        {fqn: (lambda v=now_ms: v) for fqn in unresolvable_without_override}
                     )
-                overrides.update(
-                    {fqn: (lambda v=now_ms: v) for fqn in unresolvable_without_override}
-                )
 
-        last_modified_epoch = self._adapter_ext.get_last_modified_epoch(
-            all_tables, table_overrides=overrides
-        )
+            last_modified_epoch = self._adapter_ext.get_last_modified_epoch(
+                all_tables, table_overrides=overrides
+            )
 
         last_modified_duration_ms = int((perf_counter() - last_modified_start) * 1000)
 

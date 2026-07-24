@@ -1987,7 +1987,15 @@ fn build_operator(name: &str, operands: SmallVec<[Object; 6]>) -> Operator {
 
         // XObject
         "Do" => {
-            let name = get_name(&operands, 0).unwrap_or("").to_string();
+            // Per ISO 32000-1:2008 §7.8.2, operands "shall immediately precede"
+            // their operator and none "shall be left over" once it executes.
+            // Do takes exactly one operand (the XObject name); if stray operands
+            // accumulated ahead of it (e.g. a dropped/malformed `cm` before this
+            // `Do`), the name is still the one immediately preceding the operator,
+            // i.e. the LAST element, not necessarily the first.
+            let name = get_name(&operands, operands.len().saturating_sub(1))
+                .unwrap_or("")
+                .to_string();
             Operator::Do { name }
         },
 
@@ -2573,6 +2581,13 @@ fn parse_six_floats(data: &[u8]) -> Option<(f32, f32, f32, f32, f32, f32)> {
 /// Byte-level check for pure graphics operators that can be skipped during
 /// text-only extraction. Equivalent to [`is_skippable_graphics_op`] but
 /// operates on raw `&[u8]` without UTF-8 conversion.
+///
+/// Includes the colour operators (rg/RG/g/G/k/K/cs/CS/sc/SC/scn/SCN):
+/// skipping them here is only sound when the caller also guarantees a
+/// matching `Q` will revert any colour change before it can reach a `BT`
+/// (the `deferred_depth > 0` block in `scan_graphics_region`). Do not use
+/// this predicate to decide skippability outside a deferred q/Q scope -
+/// see [`is_color_op_bytes`] for that case.
 fn is_skippable_graphics_op_bytes(op: &[u8]) -> bool {
     matches!(
         op,
@@ -2583,6 +2598,25 @@ fn is_skippable_graphics_op_bytes(op: &[u8]) -> bool {
         | b"w" | b"J" | b"j" | b"M" | b"d" | b"i" | b"ri" | b"sh" // non-text graphics state
         | b"rg" | b"RG" | b"g" | b"G" | b"k" | b"K"            // color (rgb/gray/cmyk)
         | b"cs" | b"CS" | b"sc" | b"SC" | b"scn" | b"SCN" // color space/components
+    )
+}
+
+/// Byte-level check for operators that set persistent fill/stroke colour
+/// state (rg/RG/g/G/k/K/cs/CS/sc/SC/scn/SCN).
+///
+/// Used at the *top level* of `scan_graphics_region` (deferred_depth == 0,
+/// i.e. no enclosing unmatched `q`). Unlike pure path/paint/clip operators,
+/// a colour change here is not reverted by anything before the next `BT` -
+/// per ISO 32000-1:2008 SS8.4 the graphics state (including colour) persists
+/// across BT/ET boundaries. Discarding it as "skippable" left GraphicsState
+/// stuck at its default black whenever a document set fill colour before
+/// opening the text object (a common pattern: BDC, colour, BT, Tf, Tm, Tj),
+/// so text that should render in colour was extracted as black even though
+/// the identical scn issued *inside* an already-open BT worked correctly.
+fn is_color_op_bytes(op: &[u8]) -> bool {
+    matches!(
+        op,
+        b"rg" | b"RG" | b"g" | b"G" | b"k" | b"K" | b"cs" | b"CS" | b"sc" | b"SC" | b"scn" | b"SCN"
     )
 }
 
@@ -3416,7 +3450,9 @@ fn parse_text_operator_fast(input: &[u8]) -> Option<(&[u8], Operator)> {
                         Operator::SetExtGState { dict_name }
                     },
                     b"Do" => {
-                        let name = match &operands[0] {
+                        // See the nom-parser "Do" arm in `build_operator` for why
+                        // this reads the last operand, not operands[0].
+                        let name = match &operands[op_count.saturating_sub(1)] {
                             Some(FastOperand::Name(n)) => n.clone(),
                             _ => String::new(),
                         };
@@ -3559,9 +3595,12 @@ fn scan_graphics_region<'a>(data: &'a [u8], consecutive_errors: &mut usize) -> S
                 // Avoids reading the full operator name and is_skippable check.
                 // Path: m(moveto), l(lineto), c(curveto), v/y(curves), h(close)
                 // Paint: f/F(fill), B/b(fill+stroke), S/s(stroke), n(endpath), W(clip)
-                // Color: g/G(gray), k/K(cmyk)
                 // State: w(linewidth), d(dash), i(flatness), J/j(cap/join), M(miter)
-                // Note: q/Q excluded (need deferred depth tracking)
+                // Note: q/Q excluded (need deferred depth tracking). g/G/k/K
+                // (gray/cmyk fill-color) also excluded - they mutate persistent
+                // colour state that must reach a later BT/Tj when found outside
+                // a q/Q scope (see is_color_op_bytes below); they fall through to
+                // the slow alpha-scan path so that check can see them.
                 if second_is_non_alpha
                     && matches!(
                         first_byte,
@@ -3578,10 +3617,6 @@ fn scan_graphics_region<'a>(data: &'a [u8], consecutive_errors: &mut usize) -> S
                             | b's'
                             | b'n'
                             | b'W'
-                            | b'g'
-                            | b'G'
-                            | b'k'
-                            | b'K'
                             | b'w'
                             | b'd'
                             | b'i'
@@ -3661,6 +3696,15 @@ fn scan_graphics_region<'a>(data: &'a [u8], consecutive_errors: &mut usize) -> S
                             rest: &data[i..],
                         };
                     }
+                    return ScanResult::NeedFullParse {
+                        operand_start: &data[operand_start..],
+                        after_op: &data[i..],
+                    };
+                } else if is_color_op_bytes(op) {
+                    // Outside any q/Q scope (deferred_depth == 0) nothing
+                    // will revert this colour change before the next BT -
+                    // route through the full parser so the handler applies
+                    // it to GraphicsState instead of silently dropping it.
                     return ScanResult::NeedFullParse {
                         operand_start: &data[operand_start..],
                         after_op: &data[i..],
@@ -3969,11 +4013,44 @@ mod tests {
     }
 
     #[test]
-    fn test_text_only_skips_color_ops() {
-        // Color operators outside BT/ET are now skipped (they don't affect text)
+    fn test_do_resolves_name_when_stray_operands_precede_it() {
+        // A `q ... /Name Do Q` sequence whose leading numeric operands were
+        // never consumed by a `cm` (missing/dropped token, or any other
+        // non-conformant producer quirk). Per ISO 32000-1:2008 §7.8.2 an
+        // operator's operand is whatever immediately precedes it — here
+        // that's the Name, not the stray numbers ahead of it — so Do must
+        // still resolve "Overlay", not silently produce "".
+        let stream = b"q 1 0 0 1 20 150 /Overlay Do Q";
+        let ops = parse_content_stream_text_only(stream).unwrap();
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, Operator::Do { ref name } if name == "Overlay")),
+            "expected a Do operator naming \"Overlay\", got: {:?}",
+            ops
+        );
+
+        // Same stream through the full parser (used when ink exclusion is active).
+        let ops_full = parse_content_stream(stream).unwrap();
+        assert!(ops_full
+            .iter()
+            .any(|op| matches!(op, Operator::Do { ref name } if name == "Overlay")));
+    }
+
+    #[test]
+    fn test_text_only_preserves_color_ops_outside_bt() {
+        // Color operators outside BT/ET are NOT skipped: nothing reverts
+        // them before a later BT, so a colour set here must still reach
+        // GraphicsState for whatever text object comes next (regression
+        // for the "colour set before BT extracted as black" bug fixed by
+        // is_color_op_bytes in scan_graphics_region).
         let stream = b"1 0 0 rg 0.5 g /CS1 cs";
         let ops = parse_content_stream_text_only(stream).unwrap();
-        assert_eq!(ops.len(), 0);
+        assert_eq!(ops.len(), 3);
+        assert!(
+            matches!(ops[0], Operator::SetFillRgb { r, g, b } if r == 1.0 && g == 0.0 && b == 0.0)
+        );
+        assert!(matches!(ops[1], Operator::SetFillGray { gray } if gray == 0.5));
+        assert!(matches!(ops[2], Operator::SetFillColorSpace { ref name } if name == "CS1"));
     }
 
     #[test]

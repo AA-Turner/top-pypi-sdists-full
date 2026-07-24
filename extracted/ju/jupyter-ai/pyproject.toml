@@ -28,24 +28,39 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-  "jupyterlab_chat>=0.22.1,<0.23.0",
-  "jupyter_server_documents>=0.2.5,<0.3.0",
+  "jupyterlab_chat>=0.23.0,<0.24.0",
+  "jupyter_server_documents>=0.3.1,<0.4.0",
   "jupyter_ai_router>=0.0.5,<0.1.0",
-  "jupyter_ai_persona_manager>=0.0.11,<0.1.0",
+  "jupyter_ai_persona_manager>=0.1.2,<0.2.0",
   "jupyter_ai_chat_commands>=0.0.4,<0.1.0",
-  "jupyter_ai_acp_client>=0.1.5,<0.2.0",
-  "jupyter_server_mcp>=0.2.1,<0.3.0",
-  "jupyter_ai_tools>=0.5.2,<0.6.0",
+  "jupyter_ai_acp_client>=0.2.0,<0.3.0",
+  "jupyter_server_mcp>=0.2.1,<0.4.0",
+  "jupyter_ai_tools>=0.6.1,<0.7.0",
   "jupyterlab_notebook_awareness>=0.2.0,<0.3.0",
   "jupyterlab_commands_toolkit>=0.1.6,<0.2.0",
 ]
 
 [project.optional-dependencies]
 magics = ["jupyter_ai_litellm>=0.0.2,<0.1.0", "jupyter_ai_magic_commands>=0.0.3,<0.1.0"]
-jupyternaut = ["jupyter_ai_litellm>=0.0.2,<0.1.0", "jupyter_ai_jupyternaut>=0.0.11,<0.1.0"]
+jupyternaut = ["jupyter_ai_litellm>=0.0.2,<0.1.0", "jupyter_ai_jupyternaut>=0.1.0b0,<0.2.0"]
+# Everything needed to build the documentation (`sphinx-build docs/source`).
+# This is the single source of truth for docs dependencies, used by both Read
+# the Docs (see .readthedocs.yaml) and the docs CI workflow.
+docs = [
+  "sphinx",
+  "myst_parser",
+  "shibuya",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinx-tabs",
+  # Auto-generated subpackage API reference. autodoc/napoleon/linkcode are
+  # Sphinx core (no dep); autodoc_pydantic is third-party and renders the
+  # Pydantic model docs. See docs/source/_ext/autodoc_subpackages.py.
+  "autodoc_pydantic",
+]
 
 [project.urls]
-Documentation = "https://jupyter-ai.readthedocs.io/en/v3/"
+Documentation = "https://jupyter-ai.readthedocs.io/en/stable/"
 Source = "https://github.com/jupyterlab/jupyter-ai"
 Tracker = "https://github.com/jupyterlab/jupyter-ai/issues"
 
@@ -54,3 +69,12 @@ path = "jupyter_ai/__init__.py"
 
 [project.entry-points."jupyter_server_mcp.tools"]
 jupyter_ai = "jupyter_ai:DEFAULT_JUPYTER_SERVER_MCP_TOOLS"
+
+[tool.jupyter-releaser.hooks]
+# During "Step 1: Prep Release", after the version is bumped and before the
+# release is committed and tagged, freeze the documentation submodules to the
+# released tags matching this version's dependency ranges. Between releases the
+# submodules track each subpackage's `main` (freshest docs on the `latest`
+# site); the release tag captures a frozen snapshot for the `stable` site. See
+# scripts/freeze-doc-submodules.sh.
+after-bump-version = ["bash scripts/freeze-doc-submodules.sh"]

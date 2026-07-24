@@ -1960,7 +1960,23 @@ async function loadUnpackedExtensionsIntoBrowser(
 
   try {
     for (const extension of validExtensions) {
+      const extensionLoadLock = `${extension.unpacked_path}.load.lock`;
+      let releaseExtensionLoadLock = null;
       try {
+        releaseExtensionLoadLock = await acquireSessionLock(
+          extensionLoadLock,
+          timeout
+        );
+        // Chromium generates this directory while loading some unpacked
+        // extensions, but Extensions.loadUnpacked rejects it on the next
+        // browser launch. The abxpkg Chrome Web Store provider establishes
+        // the same sanitization contract when resolving its stable shared
+        // cache. Keep sanitization and CDP loading under one cross-process
+        // lock because snapshot-isolated browsers use that cache concurrently.
+        await fs.promises.rm(
+          path.join(extension.unpacked_path, "_metadata"),
+          { recursive: true, force: true }
+        );
         const { id } = await cdpSession.send("Extensions.loadUnpacked", {
           path: extension.unpacked_path,
         });
@@ -1979,6 +1995,10 @@ async function loadUnpackedExtensionsIntoBrowser(
             extension.name || extension.unpacked_path
           } from ${extension.unpacked_path} via Extensions.loadUnpacked: ${detail}`
         );
+      } finally {
+        if (releaseExtensionLoadLock) {
+          releaseExtensionLoadLock();
+        }
       }
 
       try {
@@ -3387,12 +3407,13 @@ async function closeTabInChromeSession(options = {}) {
       connectOptions: { defaultViewport: null },
     },
     async (browser) => {
-      const page = await resolvePageByTargetId(browser, targetId, 1000);
-      if (!page) {
+      const session = await browser.target().createCDPSession();
+      const { targetInfos } = await session.send("Target.getTargets");
+      if (!targetInfos.some((target) => target.targetId === targetId)) {
         return false;
       }
-      await page.close();
-      return true;
+      const result = await session.send("Target.closeTarget", { targetId });
+      return result.success;
     }
   );
 }
@@ -3764,7 +3785,7 @@ async function waitForBrowserEndpointGone(
 }
 
 async function closeBrowserInChromeSession(options = {}) {
-  const {
+  let {
     cdpUrl = null,
     pid = null,
     outputDir = null,
@@ -3774,6 +3795,17 @@ async function closeBrowserInChromeSession(options = {}) {
       : getEnvBool("CHROME_IS_LOCAL", true),
     forceKillTimeoutMs = getEnvInt("CHROME_CLOSE_TIMEOUT_MS", 5000),
   } = options;
+
+  if (outputDir && (!cdpUrl || (processIsLocal && !pid))) {
+    const persistedSession = await inspectChromeSessionArtifacts(outputDir, {
+      validateLiveness: false,
+      processIsLocal,
+    });
+    cdpUrl = cdpUrl || persistedSession.state.cdpUrl;
+    if (processIsLocal) {
+      pid = pid || persistedSession.state.pid;
+    }
+  }
 
   if (!cdpUrl && !(processIsLocal && pid)) {
     return false;
@@ -4005,14 +4037,15 @@ async function ensureChromeSession(options = {}) {
     launchedNewBrowser = true;
   }
 
-  if (resolvedPid) {
-    fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
-  } else {
-    try {
-      fs.unlinkSync(path.join(outputDir, "chrome.pid"));
-    } catch (error) {}
-  }
-  fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
+  try {
+    if (resolvedPid) {
+      fs.writeFileSync(path.join(outputDir, "chrome.pid"), String(resolvedPid));
+    } else {
+      try {
+        fs.unlinkSync(path.join(outputDir, "chrome.pid"));
+      } catch (error) {}
+    }
+    fs.writeFileSync(path.join(outputDir, "cdp_url.txt"), resolvedCdpUrl);
 
   // Open a single browser connection for all post-launch CDP work: extension
   // load, cookie import, download dir config, page-ready probe, and tab
@@ -4141,16 +4174,22 @@ async function ensureChromeSession(options = {}) {
 
   writeBrowserMetadata(outputDir, installedExtensions);
 
-  return {
-    cdpUrl: resolvedCdpUrl,
-    pid: resolvedPid,
-    port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
-    installedExtensions,
-    processIsLocal,
-    reusedExisting: false,
-    binary: resolvedBinary,
-    userDataDir: resolvedUserDataDir,
-  };
+    return {
+      cdpUrl: resolvedCdpUrl,
+      pid: resolvedPid,
+      port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
+      installedExtensions,
+      processIsLocal,
+      reusedExisting: false,
+      binary: resolvedBinary,
+      userDataDir: resolvedUserDataDir,
+    };
+  } catch (error) {
+    if (launchedNewBrowser) {
+      await cleanupLaunchArtifacts(outputDir, resolvedPid);
+    }
+    throw error;
+  }
 }
 
 /**

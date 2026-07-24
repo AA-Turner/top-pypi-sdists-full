@@ -8,7 +8,7 @@ import traceback
 import warnings
 from contextlib import asynccontextmanager, suppress
 from ssl import SSLEOFError
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import pydantic
 import requests
@@ -48,6 +48,7 @@ from pymobiledevice3.remote.remote_service_discovery import RSD_PORT, RemoteServ
 from pymobiledevice3.remote.tunnel_service import (
     CoreDeviceTunnelProxy,
     RemotePairingProtocol,
+    RemotePairingTunnelService,
     TunnelResult,
     create_core_device_tunnel_service_using_rsd,
     get_remote_pairing_tunnel_services,
@@ -77,7 +78,7 @@ OSUTILS = get_os_utils()
 _UPSTREAM_FETCH_TIMEOUT = 2.0
 
 
-def _fetch_upstream(url: str) -> dict:
+def _fetch_upstream(url: str) -> dict[str, Any]:
     """Fetch a tunneld listing from an upstream URL. Called in a worker thread
     via asyncio.to_thread; raises on any error so the caller can skip the
     upstream silently."""
@@ -88,7 +89,7 @@ def _fetch_upstream(url: str) -> dict:
 
 @dataclasses.dataclass
 class TunnelTask:
-    task: asyncio.Task
+    task: asyncio.Task[None]
     udid: Optional[str] = None
     tunnel: Optional[TunnelResult] = None
 
@@ -104,7 +105,7 @@ class TunneldCore:
         mobdev2_monitor: bool = True,
     ) -> None:
         self.protocol = protocol
-        self.tasks: list[asyncio.Task] = []
+        self.tasks: list[asyncio.Task[None]] = []
         self.tunnel_tasks: dict[str, TunnelTask] = {}
         self.usb_monitor = usb_monitor
         self.wifi_monitor = wifi_monitor
@@ -195,7 +196,7 @@ class TunneldCore:
         try:
             while True:
                 remote_pairing_tunnel_services = []
-                claimed_services = set()
+                claimed_services: set[RemotePairingTunnelService] = set()
                 try:
                     remote_pairing_tunnel_services = await get_remote_pairing_tunnel_services()
                     for service in remote_pairing_tunnel_services:
@@ -247,7 +248,8 @@ class TunneldCore:
                 while True:
                     await mux.receive_device_state_update()
 
-                    for mux_device in mux.devices:
+                    mux_devices: list[usbmux.MuxDevice] = mux.devices
+                    for mux_device in mux_devices:
                         task_identifier = f"usbmux-{mux_device.serial}-{mux_device.connection_type}"
                         if self.tunnel_exists_for_udid(mux_device.serial):
                             # Skip if already established a tunnel for this udid
@@ -339,7 +341,7 @@ class TunneldCore:
         self,
         task_identifier: str,
         protocol_handler: Union[RemotePairingProtocol, CoreDeviceTunnelProxy],
-        queue: Optional[asyncio.Queue] = None,
+        queue: Optional[asyncio.Queue[Optional[TunnelResult]]] = None,
         protocol: Optional[TunnelProtocol] = None,
     ) -> None:
         if protocol is None:
@@ -468,9 +470,9 @@ class TunneldCore:
             with suppress(asyncio.CancelledError):
                 await task
 
-    def get_tunnels_ips(self) -> dict:
+    def get_tunnels_ips(self) -> dict[str, list[str]]:
         """Retrieve the available tunnel tasks and format them as {UDID: [IP]}"""
-        tunnels_ips = {}
+        tunnels_ips: dict[str, list[str]] = {}
         for ip, active_tunnel in self.tunnel_tasks.items():
             if (active_tunnel.udid is None) or (active_tunnel.tunnel is None):
                 continue
@@ -552,11 +554,11 @@ class TunneldRunner:
         )
 
         @self._app.get("/")
-        async def list_tunnels() -> dict[str, list[dict]]:
+        async def list_tunnels() -> dict[str, list[dict[str, Any]]]:
             """Retrieve the available tunnels and format them as {UUID: TUNNEL_ADDRESS}.
             Listings from any registered upstream tunnelds (see POST /upstream) are
             fetched in parallel and merged into the response."""
-            tunnels: dict[str, list[dict]] = {}
+            tunnels: dict[str, list[dict[str, Any]]] = {}
             for ip, active_tunnel in self._tunneld_core.tunnel_tasks.items():
                 if (active_tunnel.udid is None) or (active_tunnel.tunnel is None):
                     continue
@@ -592,13 +594,18 @@ class TunneldRunner:
         @self._app.post("/upstream")
         async def add_upstream(body: _UpstreamBody) -> fastapi.Response:
             self._tunneld_core.upstream_urls.add(body.url)
-            data = {"operation": "add_upstream", "url": body.url, "data": True, "message": f"upstream {body.url} added"}
+            data: dict[str, Any] = {
+                "operation": "add_upstream",
+                "url": body.url,
+                "data": True,
+                "message": f"upstream {body.url} added",
+            }
             return generate_http_response(data)
 
         @self._app.delete("/upstream")
         async def remove_upstream(body: _UpstreamBody) -> fastapi.Response:
             self._tunneld_core.upstream_urls.discard(body.url)
-            data = {
+            data: dict[str, Any] = {
                 "operation": "remove_upstream",
                 "url": body.url,
                 "data": True,
@@ -610,19 +617,24 @@ class TunneldRunner:
         async def shutdown() -> fastapi.Response:
             """Shutdown Tunneld"""
             os.kill(os.getpid(), signal.SIGINT)
-            data = {"operation": "shutdown", "data": True, "message": "Server shutting down..."}
+            data: dict[str, Any] = {"operation": "shutdown", "data": True, "message": "Server shutting down..."}
             return generate_http_response(data)
 
         @self._app.get("/clear_tunnels")
         async def clear_tunnels() -> fastapi.Response:
             self._tunneld_core.clear()
-            data = {"operation": "clear_tunnels", "data": True, "message": "Cleared tunnels..."}
+            data: dict[str, Any] = {"operation": "clear_tunnels", "data": True, "message": "Cleared tunnels..."}
             return generate_http_response(data)
 
         @self._app.get("/cancel")
         async def cancel_tunnel(udid: str) -> fastapi.Response:
             self._tunneld_core.cancel(udid=udid)
-            data = {"operation": "cancel", "udid": udid, "data": True, "message": f"tunnel {udid} Canceled ..."}
+            data: dict[str, Any] = {
+                "operation": "cancel",
+                "udid": udid,
+                "data": True,
+                "message": f"tunnel {udid} Canceled ...",
+            }
             return generate_http_response(data)
 
         @self._app.get("/hello")
@@ -631,7 +643,7 @@ class TunneldRunner:
             return generate_http_response(data)
 
         def generate_http_response(
-            data: dict, status_code: int = 200, media_type: str = "application/json"
+            data: dict[str, Any], status_code: int = 200, media_type: str = "application/json"
         ) -> fastapi.Response:
             return fastapi.Response(status_code=status_code, media_type=media_type, content=json.dumps(data))
 
@@ -643,14 +655,14 @@ class TunneldRunner:
                 t.tunnel for t in self._tunneld_core.tunnel_tasks.values() if t.udid == udid and t.tunnel is not None
             ]
             if len(udid_tunnels) > 0:
-                data = {
+                data: dict[str, Any] = {
                     "interface": udid_tunnels[0].interface,
                     "port": udid_tunnels[0].port,
                     "address": udid_tunnels[0].address,
                 }
                 return generate_http_response(data)
 
-            queue = asyncio.Queue()
+            queue: asyncio.Queue[Optional[TunnelResult]] = asyncio.Queue()
             created_task = False
 
             try:
@@ -717,7 +729,7 @@ class TunneldRunner:
 
             tunnel: Optional[TunnelResult] = await queue.get()
             if tunnel is not None:
-                data = {"interface": tunnel.interface, "port": tunnel.port, "address": tunnel.address}
+                data: dict[str, Any] = {"interface": tunnel.interface, "port": tunnel.port, "address": tunnel.address}
                 return generate_http_response(data)
             else:
                 return fastapi.Response(

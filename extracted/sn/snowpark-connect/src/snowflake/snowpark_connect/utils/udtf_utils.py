@@ -94,16 +94,43 @@ def create_udtf(
     called_from: str,
     artifact_repository: str | None = None,
     resource_constraint: dict[str, str] | None = None,
+    call_site_types: list | None = None,
+    table_arg_layout: list[tuple[str, list | None]] | None = None,
 ) -> str | snowpark.udtf.UserDefinedTableFunction:
     udtf = udtf_proto.python_udtf
     callable_func = CloudPickleSerializer().loads(udtf.command)
 
     original_func = callable_func.eval
     func_signature = inspect.signature(original_func)
-    # Set all input types to VariantType regardless of type hints so that we can pass all arguments as VariantType.
-    # Otherwise, we will run into issues with type mismatches. This only applies for UDTF registration.
-    # We subtract one here since UDTF functions are class methods and always have "self" as the first parameter.
-    input_types = [VariantType()] * (len(func_signature.parameters) - 1)
+    # Build per-position input_types: use the native Snowpark type for scalar types that
+    # Snowflake delivers natively to Python (int, float, str, bool, bytes, date, datetime,
+    # Decimal), and VariantType for everything else (struct/map/variant/array).
+    # When call_site_types is not provided (e.g. register_udtf has no call-site info),
+    # fall back to all-VariantType to preserve existing behavior.
+    n_params = len(func_signature.parameters) - 1  # subtract "self"
+    if table_arg_layout is not None:
+        # Native table-arg path: call_site_types is the FLAT per-column list (one entry
+        # per physical function parameter, table Rows already expanded to columns).
+        # Emit native SQL types for scalar positions; VARIANT only for genuinely
+        # non-native columns. The handler-side wrapper regroups these flat params back
+        # into the single Row via table_arg_layout.
+        #
+        # Imported lazily (not at module scope): this module's source is embedded into
+        # the UDTF-creation stored procedure, whose sandbox has no ``snowflake.snowpark_connect``.
+        # The native branches only ever run server-side, so the import is safe here.
+        from snowflake.snowpark_connect.utils.python_udf_marshal import (  # noqa: PLC0415
+            native_or_variant_input_types,
+        )
+
+        input_types = native_or_variant_input_types(call_site_types or [])
+    elif call_site_types is not None and len(call_site_types) == n_params:
+        from snowflake.snowpark_connect.utils.python_udf_marshal import (  # noqa: PLC0415
+            native_or_variant_input_types,
+        )
+
+        input_types = native_or_variant_input_types(call_site_types)
+    else:
+        input_types = [VariantType()] * n_params
 
     if imports:
         # Wrapp callable to allow reading imported files
@@ -118,6 +145,7 @@ def create_udtf(
             expected_types,
             function_name,
             enable_telemetry=ENABLE_UDTF_TELEMETRY,
+            table_arg_layout=table_arg_layout,
         )
     elif is_spark_compatible_udtf_mode_enabled:
         callable_func = spark_compatible_udtf_wrapper(
@@ -125,13 +153,51 @@ def create_udtf(
             expected_types,
             function_name,
             enable_telemetry=ENABLE_UDTF_TELEMETRY,
+            table_arg_layout=table_arg_layout,
         )
     else:
         # For simple case (no arrow, no spark-compatible mode), add telemetry wrapper.
         # We preserve the original method's signature/annotations for validation by copying
         # them to the wrapper function. This allows Snowpark to validate type hints
         # (e.g., reject Row type parameters) while still emitting telemetry.
-        if ENABLE_UDTF_TELEMETRY:
+        if table_arg_layout is not None:
+            # Native table-arg path: regroup the flat native columns into the single Row
+            # the handler expects before delegating to the user's eval. The regroup helper
+            # is defined locally (via the factory) so it cloudpickles by value.
+            #
+            # NOTE: unlike the telemetry branch below we deliberately do NOT copy
+            # original_func's __signature__ — the physical function has one native param
+            # per table column (flat), so eval's single-Row signature would fail
+            # Snowpark's arity validation.
+            _, regroup_flat_table_args = _create_table_arg_helpers()
+
+            def process_native_table_arg(self, *args, **kwargs):
+                if ENABLE_UDTF_TELEMETRY:
+                    try:
+                        from snowflake import telemetry
+
+                        telemetry.set_span_attribute(
+                            "udtf.name", function_name or "anonymous_udtf"
+                        )
+                        telemetry.add_event("udtf_invocation_start", {})
+                    except Exception:
+                        pass
+                try:
+                    regrouped = regroup_flat_table_args(args, table_arg_layout)
+                    result = self.eval(*regrouped, **kwargs)
+                    if result is not None:
+                        yield from result
+                finally:
+                    if ENABLE_UDTF_TELEMETRY:
+                        try:
+                            from snowflake import telemetry
+
+                            telemetry.add_event("udtf_invocation_complete", {})
+                        except Exception:
+                            pass
+
+            callable_func.process = process_native_table_arg
+        elif ENABLE_UDTF_TELEMETRY:
 
             def process_with_telemetry(self, *args, **kwargs):
                 try:
@@ -323,9 +389,14 @@ def artifacts_reader_wrapper(user_udtf_cls: type) -> type:
     return ArtifactsReaderUDTF
 
 
-def _create_convert_table_argument_to_row():
-    """
-    Creates a table argument conversion function for UDTF execution.
+def _create_table_arg_helpers():
+    """Create the table-argument helpers used by UDTF wrappers.
+
+    Both the ``TableRowProxy`` class and the helper functions are defined *inside* this
+    factory so that cloudpickle serializes them **by value** into the handler sent to
+    Snowflake. Defining them at module level would pickle them by reference and the
+    sandbox (which has no ``snowflake.snowpark_connect`` package) would fail to import
+    them at runtime.
     """
 
     class TableRowProxy:
@@ -361,6 +432,17 @@ def _create_convert_table_argument_to_row():
         def __len__(self):
             return len(self._values)
 
+        def asDict(self, recursive: bool = False):
+            """Return the row as a dict, mirroring ``pyspark.sql.Row.asDict``.
+
+            UDTF handlers written for classic Spark receive a real ``Row`` (which
+            exposes ``asDict``) for a ``TABLE(...)`` argument; exposing the same
+            method here keeps such handlers working unchanged under the native
+            table-arg path. ``recursive`` is accepted for signature parity; nested
+            values are already plain Python objects, so no recursion is needed.
+            """
+            return dict(zip(self._fields, self._values))
+
         def __iter__(self):
             """Iterate over the values in the row"""
             return iter(self._values)
@@ -371,6 +453,29 @@ def _create_convert_table_argument_to_row():
                 for field, value in zip(self._fields, self._values)
             ]
             return f"Row({', '.join(field_values)})"
+
+    def regroup_flat_table_args(flat_args, table_arg_layout):
+        """Regroup a flat positional arg list back into per-eval-param values.
+
+        ``table_arg_layout`` has one entry per UDTF ``eval`` parameter, in order:
+          * ``("scalar", None)``  -> consumes one flat arg, passed through unchanged.
+          * ``("row", [names])``  -> consumes ``len(names)`` flat args, packed into a
+            ``TableRowProxy`` so the handler's single ``row`` param keeps ``row["col"]``
+            / ``row[0]`` access without the VARIANT round-trip.
+        """
+        regrouped: list = []
+        idx = 0
+        for kind, field_names in table_arg_layout:
+            if kind == "row":
+                n = len(field_names)
+                regrouped.append(
+                    TableRowProxy(field_names, list(flat_args[idx : idx + n]))
+                )
+                idx += n
+            else:
+                regrouped.append(flat_args[idx])
+                idx += 1
+        return regrouped
 
     def convert_table_argument_to_row(arg):
         """Convert table argument structure to appropriate object type."""
@@ -390,7 +495,7 @@ def _create_convert_table_argument_to_row():
                 return arg
         return arg
 
-    return convert_table_argument_to_row
+    return convert_table_argument_to_row, regroup_flat_table_args
 
 
 def spark_compatible_udtf_wrapper(
@@ -398,12 +503,13 @@ def spark_compatible_udtf_wrapper(
     expected_types: list[tuple[str, Any]],
     udtf_name: str | None = None,
     enable_telemetry: bool = True,
+    table_arg_layout: list[tuple[str, list | None]] | None = None,
 ) -> type:
     """
     UDTF Wrapper class to mimic Spark's output type coercion and error handling.
     """
 
-    convert_table_argument_to_row = _create_convert_table_argument_to_row()
+    convert_table_argument_to_row, regroup_flat_table_args = _create_table_arg_helpers()
 
     def _coerce_to_bool(val: object) -> bool | None:
         if isinstance(val, bool):
@@ -601,14 +707,22 @@ def spark_compatible_udtf_wrapper(
                     for k, v in kwargs.items()
                 }
 
-                # Convert table arguments to Row-like objects that support both positional and named access
-                processed_args = [
-                    convert_table_argument_to_row(arg) for arg in processed_args
-                ]
-                processed_kwargs = {
-                    k: convert_table_argument_to_row(v)
-                    for k, v in processed_kwargs.items()
-                }
+                if table_arg_layout is not None:
+                    # Native table-arg path: the physical function has one native column
+                    # per table field, so regroup the flat args back into the single Row
+                    # the handler expects (no VARIANT __fields__/__values__ round-trip).
+                    processed_args = regroup_flat_table_args(
+                        tuple(processed_args), table_arg_layout
+                    )
+                else:
+                    # Convert table arguments to Row-like objects that support both positional and named access
+                    processed_args = [
+                        convert_table_argument_to_row(arg) for arg in processed_args
+                    ]
+                    processed_kwargs = {
+                        k: convert_table_argument_to_row(v)
+                        for k, v in processed_kwargs.items()
+                    }
 
                 result_iter = self._user_method(*processed_args, **processed_kwargs)
                 if result_iter is None:
@@ -677,10 +791,11 @@ def spark_compatible_udtf_wrapper_with_arrow(
     expected_types: list[tuple[str, Any]],
     udtf_name: str | None = None,
     enable_telemetry: bool = True,
+    table_arg_layout: list[tuple[str, list | None]] | None = None,
 ) -> type:
     import pyarrow as pa
 
-    convert_table_argument_to_row = _create_convert_table_argument_to_row()
+    convert_table_argument_to_row, regroup_flat_table_args = _create_table_arg_helpers()
 
     def _python_type_to_arrow_type_impl(
         type_info_tuple: tuple[str, Any],
@@ -957,14 +1072,21 @@ def spark_compatible_udtf_wrapper_with_arrow(
                     for k, v in kwargs.items()
                 }
 
-                # Convert table arguments and regular dicts to Row-like objects that support both positional and named access
-                processed_args = [
-                    convert_table_argument_to_row(arg) for arg in processed_args
-                ]
-                processed_kwargs = {
-                    k: convert_table_argument_to_row(v)
-                    for k, v in processed_kwargs.items()
-                }
+                if table_arg_layout is not None:
+                    # Native table-arg path: regroup the flat native columns back into
+                    # the single Row the handler expects (see plain wrapper for details).
+                    processed_args = regroup_flat_table_args(
+                        tuple(processed_args), table_arg_layout
+                    )
+                else:
+                    # Convert table arguments and regular dicts to Row-like objects that support both positional and named access
+                    processed_args = [
+                        convert_table_argument_to_row(arg) for arg in processed_args
+                    ]
+                    processed_kwargs = {
+                        k: convert_table_argument_to_row(v)
+                        for k, v in processed_kwargs.items()
+                    }
 
                 result_iter = self._user_method(*processed_args, **processed_kwargs)
                 if result_iter is None:

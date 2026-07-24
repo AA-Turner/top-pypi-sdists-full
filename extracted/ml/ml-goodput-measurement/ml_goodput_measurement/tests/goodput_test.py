@@ -16,6 +16,8 @@ from google3.testing.pybase import googletest
 get_timestamp_from_log_entry = goodput_utils.get_timestamp_from_log_entry
 compute_ideal_step_time = goodput_utils.compute_ideal_step_time
 BadputType = goodput_utils.BadputType
+GoodputType = goodput_utils.GoodputType
+IntervalMetricType = goodput_utils.IntervalMetricType
 
 
 # Fake job timeline information for test purposes.

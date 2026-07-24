@@ -9,11 +9,13 @@ import sys
 import textwrap
 import traceback
 import warnings
-from typing import Annotated, Callable, Optional, Union
+from typing import Annotated, Any, Callable, Optional, Union, cast
 
 import coloredlogs
 import typer
 from packaging.version import Version
+from typer._click.core import Command as ClickCommand
+from typer._click.core import Context as ClickContext
 from typer.core import TyperGroup
 from typer_injector import InjectingTyper
 
@@ -68,7 +70,7 @@ from pymobiledevice3.exceptions import (
 from pymobiledevice3.lockdown import retry_create_using_usbmux
 from pymobiledevice3.osu.os_utils import get_os_utils
 
-coloredlogs.install(level=logging.INFO)
+cast(Any, coloredlogs).install(level=logging.INFO)
 
 logging.getLogger("quic").setLevel(logging.CRITICAL + 1)
 logging.getLogger("asyncio").setLevel(logging.CRITICAL + 1)
@@ -104,7 +106,7 @@ INVALID_SERVICE_MESSAGE = """Failed to start service. Possible reasons are:
   https://github.com/doronz88/pymobiledevice3/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=
 """
 
-CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"], "max_content_width": 400}
+CONTEXT_SETTINGS: dict[str, Any] = {"help_option_names": ["-h", "--help"], "max_content_width": 400}
 
 # Mapping of index options to import file names
 CLI_GROUPS = {
@@ -157,7 +159,7 @@ def _patch_xonsh_completion_detection() -> None:
     if shellingham is None:
         return
 
-    detect_shell = shellingham.detect_shell
+    detect_shell = cast(Any, shellingham).detect_shell
     _ORIGINAL_SHELLINGHAM_DETECT = getattr(detect_shell, "_pymobiledevice3_original", detect_shell)
     if getattr(detect_shell, "_pymobiledevice3_xonsh_patched", False):
         return
@@ -172,16 +174,16 @@ _patch_xonsh_completion_detection()
 
 
 class Pmd3TyperGroup(TyperGroup):
-    def list_commands(self, ctx) -> list[str]:
+    def list_commands(self, ctx: ClickContext) -> list[str]:
         # Order is preserved by dict insertion; adjust if you want alphabetical
         return list(CLI_GROUPS.keys())
 
-    def get_command(self, ctx, cmd_name: str):
+    def get_command(self, ctx: ClickContext, cmd_name: str):
         if cmd_name not in CLI_GROUPS:
             self.handle_invalid_command(ctx, cmd_name)
         return self.import_and_get_command(ctx, cmd_name)
 
-    def handle_invalid_command(self, ctx, name: str) -> None:
+    def handle_invalid_command(self, ctx: ClickContext, name: str) -> None:
         suggested_commands = self.search_commands(name)
         suggestion = self.format_suggestions(suggested_commands)
         # ctx.fail raises a ClickException underneath, which Typer displays nicely
@@ -195,7 +197,7 @@ class Pmd3TyperGroup(TyperGroup):
         return f"\nDid you mean:\n{cmds}"
 
     @staticmethod
-    def import_and_get_command(ctx, name: str):
+    def import_and_get_command(ctx: ClickContext, name: str):
         module_name = f"pymobiledevice3.cli.{CLI_GROUPS[name]}"
         mod = importlib.import_module(module_name)
         # submodules expose a Typer Group named "cli"
@@ -207,9 +209,9 @@ class Pmd3TyperGroup(TyperGroup):
         return re.sub(f"({keyword})", typer.style("\\1", bold=True), text, flags=re.IGNORECASE)
 
     @staticmethod
-    def collect_commands(command) -> Union[str, list[str]]:
+    def collect_commands(command: ClickCommand) -> Union[str, list[str]]:
         if isinstance(command, TyperGroup):  # group
-            cmds = []
+            cmds: list[str] = []
             for v in command.commands.values():
                 child = Pmd3TyperGroup.collect_commands(v)
                 if isinstance(child, list):
@@ -245,7 +247,7 @@ class Pmd3TyperGroup(TyperGroup):
                 all_commands.append(cmd)
         return all_commands
 
-    def resolve_command(self, ctx, args: list[str]):
+    def resolve_command(self, ctx: ClickContext, args: list[str]):
         return super().resolve_command(ctx, args)
 
 

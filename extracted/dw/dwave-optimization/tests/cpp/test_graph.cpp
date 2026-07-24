@@ -13,10 +13,12 @@
 //    limitations under the License.
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_all.hpp>
+#include <catch2/matchers/catch_matchers_range_equals.hpp>
 
 #include "dwave-optimization/graph.hpp"
 #include "dwave-optimization/nodes.hpp"
+
+using Catch::Matchers::RangeEquals;
 
 namespace dwave::optimization {
 
@@ -24,13 +26,13 @@ TEST_CASE("Topological Sort", "[topological_sort]") {
     auto graph = Graph();
 
     WHEN("We add a mix of unconnected decision and non-decision variables") {
-        auto x0_ptr = graph.emplace_node<ListNode>(5);
-        auto x1_ptr = graph.emplace_node<ListNode>(5);
-        auto c0_ptr = graph.emplace_node<ConstantNode>();
-        auto x2_ptr = graph.emplace_node<ListNode>(5);
-        auto c1_ptr = graph.emplace_node<ConstantNode>();
-        auto c2_ptr = graph.emplace_node<ConstantNode>();
-        auto x3_ptr = graph.emplace_node<ListNode>(5);
+        auto* x0_ptr = graph.emplace_node<ListNode>(5);
+        auto* x1_ptr = graph.emplace_node<ListNode>(5);
+        auto* c0_ptr = graph.emplace_node<ConstantNode>();
+        auto* x2_ptr = graph.emplace_node<ListNode>(5);
+        auto* c1_ptr = graph.emplace_node<ConstantNode>();
+        auto* c2_ptr = graph.emplace_node<ConstantNode>();
+        auto* x3_ptr = graph.emplace_node<ListNode>(5);
 
         THEN("The decisions are proactively topologically sorted") {
             CHECK(x0_ptr->topological_index() == 0);
@@ -100,11 +102,11 @@ TEST_CASE("Topological Sort", "[topological_sort]") {
     }
 
     WHEN("We add a disjoint lists node and successors") {
-        auto disjoint_lists = graph.emplace_node<DisjointListsNode>(10, 3);
+        auto* disjoint_lists = graph.emplace_node<DisjointListsNode>(10, 3);
 
-        auto disjoint_list0 = graph.emplace_node<DisjointListNode>(disjoint_lists);
-        auto disjoint_list1 = graph.emplace_node<DisjointListNode>(disjoint_lists);
-        auto disjoint_list2 = graph.emplace_node<DisjointListNode>(disjoint_lists);
+        auto* disjoint_list0 = graph.emplace_node<DisjointListNode>(disjoint_lists);
+        auto* disjoint_list1 = graph.emplace_node<DisjointListNode>(disjoint_lists);
+        auto* disjoint_list2 = graph.emplace_node<DisjointListNode>(disjoint_lists);
 
         AND_WHEN("We topologically sort the model") {
             graph.topological_sort();
@@ -129,11 +131,11 @@ TEST_CASE("Topological Sort", "[topological_sort]") {
     }
 
     WHEN("We add a disjoint bitsets node and successors") {
-        auto disjoint_bitsets = graph.emplace_node<DisjointBitSetsNode>(10, 3);
+        auto* disjoint_bitsets = graph.emplace_node<DisjointBitSetsNode>(10, 3);
 
-        auto disjoint_bitset0 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
-        auto disjoint_bitset1 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
-        auto disjoint_bitset2 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
+        auto* disjoint_bitset0 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
+        auto* disjoint_bitset1 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
+        auto* disjoint_bitset2 = graph.emplace_node<DisjointBitSetNode>(disjoint_bitsets);
 
         AND_WHEN("We topologically sort the model") {
             graph.topological_sort();
@@ -180,9 +182,9 @@ TEST_CASE("Graph constructors, assignment operators, and swapping") {
 
     GIVEN("A graph with a few nodes in it") {
         auto graph = Graph();
-        auto a_ptr = graph.emplace_node<ConstantNode>(1.5);
-        auto b_ptr = graph.emplace_node<ConstantNode>(2);
-        auto c_ptr = graph.emplace_node<AddNode>(a_ptr, b_ptr);
+        auto* a_ptr = graph.emplace_node<ConstantNode>(1.5);
+        auto* b_ptr = graph.emplace_node<ConstantNode>(2);
+        auto* c_ptr = graph.emplace_node<AddNode>(a_ptr, b_ptr);
         graph.set_objective(c_ptr);
 
         WHEN("We construct another graph using the move constructor") {
@@ -212,7 +214,7 @@ TEST_CASE("Graph constructors, assignment operators, and swapping") {
 
         AND_GIVEN("A different graph with at least one node") {
             auto other = Graph();
-            auto d_ptr = other.emplace_node<BinaryNode>(std::initializer_list<ssize_t>{1});
+            auto* d_ptr = other.emplace_node<BinaryNode>(std::initializer_list<ssize_t>{1});
             other.add_constraint(d_ptr);
 
             WHEN("We swap the graphs") {
@@ -235,15 +237,15 @@ TEST_CASE("Graph constructors, assignment operators, and swapping") {
 
 TEST_CASE("Graph::commit(), Graph::descendants(), Graph::propagate(), and Graph::revert") {
     auto graph = Graph();
-    auto x_ptr = graph.emplace_node<BinaryNode>();
-    auto y_ptr = graph.emplace_node<BinaryNode>();
-    auto z_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+    auto* x_ptr = graph.emplace_node<BinaryNode>();
+    auto* y_ptr = graph.emplace_node<BinaryNode>();
+    auto* z_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
     graph.set_objective(z_ptr);
     auto state = graph.initialize_state();
 
     SECTION("Find descendants") {
         auto descendants = graph.descendants({x_ptr});
-        CHECK_THAT(descendants, Catch::Matchers::RangeEquals(std::vector<Node*>{x_ptr, z_ptr}));
+        CHECK_THAT(descendants, RangeEquals(std::vector<Node*>{x_ptr, z_ptr}));
     }
     SECTION("Propagate all") {
         CHECK(x_ptr->view(state).front() == 0);
@@ -316,11 +318,111 @@ TEST_CASE("Graph::objective()") {
     }
 }
 
+TEST_CASE("Graph::remove_redundant_nodes()") {
+    GIVEN("A model with two redundant nodes") {
+        auto graph = Graph();
+
+        auto* x_ptr = graph.emplace_node<BinaryNode>();
+        auto* y_ptr = graph.emplace_node<BinaryNode>();
+
+        auto* left_x_plus_y = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+        auto* right_x_plus_y = graph.emplace_node<AddNode>(y_ptr, x_ptr);
+
+        CHECK(graph.num_nodes() == 4);
+
+        THEN("remove_redundant_nodes() removes one") {
+            CHECK(graph.remove_redundant_nodes() == 1);
+
+            CHECK(graph.num_nodes() == 3);
+
+            // we kept the one that's earlier in the topological order
+            CHECK(graph.nodes()[2].get() == left_x_plus_y);
+        }
+
+        AND_GIVEN("Two more redundant nodes decended from them") {
+            auto* negative_left_x_plus_y = graph.emplace_node<NegativeNode>(left_x_plus_y);
+            auto* negative_right_x_plus_y = graph.emplace_node<NegativeNode>(right_x_plus_y);
+
+            THEN("remove_redundant_nodes() removes 2") {
+                CHECK(graph.remove_redundant_nodes() == 2);
+
+                CHECK(graph.num_nodes() == 4);
+
+                // we kept the ones earlier in the topological order
+                CHECK(graph.nodes()[2].get() == left_x_plus_y);
+                CHECK(graph.nodes()[3].get() == negative_left_x_plus_y);
+            }
+
+            WHEN("we have a listener on one of the redundant nodes") {
+                auto listener_ptr = negative_right_x_plus_y->expired_ptr();
+
+                THEN("by default we don't remove the listened to node") {
+                    CHECK(graph.remove_redundant_nodes() == 1);
+                    CHECK(graph.num_nodes() == 5);
+
+                    // we kept the ones earlier in the topological order
+                    CHECK(graph.nodes()[2].get() == left_x_plus_y);
+                    CHECK(graph.nodes()[3].get() == negative_left_x_plus_y);
+                    CHECK(graph.nodes()[4].get() == negative_right_x_plus_y);
+                }
+
+                THEN("we can force the removal of the listened-to node") {
+                    CHECK(graph.remove_redundant_nodes(true) == 2);
+
+                    CHECK(graph.num_nodes() == 4);
+
+                    // we kept the ones earlier in the topological order
+                    CHECK(graph.nodes()[2].get() == left_x_plus_y);
+                    CHECK(graph.nodes()[3].get() == negative_left_x_plus_y);
+                }
+            }
+        }
+
+        AND_GIVEN("that the later redundant node is used in the objective") {
+            graph.set_objective(right_x_plus_y);
+
+            CHECK(graph.remove_redundant_nodes() == 1);
+
+            CHECK(graph.nodes()[2].get() == left_x_plus_y);
+            CHECK(graph.objective() == left_x_plus_y);  // objective was updated
+        }
+
+        AND_GIVEN("two more redundant logical nodes") {
+            auto* logical_left_x_plus_y = graph.emplace_node<LogicalNode>(left_x_plus_y);
+            auto* logical_right_x_plus_y = graph.emplace_node<LogicalNode>(right_x_plus_y);
+
+            WHEN("both are registered as constraints") {
+                graph.add_constraint(logical_left_x_plus_y);
+                graph.add_constraint(logical_right_x_plus_y);
+
+                CHECK(graph.remove_redundant_nodes() == 2);
+                CHECK(graph.constraints().size() == 1);
+                CHECK_THAT(graph.constraints(), RangeEquals({logical_left_x_plus_y}));
+            }
+        }
+    }
+
+    GIVEN("A model with two redundant constants used in the same unary op") {
+        auto graph = Graph();
+
+        auto* a = graph.emplace_node<ConstantNode>(5);
+        auto* negative_a = graph.emplace_node<NegativeNode>(a);
+        auto* b = graph.emplace_node<ConstantNode>(5);
+        graph.emplace_node<NegativeNode>(b);
+
+        THEN("remove_redundant_nodes() removes the redundant path") {
+            CHECK(graph.remove_redundant_nodes() == 2);
+            CHECK_THAT(graph.constants(), RangeEquals({a}));
+            CHECK_THAT(negative_a->predecessors(), RangeEquals({a}));
+        }
+    }
+}
+
 TEST_CASE("Graph::remove_unused_nodes()") {
     GIVEN("A single integer variable") {
         auto graph = Graph();
 
-        auto i_ptr = graph.emplace_node<IntegerNode>();
+        auto* i_ptr = graph.emplace_node<IntegerNode>();
 
         THEN("remove_unused_nodes() does nothing") {
             ssize_t num_removed = graph.remove_unused_nodes();
@@ -371,14 +473,16 @@ TEST_CASE("Graph::remove_unused_nodes()") {
             // i -> a -> c -> d
             // i -> b />    \> e -> objective
 
-            auto a_ptr = graph.emplace_node<AbsoluteNode>(i_ptr);
-            auto b_ptr = graph.emplace_node<AbsoluteNode>(i_ptr);
-            auto c_ptr = graph.emplace_node<AddNode>(a_ptr, b_ptr);
-            auto d_ptr = graph.emplace_node<LogicalNode>(c_ptr);
-            auto e_ptr = graph.emplace_node<LogicalNode>(c_ptr);
+            auto* a_ptr = graph.emplace_node<AbsoluteNode>(i_ptr);
+            auto* b_ptr = graph.emplace_node<AbsoluteNode>(i_ptr);
+            auto* c_ptr = graph.emplace_node<AddNode>(a_ptr, b_ptr);
+            auto* d_ptr = graph.emplace_node<LogicalNode>(c_ptr);
+            auto* e_ptr = graph.emplace_node<LogicalNode>(c_ptr);
 
             // give d a listener
             auto d_expired = d_ptr->expired_ptr();
+
+            CHECK(d_ptr->num_listeners() == 1);
 
             graph.set_objective(e_ptr);
 

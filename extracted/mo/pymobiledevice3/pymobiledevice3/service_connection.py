@@ -126,7 +126,7 @@ class ServiceConnection:
 
         # Shared Future used by _ensure_started() to avoid duplicate start() calls when
         # multiple coroutines race to use a not-yet-started connection simultaneously.
-        self._start_future: Optional[asyncio.Future] = None
+        self._start_future: Optional[asyncio.Future[None]] = None
 
         # Held across the full send→recv pair in send_recv_plist() so that concurrent
         # callers (e.g. LockdownClient shared by many tasks) are serialised automatically.
@@ -138,7 +138,7 @@ class ServiceConnection:
         port: int,
         keep_alive: bool = True,
         create_connection_timeout: int = DEFAULT_TIMEOUT,
-        open_connection: Optional[Callable] = None,
+        open_connection: Optional[Callable[..., Any]] = None,
     ) -> "ServiceConnection":
         """
         Create a ServiceConnection using a TCP connection.
@@ -495,7 +495,7 @@ class ServiceConnection:
                     )
                 else:
                     loop = asyncio.get_running_loop()
-                    protocol = writer._protocol  # type: ignore[attr-defined]
+                    protocol = cast(Any, writer)._protocol
                     tls_transport = await asyncio.wait_for(
                         loop.start_tls(
                             writer.transport,
@@ -525,13 +525,15 @@ class ServiceConnection:
         await self.start()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.close()
 
     def shell(self) -> None:
         """Start an interactive shell."""
         start_ipython_shell(
-            header=highlight(SHELL_USAGE, lexers.PythonLexer(), formatters.Terminal256Formatter(style="native")),
+            header=highlight(
+                SHELL_USAGE, cast(Any, lexers).PythonLexer(), formatters.Terminal256Formatter(style="native")
+            ),
             user_ns={
                 "client": self,
             },

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable
+from collections.abc import Callable
 from collections.abc import Generator
 from typing import Any
-from typing import Callable
 from typing import Literal
 from typing import NoReturn
 from typing import overload
@@ -18,6 +18,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.exceptions import RequestTimeout
 
+from ..datastructures import FileStorage
 from ..formparser import FormDataParser
 from ..globals import current_app
 from .base import BaseRequestWebsocket
@@ -276,7 +277,7 @@ class Request(BaseRequestWebsocket):
 
         try:
             raw_data = await asyncio.wait_for(self.body, timeout=self.body_timeout)
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise RequestTimeout() from e
         else:
             if not cache:
@@ -316,7 +317,7 @@ class Request(BaseRequestWebsocket):
         return self._form
 
     @property
-    async def files(self) -> MultiDict:
+    async def files(self) -> MultiDict[str, FileStorage]:
         """The parsed files.
 
         This will return an empty multidict unless the request
@@ -348,7 +349,7 @@ class Request(BaseRequestWebsocket):
                         ),
                         timeout=self.body_timeout,
                     )
-                except asyncio.TimeoutError as e:
+                except TimeoutError as e:
                     raise RequestTimeout() from e
 
     @property

@@ -13,25 +13,17 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 DERIVED_CACHE_KEY = "ABXPKG_DERIVED_CACHE"
 _SHELL_SINGLE_QUOTE_ESCAPE = "'\"'\"'"
-_FIRST_WRITER_ENV_KEYS = frozenset(
-    {
-        # These are convenience aliases for JS tooling with a single value,
-        # while NODE_PATH is the complete ordered search path. Provider envs are
-        # merged in precedence order, so keep the first alias value and let
-        # later providers contribute only through NODE_PATH. Otherwise a lower
-        # priority provider can overwrite the alias with an unused workspace.
-        "NODE_MODULES_DIR",
-        "NODE_MODULE_DIR",
-    },
-)
 
 
 @runtime_checkable
 class SupportsExecEnv(Protocol):
     PATH: str
     EXEC_ONLY_ENV_KEYS: ClassVar[frozenset[str]]
+    FIRST_WRITER_ENV_KEYS: ClassVar[frozenset[str]]
 
     def setup_PATH(self) -> None: ...
+
+    def execution_PATH(self) -> str: ...
 
     @property
     def ENV(self) -> dict[str, str]: ...
@@ -202,7 +194,7 @@ def build_exec_env(
         if not include_exec_only_env:
             for key in getattr(provider, "EXEC_ONLY_ENV_KEYS", ()):
                 provider_env.pop(key, None)
-        for key in _FIRST_WRITER_ENV_KEYS:
+        for key in provider.FIRST_WRITER_ENV_KEYS:
             if key in first_writer_provider_keys:
                 provider_env.pop(key, None)
             elif provider_env.get(key):
@@ -212,16 +204,7 @@ def build_exec_env(
             prepend_layers=provider_path_prepend_layers,
             append_layers=provider_path_append_layers,
         )
-        provider_path = provider.PATH
-        provider_bin_dir = getattr(provider, "bin_dir", None)
-        # EnvProvider uses its full ambient PATH for host discovery, but only
-        # binaries that it has accepted and projected into env/bin may outrank
-        # managed provider fallbacks at execution time. Keep the untouched
-        # ambient PATH as the final base layer so undeclared host tools remain
-        # available without allowing a rejected host candidate to shadow a
-        # managed binary.
-        if getattr(provider, "name", None) == "env" and provider_bin_dir is not None:
-            provider_path = str(provider_bin_dir)
+        provider_path = provider.execution_PATH()
         if provider_path:
             provider_path_prepend_layers.append(provider_path)
         consume_pathlike_env(provider_env)

@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from ipsw_parser.build_identity import BuildIdentity
 from pyimg4 import IM4P, IM4R, IMG4, RestoreProperty
@@ -127,7 +127,7 @@ COMPONENT_FOURCC = {
 
 
 def stitch_component(
-    name: str, im4p_data: bytes, tss: "TSSResponse", build_identity: BuildIdentity, ap_parameters: dict
+    name: str, im4p_data: bytes, tss: "TSSResponse", build_identity: BuildIdentity, ap_parameters: dict[str, Any]
 ) -> bytes:
     logger.info(f"Personalizing IMG4 component {name}...")
 
@@ -141,7 +141,7 @@ def stitch_component(
     # check if we have a *-TBM entry for the given component
     tbm_dict = tss.get(f"{name}-TBM")
 
-    info = build_identity["Info"]
+    info = cast(dict[str, Any], build_identity["Info"])
     nonce_slot_required = info.get("RequiresNonceSlot", False) and name in ("SEP", "SepStage1", "LLB")
 
     im4r = None

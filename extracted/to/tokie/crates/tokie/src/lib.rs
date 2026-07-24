@@ -51,31 +51,38 @@
 //! // All results are exactly 128 tokens
 //! ```
 
+pub mod charsmap;
 mod decoder;
 pub mod diff;
 pub mod encoder;
 pub mod hf;
 #[cfg(feature = "hf")]
 mod hub;
+#[cfg(feature = "build")]
+pub mod build;
 pub mod normalizer;
 pub mod padding;
 mod postprocessor;
 pub mod pretok;
+mod pool;
 mod serde;
 mod tokenizer;
 mod types;
 
+pub use charsmap::{CharsmapError, PrecompiledCharsmap};
 pub use encoder::{BacktrackingBytePairEncoder, BytePairEncoder, EncodeIter, Encoder, EncoderIter, EncoderType};
 pub use decoder::{Decoder, DecoderType, VocabDecoder};
 pub use hf::JsonLoadError;
 #[cfg(feature = "hf")]
 pub use hub::{FromPretrainedOptions, HubError};
-pub use normalizer::{bert_uncased_normalize, clean_text, fnr, metaspace_normalize, strip_accents, FnrFinder, Normalizer};
+#[cfg(feature = "build")]
+pub use build::{BuildError, ConvertResult, VerifyResult, Mismatch};
+pub use normalizer::{bert_uncased_normalize, clean_text, fnr, metaspace_normalize, strip_accents, FnrFinder, MetaspacePrepend, Normalizer};
 pub use padding::{Encoding, PaddingParams, PaddingStrategy, PaddingDirection, TruncationParams, TruncationStrategy, TruncationDirection};
 pub use postprocessor::PostProcessor;
 pub use pretok::{PretokType, Pretokenizer, RegexPretok};
 pub use serde::SerdeError;
-pub use tokenizer::{EncodingPair, TokenCount, Tokenizer, TokenizeIter};
+pub use tokenizer::{AddedTokenSpec, EncodingPair, TokenCount, Tokenizer, TokenizeIter};
 pub use types::TokenId;
 
 // Backward compatibility aliases

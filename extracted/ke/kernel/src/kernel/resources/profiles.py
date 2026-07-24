@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from typing_extensions import Literal
+
 import httpx
 
-from ..types import profile_list_params, profile_create_params, profile_update_params
+from ..types import profile_list_params, profile_create_params, profile_update_params, profile_download_params
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -264,6 +266,7 @@ class ProfilesResource(SyncAPIResource):
         self,
         id_or_name: str,
         *,
+        format: Literal["tar.zst", "tar"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -271,10 +274,17 @@ class ProfilesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
-        """
-        Returns a zstd-compressed tar file of the full user-data directory.
+        """Downloads the profile in its stored format by default.
+
+        Current profiles are
+        returned as zstd-compressed tar archives, while legacy profiles remain JSON. Set
+        `format=tar` to decompress current profiles during download; legacy profiles
+        remain JSON.
 
         Args:
+          format: Response format for current profile archives. Legacy profiles are always
+              returned as JSON.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -289,7 +299,11 @@ class ProfilesResource(SyncAPIResource):
         return self._get(
             path_template("/profiles/{id_or_name}/download", id_or_name=id_or_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"format": format}, profile_download_params.ProfileDownloadParams),
             ),
             cast_to=BinaryAPIResponse,
         )
@@ -529,6 +543,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         self,
         id_or_name: str,
         *,
+        format: Literal["tar.zst", "tar"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -536,10 +551,17 @@ class AsyncProfilesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
-        """
-        Returns a zstd-compressed tar file of the full user-data directory.
+        """Downloads the profile in its stored format by default.
+
+        Current profiles are
+        returned as zstd-compressed tar archives, while legacy profiles remain JSON. Set
+        `format=tar` to decompress current profiles during download; legacy profiles
+        remain JSON.
 
         Args:
+          format: Response format for current profile archives. Legacy profiles are always
+              returned as JSON.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -554,7 +576,11 @@ class AsyncProfilesResource(AsyncAPIResource):
         return await self._get(
             path_template("/profiles/{id_or_name}/download", id_or_name=id_or_name),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform({"format": format}, profile_download_params.ProfileDownloadParams),
             ),
             cast_to=AsyncBinaryAPIResponse,
         )

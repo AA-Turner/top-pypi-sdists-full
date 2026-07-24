@@ -1,8 +1,9 @@
 import asyncio
 import traceback
+from collections.abc import Coroutine
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, overload
+from typing import Any, Callable, Optional, Union, cast, overload
 
 import IPython
 import requests
@@ -11,7 +12,7 @@ from tqdm import tqdm
 from traitlets.config import Config
 
 
-def plist_access_path(d, path: tuple, type_=None, required=False):
+def plist_access_path(d: Any, path: tuple[Any, ...], type_: Optional[type] = None, required: bool = False):
     for component in path:
         d = d.get(component)
         if d is None:
@@ -65,9 +66,9 @@ def try_decode(s: bytes, *, errors: Optional[str] = None) -> Union[str, bytes]:
         return s
 
 
-def asyncio_print_traceback(f: Callable):
+def asyncio_print_traceback(f: Callable[..., Any]):
     @wraps(f)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return await f(*args, **kwargs)
         except (Exception, RuntimeError) as e:
@@ -88,7 +89,7 @@ def get_asyncio_loop() -> asyncio.AbstractEventLoop:
     return _ASYNCIO_LOOP
 
 
-def run_in_loop(coro):
+def run_in_loop(coro: Coroutine[Any, Any, Any]):
     return get_asyncio_loop().run_until_complete(coro)
 
 
@@ -99,10 +100,10 @@ def start_ipython_shell(*, user_ns: Optional[dict[str, Any]] = None, header: Opt
     if header is not None:
         print(header)
     # IPython exposes start_ipython lazily via module-level __getattr__, which pyright cannot see.
-    IPython.start_ipython(argv=[], config=config, user_ns=user_ns or {})  # pyright: ignore[reportAttributeAccessIssue]
+    cast(Any, IPython).start_ipython(argv=[], config=config, user_ns=user_ns or {})
 
 
-def file_download(url: str, outfile: Path, chunk_size=1024) -> None:
+def file_download(url: str, outfile: Path, chunk_size: int = 1024) -> None:
     resp = requests.get(url, stream=True)
     total = int(resp.headers.get("content-length", 0))
     with (

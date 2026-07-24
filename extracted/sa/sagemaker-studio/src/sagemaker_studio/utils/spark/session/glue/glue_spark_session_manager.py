@@ -22,6 +22,7 @@ from sagemaker_studio.utils.spark.connection_resolver import _ensure_project
 from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.glue.interceptors import CustomChannelBuilder
 from sagemaker_studio.utils.spark.session.spark_config_builder import (
+    apply_compatibility_mode_configs,
     build_spark_configs,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
@@ -357,25 +358,13 @@ class GlueSparkSessionManager(SparkSessionManager):
             # Build Glue service-specific configs
             service_configs = {}
 
-            # Compatibility mode (FTA): same logic as sessions package.
+            # Compatibility mode (FTA): apply LF compat configs when supported.
             # Version gate: FTA only supported for Glue >= 5.0 (same as sessions package).
-            if not self._is_fta_supported(glue_version):
-                compat_keys = [
-                    "spark.hadoop.fs.s3.credentialsResolverClass",
-                    "spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject",
-                    "spark.hadoop.fs.s3.folderObject.autoAction.disabled",
-                    "spark.sql.catalog.createDirectoryAfterTable.enabled",
-                    "spark.sql.catalog.dropDirectoryBeforeTable.enabled",
-                    "spark.sql.catalog.spark_catalog.glue.lakeformation-enabled",
-                    "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled",
-                ]
-                # These will be removed from base configs by build_spark_configs after merge;
-                # mark them for exclusion via service_configs setting them to None won't work,
-                # so we handle removal after build_spark_configs call.
-                logger.info("FTA not supported — compatibility mode configs will be removed")
+            if self._is_fta_supported(glue_version):
+                service_configs.update(apply_compatibility_mode_configs({}))
+                logger.info("FTA supported — applying compatibility mode configs")
             else:
-                compat_keys = []
-                logger.info("FTA supported — keeping compatibility mode configs")
+                logger.info("FTA not supported — skipping compatibility mode configs")
 
             # Merge OpenLineage configs for Glue >= 5.0 (same as sessions package).
             # Includes custom_environment_variables and JOB_NAME for parity.
@@ -417,10 +406,6 @@ class GlueSparkSessionManager(SparkSessionManager):
                 connection_configs=self._connection_spark_configs,
                 user_configs=self.spark_conf,
             )
-
-            # Remove compat keys after merge if FTA not supported
-            for key in compat_keys:
-                spark_configs.pop(key, None)
 
             # --- DefaultArguments ---
             # Sessions package passes Livy-specific flags (--enable-spark-ui, --enable-glue-datacatalog,

@@ -6,6 +6,7 @@ import uuid
 from collections import defaultdict
 
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
+from pyspark.errors.exceptions.connect import AnalysisException
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake.snowpark import Session
@@ -15,10 +16,13 @@ from snowflake.snowpark.types import (
     MapType,
     NullType,
     StructType,
+    VariantType,
     _IntegralType,
 )
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.typed_column import TypedColumn
 
@@ -144,6 +148,32 @@ def map_unresolved_extract_value(
         )
 
     else:
+        # VariantType is intentionally accepted here even though it is not named
+        # in the error message below: a Snowflake VARIANT can hold any of the
+        # complex shapes (object/array), so extraction is valid. The message
+        # lists only STRUCT/ARRAY/MAP to stay byte-for-byte identical to Spark.
+        if (
+            global_config.snowpark_connect_enableInputTypeCheckForExtractValueFunction
+            and not isinstance(
+                child_typed_column.typ,
+                (StructType, ArrayType, MapType, VariantType),
+            )
+        ):
+            # Spark renders NullType as "VOID" in this message; Snowpark's
+            # simpleString() returns "null", so special-case it to stay D0.
+            if isinstance(child_typed_column.typ, NullType):
+                base_type_name = "VOID"
+            else:
+                base_type_name = child_typed_column.typ.simpleString().upper()
+            exception = AnalysisException(
+                f"[INVALID_EXTRACT_BASE_FIELD_TYPE] Can't extract a value from "
+                f'"{display_child_name}". '
+                f"Need a complex type [STRUCT, ARRAY, MAP] but got "
+                f'"{base_type_name}".'
+            )
+            attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+            raise exception
+
         result_exp = extract_fn(child_typed_column.col, extract_typed_column.col)
         # Snowflake's GET/GET_IGNORE_CASE on structured types may return a value
         # where JSON null != SQL NULL. Spark treats null struct fields as SQL NULL,

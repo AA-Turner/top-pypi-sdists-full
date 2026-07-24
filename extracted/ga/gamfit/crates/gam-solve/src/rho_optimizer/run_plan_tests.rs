@@ -424,6 +424,76 @@ fn certificate_certifies_kkt_stationary_railed_optimum() {
     );
 }
 
+/// #2392 active-set reduction: when a coordinate is railed at the ρ box with a
+/// genuine (KKT-pinned) tail but the INTERIOR is not stationary, the refused
+/// certificate publishes an `active_set_reseed` that FREEZES the railed
+/// coordinate at its bound so the optimizer can polish the interior in the
+/// reduced box. The genuine rail (`ĉ>0`) must NOT be pulled back — only frozen.
+#[test]
+fn active_set_reduction_freezes_a_railed_coordinate_when_the_interior_is_unpolished_2392() {
+    let bounded = OuterConfig {
+        bounds: Some((array![-30.0, -30.0], array![30.0, 30.0])),
+        ..OuterConfig::default()
+    };
+    // Coord 0: genuine upper-rail tail `a·e^{−ρ₀}` (∂V/∂ρ₀ = −a·e^{−ρ₀} < 0 ⇒
+    // ĉ>0, KKT-pinned at +30). Coord 1: quadratic `½ρ₁²` left UNCONVERGED at
+    // ρ₁=5 (g₁ = 5 ≫ the stationarity bound), so the interior is not stationary.
+    let a = 1.0_f64;
+    let mut obj = OuterProblem::new(2)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| Ok(a * (-rho[0]).exp() + 0.5 * rho[1] * rho[1]),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let e0 = (-rho[0]).exp();
+                Ok(OuterEval {
+                    cost: a * e0 + 0.5 * rho[1] * rho[1],
+                    gradient: array![-a * e0, rho[1]],
+                    hessian: HessianValue::Dense(array![[a * e0, 0.0], [0.0, 1.0]]),
+                    inner_beta_hint: Some(array![e0, 0.0]),
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+    let mut result = OuterResult::new(
+        array![30.0, 5.0],
+        0.0,
+        1,
+        true,
+        OuterPlan {
+            solver: Solver::Bfgs,
+            hessian_source: HessianSource::BfgsApprox,
+        },
+    );
+    let outcome = certify_outer_optimality(&mut obj, &bounded, "active-set-2392", &mut result);
+    assert!(
+        outcome.is_err(),
+        "an unpolished interior beside a rail must refuse certification"
+    );
+    let reseed = result
+        .active_set_reseed
+        .as_ref()
+        .expect("an unpolished interior beside a genuine rail must mint an active-set reseed");
+    assert_eq!(reseed.frozen, vec![0], "the railed coordinate must be frozen");
+    assert_eq!(reseed.rho[0], 30.0, "the frozen coordinate is pinned at its rail");
+    assert_eq!(
+        (reseed.bounds.0[0], reseed.bounds.1[0]),
+        (30.0, 30.0),
+        "the frozen box must pin lower == upper == the rail"
+    );
+    assert_eq!(
+        (reseed.bounds.0[1], reseed.bounds.1[1]),
+        (-30.0, 30.0),
+        "the interior coordinate's box must be untouched"
+    );
+    assert!(
+        result.wrong_rail_reseed.is_none(),
+        "a genuine λ→∞ rail must be frozen, never pulled off its bound"
+    );
+}
+
 /// Build an interior 1-coordinate objective `½·ρ₀²` (analytic gradient `[ρ₀]`,
 /// analytic Dense Hessian `[[1]]`) and certify at `theta_hat` with NO
 /// `operator_stop_reason` set — i.e. the non-flat-valley exit path a fit takes
@@ -2257,6 +2327,78 @@ fn analytic_route_unavailable_hessian_is_fatal() {
                  got Recoverable: {message}"
         ),
     }
+}
+
+/// #2357 — the finite cost-stall window must not certify a strict-saddle
+/// incumbent. Cold periodic-te() trace: the window fills on three oscillating
+/// evals near ρ₂≈10.7 while the recorded BEST is an earlier, lower-cost
+/// pass-through point (ρ₂≈5.4) whose reduced Hessian is NOT PSD; the guard
+/// certified that saddle `Converged`, the downstream analytic certificate then
+/// refused with INDEFINITE CURVATURE AT INTERIOR OPTIMUM, and the fit died —
+/// even though warm-resuming from the very same checkpoint converges in a few
+/// more iterations. The guard already refuses a strict-saddle incumbent on the
+/// INFEASIBLE-run path; this pins the same refusal on the finite path: the
+/// window filling at a `hessian_psd = Some(false)` best yields `Continue`
+/// (escape granted, streak reset) so cubic regularization keeps exploiting the
+/// negative curvature, and once a PSD improving iterate replaces the saddle as
+/// best, the next filled window certifies THAT point.
+#[test]
+fn finite_cost_stall_refuses_to_certify_strict_saddle_incumbent_2357() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+
+    // Best-so-far: low cost, gradient inside the certification band, but a
+    // certified strict saddle (the #2357 eval#5 analogue at ρ₂≈5.4).
+    let saddle_rho = array![5.4];
+    let verdict = guard.observe_second_order(&saddle_rho, 100.0, 5.0e-4, true, Some(false));
+    assert!(matches!(verdict, CostStallVerdict::Continue));
+
+    // Three no-improvement evals (the ρ₂≈10.7 oscillation) fill the window.
+    // Pre-fix this certified the SADDLE as Converged; the strict-saddle refusal
+    // must instead grant an escape and keep descending.
+    let osc_rho = array![10.7];
+    for k in 0..3 {
+        let verdict = guard.observe_second_order(&osc_rho, 100.5, 5.0e-4, true, Some(true));
+        assert!(
+            matches!(verdict, CostStallVerdict::Continue),
+            "window fill #{k} at a strict-saddle incumbent must refuse the stall, \
+             not certify the saddle"
+        );
+    }
+    // The saddle may be published as a best-so-far SNAPSHOT for budget-recovery
+    // (#1371), but it must never be stamped `converged = true`: a strict-saddle
+    // incumbent is exactly what #2357 forbids certifying.
+    if let Some(snapshot) = exit.lock().unwrap().as_ref() {
+        assert!(
+            !snapshot.converged,
+            "a strict-saddle incumbent may be a recovery snapshot but must never \
+             be published as a converged optimum"
+        );
+    }
+
+    // The continued descent finds a better, PSD iterate (the warm-resume
+    // outcome): it becomes best, and the next filled window certifies it.
+    let settled_rho = array![6.1];
+    let verdict = guard.observe_second_order(&settled_rho, 99.0, 4.0e-4, true, Some(true));
+    assert!(matches!(verdict, CostStallVerdict::Continue));
+    let mut last = CostStallVerdict::Continue;
+    for _ in 0..3 {
+        last = guard.observe_second_order(&osc_rho, 100.5, 5.0e-4, true, Some(true));
+    }
+    assert!(
+        matches!(last, CostStallVerdict::Converged),
+        "a PSD best inside the certification band must certify once the window refills"
+    );
+    let published = exit
+        .lock()
+        .unwrap()
+        .take()
+        .expect("converged stall must publish the best checkpoint");
+    assert!(published.converged);
+    assert_eq!(
+        published.rho, settled_rho,
+        "the certified checkpoint must be the PSD best, not the saddle or the oscillation point"
+    );
 }
 
 /// #1237 — On a near-separable multinomial fit the outer REML criterion
@@ -6868,6 +7010,150 @@ fn certify_mints_saddle_escape_reseed_at_interior_saddle() {
     assert!(
         reseed[1].abs() > 1e-6,
         "escape must step along the indefinite ρ₁ axis, not the PSD ρ₀ axis: {reseed:?}"
+    );
+}
+
+// #2155 — the SAME double-well saddle in (ρ₀, ρ₁), plus a third coordinate ρ₂
+// pulled by a constant negative gradient onto the +rho_bound box rail. At the
+// railed point the FULL Hessian is diag(1, −1, 0), but the load-bearing verdict
+// is on the REDUCED (off-railed) sub-block diag(1, −1) over {ρ₀, ρ₁}, which is
+// indefinite. This is the flexible-link binomial-wiggle failure genus (#2155):
+// a genuine interior saddle in the free directions while a smoothing coordinate
+// rails, where the #2357 escape used to be waived by the mere presence of a
+// rail (`lambdas_railed.is_empty()`), so the fit was refused despite a real,
+// box-feasible descent along ρ₁ that holds ρ₂ fixed on its rail.
+fn railed_saddle_cost(rho: &Array1<f64>) -> f64 {
+    let r0 = rho[0];
+    let r1 = rho[1];
+    let r2 = rho[2];
+    0.5 * r0 * r0 + 0.25 * r1 * r1 * r1 * r1 - 0.5 * r1 * r1 - 0.3 * r2
+}
+
+fn railed_saddle_eval(rho: &Array1<f64>) -> OuterEval {
+    let r0 = rho[0];
+    let r1 = rho[1];
+    OuterEval {
+        cost: railed_saddle_cost(rho),
+        // ∂/∂ρ₂ = −0.3: a constant outward pull that drives ρ₂ to the +rho_bound
+        // rail and keeps it there. ρ₂ carries zero curvature, so the full Hessian
+        // is only semidefinite; the indefinite direction lives entirely in the
+        // un-railed {ρ₀, ρ₁} block.
+        gradient: array![r0, r1 * r1 * r1 - r1, -0.3],
+        hessian: HessianValue::Dense(array![
+            [1.0, 0.0, 0.0],
+            [0.0, 3.0 * r1 * r1 - 1.0, 0.0],
+            [0.0, 0.0, 0.0],
+        ]),
+        inner_beta_hint: None,
+    }
+}
+
+fn railed_saddle_problem() -> OuterProblem {
+    // Default box is ±rho_bound = ±30, so ρ₂ = 30 sits exactly on the upper rail.
+    OuterProblem::new(3)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Dense)
+        .with_initial_rho(array![0.0, 0.0, 30.0])
+        .with_screen_initial_rho(false)
+        .with_seed_config(gam_problem::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        })
+}
+
+#[test]
+fn certify_mints_saddle_escape_reseed_at_railed_saddle_2155() {
+    // A saddle whose indefinite curvature is confined to the free (un-railed)
+    // directions must STILL be refused and STILL publish a negative-curvature
+    // escape reseed — one that steps along the interior indefinite axis (ρ₁)
+    // while holding the railed coordinate (ρ₂) fixed on its bound (#2155).
+    let problem = railed_saddle_problem();
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), rho: &Array1<f64>| Ok(railed_saddle_cost(rho)),
+        |_: &mut (), rho: &Array1<f64>| Ok(railed_saddle_eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let rejection =
+        audit_stationary_point(&mut obj, array![0.0, 0.0, 30.0], "railed-saddle-escape #2155")
+            .expect_err("a railed strict saddle in the free directions must be refused");
+    let result = &rejection.result;
+    let cert = result
+        .criterion_certificate
+        .as_ref()
+        .expect("refused certificate must be recorded");
+    assert!(
+        cert.is_stationary(),
+        "the interior gradient must clear the stationarity band at the railed saddle"
+    );
+    assert_eq!(
+        cert.hessian_psd,
+        Some(false),
+        "the REDUCED (off-railed) Hessian must read indefinite"
+    );
+    assert!(
+        cert.lambdas_railed.contains(&2),
+        "ρ₂ must be recorded as railed: {:?}",
+        cert.lambdas_railed
+    );
+    let reseed = result.saddle_escape_reseed.as_ref().expect(
+        "a refused railed saddle with an indefinite reduced Hessian must mint a reseed (#2155)",
+    );
+    let saddle_f = railed_saddle_cost(&array![0.0, 0.0, 30.0]);
+    assert!(
+        railed_saddle_cost(reseed) < saddle_f - 1e-9,
+        "escape reseed {reseed:?} (f={}) must strictly descend below the saddle f={saddle_f}",
+        railed_saddle_cost(reseed),
+    );
+    assert!(
+        reseed[1].abs() > 1e-6,
+        "escape must step along the free indefinite ρ₁ axis: {reseed:?}"
+    );
+    assert!(
+        (reseed[2] - 30.0).abs() < 1e-12,
+        "escape must hold the railed ρ₂ fixed on its bound: {reseed:?}"
+    );
+}
+
+#[test]
+fn outer_search_escapes_railed_saddle_and_certifies_minimum_2155() {
+    // Full pipeline: seeded at the railed saddle, the outer search must escape
+    // via the one-shot reseed and certify a genuine reduced-PSD minimum at
+    // ρ₁=±1 with ρ₂ still on its rail — not refuse at the saddle (#2155).
+    let problem = railed_saddle_problem();
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), rho: &Array1<f64>| Ok(railed_saddle_cost(rho)),
+        |_: &mut (), rho: &Array1<f64>| Ok(railed_saddle_eval(rho)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let result = problem
+        .run(&mut obj, "railed-saddle-escape pipeline #2155")
+        .expect("the outer search must escape the railed saddle and certify a minimum");
+    assert!(
+        result.converged,
+        "must converge at a reduced-PSD minimum, not refuse at the railed saddle: rho={:?}",
+        result.rho
+    );
+    assert!(
+        (result.rho[1].abs() - 1.0).abs() < 1e-4,
+        "must land on the free-direction minimum ρ₁=±1, got ρ={:?}",
+        result.rho,
+    );
+    assert!(
+        (result.rho[2] - 30.0).abs() < 1e-4,
+        "ρ₂ must remain on its rail at the minimum: {:?}",
+        result.rho,
+    );
+    assert!(
+        result
+            .criterion_certificate
+            .as_ref()
+            .is_some_and(|c| c.certifies() && c.hessian_psd == Some(true)),
+        "the escaped minimum must carry a reduced-PSD certificate",
     );
 }
 

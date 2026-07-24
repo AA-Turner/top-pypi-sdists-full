@@ -609,6 +609,154 @@ pub(crate) fn outergradient_matches_finite_difference_for_one_block() {
     );
 }
 
+/// #2366 confirming gate: the outer gradient must match finite differences of
+/// the outer objective when the inner mode sits on an ACTIVE inequality face.
+///
+/// Fixture geometry: 2 coefficients, quadratic likelihood with unconstrained
+/// optimum at `(1.0, −0.5)`, elementwise box `β ≥ 0`, and a COUPLING penalty
+/// `S = [[2,−1],[−1,2]]`. The constrained mode pins `β₂ = 0` (strict
+/// multiplier) while `β₁ = 1/(1+2λ) > 0` moves with ρ — so the true mode
+/// sensitivity `∂β̂/∂ρ` lives in the face `{v : v₂ = 0}`, but a full-Hessian
+/// IFT solve `−H⁻¹(∂S_λ/∂ρ)β̂` has nonzero mass on the pinned coordinate
+/// through the off-diagonal coupling `(Sβ̂)₂ = −λβ̂₁ ≠ 0`. Any envelope term
+/// contracting the (nonzero, `= C_Aᵀμ`) inner KKT gradient against that
+/// off-face mode response manufactures a fictitious gradient component that
+/// finite differences of the actual objective do not contain — the exact
+/// mechanism behind the #2298 transformation arm certifying `|Pg| = 0.398`
+/// at a genuine cost minimum.
+#[test]
+pub(crate) fn outergradient_matches_finite_difference_with_active_inequality_face_2366() {
+    let spec = ParameterBlockSpec {
+        name: "cone".to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(Array2::eye(2))),
+        offset: Array1::zeros(2),
+        penalties: vec![PenaltyMatrix::Dense(array![[2.0, -1.0], [-1.0, 2.0]])],
+        nullspace_dims: vec![],
+        initial_log_lambdas: array![0.2],
+        initial_beta: None,
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    };
+    let options = BlockwiseFitOptions {
+        use_remlobjective: true,
+        ridge_floor: 1e-10,
+        ..BlockwiseFitOptions::default()
+    };
+    let penalty_counts = vec![1usize];
+    let family = TwoCoefConstrainedExactFamily {
+        target: array![1.0, -0.5],
+    };
+    let rho = array![0.2];
+
+    let eval_at = |r: f64| {
+        outerobjective_andgradient(
+            &family,
+            std::slice::from_ref(&spec),
+            &options,
+            &penalty_counts,
+            &array![r],
+            None,
+        )
+    };
+
+    let (f0, g0, _) = eval_at(rho[0]).expect("objective/gradient at rho");
+    assert!(f0.is_finite());
+
+    let h = 1e-5;
+    let (fp, _, _) = eval_at(rho[0] + h).expect("objective at rho+h");
+    let (fm, _, _) = eval_at(rho[0] - h).expect("objective at rho-h");
+    let gfd = (fp - fm) / (2.0 * h);
+    let rel = (g0[0] - gfd).abs() / gfd.abs().max(1e-8);
+
+    assert!(
+        rel < 5e-3,
+        "#2366: outer gradient must match FD on an active inequality face: \
+         analytic={} fd={} rel={} (a fictitious component here is the \
+         full-Hessian IFT leaking through the pinned coordinate)",
+        g0[0],
+        gfd,
+        rel
+    );
+}
+
+/// #2366 increment 2: the SAME active-face gradient truth on the JOINT-EXACT
+/// multi-block path. Increment 1 (`..._with_active_inequality_face_2366`)
+/// exonerated the per-block/ExactNewton envelope; the #2298 transformation arm
+/// certifies |Pg| = 0.398 on a path that assembles the outer gradient from the
+/// family's JOINT Hessian across blocks. Fixture: two 1-coefficient blocks,
+/// joint likelihood curvature [[1, c], [c, 1]] (c = 0.4), target (1.0, -0.5),
+/// box beta >= 0 on both blocks. The constrained mode pins block 1 at 0 with a
+/// STRICT multiplier (mu = c*(beta0 - 1) + 0.5 > 0 for beta0 < 1), while
+/// block 0 moves with both rho coordinates through the coupling. A full-joint
+/// -H^-1 (dS/drho) beta mode response has nonzero mass on the pinned block, so
+/// any envelope contraction that ignores the active face manufactures a
+/// gradient component finite differences of the actual objective do not have.
+#[test]
+pub(crate) fn outergradient_matches_finite_difference_on_active_face_joint_exact_2366() {
+    let spec_for = |name: &str, seed_log_lambda: f64| ParameterBlockSpec {
+        name: name.to_string(),
+        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(array![[1.0]])),
+        offset: array![0.0],
+        penalties: vec![PenaltyMatrix::Dense(Array2::eye(1))],
+        nullspace_dims: vec![],
+        initial_log_lambdas: array![seed_log_lambda],
+        initial_beta: None,
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    };
+    let specs = vec![spec_for("face_a", 0.2), spec_for("face_b", -0.1)];
+    let options = BlockwiseFitOptions {
+        use_remlobjective: true,
+        ridge_floor: 1e-10,
+        ..BlockwiseFitOptions::default()
+    };
+    let penalty_counts = vec![1usize, 1];
+    let family = TwoBlockJointActiveFaceFamily {
+        coupling: 0.4,
+        target: array![1.0, -0.5],
+    };
+
+    let eval_at = |r0: f64, r1: f64| {
+        outerobjective_andgradient(
+            &family,
+            &specs,
+            &options,
+            &penalty_counts,
+            &array![r0, r1],
+            None,
+        )
+    };
+
+    let rho = [0.2_f64, -0.1];
+    let (f0, g0, _) = eval_at(rho[0], rho[1]).expect("objective/gradient at rho");
+    assert!(f0.is_finite());
+
+    let h = 1e-5;
+    for k in 0..2 {
+        let mut p = rho;
+        p[k] += h;
+        let mut m = rho;
+        m[k] -= h;
+        let (fp, _, _) = eval_at(p[0], p[1]).expect("objective at rho+h");
+        let (fm, _, _) = eval_at(m[0], m[1]).expect("objective at rho-h");
+        let gfd = (fp - fm) / (2.0 * h);
+        let rel = (g0[k] - gfd).abs() / gfd.abs().max(1e-8);
+        assert!(
+            rel < 5e-3,
+            "#2366 joint-exact active face, coordinate {k}: analytic={} fd={} rel={} \
+             (a fictitious component here is the joint-exact assembly ignoring the \
+             active inequality face)",
+            g0[k],
+            gfd,
+            rel
+        );
+    }
+}
+
 #[test]
 pub(crate) fn outergradient_prefers_joint_exact_pathwhen_available() {
     let spec = ParameterBlockSpec {
@@ -1868,6 +2016,35 @@ pub(crate) fn active_face_logdet_ignores_constraint_normal_indefiniteness() {
         (penalty_logdet - 3.0_f64.ln()).abs() < 1e-12,
         "active-face penalty logdet={penalty_logdet}, expected={}",
         3.0_f64.ln(),
+    );
+}
+
+#[test]
+pub(crate) fn active_face_logdet_indefinite_tangent_is_infeasible_not_fatal() {
+    // gam#979 survival marginal-slope seed-κ saddle. Here the negative curvature
+    // is in the FREE tangent direction (the second axis, curvature −4), not
+    // pinned by the active row — so the constrained mode is genuinely NOT a
+    // Laplace mode. The value-side convention returns +∞ (this ρ/κ is infeasible
+    // for the Laplace approximation) so the outer REML/κ optimizer rejects the
+    // evaluation, instead of the fatal Cholesky error that stranded the whole
+    // fit at the seed. Mirror of gam#2336's indefinite ⇒ +∞ convention.
+    let h = array![[3.0, 0.0], [0.0, -4.0]];
+    let active = ActiveLinearConstraintBlock {
+        a: array![[1.0, 0.0]],
+    };
+    let logdet = active_face_logdet_with_ridge_policy(
+        &h,
+        Some(&active),
+        false,
+        10,
+        0.0,
+        RidgePolicy::exact_full_objective(),
+        0.0,
+    )
+    .expect("an indefinite tangent must yield a value (+inf), not a fatal error");
+    assert!(
+        logdet.is_infinite() && logdet > 0.0,
+        "indefinite constrained mode must return +inf (infeasible), got {logdet}",
     );
 }
 

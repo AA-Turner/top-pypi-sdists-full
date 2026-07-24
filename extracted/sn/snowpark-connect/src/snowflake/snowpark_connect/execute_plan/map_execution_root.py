@@ -124,6 +124,26 @@ def to_arrow_batch_iter(
         return iter([result])
 
 
+def _empty_result_to_pandas(fetch_df, num_columns: int) -> pandas.DataFrame:
+    """Materialize an empty result as pandas, tolerant of duplicate column names.
+
+    Duplicate output column names (e.g. a join of two frames that share a column
+    name) make pyarrow < 15's ``Table.to_pandas`` raise
+    ``ValueError: Found non-unique column index``. We rename to unique positional
+    placeholders before the conversion; the real names are restored downstream
+    from ``spark_columns`` in ``pandas_empty_table_to_arrow_bytes``.
+    """
+    import numpy
+
+    if not numpy.__version__.startswith("14."):
+        return fetch_df.to_pandas()
+
+    placeholders = [f"_col{i}" for i in range(num_columns)]
+    if isinstance(fetch_df, pa.Table):
+        return fetch_df.rename_columns(placeholders).to_pandas()
+    return fetch_df.to_df(*placeholders).to_pandas()
+
+
 def map_execution_root(
     request: proto_base.ExecutePlanRequest,
 ) -> Iterator[proto_base.ExecutePlanResponse | QueryResult]:
@@ -189,7 +209,9 @@ def map_execution_root(
                     cached_local_table.num_rows, data_bytes, schema, request
                 )
             else:
-                pandas_df = cached_local_table.to_pandas()
+                pandas_df = _empty_result_to_pandas(
+                    cached_local_table, cached_local_table.num_columns
+                )
                 data_bytes = pandas_empty_table_to_arrow_bytes(
                     pandas_df, snowpark_schema, spark_columns
                 )
@@ -219,7 +241,7 @@ def map_execution_root(
                 query_id = qh.queries[queries_cnt - 1].query_id
             if first_arrow_table is None:
                 # empty arrow batch iterator
-                pandas_df = fetch_df.to_pandas()
+                pandas_df = _empty_result_to_pandas(fetch_df, len(spark_columns))
                 data_bytes = pandas_empty_table_to_arrow_bytes(
                     pandas_df, snowpark_schema, spark_columns
                 )
@@ -268,7 +290,7 @@ def map_execution_root(
 
             # Empty result needs special processing
             if batch_count == 0:
-                pandas_df = fetch_df.to_pandas()
+                pandas_df = _empty_result_to_pandas(fetch_df, len(spark_columns))
                 data_bytes = pandas_empty_table_to_arrow_bytes(
                     pandas_df, snowpark_schema, spark_columns
                 )

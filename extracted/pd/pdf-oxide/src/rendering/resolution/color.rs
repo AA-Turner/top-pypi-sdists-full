@@ -13,7 +13,7 @@
 //!   and `DeviceGray` alternates as well.
 //! - **ICCBased** colour spaces. The resolver delegates to the
 //!   [`crate::color::Transform`] CMM when the `icc` feature is on and falls
-//!   back to the §10.3.5 additive-clamp formula otherwise. This is the same
+//!   back to the process-ink conversion otherwise. This is the same
 //!   path image extraction uses, so we re-use [`crate::color`] rather than
 //!   carrying a second copy of the conversion code.
 //! - **Indexed** colour spaces. The resolver follows the index into the base
@@ -125,7 +125,7 @@ impl ColorResolver {
         // render). Return None so the caller falls through to the
         // device-family path (`device_to_rgba`), which routes CMYK
         // through `cmyk_to_rgb_via_intent` and so consults
-        // `/OutputIntents` when present, or §10.3.5 additive-clamp
+        // `/OutputIntents` when present, or the process-ink conversion
         // when not.
         if space.as_name().is_none() && space.as_array().is_none() {
             return Ok(None);
@@ -466,6 +466,18 @@ impl ColorResolver {
             None => return Ok(invert_tint_fallback(components, alpha)),
         };
 
+        // The alternate colour space may itself be an indirect reference
+        // (e.g. `[/Separation /Spot 6 0 R 5 0 R]`) - resolve it before
+        // inspecting its shape, mirroring how `func_obj` is resolved just
+        // below. Otherwise `.as_name()` returns `None` on the unresolved
+        // `Reference` and the compound-array check also fails, so control
+        // falls through to the `first_as_gray` fallback for a colour space
+        // that is really `/DeviceRGB` or an indirect `[/ICCBased ...]`.
+        let alt_cs_resolved = match ctx.doc.resolve_object(alt_cs_obj) {
+            Ok(o) => o,
+            Err(_) => return Ok(invert_tint_fallback(components, alpha)),
+        };
+
         let func_resolved = match ctx.doc.resolve_object(func_obj) {
             Ok(o) => o,
             Err(_) => return Ok(invert_tint_fallback(components, alpha)),
@@ -480,9 +492,16 @@ impl ColorResolver {
             .and_then(|o| o.as_integer())
             .unwrap_or(-1);
 
-        let alt_cs_name = alt_cs_obj.as_name();
+        let alt_cs_name = alt_cs_resolved.as_name();
 
         let altspace_values: Vec<f32> = match func_type {
+            0 | 3 => match evaluate_tint_function(ctx, &func_resolved, components[0], 0) {
+                Some(v) => v,
+                // Outside the supported envelope (multi-dimensional Type 0,
+                // exotic bit depths, malformed Domain, over-deep nesting):
+                // keep the long-standing fallback rather than guess.
+                None => return Ok(invert_tint_fallback(components, alpha)),
+            },
             2 => evaluate_type2(func_dict, components[0]),
             4 => evaluate_type4(&func_resolved, components)?,
             _ => return Ok(invert_tint_fallback(components, alpha)),
@@ -517,8 +536,8 @@ impl ColorResolver {
                 // logical Spaced colour and recurse — this lets a
                 // Separation with an ICC alternate route through the ICC
                 // branch correctly.
-                if let Object::Array(_) = alt_cs_obj {
-                    self.resolve_spaced(alt_cs_obj, &altspace_values, ctx, alpha)
+                if let Object::Array(_) = alt_cs_resolved {
+                    self.resolve_spaced(&alt_cs_resolved, &altspace_values, ctx, alpha)
                 } else {
                     Ok(first_as_gray(&altspace_values, alpha))
                 }
@@ -615,7 +634,7 @@ fn three_as_rgb(components: &[f32], alpha: f32) -> ResolvedColor {
 
 /// Emit `ResolvedColor::Rgba` from a 4-component CMYK via the
 /// context-aware CMYK→RGB path: the document's `/OutputIntents` CMYK
-/// profile when present, otherwise §10.3.5 additive-clamp. Used by
+/// profile when present, otherwise the process-ink conversion. Used by
 /// the Separation / DeviceN alternate-CMYK projection — the per-plate
 /// routing for those sources is governed by the source colour space,
 /// not the alternate's CMYK decomposition, so the alt is composite-
@@ -630,7 +649,7 @@ fn four_as_cmyk(components: &[f32], alpha: f32, ctx: &ResolutionContext) -> Reso
 /// for genuine DeviceCMYK / ICCBased N=4 sources. The per-plate
 /// router consumes this directly (process-ink routing + OPM=1 zero-
 /// component rule); the composite path projects to RGBA via the
-/// §10.3.5 additive-clamp formula in `run_pipeline_for_logical`.
+/// process-ink `cmyk_to_rgb_via_intent` in `run_pipeline_for_logical`.
 fn four_as_cmyk_native(components: &[f32], alpha: f32) -> ResolvedColor {
     ResolvedColor::Cmyk {
         c: components[0].clamp(0.0, 1.0),
@@ -641,17 +660,20 @@ fn four_as_cmyk_native(components: &[f32], alpha: f32) -> ResolvedColor {
     }
 }
 
-/// ISO 32000-1:2008 §10.3.5 additive-clamp DeviceCMYK → DeviceRGB.
+/// DeviceCMYK → DeviceRGB via the PROCESS-INK conversion
+/// (`crate::color::cmyk_to_rgb`, tetralinear over the 16 measured ink
+/// corners), NOT the naive §10.3.5 additive clamp `R = 1 - min(1, C+K)`.
 ///
-/// Mirrors the helper in `page_renderer.rs:2555`. We duplicate it here
-/// deliberately so the resolver has no compile-time dependency on the
-/// existing renderer; a follow-up will collapse the two callers onto a
-/// single shared helper as part of the renderer-migration work.
+/// This is the no-OutputIntent fallback of the composite render path
+/// (`run_pipeline_for_logical` → `cmyk_to_rgb_via_intent`), so it must
+/// agree with the renderer's own `page_renderer::cmyk_to_rgb`, the image
+/// pixel path (`extractors::images::cmyk_pixel_to_rgb`) and the
+/// text/extraction path (`document.rs`/`text.rs`): the same CMYK value
+/// resolves to the same RGB everywhere (100% K is `#231F20`, 100% cyan
+/// `#00ADEF`). A real ICC/OutputIntent CMM still takes precedence when a
+/// profile is available (see `cmyk_to_rgb_via_intent`).
 fn cmyk_to_rgb(c: f32, m: f32, y: f32, k: f32) -> (f32, f32, f32) {
-    let r = 1.0 - (c + k).min(1.0);
-    let g = 1.0 - (m + k).min(1.0);
-    let b = 1.0 - (y + k).min(1.0);
-    (r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0))
+    crate::color::cmyk_to_rgb(c, m, y, k)
 }
 
 /// Context-aware CMYK → RGB convergence.
@@ -675,9 +697,10 @@ fn cmyk_to_rgb(c: f32, m: f32, y: f32, k: f32) -> (f32, f32, f32) {
 ///
 /// 2. `ctx.output_intent_cmyk` is `None` — the document didn't
 ///    declare a CMYK OutputIntent (or one is present but couldn't be
-///    parsed). Falls through to the spec's §10.3.5 additive-clamp
-///    formula. This is the byte-for-byte fallback the renderer
-///    shipped before OutputIntent threading landed.
+///    parsed). Falls through to the process-ink `cmyk_to_rgb`
+///    (`crate::color::cmyk_to_rgb`), the same conversion the renderer,
+///    image and extraction paths use, so a DeviceCMYK colour resolves
+///    identically whether or not a broken OutputIntent is present.
 ///
 /// **Black-Point Compensation (BPC) and rendering-intent caveats:**
 /// qcms 0.3.0 does not implement BPC and, for CMYK sources, silently
@@ -788,6 +811,161 @@ fn evaluate_type4(func_obj: &Object, components: &[f32]) -> Result<Vec<f32>> {
     Ok(out.into_iter().map(|v| v as f32).collect())
 }
 
+/// Evaluate a single-input tint-transform function of Type 0, 2, 3 or 4
+/// (SS 7.10). Used for the Separation / 1-input DeviceN path; `depth` caps
+/// Type 3 nesting so a self-referential /Functions array cannot recurse
+/// unboundedly. Returns `None` for anything outside the supported envelope so
+/// the caller can apply its established fallback instead of guessing.
+fn evaluate_tint_function(
+    ctx: &ResolutionContext,
+    func_resolved: &Object,
+    x: f32,
+    depth: usize,
+) -> Option<Vec<f32>> {
+    const MAX_TINT_DEPTH: usize = 4;
+    if depth >= MAX_TINT_DEPTH {
+        return None;
+    }
+    let dict = func_resolved.as_dict()?;
+    let func_type = dict.get("FunctionType").and_then(|o| o.as_integer())?;
+    match func_type {
+        0 => evaluate_type0_sampled(func_resolved, x),
+        2 => Some(evaluate_type2(dict, x)),
+        3 => evaluate_type3_stitching(ctx, dict, x, depth),
+        4 => evaluate_type4(func_resolved, &[x]).ok(),
+        _ => None,
+    }
+}
+
+/// Evaluate a Type 0 (sampled) function for ONE input (SS 7.10.2) - the common
+/// Separation tint-transform shape: 1-D `/Size`, 8- or 16-bit samples, linear
+/// interpolation between the two adjacent samples, outputs mapped through
+/// `/Range`. Returns `None` outside that envelope (multi-dimensional input,
+/// other bit depths, a non-default `/Encode`/`/Decode`, malformed `/Domain`,
+/// or a truncated / oversized sample stream).
+fn evaluate_type0_sampled(func_obj: &Object, x: f32) -> Option<Vec<f32>> {
+    let Object::Stream { dict, .. } = func_obj else {
+        return None;
+    };
+    let size = dict.get("Size").and_then(|o| o.as_array())?;
+    if size.len() != 1 {
+        return None; // 1-D input only
+    }
+    let n_samples = object_to_f64(size.first()?) as usize;
+    if n_samples == 0 {
+        return None;
+    }
+    let bps = dict
+        .get("BitsPerSample")
+        .and_then(|o| o.as_integer())
+        .unwrap_or(8);
+    if !(bps == 8 || bps == 16) {
+        return None;
+    }
+    // Non-default /Encode or /Decode changes the sample mapping; falling back
+    // beats silently evaluating with default semantics.
+    if dict.contains_key("Encode") || dict.contains_key("Decode") {
+        return None;
+    }
+    let range = dict.get("Range").and_then(|o| o.as_array())?;
+    let range = array_to_pairs(range);
+    let n_out = range.len();
+    if n_out == 0 {
+        return None;
+    }
+    let domain = dict
+        .get("Domain")
+        .and_then(|o| o.as_array())
+        .map(|a| array_to_pairs(a))
+        .unwrap_or_default();
+    let (d0, d1) = domain.first().map(|p| (p[0], p[1])).unwrap_or((0.0, 1.0));
+    if !(d0.is_finite() && d1.is_finite() && d0 <= d1) {
+        return None; // f64::clamp panics on NaN bounds or min > max
+    }
+    let raw = func_obj.decode_stream_data().ok()?;
+    let bytes_per = if bps == 8 { 1usize } else { 2 };
+    let needed = n_samples.checked_mul(n_out)?.checked_mul(bytes_per)?;
+    if raw.len() < needed {
+        return None;
+    }
+    let max = if bps == 8 { 255.0 } else { 65535.0 };
+    let t = (x as f64).clamp(d0, d1);
+    let span = d1 - d0;
+    let pos = if span <= f64::EPSILON {
+        0.0
+    } else {
+        (t - d0) / span * (n_samples - 1) as f64
+    };
+    let i = (pos.floor() as usize).min(n_samples - 1);
+    let j = (i + 1).min(n_samples - 1);
+    let frac = pos - i as f64;
+    let sample = |s: usize, k: usize| -> f64 {
+        let at = (s * n_out + k) * bytes_per;
+        let v = if bps == 8 {
+            raw[at] as f64
+        } else {
+            u16::from_be_bytes([raw[at], raw[at + 1]]) as f64
+        } / max;
+        let [r0, r1] = range[k];
+        r0 + v * (r1 - r0)
+    };
+    Some(
+        (0..n_out)
+            .map(|k| {
+                let a = sample(i, k);
+                let b = sample(j, k);
+                (a + frac * (b - a)) as f32
+            })
+            .collect(),
+    )
+}
+
+/// Evaluate a Type 3 (stitching) function for ONE input (SS 7.10.4): pick the
+/// sub-function whose domain slice contains `x`, remap through `/Encode`, and
+/// delegate (sub-functions may be Type 0/2/4 or nested Type 3, depth-capped).
+fn evaluate_type3_stitching(
+    ctx: &ResolutionContext,
+    dict: &std::collections::HashMap<String, Object>,
+    x: f32,
+    depth: usize,
+) -> Option<Vec<f32>> {
+    let domain = dict.get("Domain").and_then(|o| o.as_array())?;
+    let domain = array_to_pairs(domain);
+    let (d0, d1) = domain.first().map(|p| (p[0], p[1]))?;
+    if !(d0.is_finite() && d1.is_finite() && d0 <= d1) {
+        return None;
+    }
+    let bounds: Vec<f64> = dict
+        .get("Bounds")
+        .and_then(|o| o.as_array())
+        .map(|a| a.iter().map(object_to_f64).collect())
+        .unwrap_or_default();
+    let encode = dict
+        .get("Encode")
+        .and_then(|o| o.as_array())
+        .map(|a| array_to_pairs(a))
+        .unwrap_or_default();
+    let funcs = dict.get("Functions").and_then(|o| o.as_array())?;
+    if funcs.is_empty() {
+        return None;
+    }
+    let t = (x as f64).clamp(d0, d1);
+    let mut k = 0usize;
+    while k < bounds.len() && t >= bounds[k] {
+        k += 1;
+    }
+    let lo = if k == 0 { d0 } else { bounds[k - 1] };
+    let hi = if k == bounds.len() { d1 } else { bounds[k] };
+    let (e0, e1) = encode.get(k).map(|p| (p[0], p[1])).unwrap_or((0.0, 1.0));
+    let u = if (hi - lo).abs() <= f64::EPSILON {
+        e0
+    } else {
+        e0 + (t - lo) / (hi - lo) * (e1 - e0)
+    };
+    let sub = ctx.doc.resolve_object(funcs.get(k)?).ok()?;
+    evaluate_tint_function(ctx, &sub, u as f32, depth + 1)
+}
+
 /// Flatten a `[min1 max1 min2 max2 ...]` PDF array into `[[min, max], ...]`.
 fn array_to_pairs(arr: &[Object]) -> Vec<[f64; 2]> {
     arr.chunks_exact(2)
@@ -820,17 +998,18 @@ mod tests {
 
     /// Assert resolved colour matches expected RGBA. Accepts either
     /// `ResolvedColor::Rgba` directly or `ResolvedColor::Cmyk`
-    /// projected via the §10.3.5 additive-clamp formula (the resolver
-    /// now emits Cmyk for Separation / DeviceN sources with a CMYK
-    /// alternate so per-plate backends see the channel decomposition;
-    /// composite consumers project on demand).
+    /// projected via the same process-ink `cmyk_to_rgb` the composite
+    /// render path uses (the resolver now emits Cmyk for Separation /
+    /// DeviceN sources with a CMYK alternate so per-plate backends see
+    /// the channel decomposition; composite consumers project on
+    /// demand). Projecting through the engine's own converter keeps the
+    /// expected RGB in this helper consistent with what the renderer
+    /// actually paints for the same CMYK plates.
     fn assert_rgba(c: ResolvedColor, r: f32, g: f32, b: f32, a: f32) {
         let (rr, gg, bb, aa) = match c {
             ResolvedColor::Rgba { r, g, b, a } => (r, g, b, a),
             ResolvedColor::Cmyk { c, m, y, k, a } => {
-                let rr = (1.0 - (c + k).min(1.0)).clamp(0.0, 1.0);
-                let gg = (1.0 - (m + k).min(1.0)).clamp(0.0, 1.0);
-                let bb = (1.0 - (y + k).min(1.0)).clamp(0.0, 1.0);
+                let (rr, gg, bb) = super::cmyk_to_rgb(c, m, y, k);
                 (rr, gg, bb, a)
             },
             other => panic!("expected Rgba or Cmyk; got {other:?}"),
@@ -862,14 +1041,28 @@ mod tests {
     }
 
     #[test]
-    fn resolves_device_cmyk_via_additive_clamp() {
-        // CMYK(1,0,0,0) → RGB(0,1,1) per §10.3.5.
+    fn resolves_device_cmyk_via_process_inks() {
+        // DeviceCMYK composites through the process-ink converter
+        // (`crate::color::cmyk_to_rgb`, tetralinear over the 16 measured
+        // ink corners), NOT the §10.3.5 additive clamp. 100% cyan lands
+        // on the measured corner `#00ADEF` = (0.0, 0.6784, 0.9373), not
+        // (0, 1, 1). The resolver emits `Cmyk` (for per-plate routing);
+        // the composite projection is `cmyk_to_rgb_via_intent`, whose
+        // no-OutputIntent fallback is the process-ink path.
         let doc = fixture_doc();
         let spaces = HashMap::new();
         let resolver = ColorResolver::new();
         let lc = LogicalColor::Device(DeviceColor::Cmyk(1.0, 0.0, 0.0, 0.0));
         let c = resolver.resolve(&lc, &ctx(&doc, &spaces), 1.0).unwrap();
-        assert_rgba(c, 0.0, 1.0, 1.0, 1.0);
+        let (cc, m, y, k, a) = match c {
+            ResolvedColor::Cmyk { c, m, y, k, a } => (c, m, y, k, a),
+            other => panic!("expected Cmyk; got {other:?}"),
+        };
+        let (r, g, b) = super::cmyk_to_rgb_via_intent(cc, m, y, k, &ctx(&doc, &spaces));
+        assert!((r - 0.0).abs() < 1e-3, "r: got {r}, want 0.0");
+        assert!((g - 0.6784).abs() < 1e-3, "g: got {g}, want 0.6784");
+        assert!((b - 0.9373).abs() < 1e-3, "b: got {b}, want 0.9373");
+        assert!((a - 1.0).abs() < 1e-3, "a: got {a}, want 1.0");
     }
 
     #[test]
@@ -890,7 +1083,8 @@ mod tests {
     fn separation_with_type2_cmyk_alternate_uses_function() {
         // /Separation /SpotInk /DeviceCMYK
         //   << /FunctionType 2 /N 1 /C0 [0 0 0 0] /C1 [0 1 0 0] /Domain [0 1] /Range [0 1 0 1 0 1 0 1] >>
-        // tint=1 must produce CMYK(0,1,0,0) → RGB(1,0,1) (magenta).
+        // tint=1 must produce CMYK(0,1,0,0), the process-ink magenta
+        // corner #EC008C = (0.9255, 0, 0.5490).
         let mut func_dict: HashMap<String, Object> = HashMap::new();
         func_dict.insert("FunctionType".into(), Object::Integer(2));
         func_dict.insert("N".into(), Object::Integer(1));
@@ -929,8 +1123,8 @@ mod tests {
             components: smallvec::smallvec![1.0],
         };
         let c = resolver.resolve(&lc, &ctx(&doc, &spaces), 1.0).unwrap();
-        // CMYK(0,1,0,0) → R=1-0=1, G=1-1=0, B=1-0=1
-        assert_rgba(c, 1.0, 0.0, 1.0, 1.0);
+        // CMYK(0,1,0,0) -> process-ink magenta corner (0.9255, 0, 0.5490)
+        assert_rgba(c, 0.9255, 0.0, 0.5490, 1.0);
     }
 
     #[test]
@@ -1004,7 +1198,7 @@ mod tests {
             components: smallvec::smallvec![1.0],
         };
         let c = resolver.resolve(&lc, &ctx(&doc, &spaces), 1.0).unwrap();
-        assert_rgba(c, 1.0, 0.0, 1.0, 1.0);
+        assert_rgba(c, 0.9255, 0.0, 0.5490, 1.0);
     }
 
     #[test]
@@ -1143,7 +1337,9 @@ mod tests {
             components: smallvec::smallvec![1.0, 0.0, 0.0, 0.0],
         };
         let c = resolver.resolve(&lc, &ctx(&doc, &spaces), 1.0).unwrap();
-        assert_rgba(c, 0.0, 1.0, 1.0, 1.0);
+        // ICCBased N=4 falls back to DeviceCMYK; CMYK(1,0,0,0) composites
+        // through the process-ink converter to the cyan corner #00ADEF.
+        assert_rgba(c, 0.0, 0.6784, 0.9373, 1.0);
     }
 
     #[test]
@@ -1163,19 +1359,20 @@ mod tests {
     }
 
     #[test]
-    fn cmyk_to_rgb_via_intent_with_no_output_intent_matches_additive_clamp() {
-        // The fallback arm is the spec's §10.3.5 formula. Pin one
-        // representative quadruple byte-exact so a regression that
-        // re-routed the no-OutputIntent path through some other
-        // conversion would surface here.
+    fn cmyk_to_rgb_via_intent_with_no_output_intent_uses_process_inks() {
+        // The fallback arm is the process-ink `cmyk_to_rgb`. Pin one
+        // representative quadruple so a regression that re-routed the
+        // no-OutputIntent path through some other conversion (e.g. back
+        // to the §10.3.5 additive clamp) would surface here. CMYK(0.25,
+        // 0, 0, 0) interpolates 0.75·paper + 0.25·cyan corner =
+        // (0.75, 0.9196, 0.9843).
         let doc = fixture_doc();
         let spaces = HashMap::new();
         let ctx = ResolutionContext::new(&doc, &spaces);
-        // CMYK(0.25, 0, 0, 0) → R=0.75, G=1.0, B=1.0.
         let (r, g, b) = super::cmyk_to_rgb_via_intent(0.25, 0.0, 0.0, 0.0, &ctx);
-        assert!((r - 0.75).abs() < 1e-6);
-        assert!((g - 1.0).abs() < 1e-6);
-        assert!((b - 1.0).abs() < 1e-6);
+        assert!((r - 0.75).abs() < 1e-4, "r: got {r}, want 0.75");
+        assert!((g - 0.9196).abs() < 1e-4, "g: got {g}, want 0.9196");
+        assert!((b - 0.9843).abs() < 1e-4, "b: got {b}, want 0.9843");
     }
 
     #[cfg(any(feature = "icc-qcms", feature = "icc-lcms2"))]
@@ -1184,7 +1381,7 @@ mod tests {
         // The header-only stub profile parses (IccProfile::parse accepts
         // the 128-byte header) but qcms refuses to build a Transform
         // from it because there's no tag table. The wrapper devolves to
-        // §10.3.5 internally — the helper must agree byte-for-byte with
+        // its no-CMM fallback internally — the helper must agree with
         // the no-OutputIntent path on the same input. This is the
         // shape a real but malformed /OutputIntents profile would take.
         let doc = fixture_doc();
@@ -1200,14 +1397,15 @@ mod tests {
         );
         let ctx = ResolutionContext::new(&doc, &spaces).with_output_intent(Some(&profile));
         let (r, g, b) = super::cmyk_to_rgb_via_intent(0.25, 0.0, 0.0, 0.0, &ctx);
-        // HONEST_GAP: this byte-exact agreement depends on
-        // crate::color::Transform::convert_cmyk_pixel matching
-        // crate::extractors::images::cmyk_pixel_to_rgb on the §10.3.5
-        // path. If those two diverge in the future the helper here
-        // could disagree with the no-OutputIntent arm even though
-        // both intended to run the spec fallback.
+        // The no-CMM fallback of `convert_cmyk_pixel` routes through
+        // `crate::extractors::images::cmyk_pixel_to_rgb`, which is now
+        // the process-ink `crate::color::cmyk_to_rgb` — the same
+        // conversion the no-OutputIntent arm takes. So both arms agree
+        // on the process-ink value for CMYK(0.25,0,0,0) ≈
+        // (0.75, 0.9196, 0.9843); the 8-bit CMM round-trip widens the
+        // tolerance slightly.
         assert!((r - 0.75).abs() < 0.01, "got r={r}");
-        assert!((g - 1.0).abs() < 0.01, "got g={g}");
-        assert!((b - 1.0).abs() < 0.01, "got b={b}");
+        assert!((g - 0.9196).abs() < 0.01, "got g={g}");
+        assert!((b - 0.9843).abs() < 0.01, "got b={b}");
     }
 }

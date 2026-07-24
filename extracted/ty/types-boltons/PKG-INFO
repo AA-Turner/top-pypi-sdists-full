@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-boltons
-Version: 26.1.0.20260722
+Version: 26.1.0.20260724
 Summary: Typing stubs for boltons
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`1cb63c866b21be1c4cb579726561477708f3f7e0`](https://github.com/python/typeshed/commit/1cb63c866b21be1c4cb579726561477708f3f7e0).
+[`97e83f65cee88c0c978fa34668d9f59b8c362fce`](https://github.com/python/typeshed/commit/97e83f65cee88c0c978fa34668d9f59b8c362fce).

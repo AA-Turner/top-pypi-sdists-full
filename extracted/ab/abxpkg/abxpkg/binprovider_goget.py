@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from pydantic import Field, TypeAdapter, model_validator, computed_field
-from typing import Self
+from typing import ClassVar, Self
 
 from .base_types import (
     BinProviderName,
@@ -22,7 +22,6 @@ from .binprovider import (
     BinProvider,
     BinProviderOverrides,
     DEFAULT_ENV_PATH,
-    EnvProvider,
     log_method_call,
     remap_kwargs,
 )
@@ -36,6 +35,12 @@ class GoGetProvider(BinProvider):
     name: BinProviderName = "goget"
     _log_emoji = "🐹"
     INSTALLER_BIN: BinName = "go"
+    INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = (
+        "env",
+        "apt",
+        "brew",
+    )
+    INSTALLER_VERSION_ARGS: ClassVar[tuple[str, ...] | None] = ("version",)
 
     PATH: PATHStr = DEFAULT_ENV_PATH  # Starts with ambient system PATH; setup_PATH() prepends the active GOBIN/bin_dir lazily.
 
@@ -96,74 +101,6 @@ class GoGetProvider(BinProvider):
         assert bin_dir is not None
         self.PATH = self._merge_PATH(bin_dir, PATH=self.PATH)
         super().setup_PATH(no_cache=no_cache)
-
-    def INSTALLER_BINARY(self, no_cache: bool = False):
-        if not no_cache and self._INSTALLER_BINARY and self._INSTALLER_BINARY.is_valid:
-            return self._INSTALLER_BINARY
-
-        derived_env_path = self.derived_env_path
-        if not no_cache and derived_env_path and derived_env_path.is_file():
-            from .config import load_derived_cache
-
-            cache = load_derived_cache(derived_env_path)
-            for cached_record in cache.values():
-                if not isinstance(cached_record, dict):
-                    continue
-                if cached_record.get("provider_name") != self.name or cached_record.get(
-                    "bin_name",
-                ) != str(self.INSTALLER_BIN):
-                    continue
-                cached_abspath = cached_record.get("abspath")
-                if not isinstance(cached_abspath, str):
-                    continue
-                loaded = self.load_cached_binary(
-                    self.INSTALLER_BIN,
-                    Path(cached_abspath),
-                )
-                if loaded and loaded.loaded_abspath:
-                    self._INSTALLER_BINARY = loaded
-                    return loaded
-
-        env_provider = EnvProvider(
-            install_root=None,
-            bin_dir=None,
-        ).get_provider_with_overrides(
-            overrides={
-                "*": {
-                    "version": ["go", "version"],
-                },
-            },
-        )
-
-        env_var = f"{self.INSTALLER_BIN.upper()}_BINARY"
-        manual = os.environ.get(env_var)
-        if manual and os.path.isabs(manual) and Path(manual).is_file():
-            env_provider.PATH = env_provider._merge_PATH(
-                str(Path(manual).parent),
-                PATH=env_provider.PATH,
-                prepend=True,
-            )
-
-        loaded = env_provider.load(bin_name=self.INSTALLER_BIN, no_cache=no_cache)
-        if loaded and loaded.loaded_abspath:
-            if loaded.loaded_version and loaded.loaded_sha256:
-                self.write_cached_binary(
-                    self.INSTALLER_BIN,
-                    loaded.loaded_abspath,
-                    loaded.loaded_version,
-                    loaded.loaded_sha256,
-                    resolved_provider_name=(
-                        loaded.loaded_binprovider.name
-                        if loaded.loaded_binprovider is not None
-                        else self.name
-                    ),
-                    resolved_provider=loaded.loaded_binprovider,
-                    cache_kind="dependency",
-                )
-            self._INSTALLER_BINARY = loaded
-            return self._INSTALLER_BINARY
-
-        return super().INSTALLER_BINARY(no_cache=no_cache)
 
     @log_method_call()
     def setup(

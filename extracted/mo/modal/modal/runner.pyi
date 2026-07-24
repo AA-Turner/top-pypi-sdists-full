@@ -139,7 +139,12 @@ async def _deploy_app(
     ...
 
 async def _interactive_shell(
-    _app: modal.app._App, cmds: list[str], environment_name: str = "", pty: bool = True, **kwargs: typing.Any
+    _app: modal.app._App,
+    cmds: list[str],
+    environment_name: str = "",
+    pty: bool = True,
+    v2: bool = False,
+    **kwargs: typing.Any,
 ) -> None:
     """Run an interactive shell (like `bash`) within the image for this app.
 
@@ -267,6 +272,7 @@ class __interactive_shell_spec(typing_extensions.Protocol):
         cmds: list[str],
         environment_name: str = "",
         pty: bool = True,
+        v2: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         """Run an interactive shell (like `bash`) within the image for this app.
@@ -299,6 +305,7 @@ class __interactive_shell_spec(typing_extensions.Protocol):
         cmds: list[str],
         environment_name: str = "",
         pty: bool = True,
+        v2: bool = False,
         **kwargs: typing.Any,
     ) -> None:
         """Run an interactive shell (like `bash`) within the image for this app.

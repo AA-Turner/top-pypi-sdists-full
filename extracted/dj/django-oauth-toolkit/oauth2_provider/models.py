@@ -12,7 +12,7 @@ from urllib.parse import parse_qsl, urlparse
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.hashers import identify_hasher, make_password
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import models, router, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -29,6 +29,29 @@ from .validators import AllowedURIValidator
 
 
 logger = logging.getLogger(__name__)
+
+
+class ResourceJSONField(models.JSONField):
+    """
+    RFC 8707 - JSON array of resource URIs.
+
+    Empty list means not restricted to specific resource servers (unrestricted access).
+    """
+
+    def pre_save(self, model_instance, add):
+        """The field is not nullable; treat None as "no resource restriction"."""
+        value = super().pre_save(model_instance, add)
+        if value is None:
+            value = []
+            setattr(model_instance, self.attname, value)
+        return value
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        """Validate before saving to database."""
+        if value is not None:
+            if not isinstance(value, list) or not all(isinstance(entry, str) for entry in value):
+                raise ValidationError("Resource must be a list of URI strings")
+        return super().get_db_prep_value(value, connection, prepared)
 
 
 class ClientSecretField(models.CharField):
@@ -51,8 +74,25 @@ class ClientSecretField(models.CharField):
 
 class TokenChecksumField(models.CharField):
     def pre_save(self, model_instance, add):
-        token = getattr(model_instance, "token")
-        checksum = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        # RFC 9700 token storage: when the plaintext token is redacted at rest (see
+        # COMPLIANT_BCP_RFC9700_TOKEN_STORAGE) the raw token is stashed
+        # on ``_raw_token`` and the ``token`` column is left blank. The lookup checksum
+        # is then computed from ``_raw_token``, which is cleared afterwards to minimize
+        # the in-memory lifetime of a usable token value.
+        raw_token = getattr(model_instance, "_raw_token", None)
+        if raw_token is None:
+            # No raw token available. On the plaintext-storage path the ``token``
+            # column holds the raw token, so (re)derive the checksum from it. On the
+            # hashed-at-rest path the column is blank on later saves (e.g.
+            # ``RefreshToken.revoke()``); there is nothing to recompute, so the
+            # existing checksum is kept instead of being hashed a second time.
+            token = getattr(model_instance, "token")
+            if not token:
+                return super().pre_save(model_instance, add)
+            raw_token = token
+        else:
+            model_instance._raw_token = None
+        checksum = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
         setattr(model_instance, self.attname, checksum)
         return super().pre_save(model_instance, add)
 
@@ -79,7 +119,20 @@ class AbstractApplication(models.Model):
     * :attr:`client_secret` Confidential secret issued to the client during
                             the registration process as described in :rfc:`2.2`
     * :attr:`name` Friendly name for the Application
+    * :attr:`registration_source` How the Application was registered: ``manual``
+                                  for manually created Applications, ``dcr`` for
+                                  those registered via Dynamic Client
+                                  Registration (RFC 7591), ``cimd`` for Client
+                                  ID Metadata Document
+    * :attr:`cimd_expires_at` When the cached metadata document should be
+                              re-fetched, for CIMD applications
     """
+
+    class RegistrationSource(models.TextChoices):
+        MANUAL = "manual", _("Manual")
+        DCR = "dcr", _("Dynamic Client Registration")
+        CIMD = "cimd", _("Client ID Metadata Document")
+        # FEDERATION (OpenID Federation) reserved for future use
 
     CLIENT_CONFIDENTIAL = "confidential"
     CLIENT_PUBLIC = "public"
@@ -113,7 +166,9 @@ class AbstractApplication(models.Model):
     )
 
     id = models.BigAutoField(primary_key=True)
-    client_id = models.CharField(max_length=100, unique=True, default=generate_client_id, db_index=True)
+    # 255 rather than 100 so a Client ID Metadata Document URL fits (CIMD uses
+    # the client's https URL as its client_id).
+    client_id = models.CharField(max_length=255, unique=True, default=generate_client_id, db_index=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="%(app_label)s_%(class)s",
@@ -151,6 +206,18 @@ class AbstractApplication(models.Model):
         blank=True,
         help_text=_("Allowed origins list to enable CORS, space separated"),
         default="",
+    )
+    registration_source = models.CharField(
+        max_length=32,
+        choices=RegistrationSource.choices,
+        default=RegistrationSource.MANUAL,
+        help_text=_("How this application was registered (manual, DCR per RFC 7591, or CIMD)"),
+    )
+    cimd_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_("When the cached Client ID Metadata Document should be re-fetched"),
     )
 
     class Meta:
@@ -256,6 +323,23 @@ class AbstractApplication(models.Model):
                 )
             ):
                 raise ValidationError(_("You cannot use HS256 with public grants or clients"))
+            if not self.client_secret:
+                raise ValidationError(
+                    _("You cannot use HS256 without a client secret; it is the HMAC signing key.")
+                )
+            # For HS256 the client secret is the shared HMAC signing key, so it must be stored
+            # unhashed. Reject both the intent to hash (the flag) and an already-hashed stored
+            # value (e.g. the flag was toggled after the secret was hashed, or a legacy row), so
+            # the misconfiguration surfaces here instead of only failing later at signing time.
+            if self.hash_client_secret or self._client_secret_is_hashed(self.client_secret):
+                raise ValidationError(
+                    _(
+                        "You cannot use HS256 with a hashed client secret. For HS256 the client "
+                        "secret is the shared signing key and must be stored unhashed so the relying "
+                        "party can verify the token; set hash_client_secret=False and store an "
+                        "unhashed client_secret on this application."
+                    )
+                )
 
     def get_absolute_url(self):
         return reverse("oauth2_provider:detail", args=[str(self.pk)])
@@ -278,6 +362,15 @@ class AbstractApplication(models.Model):
         """
         return True
 
+    @staticmethod
+    def _client_secret_is_hashed(client_secret):
+        """Return True if the stored client secret is a Django password hash."""
+        try:
+            identify_hasher(client_secret)
+        except ValueError:
+            return False
+        return True
+
     @property
     def jwk_key(self):
         if self.algorithm == AbstractApplication.RS256_ALGORITHM:
@@ -285,6 +378,20 @@ class AbstractApplication(models.Model):
                 raise ImproperlyConfigured("You must set OIDC_RSA_PRIVATE_KEY to use RSA algorithm")
             return jwk_from_pem(oauth2_settings.OIDC_RSA_PRIVATE_KEY)
         elif self.algorithm == AbstractApplication.HS256_ALGORITHM:
+            # An empty secret would sign tokens with an empty HMAC key, which is trivially
+            # forgeable by anyone.
+            if not self.client_secret:
+                raise ImproperlyConfigured(
+                    "HS256 signing requires a non-empty client secret to use as the HMAC key."
+                )
+            # A hashed secret would sign tokens with the password hash string as the HMAC key,
+            # which the relying party (holding the plaintext secret) can never verify.
+            if self._client_secret_is_hashed(self.client_secret):
+                raise ImproperlyConfigured(
+                    "HS256 signing requires the plaintext client secret as the HMAC key, but this "
+                    "application's client secret is hashed. Set hash_client_secret=False and reset "
+                    "the client_secret (or recreate the application) so the plaintext secret is stored."
+                )
             return jwk.JWK(kty="oct", k=base64url_encode(self.client_secret))
         raise ImproperlyConfigured("This application does not support signed tokens")
 
@@ -320,6 +427,7 @@ class AbstractGrant(models.Model):
     * :attr:`scope` Required scopes, optional
     * :attr:`code_challenge` PKCE code challenge
     * :attr:`code_challenge_method` PKCE code challenge transform algorithm
+    * :attr:`resource` RFC 8707 resource indicator(s), JSON-encoded array of URIs
     """
 
     CODE_CHALLENGE_PLAIN = "plain"
@@ -347,6 +455,8 @@ class AbstractGrant(models.Model):
     nonce = models.CharField(max_length=255, blank=True, default="")
     claims = models.TextField(blank=True)
 
+    resource = ResourceJSONField(blank=True, default=list)
+
     def is_expired(self):
         """
         Check token expiration with timezone awareness
@@ -360,7 +470,9 @@ class AbstractGrant(models.Model):
         return uri == self.redirect_uri
 
     def __str__(self):
-        return self.code
+        # Never render the authorization code itself: __str__ appears in the admin
+        # change page/breadcrumbs, in repr() within tracebacks, and in log output.
+        return "Grant #{self.pk}".format(self=self)
 
     class Meta:
         abstract = True
@@ -384,6 +496,7 @@ class AbstractAccessToken(models.Model):
     * :attr:`application` Application instance
     * :attr:`expires` Date and time of token expiration, in DateTime format
     * :attr:`scope` Allowed scopes
+    * :attr:`resource` RFC 8707 resource indicator(s) - JSON-encoded array of URIs
     """
 
     id = models.BigAutoField(primary_key=True)
@@ -422,8 +535,11 @@ class AbstractAccessToken(models.Model):
         blank=True,
         null=True,
     )
+
     expires = models.DateTimeField()
     scope = models.TextField(blank=True)
+
+    resource = ResourceJSONField(blank=True, default=list)
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -444,6 +560,33 @@ class AbstractAccessToken(models.Model):
             return True
 
         return timezone.now() >= self.expires
+
+    def allows_audience(self, audience_uri):
+        """
+        Check if the token is authorized for the given audience URI.
+
+        RFC 8707: Validates that the token includes the specified resource indicator
+        using the configured resource validator (RESOURCE_SERVER_TOKEN_RESOURCE_VALIDATOR).
+
+        If the token has no resource indicators (empty list), it is unrestricted and
+        allows any audience (backward compatibility).
+
+        :param audience_uri: The URI of the resource server to check
+        :return: True if the token is authorized for this audience, False otherwise
+        """
+        audiences = self.resource
+        if not audiences:
+            # No resource indicators - unrestricted token allows any audience,
+            # regardless of how a custom validator treats an empty list.
+            return True
+
+        resource_validator = oauth2_settings.RESOURCE_SERVER_TOKEN_RESOURCE_VALIDATOR
+
+        if resource_validator:
+            return resource_validator(audience_uri, audiences)
+        else:
+            # No validator configured - allow everything (backward compat)
+            return True
 
     def allow_scopes(self, scopes):
         """
@@ -476,7 +619,9 @@ class AbstractAccessToken(models.Model):
         return {name: desc for name, desc in all_scopes.items() if name in token_scopes}
 
     def __str__(self):
-        return self.token
+        # Never render the token itself: __str__ appears in the admin change
+        # page/breadcrumbs, in repr() within tracebacks, and in log output.
+        return "AccessToken #{self.pk}".format(self=self)
 
     class Meta:
         abstract = True
@@ -500,13 +645,18 @@ class AbstractRefreshToken(models.Model):
     * :attr:`access_token` AccessToken instance this refresh token is
                            bounded to
     * :attr:`revoked` Timestamp of when this refresh token was revoked
+    * :attr:`resource` RFC 8707 resource indicator(s), JSON-encoded array of URIs
     """
 
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(app_label)s_%(class)s"
     )
-    token = models.CharField(max_length=255)
+    token = models.TextField()
+    token_checksum = TokenChecksumField(
+        max_length=64,
+        blank=False,
+    )
     application = models.ForeignKey(oauth2_settings.APPLICATION_MODEL, on_delete=models.CASCADE)
     access_token = models.OneToOneField(
         oauth2_settings.ACCESS_TOKEN_MODEL,
@@ -516,6 +666,8 @@ class AbstractRefreshToken(models.Model):
         related_name="refresh_token",
     )
     token_family = models.UUIDField(null=True, blank=True, editable=False)
+
+    resource = ResourceJSONField(blank=True, default=list)
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -537,19 +689,21 @@ class AbstractRefreshToken(models.Model):
             self = list(token)[0]
 
             with suppress(access_token_model.DoesNotExist):
-                access_token_model.objects.get(id=self.access_token_id).revoke()
+                access_token_model.objects.get(pk=self.access_token_id).revoke()
 
             self.access_token = None
             self.revoked = timezone.now()
             self.save()
 
     def __str__(self):
-        return self.token
+        # Never render the token itself: __str__ appears in the admin change
+        # page/breadcrumbs, in repr() within tracebacks, and in log output.
+        return "RefreshToken #{self.pk}".format(self=self)
 
     class Meta:
         abstract = True
         unique_together = (
-            "token",
+            "token_checksum",
             "revoked",
         )
 
@@ -561,8 +715,9 @@ class RefreshToken(AbstractRefreshToken):
 
 class AbstractIDToken(models.Model):
     """
-    An IDToken instance represents the actual token to
-    access user's resources, as defined in the OpenID Connect specification.
+    An IDToken instance represents the token used to authenticate the user and
+    convey claims to the client, as in
+    `OpenID Connect Core 1.0 Section 2 <https://openid.net/specs/openid-connect-core-1_0.html#IDToken>`_.
 
     Fields:
 
@@ -685,9 +840,11 @@ class AbstractDeviceGrant(models.Model):
         blank=True,
         on_delete=models.CASCADE,
     )
-    device_code = models.CharField(max_length=100, unique=True)
+    # Uniqueness is enforced by the unique_device_code UniqueConstraint (Meta.constraints);
+    # adding unique=True here would create a redundant duplicate index (MySQL warns ER_DUP_INDEX 1831).
+    device_code = models.CharField(max_length=100)
     user_code = models.CharField(max_length=100)
-    scope = models.CharField(max_length=64, null=True)
+    scope = models.TextField(blank=True)
     interval = models.IntegerField(default=5)
     expires = models.DateTimeField()
     status = models.CharField(
@@ -730,7 +887,7 @@ class DeviceRequest:
 class DeviceCodeResponse:
     verification_uri: str
     expires_in: int
-    user_code: int
+    user_code: str
     device_code: str
     interval: int
     verification_uri_complete: Optional[Union[str, Callable]] = None
@@ -745,7 +902,7 @@ def create_device_grant(
         client_id=device_request.client_id,
         device_code=device_response.device_code,
         user_code=device_response.user_code,
-        scope=device_request.scope,
+        scope=device_request.scope or "",
         expires=now + timedelta(seconds=device_response.expires_in),
     )
 
@@ -817,9 +974,9 @@ def clear_expired():
         current_no = start_no = queryset.count()
 
         while current_no:
-            flat_queryset = queryset.values_list("id", flat=True)[:CLEAR_EXPIRED_TOKENS_BATCH_SIZE]
+            flat_queryset = queryset.values_list("pk", flat=True)[:CLEAR_EXPIRED_TOKENS_BATCH_SIZE]
             batch_length = flat_queryset.count()
-            queryset.model.objects.filter(id__in=list(flat_queryset)).delete()
+            queryset.model.objects.filter(pk__in=list(flat_queryset)).delete()
             logger.debug(f"{batch_length} tokens deleted, {current_no - batch_length} left")
             queryset = queryset.model.objects.filter(query)
             time.sleep(CLEAR_EXPIRED_TOKENS_BATCH_INTERVAL)
@@ -830,12 +987,25 @@ def clear_expired():
         return deleted
 
     now = timezone.now()
+    refresh_revoked_at = now
     refresh_expire_at = None
     access_token_model = get_access_token_model()
     refresh_token_model = get_refresh_token_model()
     id_token_model = get_id_token_model()
     grant_model = get_grant_model()
+    REFRESH_TOKEN_GRACE_PERIOD_SECONDS = oauth2_settings.REFRESH_TOKEN_GRACE_PERIOD_SECONDS
     REFRESH_TOKEN_EXPIRE_SECONDS = oauth2_settings.REFRESH_TOKEN_EXPIRE_SECONDS
+
+    if REFRESH_TOKEN_GRACE_PERIOD_SECONDS:
+        try:
+            REFRESH_TOKEN_GRACE_PERIOD_SECONDS = timedelta(seconds=REFRESH_TOKEN_GRACE_PERIOD_SECONDS)
+        except TypeError:
+            e = "REFRESH_TOKEN_GRACE_PERIOD_SECONDS must be in seconds"
+            raise ImproperlyConfigured(e)
+        if REFRESH_TOKEN_GRACE_PERIOD_SECONDS < timedelta(0):
+            e = "REFRESH_TOKEN_GRACE_PERIOD_SECONDS must not be negative"
+            raise ImproperlyConfigured(e)
+        refresh_revoked_at = now - REFRESH_TOKEN_GRACE_PERIOD_SECONDS
 
     if REFRESH_TOKEN_EXPIRE_SECONDS:
         if not isinstance(REFRESH_TOKEN_EXPIRE_SECONDS, timedelta):
@@ -846,20 +1016,29 @@ def clear_expired():
                 raise ImproperlyConfigured(e)
         refresh_expire_at = now - REFRESH_TOKEN_EXPIRE_SECONDS
 
-    if refresh_expire_at:
-        revoked_query = models.Q(revoked__lt=refresh_expire_at)
+    if oauth2_settings.REFRESH_TOKEN_REUSE_PROTECTION:
+        # Revoked refresh tokens are what allows reuse of a rotated token to
+        # be detected and the token family revoked, so they must be kept
+        # until they expire.
+        refresh_revoked_at = refresh_expire_at
+
+    if refresh_revoked_at:
+        revoked_query = models.Q(revoked__lte=refresh_revoked_at)
         revoked = refresh_token_model.objects.filter(revoked_query)
 
         revoked_deleted_no = batch_delete(revoked, revoked_query)
         logger.info("%s Revoked refresh tokens deleted", revoked_deleted_no)
+    else:
+        logger.info("refresh_revoked_at is %s. No revoked refresh tokens deleted.", refresh_revoked_at)
 
+    if refresh_expire_at:
         expired_query = models.Q(access_token__expires__lt=refresh_expire_at)
         expired = refresh_token_model.objects.filter(expired_query)
 
         expired_deleted_no = batch_delete(expired, expired_query)
         logger.info("%s Expired refresh tokens deleted", expired_deleted_no)
     else:
-        logger.info("refresh_expire_at is %s. No refresh tokens deleted.", refresh_expire_at)
+        logger.info("refresh_expire_at is %s. No expired refresh tokens deleted.", refresh_expire_at)
 
     access_token_query = models.Q(refresh_token__isnull=True, expires__lt=now)
     access_tokens = access_token_model.objects.filter(access_token_query)
@@ -919,10 +1098,18 @@ def redirect_to_uri_allowed(uri, allowed_uris):
         # time of the request for loopback IP redirect URIs, to accommodate
         # clients that obtain an available ephemeral port from the operating
         # system at the time of the request.
-        allowed_uri_is_loopback = parsed_allowed_uri.scheme == "http" and parsed_allowed_uri.hostname in [
-            "127.0.0.1",
-            "::1",
-        ]
+        #
+        # Section 8.3 notes that "localhost" redirect URIs "function similarly
+        # to loopback IP redirects" but their use is NOT RECOMMENDED, so the
+        # port exemption is not extended to the "localhost" hostname by
+        # default.  Some native clients nonetheless register "localhost" and
+        # receive the callback on an ephemeral port; ALLOW_LOCALHOST_LOOPBACK
+        # opts in to treating it as loopback.  The hostname must still match
+        # exactly, so "localhost" is never conflated with the IP literals.
+        allowed_uri_is_loopback = parsed_allowed_uri.scheme == "http" and (
+            parsed_allowed_uri.hostname in ("127.0.0.1", "::1")
+            or (oauth2_settings.ALLOW_LOCALHOST_LOOPBACK and parsed_allowed_uri.hostname == "localhost")
+        )
         """ check port """
         if not allowed_uri_is_loopback and parsed_allowed_uri.port != parsed_uri.port:
             continue

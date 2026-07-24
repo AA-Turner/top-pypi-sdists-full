@@ -8,6 +8,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import AsyncGenerator
 from collections.abc import Awaitable
+from collections.abc import Callable
 from collections.abc import Coroutine
 from datetime import timedelta
 from inspect import isasyncgen
@@ -15,17 +16,16 @@ from inspect import iscoroutinefunction as _inspect_iscoroutinefunction
 from inspect import isgenerator
 from types import TracebackType
 from typing import Any
-from typing import AnyStr
-from typing import Callable
 from typing import cast
 from typing import NoReturn
-from typing import Optional
 from typing import overload
+from typing import ParamSpec
 from typing import TypeVar
 from urllib.parse import quote
 
 from aiofiles import open as async_open
 from aiofiles.base import AiofilesContextManager
+from flask.app import Flask
 from flask.sansio.app import App
 from flask.sansio.scaffold import setupmethod
 from hypercorn.asyncio import serve
@@ -125,11 +125,6 @@ from .wrappers import Request
 from .wrappers import Response
 from .wrappers import Websocket
 
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
 # Python 3.14 deprecated asyncio.iscoroutinefunction, but suggested
 # inspect.iscoroutinefunction does not work correctly in some Python
 # versions before 3.12.
@@ -139,7 +134,7 @@ if sys.version_info >= (3, 12):
 else:
     iscoroutinefunction = asyncio.iscoroutinefunction
 
-AppOrBlueprintKey = Optional[str]  # The App key is None, whereas blueprints are named
+AppOrBlueprintKey = str | None  # The App key is None, whereas blueprints are named
 T_after_serving = TypeVar("T_after_serving", bound=AfterServingCallable)
 T_after_websocket = TypeVar("T_after_websocket", bound=AfterWebsocketCallable)
 T_before_serving = TypeVar("T_before_serving", bound=BeforeServingCallable)
@@ -239,7 +234,8 @@ class Quart(App):
     websocket_class = Websocket
 
     default_config = ImmutableDict(
-        {
+        Flask.default_config
+        | {
             "APPLICATION_ROOT": "/",
             "BACKGROUND_TASK_SHUTDOWN_TIMEOUT": 5,  # Second
             "BODY_TIMEOUT": 60,  # Second
@@ -258,11 +254,13 @@ class Quart(App):
             "PROVIDE_AUTOMATIC_OPTIONS": True,
             "RESPONSE_TIMEOUT": 60,  # Second
             "SECRET_KEY": None,
+            "SECRET_KEY_FALLBACKS": None,
             "SEND_FILE_MAX_AGE_DEFAULT": timedelta(hours=12),
             "SERVER_NAME": None,
             "SESSION_COOKIE_DOMAIN": None,
             "SESSION_COOKIE_HTTPONLY": True,
             "SESSION_COOKIE_NAME": "session",
+            "SESSION_COOKIE_PARTITIONED": False,
             "SESSION_COOKIE_PATH": None,
             "SESSION_COOKIE_SAMESITE": None,
             "SESSION_COOKIE_SECURE": False,
@@ -282,7 +280,7 @@ class Quart(App):
         static_host: str | None = None,
         host_matching: bool = False,
         subdomain_matching: bool = False,
-        template_folder: str | None = "templates",
+        template_folder: str | os.PathLike[str] | None = "templates",
         instance_path: str | None = None,
         instance_relative_config: bool = False,
         root_path: str | None = None,
@@ -346,9 +344,9 @@ class Quart(App):
         self.cli.name = self.name
 
         if self.has_static_folder:
-            assert (
-                bool(static_host) == host_matching
-            ), "Invalid static_host/host_matching combination"
+            assert bool(static_host) == host_matching, (
+                "Invalid static_host/host_matching combination"
+            )
 
             self.add_url_rule(
                 f"{self.static_url_path}/<path:filename>",
@@ -431,7 +429,7 @@ class Quart(App):
             options["autoescape"] = self.select_jinja_autoescape
         if "auto_reload" not in options:
             options["auto_reload"] = self.config["TEMPLATES_AUTO_RELOAD"]
-        jinja_env = self.jinja_environment(self, **options)  # type: ignore
+        jinja_env = self.jinja_environment(self, **options)
         jinja_env.globals.update(
             {
                 "config": self.config,
@@ -643,7 +641,7 @@ class Quart(App):
             def websocket_route():
                 ...
 
-            app.add_websocket('/', websocket_route)
+            app.add_websocket('/', view_func=websocket_route)
 
         Arguments:
             rule: The path to route on, should start with a ``/``.
@@ -917,7 +915,10 @@ class Quart(App):
         config = HyperConfig()
         config.access_log_format = "%(h)s %(r)s %(s)s %(b)s %(D)s"
         config.accesslog = "-"
-        config.bind = [f"{host}:{port}"]
+        if host.startswith("unix:") or host.startswith("fd:"):
+            config.bind = [f"{host}"]
+        else:
+            config.bind = [f"{host}:{port}"]
         config.ca_certs = ca_certs
         config.certfile = certfile
         if debug is not None:
@@ -935,7 +936,7 @@ class Quart(App):
 
     def test_cli_runner(self, **kwargs: Any) -> QuartCliRunner:
         """Creates and returns a CLI test runner."""
-        return self.test_cli_runner_class(self, **kwargs)  # type: ignore
+        return self.test_cli_runner_class(self, **kwargs)
 
     @setupmethod
     def before_websocket(
@@ -1302,7 +1303,7 @@ class Quart(App):
         query_string: dict | None = None,
         scheme: str = "http",
         send_push_promise: Callable[[str, Headers], Awaitable[None]] = no_op_push,
-        data: AnyStr | None = None,
+        data: str | bytes | None = None,
         form: dict | None = None,
         json: Any = sentinel,
         root_path: str = "",
@@ -1784,7 +1785,7 @@ class Quart(App):
                 asyncio.gather(*self.background_tasks),
                 timeout=self.config["BACKGROUND_TASK_SHUTDOWN_TIMEOUT"],
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await cancel_tasks(self.background_tasks)
 
         try:

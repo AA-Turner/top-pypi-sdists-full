@@ -1,5 +1,7 @@
 _CONNECTION_STRING = "InstrumentationKey=962c4d0f-d70c-435f-9d9e-94f6837cbd42;IngestionEndpoint=https://northeurope-2.in.applicationinsights.azure.com/;LiveEndpoint=https://northeurope.livediagnostics.monitor.azure.com/;ApplicationId=9ed6a164-c041-461d-a0ff-c5652d2366a9"
 
+PERIODIC_TELEMETRY_FLUSH_FEATURE_FLAG = "EnablePeriodicTelemetryFlush"
+
 _APP_INSIGHTS_EVENT_MARKER_ATTRIBUTE = "APPLICATION_INSIGHTS_EVENT_MARKER_ATTRIBUTE"
 _OTEL_RESOURCE_ATTRIBUTES = "OTEL_RESOURCE_ATTRIBUTES"
 _SDK_VERSION = "SdkVersion"

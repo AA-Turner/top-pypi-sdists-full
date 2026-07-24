@@ -7,7 +7,7 @@ import math
 import re
 import typing
 from collections.abc import MutableMapping, MutableSequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from decimal import Decimal
 from functools import reduce
@@ -159,7 +159,7 @@ from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
 )
-from snowflake.snowpark_connect.utils.udf_helper import LazySnowparkUdf
+from snowflake.snowpark_connect.utils.udf_helper import LazySnowparkUdf, LazyUdfBase
 
 from .. import column_name_handler
 from ..expression.map_sql_expression import (
@@ -327,6 +327,29 @@ def _map_value_to_literal_proto(
         )
 
     return expressions_proto.Expression.Literal(string=str(value))
+
+
+def _sql_has_executable_statement(sql_string: str) -> bool:
+    """
+    Return True when ``sql_string`` contains an executable SQL statement, and
+    False when it is empty, only whitespace, only SQL comments, or only
+    semicolons.
+
+    Used by the SQL passthrough path so no-statement input is not forwarded to
+    Snowflake, which would raise the opaque ``000900 Empty SQL statement``
+    compilation error.
+    """
+    if not sql_string:
+        return False
+    # Drop block comments /* ... */ (DOTALL so they may span multiple lines).
+    stripped = re.sub(r"/\*.*?\*/", "", sql_string, flags=re.DOTALL)
+    # Drop line comments up to end of line. Spark accepts only `--`; Snowflake
+    # accepts both `--` and `//`. This guard protects the passthrough path that
+    # forwards raw SQL to Snowflake, so it must recognize `//` too.
+    stripped = re.sub(r"(--|//)[^\n]*", "", stripped)
+    # Drop statement separators and surrounding whitespace.
+    stripped = stripped.replace(";", "").strip()
+    return stripped != ""
 
 
 def _is_sql_select_statement_helper(sql_string: str) -> bool:
@@ -2442,14 +2465,15 @@ def map_sql_to_pandas_df(
                         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
                         raise exception
                 # Only issue the Snowflake DROP when DDL was actually emitted.
-                # For LazySnowparkUdf use _materialized (handles zero-arg UDFs
-                # where input_types stays [] even after DDL is emitted).
+                # For lazy UDFs use _name_to_types (handles zero-arg UDFs where
+                # input_types stays [] even after DDL is emitted).
                 # For all other UxFs, non-empty input_types means DDL was emitted.
-                _lazy_materialized = (
-                    isinstance(udf_entry, LazySnowparkUdf) and udf_entry._materialized
+                _is_lazy = isinstance(udf_entry, LazyUdfBase)
+                _lazy_has_ddl = _is_lazy and bool(
+                    getattr(udf_entry, "_name_to_types", None)
                 )
-                if snowpark_name != "" and (_lazy_materialized or input_types):
-                    if isinstance(udf_entry, LazySnowparkUdf):
+                if snowpark_name != "" and (_lazy_has_ddl or input_types):
+                    if isinstance(udf_entry, LazyUdfBase):
                         # Drop every physical variant registered under this logical name.
                         # A lazy UDF emits one Snowflake function per distinct call-site
                         # type signature (_name_to_types tracks them all).
@@ -2460,10 +2484,15 @@ def map_sql_to_pandas_df(
                             variant_name,
                             variant_types,
                         ) in udf_entry._name_to_types.items():
-                            sql_params, _ = _build_scala_udf_sql_input_params(
-                                variant_types
-                            )
-                            arg_str = f"({', '.join(p.data_type for p in sql_params)})"
+                            if isinstance(udf_entry, LazySnowparkUdf):
+                                sql_params, _ = _build_scala_udf_sql_input_params(
+                                    variant_types
+                                )
+                                arg_str = (
+                                    f"({', '.join(p.data_type for p in sql_params)})"
+                                )
+                            else:
+                                arg_str = f"({', '.join(convert_sp_to_sf_type(t) for t in variant_types)})"
                             session.sql(
                                 f"DROP FUNCTION {if_exists_clause}{variant_name}{arg_str}"
                             ).collect()
@@ -3230,6 +3259,15 @@ def map_sql_to_pandas_df(
                 execute_logical_plan(logical_plan)
                 return None, None
     else:
+        # SNOW-3585767: In SQL passthrough mode the raw string is forwarded to
+        # Snowflake as-is. When it carries no executable statement (empty,
+        # whitespace-only, comment-only, or only semicolons) Snowflake raises the
+        # opaque "000900 (42601) Empty SQL statement" error (and a truly empty
+        # string fails even earlier inside the Snowpark client). OSS Spark raises
+        # a ParseException for the same input, so route it through the Spark
+        # parser to surface an identical, Spark-compatible error instead.
+        if not _sql_has_executable_statement(sql_string):
+            sql_parser().parsePlan(sql_string)
         # spark.sql("select or cte+select") queries should be executed lazily.
         # This returns an empty dataframe and empty schema.
         # if is_sql_select_statement(_trim_sql_string(sql_string)):
@@ -3382,6 +3420,13 @@ def map_sql(
         return execute_logical_plan(logical_plan)
     else:
         session = snowpark.Session.get_active_session()
+        # SNOW-3585767: no-statement input (empty, whitespace-only,
+        # comment-only, or only semicolons) would be forwarded to Snowflake as
+        # the opaque "000900 (42601) Empty SQL statement" error. OSS Spark
+        # raises a ParseException for the same input, so route it through the
+        # Spark parser to surface an identical, Spark-compatible error instead.
+        if not _sql_has_executable_statement(sql_stmt):
+            sql_parser().parsePlan(sql_stmt)
         # Remove trailing semicolons and whitespace to prevent "unexpected ';'" errors when performing operations
         # on the resulting DataFrame
         # Example: session.sql("SELECT 1;").show() would fail without this sanitization.
@@ -3778,7 +3823,18 @@ def map_logical_plan_relation(
                 )
             )
         case "Project":
-            with push_sql_scope():
+            # A Project gets its own isolated scope so inner registrations do
+            # not leak to or collide with the outer scope, but it is NOT a
+            # correlation boundary (is_boundary=False).  A Project is a
+            # same-query-level projection, not a subquery nesting level -- the
+            # real correlation boundaries are the expression subqueries
+            # (ScalarSubquery/EXISTS/InSubquery, see map_sql_expression.py) and
+            # SubqueryAlias complex children.  Marking Project as a boundary
+            # would double-count: e.g. `FROM t1, LATERAL (SELECT t1.c1)` wraps
+            # the lateral body in SubqueryAlias + Project, so a single-level
+            # lateral reference to `t1` would look like a two-level grandparent
+            # reference and be wrongly rejected, whereas Spark resolves it.
+            with push_sql_scope(is_boundary=False):
                 input = map_logical_plan_relation(rel.child())
                 expressions = [
                     map_logical_plan_expression(e)
@@ -3991,14 +4047,29 @@ def map_logical_plan_relation(
             # If the child is an UnresolvedRelation, we want to preserve the original plan id and save only aliased one
             child_class = str(rel.child().getClass().getSimpleName())
             process_aliased_relation = child_class == "UnresolvedRelation"
+            # For complex subquery children (joins, projections, etc.) inner table
+            # aliases must not be visible outside the SubqueryAlias boundary — they
+            # are hidden by the alias.  Wrapping in push_sql_scope(is_boundary=True)
+            # starts an *empty* plan-name map so inner registrations cannot
+            # collide with identically-named relations in the outer scope.
+            # Plain UnresolvedRelation children are already handled by
+            # push_processing_aliased_relation_scope (process_aliased_relation=True
+            # suppresses the inner registration), so no extra scope is needed there.
+            inner_scope = (
+                push_sql_scope(is_boundary=True)
+                if child_class
+                not in ("UnresolvedRelation", "UnresolvedTableValuedFunction")
+                else nullcontext()
+            )
             with _push_query_block_hint(None):
                 with push_processing_aliased_relation_scope(process_aliased_relation):
-                    proto = relation_proto.Relation(
-                        subquery_alias=relation_proto.SubqueryAlias(
-                            input=map_logical_plan_relation(rel.child()),
-                            alias=alias,
+                    with inner_scope:
+                        proto = relation_proto.Relation(
+                            subquery_alias=relation_proto.SubqueryAlias(
+                                input=map_logical_plan_relation(rel.child()),
+                                alias=alias,
+                            )
                         )
-                    )
 
             # UDTFs do not work when processed with plan id, use alias (see SNOW-3163639)
             if child_class != "UnresolvedTableValuedFunction":

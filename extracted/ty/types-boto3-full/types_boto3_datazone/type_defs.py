@@ -455,6 +455,9 @@ __all__ = (
     "GetTimeSeriesDataPointOutputTypeDef",
     "GetUserProfileInputTypeDef",
     "GetUserProfileOutputTypeDef",
+    "GitMetadataOutputTypeDef",
+    "GitMetadataTypeDef",
+    "GitMetadataUnionTypeDef",
     "GlossaryItemAdditionalAttributesTypeDef",
     "GlossaryItemTypeDef",
     "GlossaryTermEnforcementDetailOutputTypeDef",
@@ -812,6 +815,8 @@ __all__ = (
     "StartNotebookImportOutputTypeDef",
     "StartNotebookRunInputTypeDef",
     "StartNotebookRunOutputTypeDef",
+    "StartNotebookSyncInputTypeDef",
+    "StartNotebookSyncOutputTypeDef",
     "StopNotebookRunInputTypeDef",
     "StopNotebookRunOutputTypeDef",
     "StorageConfigTypeDef",
@@ -1485,6 +1490,16 @@ class CreateNotebookInputTypeDef(TypedDict):
     metadata: NotRequired[Mapping[str, str]]
     parameters: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
+
+
+class GitMetadataOutputTypeDef(TypedDict):
+    connectionId: str
+    repository: str
+    branch: str
+    commitHash: str
+    fileName: NotRequired[str]
+    committedAt: NotRequired[datetime]
+    commitMessage: NotRequired[str]
 
 
 class NotebookErrorTypeDef(TypedDict):
@@ -4326,6 +4341,16 @@ class GetLineageNodeInputTypeDef(TypedDict):
     eventTimestamp: NotRequired[TimestampTypeDef]
 
 
+class GitMetadataTypeDef(TypedDict):
+    connectionId: str
+    repository: str
+    branch: str
+    commitHash: str
+    fileName: NotRequired[str]
+    committedAt: NotRequired[TimestampTypeDef]
+    commitMessage: NotRequired[str]
+
+
 class ListLineageEventsInputTypeDef(TypedDict):
     domainIdentifier: str
     maxResults: NotRequired[int]
@@ -5121,6 +5146,20 @@ class StartNotebookImportOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartNotebookSyncOutputTypeDef(TypedDict):
+    notebookId: str
+    status: NotebookStatusType
+    domainId: str
+    owningProjectId: str
+    sourceLocation: SourceLocationTypeDef
+    gitMetadata: GitMetadataOutputTypeDef
+    name: str
+    description: str
+    createdAt: datetime
+    createdBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SparkGluePropertiesInputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
     glueConnectionName: NotRequired[str]
@@ -5703,6 +5742,7 @@ CreateNotebookOutputTypeDef = TypedDict(
         "parameters": dict[str, str],
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "error": NotebookErrorTypeDef,
+        "gitMetadata": GitMetadataOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5728,6 +5768,7 @@ GetNotebookOutputTypeDef = TypedDict(
         "parameters": dict[str, str],
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "error": NotebookErrorTypeDef,
+        "gitMetadata": GitMetadataOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5824,6 +5865,7 @@ UpdateNotebookOutputTypeDef = TypedDict(
         "parameters": dict[str, str],
         "environmentConfiguration": EnvironmentConfigTypeDef,
         "error": NotebookErrorTypeDef,
+        "gitMetadata": GitMetadataOutputTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -6026,6 +6068,9 @@ class ListJobRunsOutputTypeDef(TypedDict):
     items: list[JobRunSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+GitMetadataUnionTypeDef = Union[GitMetadataTypeDef, GitMetadataOutputTypeDef]
 
 
 class PostTimeSeriesDataPointsInputTypeDef(TypedDict):
@@ -6665,6 +6710,17 @@ class SearchTypesOutputTypeDef(TypedDict):
     totalMatchCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class StartNotebookSyncInputTypeDef(TypedDict):
+    domainIdentifier: str
+    owningProjectIdentifier: str
+    sourceLocation: SourceLocationTypeDef
+    gitMetadata: NotRequired[GitMetadataUnionTypeDef]
+    notebookId: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
 
 
 class ListEnvironmentBlueprintConfigurationsOutputTypeDef(TypedDict):

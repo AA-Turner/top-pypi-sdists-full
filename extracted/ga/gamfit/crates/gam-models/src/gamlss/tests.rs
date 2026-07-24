@@ -2883,6 +2883,122 @@ fn check_bls_wiggle_expected_info_derivatives_match_fd(
     assert_close_matrix(&analytic_second, &fd_second, 2e-7, "wiggle expected d2I");
 }
 
+/// gam#2353 — high-curvature different angle on the expected-info directional
+/// derivative. Amplifying the warp coefficients makes the warp curvature
+/// `g₂ = Σ_j β_wj B''_j(q₀)` — and hence the `∂²q` term of the joint geometry
+/// — large. The expected Fisher information `M_ab = Σ_i f_i (∇q_i)_a (∇q_i)_b`
+/// has NO such curvature term, so its exact directional derivative must stay
+/// curvature-free. Had the assembly regressed to the observed-Hessian jet
+/// composition (`φ''=f`, `φ'=0`, read the next symmetric channel), the spurious
+/// `f·q_ab·(∇q·u)` term would scale with this amplified curvature and blow the
+/// gate by orders of magnitude — the original defect was 3.065e-1 against a
+/// 2e-7 bound. Distinct base point, distinct magnitude regime, and distinct
+/// direction from the shipped fixture tests above.
+#[test]
+pub(crate) fn binomial_location_scale_wiggle_expected_info_directional_high_curvature_excludes_spurious_term()
+{
+    let (family, mut states, specs, xt, xls, _xw) = bls_wiggle_workspace_fixture();
+    let pt = states[0].beta.len();
+    let pls = states[1].beta.len();
+    let pw = states[2].beta.len();
+    let p = pt + pls + pw;
+
+    // Amplify the warp so its curvature (the ∂²q channel) is large, then
+    // refresh η_w so the fixture stays self-consistent. q₀ depends only on the
+    // unchanged threshold/scale blocks, so scaling β_w scales g₂ identically.
+    let scale = 5.0;
+    states[2].beta.mapv_inplace(|b| b * scale);
+    let q0 = Array1::from_iter(states[0].eta.iter().zip(states[1].eta.iter()).map(
+        |(&eta_t_i, &eta_ls_i)| {
+            binomial_location_scale_q0(eta_t_i, exp_sigma_from_eta_scalar(eta_ls_i))
+        },
+    ));
+    states[2].eta = family
+        .wiggle_design(q0.view())
+        .expect("high-curvature wiggle basis")
+        .dot(&states[2].beta);
+
+    // Teeth 1: the warp curvature is genuinely active at this base point.
+    let basis_dd = monotone_wiggle_basis_with_derivative_order(
+        q0.view(),
+        &family.wiggle_knots,
+        family.wiggle_degree,
+        2,
+    )
+    .expect("B'' stack");
+    let warp_curvature = basis_dd.dot(&states[2].beta);
+    let max_curvature = warp_curvature.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+    assert!(
+        max_curvature > 1e-3,
+        "high-curvature fixture must exercise the ∂²q channel; max|g2|={max_curvature:.3e}"
+    );
+
+    // Wiggle-heavy probe direction to maximally excite the (∇q·u) factor of the
+    // would-be spurious curvature term.
+    let u = Array1::from_shape_fn(p, |i| {
+        0.05 * ((i + 1) as f64).cos() + if i >= pt + pls { 0.06 } else { 0.0 }
+    });
+
+    // Teeth 2: the OBSERVED joint-Hessian directional derivative — which does
+    // legitimately carry the `∂²q·(∇q·u)` curvature — differs from the
+    // expected-information directional by an O(1) amount here. So the FD
+    // agreement below is a genuine exclusion of that curvature, not a
+    // near-zero coincidence.
+    let observed_dir = family
+        .exact_newton_joint_hessian_directional_derivative(&states, &u)
+        .expect("observed dH")
+        .expect("observed dH present");
+    let expected_dir = family
+        .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &u)
+        .expect("expected dI")
+        .expect("expected dI present");
+    let curvature_gap = (&observed_dir - &expected_dir)
+        .iter()
+        .fold(0.0_f64, |m, &v| m.max(v.abs()));
+    assert!(
+        curvature_gap > 1e-3,
+        "observed vs expected directional must differ materially (curvature active); gap={curvature_gap:.3e}"
+    );
+
+    // The gate: exact analytic expected-info directional == central FD of the
+    // expected information itself, at the amplified curvature.
+    let eps = 1e-5;
+    let perturb = |direction_scale: f64| -> Vec<ParameterBlockState> {
+        let mut out = states.clone();
+        for j in 0..pt {
+            out[0].beta[j] += direction_scale * u[j];
+        }
+        for j in 0..pls {
+            out[1].beta[j] += direction_scale * u[pt + j];
+        }
+        for j in 0..pw {
+            out[2].beta[j] += direction_scale * u[pt + pls + j];
+        }
+        out[0].eta = xt.dot(&out[0].beta);
+        out[1].eta = xls.dot(&out[1].beta);
+        let q0p = Array1::from_iter(out[0].eta.iter().zip(out[1].eta.iter()).map(
+            |(&eta_t_i, &eta_ls_i)| {
+                binomial_location_scale_q0(eta_t_i, exp_sigma_from_eta_scalar(eta_ls_i))
+            },
+        ));
+        out[2].eta = family
+            .wiggle_design(q0p.view())
+            .expect("perturbed high-curvature basis")
+            .dot(&out[2].beta);
+        out
+    };
+    let m_plus = family
+        .joint_jeffreys_information_with_specs(&perturb(eps), &specs)
+        .expect("M+")
+        .expect("M+ present");
+    let m_minus = family
+        .joint_jeffreys_information_with_specs(&perturb(-eps), &specs)
+        .expect("M-")
+        .expect("M- present");
+    let fd = (&m_plus - &m_minus) / (2.0 * eps);
+    assert_close_matrix(&expected_dir, &fd, 5e-7, "high-curvature wiggle expected dI");
+}
+
 #[test]
 pub(crate) fn binomial_location_scale_wiggle_workspace_d2h_operator_matches_dense() {
     let (family, states, specs, _xt, _xls, _xw) = bls_wiggle_workspace_fixture();
@@ -4848,6 +4964,12 @@ pub(crate) fn binomial_location_scalewiggle_family_exposes_joint_psi_hook_surfac
     );
 }
 
+// The joint-psi hook surface is a family-level derivative property evaluated at
+// a fixed set of coefficients, so it is exercised at explicitly-built
+// block_states (as the binomial-wiggle sibling does), not at a minted fit. A
+// minted fit is neither needed nor obtainable here: certification-ownership does
+// not return a non-stationary best-effort fit, and one cold outer step on this
+// deliberately tiny fixture is never stationary.
 #[test]
 pub(crate) fn gaussian_location_scale_family_exposes_joint_psi_hook_surface() {
     let n = 10usize;
@@ -4892,16 +5014,25 @@ pub(crate) fn gaussian_location_scale_family_exposes_joint_psi_hook_surface() {
         .build_blocks(&rho, &mean_design, &noise_design, None, None)
         .expect("build blocks");
     let family = builder.build_family(&mean_design, &noise_design);
-    let fit = fit_custom_family(
-        &family,
-        &blocks,
-        &BlockwiseFitOptions {
-            use_remlobjective: true,
-            outer_max_iter: 1,
-            ..BlockwiseFitOptions::default()
-        },
-    )
-    .expect("fit gaussian family for joint psi hooks");
+    // The joint-psi hook surface is exercised at explicit coefficients, not at a
+    // minted fit: build each block's state from its penalty-geometry seed so the
+    // family exposes its psi score / Hessian / mixed-drift hooks without asking
+    // the outer optimizer to certify a (deliberately tiny) fixture.
+    let mut block_states = Vec::<ParameterBlockState>::with_capacity(blocks.len());
+    for spec in blocks.iter() {
+        let beta = spec
+            .initial_beta
+            .clone()
+            .unwrap_or_else(|| Array1::zeros(spec.design.ncols()));
+        let (design, offset) = family
+            .block_geometry(&block_states, spec)
+            .expect("hook fixture block geometry");
+        let eta = design.matrixvectormultiply(&beta) + &offset;
+        block_states.push(ParameterBlockState { beta, eta });
+    }
+    family
+        .evaluate(&block_states)
+        .expect("hook fixture state should evaluate");
     let derivative_blocks = builder
         .build_psiderivative_blocks(
             data.view(),
@@ -4913,7 +5044,7 @@ pub(crate) fn gaussian_location_scale_family_exposes_joint_psi_hook_surface() {
         .expect("psi derivative blocks");
     assert_joint_psi_hook_surface(
         &family,
-        &fit.block_states,
+        &block_states,
         &blocks,
         &derivative_blocks,
         0.2,
@@ -5034,19 +5165,42 @@ pub(crate) fn binomial_location_scale_terms_reject_datarow_mismatch_early() {
     assert!(err.contains("data row count must match response length"));
 }
 
+// "Fit finitely" requires an interior REML optimum to certify. Linear, noiseless
+// data drives both Matern smooths to lambda -> +inf (a rail that cannot certify a
+// stationary interior optimum), so the fixture must carry genuine mean curvature
+// (finite mean lambda) and genuine heteroscedasticity (finite log-sigma lambda),
+// with deterministic Gaussian residuals, so each block has an interior optimum.
 #[test]
 pub(crate) fn gaussian_location_scale_termswith_matern_spatial_blocks_fit_finitely() {
-    let n = 32usize;
+    let n = 48usize;
     let mut data = Array2::<f64>::zeros((n, 2));
     for i in 0..n {
         let t = i as f64 / (n as f64 - 1.0);
         data[[i, 0]] = t;
         data[[i, 1]] = (2.0 * std::f64::consts::PI * t).sin();
     }
+    // Deterministic LCG -> uniform(0,1); probit gives standard-normal draws
+    // (same generator idiom as the homoscedastic #365 fixture).
+    let mut lcg: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut next_unit = || {
+        lcg = lcg
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let bits = (lcg >> 11) as f64 / ((1u64 << 53) as f64);
+        bits.clamp(1.0e-6, 1.0 - 1.0e-6)
+    };
     let y = Array1::from_iter((0..n).map(|i| {
         let x0 = data[[i, 0]];
         let x1 = data[[i, 1]];
-        0.5 * x0 - 0.25 * x1 + 0.1
+        // Mean with genuine curvature over the domain (one full sine period in
+        // x0 plus an x1 tilt) — a Matern smooth with correlation 0.35 has real
+        // structure to fit, so its lambda stays finite/interior.
+        let true_mean = 0.6 * (2.0 * std::f64::consts::PI * x0).sin() + 0.2 * x1;
+        // Heteroscedastic scale that rises across the domain so the log-sigma
+        // Matern block has genuine signal and its lambda stays finite too.
+        let true_log_sigma = -0.9 + 1.0 * x0;
+        let z = standard_normal_quantile(next_unit()).expect("finite probit draw");
+        true_mean + true_log_sigma.exp() * z
     }));
     let weights = Array1::from_elem(n, 1.0);
     let spec = GaussianLocationScaleTermSpec {
@@ -5057,10 +5211,21 @@ pub(crate) fn gaussian_location_scale_termswith_matern_spatial_blocks_fit_finite
         mean_offset: Array1::zeros(n),
         log_sigma_offset: Array1::zeros(n),
     };
+    // Production-sized outer budget: with genuine interior signal the REML
+    // optimum is a real stationary point, so give the outer enough iterations to
+    // reach and certify it (this is not budget-inflation to chase a saturated
+    // rail — the honest optimum here is interior).
+    let options = BlockwiseFitOptions {
+        inner_max_cycles: 48,
+        inner_tol: 1e-4,
+        outer_max_iter: 60,
+        outer_tol: 1e-4,
+        ..BlockwiseFitOptions::default()
+    };
     let fit = fit_gaussian_location_scale_terms(
         data.view(),
         spec,
-        &spatial_fit_smoke_options(),
+        &options,
         &spatial_kappa_options(),
     )
     .expect("gaussian location-scale spatial fit");
@@ -6570,1305 +6735,6 @@ pub(crate) fn wiggle_family_block_hessians_match_jointhessian_principal_blocks()
     }
 }
 
-/// Build the nontrivial-design BLS Wiggle family + designs + wiggle block
-/// shared by the FD-gradient and FD-joint-Hessian tests below.
-pub(crate) fn wiggle_nontrivial_fixture() -> (
-    BinomialLocationScaleWiggleFamily,
-    DesignMatrix,
-    DesignMatrix,
-    ParameterBlockInput,
-    Array1<f64>,
-    Array1<f64>,
-) {
-    let n = 9usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let t_grid = Array1::linspace(0.0, 1.0, n);
-    let threshold_x = Array2::from_shape_fn((n, 3), |(i, j)| match j {
-        0 => 1.0,
-        1 => t_grid[i] - 0.5,
-        2 => (2.0 * std::f64::consts::PI * t_grid[i]).sin(),
-        _ => unreachable!(),
-    });
-    let log_sigma_x = Array2::from_shape_fn((n, 2), |(i, j)| match j {
-        0 => 1.0,
-        1 => (3.0 * std::f64::consts::PI * t_grid[i]).cos(),
-        _ => unreachable!(),
-    });
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        threshold_x.clone(),
-    ));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        log_sigma_x.clone(),
-    ));
-    let q_seed = Array1::linspace(-1.3, 1.1, n);
-    let (wiggle_block, knots) =
-        BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 3, 4, 2, false)
-            .expect("wiggle block");
-    let family = BinomialLocationScaleWiggleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        wiggle_knots: knots,
-        wiggle_degree: 3,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    (
-        family,
-        threshold_design,
-        log_sigma_design,
-        wiggle_block,
-        y,
-        weights,
-    )
-}
-
-/// Rebuild the three-block state for the nontrivial-design wiggle fixture.
-pub(crate) fn rebuild_wiggle_nontrivial_states(
-    family: &BinomialLocationScaleWiggleFamily,
-    threshold_design: &DesignMatrix,
-    log_sigma_design: &DesignMatrix,
-    y: &Array1<f64>,
-    weights: &Array1<f64>,
-    beta_t: &Array1<f64>,
-    beta_ls: &Array1<f64>,
-    betaw: &Array1<f64>,
-) -> Vec<ParameterBlockState> {
-    let eta_t = threshold_design.matrixvectormultiply(beta_t);
-    let eta_ls = log_sigma_design.matrixvectormultiply(beta_ls);
-    let core_q0 =
-        binomial_location_scale_core(y, weights, &eta_t, &eta_ls, None, &family.link_kind)
-            .expect("core q0");
-    let etaw = family
-        .wiggle_design(core_q0.q0.view())
-        .expect("wiggle design")
-        .dot(betaw);
-    vec![
-        ParameterBlockState {
-            beta: beta_t.clone(),
-            eta: eta_t,
-        },
-        ParameterBlockState {
-            beta: beta_ls.clone(),
-            eta: eta_ls,
-        },
-        ParameterBlockState {
-            beta: betaw.clone(),
-            eta: etaw,
-        },
-    ]
-}
-
-/// Extract the exact-Newton gradient for one block of a wiggle evaluation.
-pub(crate) fn extract_wiggle_gradient(eval: &FamilyEvaluation, block_idx: usize) -> Array1<f64> {
-    match &eval.blockworking_sets[block_idx] {
-        BlockWorkingSet::ExactNewton {
-            gradient,
-            hessian: _,
-        } => gradient.clone(),
-        BlockWorkingSet::Diagonal { .. } => panic!("expected exact newton"),
-    }
-}
-
-#[test]
-pub(crate) fn wiggle_familygradients_match_finite_differencewith_nontrivial_designs() {
-    let (family, threshold_design, log_sigma_design, wiggle_block, y, weights) =
-        wiggle_nontrivial_fixture();
-
-    let rebuild_states = |beta_t: &Array1<f64>,
-                          beta_ls: &Array1<f64>,
-                          betaw: &Array1<f64>|
-     -> Vec<ParameterBlockState> {
-        rebuild_wiggle_nontrivial_states(
-            &family,
-            &threshold_design,
-            &log_sigma_design,
-            &y,
-            &weights,
-            beta_t,
-            beta_ls,
-            betaw,
-        )
-    };
-
-    let objective = |beta_t: &Array1<f64>, beta_ls: &Array1<f64>, betaw: &Array1<f64>| {
-        let states = rebuild_states(beta_t, beta_ls, betaw);
-        -family.evaluate(&states).expect("evaluate").log_likelihood
-    };
-
-    let extractgradient = extract_wiggle_gradient;
-
-    let beta_t = Array1::from_vec(vec![0.15, -0.3, 0.2]);
-    let beta_ls = Array1::from_vec(vec![-0.2, 0.1]);
-    let betaw = Array1::from_vec(vec![0.04; wiggle_block.design.ncols()]);
-    let states = rebuild_states(&beta_t, &beta_ls, &betaw);
-    let eval = family.evaluate(&states).expect("evaluate");
-    let eps = 1e-6;
-
-    for block_idx in 0..3 {
-        let analytic = extractgradient(&eval, block_idx);
-        let mut fd = Array1::<f64>::zeros(analytic.len());
-        for j in 0..analytic.len() {
-            let mut beta_t_plus = beta_t.clone();
-            let mut beta_ls_plus = beta_ls.clone();
-            let mut betaw_plus = betaw.clone();
-            let mut beta_t_minus = beta_t.clone();
-            let mut beta_ls_minus = beta_ls.clone();
-            let mut betaw_minus = betaw.clone();
-            match block_idx {
-                BinomialLocationScaleWiggleFamily::BLOCK_T => {
-                    beta_t_plus[j] += eps;
-                    beta_t_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA => {
-                    beta_ls_plus[j] += eps;
-                    beta_ls_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE => {
-                    betaw_plus[j] += eps;
-                    betaw_minus[j] -= eps;
-                }
-                _ => unreachable!(),
-            }
-            let f_plus = objective(&beta_t_plus, &beta_ls_plus, &betaw_plus);
-            let f_minus = objective(&beta_t_minus, &beta_ls_minus, &betaw_minus);
-            fd[j] = (f_plus - f_minus) / (2.0 * eps);
-        }
-        gam_test_support::assert_matrix_derivativefd(
-            &fd.insert_axis(Axis(1)),
-            &(-&analytic).insert_axis(Axis(1)),
-            2e-4,
-            &format!("wiggle block {block_idx} score"),
-        );
-    }
-}
-
-#[test]
-pub(crate) fn wiggle_family_joint_hessian_matches_fd_gradients_with_nontrivial_designs() {
-    let (family, threshold_design, log_sigma_design, wiggle_block, y, weights) =
-        wiggle_nontrivial_fixture();
-
-    let rebuild_states = |beta_t: &Array1<f64>,
-                          beta_ls: &Array1<f64>,
-                          betaw: &Array1<f64>|
-     -> Vec<ParameterBlockState> {
-        rebuild_wiggle_nontrivial_states(
-            &family,
-            &threshold_design,
-            &log_sigma_design,
-            &y,
-            &weights,
-            beta_t,
-            beta_ls,
-            betaw,
-        )
-    };
-
-    let extractgradient = extract_wiggle_gradient;
-
-    let beta_t = Array1::from_vec(vec![0.15, -0.3, 0.2]);
-    let beta_ls = Array1::from_vec(vec![-0.2, 0.1]);
-    let betaw = Array1::from_vec(vec![0.04; wiggle_block.design.ncols()]);
-    let states = rebuild_states(&beta_t, &beta_ls, &betaw);
-    let h_joint = family
-        .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected joint exact hessian");
-    let pt = beta_t.len();
-    let pls = beta_ls.len();
-    let eps = 1e-6;
-    let total = pt + pls + betaw.len();
-    let mut fd = Array2::<f64>::zeros((total, total));
-    let source_offsets = [0usize, pt, pt + pls];
-
-    for source_block in 0..3 {
-        let source_len = states[source_block].beta.len();
-        for j in 0..source_len {
-            let mut beta_t_plus = beta_t.clone();
-            let mut beta_ls_plus = beta_ls.clone();
-            let mut betaw_plus = betaw.clone();
-            let mut beta_t_minus = beta_t.clone();
-            let mut beta_ls_minus = beta_ls.clone();
-            let mut betaw_minus = betaw.clone();
-            match source_block {
-                BinomialLocationScaleWiggleFamily::BLOCK_T => {
-                    beta_t_plus[j] += eps;
-                    beta_t_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA => {
-                    beta_ls_plus[j] += eps;
-                    beta_ls_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE => {
-                    betaw_plus[j] += eps;
-                    betaw_minus[j] -= eps;
-                }
-                _ => unreachable!(),
-            }
-            let eval_plus = family
-                .evaluate(&rebuild_states(&beta_t_plus, &beta_ls_plus, &betaw_plus))
-                .expect("eval plus");
-            let eval_minus = family
-                .evaluate(&rebuild_states(&beta_t_minus, &beta_ls_minus, &betaw_minus))
-                .expect("eval minus");
-
-            let mut row_offset = 0usize;
-            for target_block in 0..3 {
-                let grad_plus = extractgradient(&eval_plus, target_block);
-                let grad_minus = extractgradient(&eval_minus, target_block);
-                let col = (&grad_plus - &grad_minus).mapv(|v| -v / (2.0 * eps));
-                let col_idx = source_offsets[source_block] + j;
-                fd.slice_mut(s![
-                    row_offset..row_offset + grad_plus.len(),
-                    col_idx..col_idx + 1
-                ])
-                .assign(&col.insert_axis(Axis(1)));
-                row_offset += grad_plus.len();
-            }
-        }
-    }
-
-    gam_test_support::assert_matrix_derivativefd(&fd, &h_joint, 4e-4, "wiggle joint hessian");
-}
-
-#[test]
-pub(crate) fn wiggle_family_joint_exacthessian_directional_derivative_matches_finite_difference() {
-    let n = 7usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_block = intercept_block(n);
-    let log_sigma_block = intercept_block(n);
-    let q_seed = Array1::linspace(-1.4, 1.4, n);
-    let (wiggle_block, knots) =
-        BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 3, 4, 2, false)
-            .expect("wiggle block");
-    let threshold_design = threshold_block.design.clone();
-    let log_sigma_design = log_sigma_block.design.clone();
-    let family = BinomialLocationScaleWiggleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        wiggle_knots: knots,
-        wiggle_degree: 3,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let beta_t = Array1::from_vec(vec![0.25]);
-    let beta_ls = Array1::from_vec(vec![-0.15]);
-    let eta_t = threshold_design.matrixvectormultiply(&beta_t);
-    let eta_ls = log_sigma_design.matrixvectormultiply(&beta_ls);
-    let core_for_q0 =
-        binomial_location_scale_core(&y, &weights, &eta_t, &eta_ls, None, &family.link_kind)
-            .expect("core q0");
-    let betaw = Array1::from_vec(vec![0.04; wiggle_block.design.ncols()]);
-    let etaw = family
-        .wiggle_design(core_for_q0.q0.view())
-        .expect("wiggle design")
-        .dot(&betaw);
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_t,
-            eta: eta_t,
-        },
-        ParameterBlockState {
-            beta: beta_ls,
-            eta: eta_ls,
-        },
-        ParameterBlockState {
-            beta: betaw.clone(),
-            eta: etaw,
-        },
-    ];
-
-    let base_h = family
-        .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected joint exact hessian");
-    let direction = Array1::ones(base_h.nrows());
-    let analytic = family
-        .exact_newton_joint_hessian_directional_derivative(&states, &direction)
-        .expect("joint dH")
-        .expect("expected joint exact dH");
-
-    let eps = 1e-6;
-    let mut plus_states = states.clone();
-    let beta_layout = GamlssBetaLayout::withwiggle(
-        plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T]
-            .beta
-            .len(),
-        plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA]
-            .beta
-            .len(),
-        plus_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE]
-            .beta
-            .len(),
-    );
-    let (dir_t, dir_ls, dirw) = beta_layout
-        .split_three(&direction, "wiggle test direction split")
-        .expect("split wiggle test direction");
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T].beta =
-        &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T].beta + &(eps * dir_t);
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].beta =
-        &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].beta + &(eps * dir_ls);
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].beta =
-        &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].beta + &(eps * dirw);
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T].eta = threshold_design
-        .matrixvectormultiply(&plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T].beta);
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].eta = log_sigma_design
-        .matrixvectormultiply(
-            &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].beta,
-        );
-    let plus_core_q0 = binomial_location_scale_core(
-        &y,
-        &weights,
-        &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_T].eta,
-        &plus_states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].eta,
-        None,
-        &family.link_kind,
-    )
-    .expect("plus core q0");
-    plus_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].eta = family
-        .wiggle_design(plus_core_q0.q0.view())
-        .expect("plus wiggle design")
-        .dot(&plus_states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].beta);
-
-    let h_plus = family
-        .exact_newton_joint_hessian(&plus_states)
-        .expect("plus joint hessian")
-        .expect("expected plus joint hessian");
-    let fd = (h_plus - base_h) / eps;
-    gam_test_support::assert_matrix_derivativefd(&fd, &analytic, 2e-3, "joint dH");
-}
-
-#[test]
-pub(crate) fn wiggle_family_joint_exacthessiansecond_directional_derivative_matches_finite_difference()
- {
-    let n = 7usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_block = intercept_block(n);
-    let log_sigma_block = intercept_block(n);
-    let q_seed = Array1::linspace(-1.4, 1.4, n);
-    let (wiggle_block, knots) =
-        BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 4, 4, 2, false)
-            .expect("wiggle block");
-    let threshold_design = threshold_block.design.clone();
-    let log_sigma_design = log_sigma_block.design.clone();
-    let family = BinomialLocationScaleWiggleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        wiggle_knots: knots,
-        wiggle_degree: 4,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let rebuild_states = |beta_t: &Array1<f64>,
-                          beta_ls: &Array1<f64>,
-                          betaw: &Array1<f64>|
-     -> Vec<ParameterBlockState> {
-        let eta_t = threshold_design.matrixvectormultiply(beta_t);
-        let eta_ls = log_sigma_design.matrixvectormultiply(beta_ls);
-        let core_q0 =
-            binomial_location_scale_core(&y, &weights, &eta_t, &eta_ls, None, &family.link_kind)
-                .expect("core q0");
-        let etaw = family
-            .wiggle_design(core_q0.q0.view())
-            .expect("wiggle design")
-            .dot(betaw);
-        vec![
-            ParameterBlockState {
-                beta: beta_t.clone(),
-                eta: eta_t,
-            },
-            ParameterBlockState {
-                beta: beta_ls.clone(),
-                eta: eta_ls,
-            },
-            ParameterBlockState {
-                beta: betaw.clone(),
-                eta: etaw,
-            },
-        ]
-    };
-
-    let beta_t = Array1::from_vec(vec![0.25]);
-    let beta_ls = Array1::from_vec(vec![-0.15]);
-    let betaw = Array1::from_vec(vec![0.03; wiggle_block.design.ncols()]);
-    let states = rebuild_states(&beta_t, &beta_ls, &betaw);
-
-    let pt = beta_t.len();
-    let pls = beta_ls.len();
-    let pw = betaw.len();
-    let total = pt + pls + pw;
-    let direction_u = Array1::from_shape_fn(total, |k| 0.2 + 0.1 * (k as f64));
-    let directionv = Array1::from_shape_fn(total, |k| -0.15 + 0.07 * (k as f64));
-
-    let analytic = family
-        .exact_newton_joint_hessiansecond_directional_derivative(&states, &direction_u, &directionv)
-        .expect("joint d2H")
-        .expect("expected joint exact d2H");
-
-    let eps = 1e-6;
-    let beta_layout = GamlssBetaLayout::withwiggle(pt, pls, pw);
-    let (step_t, step_ls, stepw) = beta_layout
-        .split_three(&directionv, "wiggle d2H test directionv")
-        .expect("split wiggle test direction");
-
-    let states_plus = rebuild_states(
-        &(&beta_t + &(eps * &step_t)),
-        &(&beta_ls + &(eps * &step_ls)),
-        &(&betaw + &(eps * &stepw)),
-    );
-    let states_minus = rebuild_states(
-        &(&beta_t - &(eps * &step_t)),
-        &(&beta_ls - &(eps * &step_ls)),
-        &(&betaw - &(eps * &stepw)),
-    );
-    let d_h_plus = family
-        .exact_newton_joint_hessian_directional_derivative(&states_plus, &direction_u)
-        .expect("joint dH plus")
-        .expect("expected joint exact dH plus");
-    let d_h_minus = family
-        .exact_newton_joint_hessian_directional_derivative(&states_minus, &direction_u)
-        .expect("joint dH minus")
-        .expect("expected joint exact dH minus");
-    let fd = (d_h_plus - d_h_minus) / (2.0 * eps);
-
-    gam_test_support::assert_matrix_derivativefd(&fd, &analytic, 4e-3, "joint d2H");
-}
-
-#[test]
-pub(crate) fn wiggle_family_joint_hessian_cross_blocks_match_finite_difference_of_gradients() {
-    let n = 7usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_block = intercept_block(n);
-    let log_sigma_block = intercept_block(n);
-    let q_seed = Array1::linspace(-1.4, 1.4, n);
-    let (wiggle_block, knots) =
-        BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 3, 4, 2, false)
-            .expect("wiggle block");
-    let threshold_design = threshold_block.design.clone();
-    let log_sigma_design = log_sigma_block.design.clone();
-    let family = BinomialLocationScaleWiggleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        wiggle_knots: knots,
-        wiggle_degree: 3,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let rebuild_states = |beta_t: &Array1<f64>,
-                          beta_ls: &Array1<f64>,
-                          betaw: &Array1<f64>|
-     -> Vec<ParameterBlockState> {
-        let eta_t = threshold_design.matrixvectormultiply(beta_t);
-        let eta_ls = log_sigma_design.matrixvectormultiply(beta_ls);
-        let core_q0 =
-            binomial_location_scale_core(&y, &weights, &eta_t, &eta_ls, None, &family.link_kind)
-                .expect("core q0");
-        let etaw = family
-            .wiggle_design(core_q0.q0.view())
-            .expect("wiggle design")
-            .dot(betaw);
-        vec![
-            ParameterBlockState {
-                beta: beta_t.clone(),
-                eta: eta_t,
-            },
-            ParameterBlockState {
-                beta: beta_ls.clone(),
-                eta: eta_ls,
-            },
-            ParameterBlockState {
-                beta: betaw.clone(),
-                eta: etaw,
-            },
-        ]
-    };
-
-    let extractgradient = |eval: &FamilyEvaluation, block_idx: usize| -> Array1<f64> {
-        match &eval.blockworking_sets[block_idx] {
-            BlockWorkingSet::ExactNewton {
-                gradient,
-                hessian: _,
-            } => gradient.clone(),
-            BlockWorkingSet::Diagonal { .. } => panic!("expected exact newton"),
-        }
-    };
-
-    let beta_t = Array1::from_vec(vec![0.25]);
-    let beta_ls = Array1::from_vec(vec![-0.15]);
-    let betaw = Array1::from_vec(vec![0.04; wiggle_block.design.ncols()]);
-    let states = rebuild_states(&beta_t, &beta_ls, &betaw);
-
-    let h_joint = family
-        .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected joint exact hessian");
-
-    let pt = beta_t.len();
-    let pls = beta_ls.len();
-    let pw = betaw.len();
-    let eps = 1e-6;
-
-    let fd_cross_block = |target_block: usize, source_block: usize| -> Array2<f64> {
-        let mut out = Array2::<f64>::zeros((
-            states[target_block].beta.len(),
-            states[source_block].beta.len(),
-        ));
-        for j in 0..states[source_block].beta.len() {
-            let mut beta_t_plus = beta_t.clone();
-            let mut beta_ls_plus = beta_ls.clone();
-            let mut betaw_plus = betaw.clone();
-            let mut beta_t_minus = beta_t.clone();
-            let mut beta_ls_minus = beta_ls.clone();
-            let mut betaw_minus = betaw.clone();
-            match source_block {
-                BinomialLocationScaleWiggleFamily::BLOCK_T => {
-                    beta_t_plus[j] += eps;
-                    beta_t_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA => {
-                    beta_ls_plus[j] += eps;
-                    beta_ls_minus[j] -= eps;
-                }
-                BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE => {
-                    betaw_plus[j] += eps;
-                    betaw_minus[j] -= eps;
-                }
-                _ => panic!("unexpected block"),
-            }
-
-            let eval_plus = family
-                .evaluate(&rebuild_states(&beta_t_plus, &beta_ls_plus, &betaw_plus))
-                .expect("eval plus");
-            let eval_minus = family
-                .evaluate(&rebuild_states(&beta_t_minus, &beta_ls_minus, &betaw_minus))
-                .expect("eval minus");
-            let grad_plus = extractgradient(&eval_plus, target_block);
-            let grad_minus = extractgradient(&eval_minus, target_block);
-            let col = (&grad_plus - &grad_minus).mapv(|v| -v / (2.0 * eps));
-            out.slice_mut(ndarray::s![.., j]).assign(&col);
-        }
-        out
-    };
-
-    let fd_t_ls = fd_cross_block(
-        BinomialLocationScaleWiggleFamily::BLOCK_T,
-        BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA,
-    );
-    let fd_tw = fd_cross_block(
-        BinomialLocationScaleWiggleFamily::BLOCK_T,
-        BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE,
-    );
-    let fd_lsw = fd_cross_block(
-        BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA,
-        BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE,
-    );
-
-    let h_t_ls = h_joint.slice(ndarray::s![0..pt, pt..pt + pls]).to_owned();
-    let h_tw = h_joint
-        .slice(ndarray::s![0..pt, pt + pls..pt + pls + pw])
-        .to_owned();
-    let h_lsw = h_joint
-        .slice(ndarray::s![pt..pt + pls, pt + pls..pt + pls + pw])
-        .to_owned();
-
-    gam_test_support::assert_matrix_derivativefd(&fd_t_ls, &h_t_ls, 2e-4, "H_t_ls");
-    gam_test_support::assert_matrix_derivativefd(&fd_tw, &h_tw, 4e-4, "H_tw");
-    gam_test_support::assert_matrix_derivativefd(&fd_lsw, &h_lsw, 6e-4, "H_lsw");
-}
-
-#[test]
-pub(crate) fn nonwiggle_family_evaluate_returns_exact_newton_blockswhen_designs_are_present() {
-    let n = 6usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => t - 0.5,
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => (2.0 * std::f64::consts::PI * t).cos(),
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let family = BinomialLocationScaleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let beta_t = array![0.2, -0.15];
-    let beta_ls = array![-0.1, 0.05];
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_t.clone(),
-            eta: threshold_design.matrixvectormultiply(&beta_t),
-        },
-        ParameterBlockState {
-            beta: beta_ls.clone(),
-            eta: log_sigma_design.matrixvectormultiply(&beta_ls),
-        },
-    ];
-
-    let eval = family.evaluate(&states).expect("evaluate nonwiggle family");
-    assert_eq!(eval.blockworking_sets.len(), 2);
-    let joint = family
-        .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected joint exact hessian");
-    let pt = beta_t.len();
-    let pls = beta_ls.len();
-
-    for (block_idx, (start, end)) in [(0usize, pt), (pt, pt + pls)].into_iter().enumerate() {
-        let blockhessian = match &eval.blockworking_sets[block_idx] {
-            BlockWorkingSet::ExactNewton { hessian, .. } => hessian.to_dense(),
-            BlockWorkingSet::Diagonal { .. } => panic!("expected exact newton block"),
-        };
-        let joint_block = joint.slice(s![start..end, start..end]).to_owned();
-        gam_test_support::assert_matrix_derivativefd(
-            &joint_block,
-            &blockhessian,
-            1e-10,
-            &format!("nonwiggle block {block_idx} principal block"),
-        );
-    }
-}
-
-#[test]
-pub(crate) fn nonwiggle_family_joint_exacthessian_directional_derivative_matches_finite_difference()
-{
-    let n = 8usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => (2.0 * std::f64::consts::PI * t).sin(),
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => t - 0.5,
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let family = BinomialLocationScaleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let rebuild_states = |beta_t: &Array1<f64>, beta_ls: &Array1<f64>| {
-        vec![
-            ParameterBlockState {
-                beta: beta_t.clone(),
-                eta: threshold_design.matrixvectormultiply(beta_t),
-            },
-            ParameterBlockState {
-                beta: beta_ls.clone(),
-                eta: log_sigma_design.matrixvectormultiply(beta_ls),
-            },
-        ]
-    };
-
-    let beta_t = array![0.2, -0.1];
-    let beta_ls = array![-0.15, 0.08];
-    let states = rebuild_states(&beta_t, &beta_ls);
-    let base_h = family
-        .exact_newton_joint_hessian(&states)
-        .expect("joint hessian")
-        .expect("expected joint exact hessian");
-    let direction = array![0.2, 0.3, -0.15, 0.1];
-    let analytic = family
-        .exact_newton_joint_hessian_directional_derivative(&states, &direction)
-        .expect("joint dH")
-        .expect("expected joint exact dH");
-
-    let eps = 1e-6;
-    let dir_t = direction.slice(s![0..beta_t.len()]).to_owned();
-    let dir_ls = direction.slice(s![beta_t.len()..]).to_owned();
-    let states_plus = rebuild_states(&(&beta_t + &(eps * &dir_t)), &(&beta_ls + &(eps * &dir_ls)));
-    let h_plus = family
-        .exact_newton_joint_hessian(&states_plus)
-        .expect("plus joint hessian")
-        .expect("expected plus joint hessian");
-    let fd = (h_plus - base_h) / eps;
-    gam_test_support::assert_matrix_derivativefd(&fd, &analytic, 2e-3, "nonwiggle joint dH");
-}
-
-#[test]
-pub(crate) fn nonwiggle_family_joint_exacthessiansecond_directional_derivative_matches_finite_difference()
- {
-    let n = 8usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let threshold_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => (2.0 * std::f64::consts::PI * t).sin(),
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let log_sigma_design = DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-        Array2::from_shape_fn((n, 2), |(i, j)| {
-            let t = i as f64 / (n as f64 - 1.0);
-            match j {
-                0 => 1.0,
-                1 => t - 0.5,
-                _ => unreachable!(),
-            }
-        }),
-    ));
-    let family = BinomialLocationScaleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(threshold_design.clone()),
-        log_sigma_design: Some(log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let rebuild_states = |beta_t: &Array1<f64>, beta_ls: &Array1<f64>| {
-        vec![
-            ParameterBlockState {
-                beta: beta_t.clone(),
-                eta: threshold_design.matrixvectormultiply(beta_t),
-            },
-            ParameterBlockState {
-                beta: beta_ls.clone(),
-                eta: log_sigma_design.matrixvectormultiply(beta_ls),
-            },
-        ]
-    };
-
-    let beta_t = array![0.2, -0.1];
-    let beta_ls = array![-0.15, 0.08];
-    let states = rebuild_states(&beta_t, &beta_ls);
-    let direction_u = array![0.2, 0.3, -0.15, 0.1];
-    let directionv = array![-0.05, 0.12, 0.08, -0.09];
-    let analytic = family
-        .exact_newton_joint_hessiansecond_directional_derivative(&states, &direction_u, &directionv)
-        .expect("joint d2H")
-        .expect("expected joint exact d2H");
-
-    let eps = 1e-6;
-    let step_t = directionv.slice(s![0..beta_t.len()]).to_owned();
-    let step_ls = directionv.slice(s![beta_t.len()..]).to_owned();
-    let states_plus = rebuild_states(
-        &(&beta_t + &(eps * &step_t)),
-        &(&beta_ls + &(eps * &step_ls)),
-    );
-    let states_minus = rebuild_states(
-        &(&beta_t - &(eps * &step_t)),
-        &(&beta_ls - &(eps * &step_ls)),
-    );
-    let d_h_plus = family
-        .exact_newton_joint_hessian_directional_derivative(&states_plus, &direction_u)
-        .expect("joint dH plus")
-        .expect("expected joint exact dH plus");
-    let d_h_minus = family
-        .exact_newton_joint_hessian_directional_derivative(&states_minus, &direction_u)
-        .expect("joint dH minus")
-        .expect("expected joint exact dH minus");
-    let fd = (d_h_plus - d_h_minus) / (2.0 * eps);
-    gam_test_support::assert_matrix_derivativefd(&fd, &analytic, 4e-3, "nonwiggle joint d2H");
-}
-
-#[test]
-pub(crate) fn wiggle_basis_is_structurally_monotone_for_nonnegative_coefficients() {
-    let q_seed = Array1::linspace(-2.0, 2.0, 17);
-    let degree = 3usize;
-    let num_internal_knots = 6usize;
-    let penalty_order = 2usize;
-
-    let (block, knots) = BinomialLocationScaleWiggleFamily::buildwiggle_block_input(
-        q_seed.view(),
-        degree,
-        num_internal_knots,
-        penalty_order,
-        false,
-    )
-    .expect("wiggle block");
-    let design = match &block.design {
-        DesignMatrix::Dense(x) => x.to_dense_arc(),
-        DesignMatrix::Sparse(_) => panic!("expected dense wiggle design"),
-    };
-    let beta = Array1::from_elem(design.ncols(), 0.2);
-    let derivative = monotone_wiggle_basis_with_derivative_order(q_seed.view(), &knots, degree, 1)
-        .expect("wiggle derivative basis")
-        .dot(&beta);
-    assert!(
-        derivative.iter().all(|&value| value >= -1e-12),
-        "I-spline wiggle derivative must stay non-negative for non-negative coefficients: min={}",
-        derivative.iter().fold(f64::INFINITY, |acc, &v| acc.min(v))
-    );
-}
-
-#[test]
-pub(crate) fn degeneratewiggle_seed_uses_broad_fallback_domain() {
-    let q_seed = Array1::zeros(9);
-    let degree = 3usize;
-    let knots = initializewiggle_knots_from_seed(q_seed.view(), degree, 5)
-        .expect("initialize degenerate wiggle knots");
-    let bs_degree = monotone_wiggle_internal_degree(degree).expect("cubic wiggle degree") + 1;
-    let domain_min = knots[bs_degree];
-    let domain_max = knots[knots.len() - bs_degree - 1];
-    assert!(
-        domain_min <= -2.9,
-        "unexpected left fallback boundary: {domain_min}"
-    );
-    assert!(
-        domain_max >= 2.9,
-        "unexpected right fallback boundary: {domain_max}"
-    );
-}
-
-#[test]
-pub(crate) fn wiggle_block_design_matches_ispline_basis() {
-    let q_seed = Array1::linspace(-1.0, 1.0, 11);
-    let degree = 2usize;
-    let num_internal_knots = 4usize;
-    let penalty_order = 2usize;
-
-    let (block, knots) = BinomialLocationScaleWiggleFamily::buildwiggle_block_input(
-        q_seed.view(),
-        degree,
-        num_internal_knots,
-        penalty_order,
-        false,
-    )
-    .expect("wiggle block");
-    let (basis, _) = create_basis::<Dense>(
-        q_seed.view(),
-        KnotSource::Provided(knots.view()),
-        monotone_wiggle_internal_degree(degree).expect("wiggle degree"),
-        BasisOptions::i_spline(),
-    )
-    .expect("I-spline basis");
-    let expected = (*basis).clone();
-
-    let got = match &block.design {
-        DesignMatrix::Dense(x) => x.to_dense_arc(),
-        DesignMatrix::Sparse(_) => panic!("expected dense wiggle design"),
-    };
-    assert_eq!(got.dim(), expected.dim());
-    for i in 0..got.nrows() {
-        for j in 0..got.ncols() {
-            assert!(
-                (got[[i, j]] - expected[[i, j]]).abs() < 1e-10,
-                "wiggle design mismatch at ({}, {}): got {}, expected {}",
-                i,
-                j,
-                got[[i, j]],
-                expected[[i, j]]
-            );
-        }
-    }
-}
-
-#[test]
-pub(crate) fn split_wiggle_penalty_orders_uses_requested_order_one_as_primary() {
-    let (primary, extras) =
-        split_wiggle_penalty_orders(2, &[1, 2, 3, 3]).expect("valid derivative orders");
-    assert_eq!(primary, 1);
-    assert_eq!(extras, vec![2, 3]);
-}
-
-#[test]
-pub(crate) fn selected_wiggle_function_penalties_keep_order_one() {
-    let q_seed = Array1::linspace(-1.0, 1.0, 11);
-    let degree = 3usize;
-    let num_internal_knots = 5usize;
-    let cfg = WiggleBlockConfig {
-        degree,
-        num_internal_knots,
-        penalty_order: 1,
-        double_penalty: false,
-    };
-    let selected =
-        select_wiggle_basis_from_seed(q_seed.view(), &cfg, &[1, 3]).expect("selected wiggle basis");
-
-    assert_eq!(selected.block.penalties.len(), 2);
-    assert_eq!(selected.block.nullspace_dims, vec![0, 2]);
-}
-
-#[test]
-pub(crate) fn binomial_location_scale_generative_matches_coremu() {
-    let n = 7usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let eta_t = Array1::from_vec(vec![0.8, -0.4, 0.2, -1.1, 0.0, 0.5, -0.7]);
-    let eta_ls = Array1::from_vec(vec![-3.0, -1.2, -0.1, 0.3, 1.1, 2.0, 4.0]);
-
-    let family = BinomialLocationScaleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: None,
-        log_sigma_design: None,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    let states = vec![
-        ParameterBlockState {
-            beta: Array1::zeros(1),
-            eta: eta_t.clone(),
-        },
-        ParameterBlockState {
-            beta: Array1::zeros(1),
-            eta: eta_ls.clone(),
-        },
-    ];
-    let spec = family.generativespec(&states).expect("generative spec");
-    let core = binomial_location_scale_core(&y, &weights, &eta_t, &eta_ls, None, &family.link_kind)
-        .expect("core");
-    for i in 0..n {
-        assert!(
-            (spec.mean[i] - core.mu[i]).abs() < 1e-7,
-            "mean mismatch at {i}: got {}, expected {}",
-            spec.mean[i],
-            core.mu[i]
-        );
-    }
-}
-
-#[test]
-pub(crate) fn wiggle_geometry_and_generative_use_same_sigma_link_as_core() {
-    let n = 8usize;
-    let y = Array1::from_vec(vec![0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0]);
-    let weights = Array1::from_vec(vec![1.0; n]);
-    let eta_t = Array1::from_vec(vec![0.5, -0.6, 0.1, -0.3, 0.9, -0.2, 0.4, -0.8]);
-    let eta_ls = Array1::from_vec(vec![-2.5, -1.5, -0.5, 0.0, 0.7, 1.4, 2.2, 3.0]);
-
-    let q_seed = Array1::linspace(-1.5, 1.5, n);
-    let (wiggle_block, knots) =
-        BinomialLocationScaleWiggleFamily::buildwiggle_block_input(q_seed.view(), 2, 3, 2, false)
-            .expect("wiggle block");
-
-    let family = BinomialLocationScaleWiggleFamily {
-        y: y.clone(),
-        weights: weights.clone(),
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: None,
-        log_sigma_design: None,
-        wiggle_knots: knots,
-        wiggle_degree: 2,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let core_for_q0 =
-        binomial_location_scale_core(&y, &weights, &eta_t, &eta_ls, None, &family.link_kind)
-            .expect("core q0");
-    let betaw = Array1::from_vec(vec![0.15; wiggle_block.design.ncols()]);
-    let etaw = family
-        .wiggle_design(core_for_q0.q0.view())
-        .expect("wiggle design")
-        .dot(&betaw);
-
-    let states = vec![
-        ParameterBlockState {
-            beta: Array1::zeros(1),
-            eta: eta_t.clone(),
-        },
-        ParameterBlockState {
-            beta: Array1::zeros(1),
-            eta: eta_ls.clone(),
-        },
-        ParameterBlockState {
-            beta: betaw.clone(),
-            eta: etaw.clone(),
-        },
-    ];
-
-    let wigglespec = wiggle_block
-        .clone()
-        .intospec("wiggle")
-        .expect("wiggle spec");
-    let (geom_x, _) = family
-        .block_geometry(&states, &wigglespec)
-        .expect("block geometry");
-    let geom = match geom_x {
-        DesignMatrix::Dense(x) => x.to_dense(),
-        DesignMatrix::Sparse(_) => panic!("expected dense wiggle geometry design"),
-    };
-    let expected_geom = family
-        .wiggle_design(core_for_q0.q0.view())
-        .expect("expected wiggle geometry");
-    assert_eq!(geom.dim(), expected_geom.dim());
-    for i in 0..geom.nrows() {
-        for j in 0..geom.ncols() {
-            assert!(
-                (geom[[i, j]] - expected_geom[[i, j]]).abs() < 1e-12,
-                "geometry mismatch at ({i}, {j}): got {}, expected {}",
-                geom[[i, j]],
-                expected_geom[[i, j]]
-            );
-        }
-    }
-
-    let generated = family.generativespec(&states).expect("generative spec");
-    let core = binomial_location_scale_core(
-        &y,
-        &weights,
-        &eta_t,
-        &eta_ls,
-        Some(&etaw),
-        &family.link_kind,
-    )
-    .expect("core with wiggle");
-    for i in 0..n {
-        assert!(
-            (generated.mean[i] - core.mu[i]).abs() < 1e-7,
-            "wiggle mean mismatch at {i}: got {}, expected {}",
-            generated.mean[i],
-            core.mu[i]
-        );
-    }
-}
-
-#[test]
-pub(crate) fn poisson_extreme_eta_uses_exact_exp_and_refuses_only_unrepresentable_geometry() {
-    use crate::custom_family::{CustomFamily, ParameterBlockState};
-    let poisson = PoissonLogFamily {
-        y: Array1::from_vec(vec![1.0, 2.0, 3.0]),
-        weights: Array1::from_vec(vec![1.0, 1.0, 1.0]),
-    };
-    let extreme_eta = Array1::from_vec(vec![0.5, 709.0, -0.3]);
-    let eval_result = poisson.evaluate(&[ParameterBlockState {
-        beta: Array1::zeros(0),
-        eta: extreme_eta,
-    }]);
-    let eval =
-        eval_result.expect("Poisson evaluate must succeed while exact geometry is representable");
-    match &eval.blockworking_sets[0] {
-        crate::custom_family::BlockWorkingSet::Diagonal {
-            working_response,
-            working_weights,
-        } => {
-            let all_finite = working_response.iter().all(|v| v.is_finite())
-                && working_weights.iter().all(|v| v.is_finite())
-                && eval.log_likelihood.is_finite();
-            assert!(
-                all_finite,
-                "Poisson evaluate should produce finite outputs for all eta, \
-                     but got non-finite values: ll={}, z={:?}, w={:?}",
-                eval.log_likelihood, working_response, working_weights
-            );
-        }
-        _ => panic!("expected Diagonal block"),
-    }
-
-    let refused = match poisson.evaluate(&[ParameterBlockState {
-        beta: Array1::zeros(0),
-        eta: Array1::from_vec(vec![0.5, 710.0, -0.3]),
-    }]) {
-        Ok(_) => panic!("overflowing exact exp geometry must be refused"),
-        Err(err) => err,
-    };
-    assert!(refused.contains("row 1"), "unexpected refusal: {refused}");
-}
-
-/// The batched outer-gradient override on `BinomialLocationScaleFamily`
-/// must produce a gradient that agrees with the central finite
-/// difference of the same family's outer cost. This is the strongest
-/// available correctness property: it does not depend on whether the
-/// generic per-coordinate path is reachable in this build, only on the
-/// scale-invariant identity `g_k = (V(ρ + h e_k) − V(ρ − h e_k)) / (2h)`
-/// at converged β̂. Because the unified evaluator already routes
-/// `ValueAndGradient` calls through the batched override (custom_family.rs
-/// at the `batched_outer_gradient_terms` call site), this also pins the
-/// wiring: any future regression that detaches the override from the
-/// dispatcher will trip the FD check via stale (zero) gradients.
-#[test]
-pub(crate) fn binomial_location_scale_batched_gradient_matches_finite_difference() {
-    use crate::custom_family::BlockwiseFitOptions;
-
-    // 7-row, two-block intercept-only problem with a unit-Identity
-    // penalty per block. Larger n risks PIRLS taking many iterations and
-    // amplifying FD round-off; small p keeps the leverage-block sizes
-    // (p_t = 1, p_ls = 1) tiny so the manual reference is trivial to
-    // sanity-check.
-    let base = binomial_location_scale_base_fixture();
-    let family = BinomialLocationScaleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(base.threshold_design),
-        log_sigma_design: Some(base.log_sigma_design),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-
-    let specs = vec![base.threshold_spec, base.log_sigma_spec];
-    let rho = array![0.05, -0.15];
-    let options = BlockwiseFitOptions {
-        use_remlobjective: true,
-        ridge_floor: 1e-10,
-        outer_max_iter: 1,
-        ..BlockwiseFitOptions::default()
-    };
-
-    let eval_outer = |rho: &Array1<f64>| {
-        let derivative_blocks = vec![Vec::<CustomFamilyBlockPsiDerivative>::new(); specs.len()];
-        let result = evaluate_custom_family_joint_hyper(
-            &family,
-            &specs,
-            &options,
-            rho,
-            &test_design_hyper_layout(&derivative_blocks),
-            None,
-            gam_problem::EvalMode::ValueAndGradient,
-        )
-        .expect("objective+gradient at rho");
-        (result.objective, result.gradient)
-    };
-
-    let (f0, g0) = eval_outer(&rho);
-    assert!(f0.is_finite(), "outer cost must be finite at rho");
-    assert_eq!(g0.len(), rho.len());
-
-    let h = 1e-5;
-    // Same noise-floor convention as the existing wiggle-family FD test
-    // (custom_family.rs `outer_lamlgradient_matches_finite_differencewhen_joint_exact_path_is_active`):
-    // below floor `EPS·|cost|/h`, the FD estimator can't resolve the
-    // true gradient.
-    let cost_magnitude = f0.abs().max(1.0);
-    let noise_floor = (10.0 * f64::EPSILON * cost_magnitude / h).max(1e-9);
-
-    for k in 0..rho.len() {
-        let mut rho_p = rho.clone();
-        let mut rho_m = rho.clone();
-        rho_p[k] += h;
-        rho_m[k] -= h;
-        let (fp, _) = eval_outer(&rho_p);
-        let (fm, _) = eval_outer(&rho_m);
-        let gfd = (fp - fm) / (2.0 * h);
-        let both_in_noise = g0[k].abs() < noise_floor && gfd.abs() < noise_floor;
-        if !both_in_noise {
-            let abs_err = (g0[k] - gfd).abs();
-            let rel_err = abs_err / gfd.abs().max(g0[k].abs()).max(1e-12);
-            assert!(
-                rel_err < 1e-3 || abs_err < 1e-6,
-                "batched gradient mismatch at coord {k}: \
-                     batched={:.6e}, fd={:.6e}, abs_err={:.3e}, rel_err={:.3e}",
-                g0[k],
-                gfd,
-                abs_err,
-                rel_err,
-            );
-        }
-    }
-}
-
-pub(crate) fn binomial_mean_wiggle_operator_fixture() -> (
-    BinomialMeanWiggleFamily,
-    Vec<ParameterBlockState>,
-    Vec<ParameterBlockSpec>,
-    Array2<f64>,
-) {
-    let x_eta = array![
-        [1.0, -0.9],
-        [1.0, -0.45],
-        [1.0, -0.1],
-        [1.0, 0.2],
-        [1.0, 0.55],
-        [1.0, 0.9],
-    ];
-    let beta_eta = array![-0.15, 0.7];
-    let eta = x_eta.dot(&beta_eta);
-    let degree = 3usize;
-    let knots = initializewiggle_knots_from_seed(eta.view(), degree, 4).expect("mean-wiggle knots");
-    let family = BinomialMeanWiggleFamily {
-        y: array![0.0, 1.0, 0.0, 1.0, 1.0, 0.0],
-        weights: array![1.0, 0.8, 1.2, 1.0, 0.7, 1.1],
-        link_kind: InverseLink::Standard(StandardLink::Logit),
-        wiggle_knots: knots,
-        wiggle_degree: degree,
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-        frozen_warp_design: None,
-    };
-    let basis = family.wiggle_design(eta.view()).expect("wiggle basis");
-    let beta_w = Array1::from_iter((0..basis.ncols()).map(|j| 0.015 * (j as f64 + 1.0)));
-    let etaw = basis.dot(&beta_w);
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_eta,
-            eta: eta.clone(),
-        },
-        ParameterBlockState {
-            beta: beta_w,
-            eta: etaw,
-        },
-    ];
-    let specs = vec![
-        ParameterBlockSpec {
-            name: "eta".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(x_eta.clone())),
-            offset: Array1::zeros(eta.len()),
-            penalties: vec![],
-            nullspace_dims: vec![],
-            initial_log_lambdas: Array1::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        },
-        ParameterBlockSpec {
-            name: "wiggle".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(basis)),
-            offset: Array1::zeros(eta.len()),
-            penalties: vec![],
-            nullspace_dims: vec![],
-            initial_log_lambdas: Array1::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        },
-    ];
-    (family, states, specs, x_eta)
-}
 
 pub(crate) fn assert_close_matrix(a: &Array2<f64>, b: &Array2<f64>, tol: f64, label: &str) {
     assert_eq!(a.dim(), b.dim(), "{label} shape mismatch");
@@ -7883,1322 +6749,212 @@ pub(crate) fn assert_close_matrix(a: &Array2<f64>, b: &Array2<f64>, tol: f64, la
     );
 }
 
-#[test]
-pub(crate) fn binomial_location_scale_expected_info_derivatives_match_finite_difference() {
-    let base = binomial_location_scale_base_fixture();
-    let family = BinomialLocationScaleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(base.threshold_design.clone()),
-        log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    let specs = vec![base.threshold_spec, base.log_sigma_spec];
-    let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
-        .design
-        .as_dense_ref()
-        .expect("threshold dense design");
-    let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .design
-        .as_dense_ref()
-        .expect("log-sigma dense design");
-    // gam#1020: the expected-information override must disarm the
-    // observed-Hessian "Jeffreys skippable" matvec pre-checks.
-    assert!(!family.joint_jeffreys_information_matches_observed_hessian());
-    let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.12 - 0.03 * j as f64));
-    let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.08 + 0.02 * j as f64));
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_t.clone(),
-            eta: x_t.dot(&beta_t),
-        },
-        ParameterBlockState {
-            beta: beta_ls.clone(),
-            eta: x_ls.dot(&beta_ls),
-        },
-    ];
-    let total = beta_t.len() + beta_ls.len();
-    let u = Array1::from_iter((0..total).map(|j| 0.03 * (j as f64 + 0.4).sin()));
-    let v = Array1::from_iter((0..total).map(|j| -0.02 * (j as f64 + 0.7).cos()));
 
-    let info = |direction: &Array1<f64>, scale: f64| {
-        let mut next = states.clone();
-        let pt = beta_t.len();
-        next[BinomialLocationScaleFamily::BLOCK_T]
-            .beta
-            .scaled_add(scale, &direction.slice(s![0..pt]));
-        next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-            .beta
-            .scaled_add(scale, &direction.slice(s![pt..total]));
-        next[BinomialLocationScaleFamily::BLOCK_T].eta =
-            x_t.dot(&next[BinomialLocationScaleFamily::BLOCK_T].beta);
-        next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
-            x_ls.dot(&next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
-        family
-            .joint_jeffreys_information_with_specs(&next, &specs)
-            .expect("expected information")
-            .expect("expected information available")
-    };
-
-    let h0 = family
-        .joint_jeffreys_information_with_specs(&states, &specs)
-        .expect("expected information")
-        .expect("expected information available");
-    assert_close_matrix(&info(&u, 0.0), &h0, 1e-12, "expected information value");
-
-    let eps = 1e-5;
-    let hp = info(&u, eps);
-    let hm = info(&u, -eps);
-    let fd_first = (&hp - &hm) / (2.0 * eps);
-    let analytic_first = family
-        .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &u)
-        .expect("expected dI")
-        .expect("expected dI available");
-    assert_close_matrix(&analytic_first, &fd_first, 1e-7, "expected dI");
-
-    let mut states_plus = states.clone();
-    let pt = beta_t.len();
-    states_plus[BinomialLocationScaleFamily::BLOCK_T]
-        .beta
-        .scaled_add(eps, &v.slice(s![0..pt]));
-    states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .beta
-        .scaled_add(eps, &v.slice(s![pt..total]));
-    states_plus[BinomialLocationScaleFamily::BLOCK_T].eta =
-        x_t.dot(&states_plus[BinomialLocationScaleFamily::BLOCK_T].beta);
-    states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
-        x_ls.dot(&states_plus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
-    let d_plus = family
-        .joint_jeffreys_information_directional_derivative_with_specs(&states_plus, &specs, &u)
-        .expect("expected dI plus")
-        .expect("expected dI plus available");
-
-    let mut states_minus = states.clone();
-    states_minus[BinomialLocationScaleFamily::BLOCK_T]
-        .beta
-        .scaled_add(-eps, &v.slice(s![0..pt]));
-    states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .beta
-        .scaled_add(-eps, &v.slice(s![pt..total]));
-    states_minus[BinomialLocationScaleFamily::BLOCK_T].eta =
-        x_t.dot(&states_minus[BinomialLocationScaleFamily::BLOCK_T].beta);
-    states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
-        x_ls.dot(&states_minus[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
-    let d_minus = family
-        .joint_jeffreys_information_directional_derivative_with_specs(&states_minus, &specs, &u)
-        .expect("expected dI minus")
-        .expect("expected dI minus available");
-    let fd_second = (&d_plus - &d_minus) / (2.0 * eps);
-    let analytic_second = family
-        .joint_jeffreys_information_second_directional_derivative_with_specs(
-            &states, &specs, &u, &v,
-        )
-        .expect("expected d2I")
-        .expect("expected d2I available");
-    assert_close_matrix(&analytic_second, &fd_second, 1e-7, "expected d2I");
+fn zz2155_splitmix_u01(state: &mut u64) -> f64 {
+    *state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    let mut z = *state;
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    z ^= z >> 31;
+    ((z >> 11) as f64 + 0.5) / (1u64 << 53) as f64
 }
 
-/// Layer-5 deliverable (gam#979 / gam#1020): the Tier-B Jeffreys term built
-/// on the EXPECTED Fisher information must NOT reward probit saturation,
-/// whereas the OBSERVED-information Jeffreys term DOES — which is the long
-/// quasi-flat descent valley that made the constrained-wiggle inner solve
-/// walk `|β|→∞`.
-///
-/// Mechanism. For probit `q ↦ Φ(q)`, drive the threshold predictor `η_t`
-/// (hence `q`) into saturation. The OBSERVED per-row curvature
-/// `−∂²ℓ/∂q² = w·(z·q′ + …)` carries the misclassification term that GROWS
-/// like `q²` on rows the saturated mean gets wrong, so `½log det H_obs`
-/// climbs without bound — Φ_obs rewards walking toward saturation. The
-/// EXPECTED Fisher weight `w^F = φ(q)²/(p(1−p))` DECAYS as `q→±∞` (the
-/// Gaussian pdf `φ` kills the numerator faster than `p(1−p)→0` shrinks the
-/// denominator), so `½log det H_exp` is bounded above — Φ_exp has no valley.
-///
-/// The assertion: across a saturation sweep, Φ on the expected information
-/// stays bounded (and ultimately decreases), while Φ on the observed
-/// information grows past it — the exact sign that the expected-information
-/// hook removes the gam#979 saturation reward. Both Φ are evaluated through
-/// the SAME `joint_jeffreys_term` value path on the FULL identifiable span
-/// (`Z_J = I`), differing only in the information matrix consumed.
-#[test]
-pub(crate) fn expected_info_jeffreys_does_not_reward_probit_saturation() {
-    let base = binomial_location_scale_base_fixture();
-    let family = BinomialLocationScaleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(base.threshold_design.clone()),
-        log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    let specs = vec![base.threshold_spec, base.log_sigma_spec];
-    let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
-        .design
-        .as_dense_ref()
-        .expect("threshold dense design");
-    let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .design
-        .as_dense_ref()
-        .expect("log-sigma dense design");
-    let total = x_t.ncols() + x_ls.ncols();
-    let z = Array2::<f64>::eye(total);
-
-    // Φ on a supplied information matrix at threshold β_t (log-σ fixed at 0,
-    // so σ = 1 and q = -β_t scans the probit argument across saturation).
-    let phi_on = |info: &Array2<f64>| -> f64 {
-        let (phi, _grad, _hphi) =
-            gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
-                info.view(),
-                z.view(),
-                |_axis: &Array1<f64>| Ok(None),
-            )
-            .expect("jeffreys term value");
-        phi
-    };
-    let states_at = |beta_t: f64| -> Vec<ParameterBlockState> {
-        let bt = Array1::from_elem(x_t.ncols(), beta_t);
-        let bls = Array1::zeros(x_ls.ncols());
-        vec![
-            ParameterBlockState {
-                eta: x_t.dot(&bt),
-                beta: bt,
-            },
-            ParameterBlockState {
-                eta: x_ls.dot(&bls),
-                beta: bls,
-            },
-        ]
-    };
-
-    // Sweep the threshold into deep probit saturation.
-    let betas = [1.0_f64, 2.0, 3.0, 4.0, 6.0, 8.0];
-    let mut phi_obs = Vec::with_capacity(betas.len());
-    let mut phi_exp = Vec::with_capacity(betas.len());
-    for &b in betas.iter() {
-        let states = states_at(b);
-        let obs = family
-            .exact_newton_joint_hessian_with_specs(&states, &specs)
-            .expect("observed hessian")
-            .expect("observed hessian available");
-        let exp = family
-            .joint_jeffreys_information_with_specs(&states, &specs)
-            .expect("expected information")
-            .expect("expected information available");
-        phi_obs.push(phi_on(&obs));
-        phi_exp.push(phi_on(&exp));
+/// The exact #2155 fixture from
+/// `tests/bug_hunt_flexible_loglog_cauchit_binomial_wiggle.rs`: x ~ U(-2,2),
+/// p = logistic(0.8 x), y ~ Bernoulli(p), splitmix64 stream seeded at 2155.
+fn zz2155_fixture(n: usize, seed: u64) -> (Array1<f64>, Array1<f64>) {
+    let mut s = seed;
+    let mut y = Vec::with_capacity(n);
+    let mut x = Vec::with_capacity(n);
+    for _ in 0..n {
+        let xv = -2.0 + 4.0 * zz2155_splitmix_u01(&mut s);
+        let p = 1.0 / (1.0 + (-(0.8 * xv)).exp());
+        let yv = if zz2155_splitmix_u01(&mut s) < p { 1.0 } else { 0.0 };
+        x.push(xv);
+        y.push(yv);
     }
-
-    // (1) The expected-information Jeffreys term is BOUNDED across the sweep
-    // (no runaway reward); concretely it does not increase from its
-    // mild-saturation value to its deepest-saturation value — the valley is
-    // gone (decaying expected information).
-    let exp_first = phi_exp[0];
-    let exp_last = *phi_exp.last().expect("nonempty");
-    assert!(
-        exp_last <= exp_first + 1e-9,
-        "expected-info Jeffreys Φ rewarded saturation: Φ_exp went {exp_first:.6} → {exp_last:.6} \
-             across β_t {:?} (full sweep {phi_exp:?})",
-        betas
-    );
-
-    // (2) The observed-information Jeffreys term, in contrast, GROWS into
-    // saturation and overtakes the expected one — the genuine valley the
-    // layer-5 hook exists to remove. This makes the test a real
-    // discriminator: it fails if the family silently reverts to observed
-    // information.
-    let obs_last = *phi_obs.last().expect("nonempty");
-    assert!(
-        obs_last > exp_last + 0.5,
-        "observed-info Jeffreys Φ did not exhibit the saturation valley the \
-             expected-info hook removes: Φ_obs_last={obs_last:.6} vs Φ_exp_last={exp_last:.6} \
-             (Φ_obs sweep {phi_obs:?}, Φ_exp sweep {phi_exp:?})"
-    );
+    (Array1::from(y), Array1::from(x))
 }
 
-#[test]
-pub(crate) fn binomial_location_scale_expected_info_contracted_trace_matches_second_directional() {
-    let base = binomial_location_scale_base_fixture();
-    let family = BinomialLocationScaleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(base.threshold_design.clone()),
-        log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    let specs = vec![base.threshold_spec, base.log_sigma_spec];
-    let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
-        .design
-        .as_dense_ref()
-        .expect("threshold dense design");
-    let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .design
-        .as_dense_ref()
-        .expect("log-sigma dense design");
-    let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.11 - 0.02 * j as f64));
-    let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.07 + 0.03 * j as f64));
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_t.clone(),
-            eta: x_t.dot(&beta_t),
-        },
-        ParameterBlockState {
-            beta: beta_ls.clone(),
-            eta: x_ls.dot(&beta_ls),
-        },
-    ];
-    let total = beta_t.len() + beta_ls.len();
-    let weight = Array2::from_shape_fn((total, total), |(i, j)| {
-        0.03 * ((i + 2 * j + 1) as f64).sin()
-    });
-    let contracted = family
-        .joint_jeffreys_information_contracted_trace_hessian_with_specs(&states, &specs, &weight)
-        .expect("contracted trace")
-        .expect("contracted trace present");
-    let mut expected = Array2::<f64>::zeros((total, total));
-    for a in 0..total {
-        let mut axis_a = Array1::<f64>::zeros(total);
-        axis_a[a] = 1.0;
-        for b in a..total {
-            let mut axis_b = Array1::<f64>::zeros(total);
-            axis_b[b] = 1.0;
-            let second = family
-                .joint_jeffreys_information_second_directional_derivative_with_specs(
-                    &states, &specs, &axis_a, &axis_b,
-                )
-                .expect("expected d2I")
-                .expect("expected d2I present");
-            let mut trace = 0.0;
-            for row in 0..total {
-                for col in 0..total {
-                    trace += weight[[row, col]] * second[[col, row]];
-                }
-            }
-            expected[[a, b]] = trace;
-            expected[[b, a]] = trace;
+/// Unpenalized 2-parameter binomial GLM pilot (intercept + slope) by expected-
+/// Fisher scoring — the same estimand as the production no-wiggle pilot fit.
+fn zz2155_pilot(
+    y: &Array1<f64>,
+    x: &Array1<f64>,
+    link: &InverseLink,
+) -> (Array1<f64>, Array1<f64>) {
+    let n = y.len();
+    let mut beta = Array1::<f64>::zeros(2);
+    for _ in 0..80 {
+        let mut a00 = 0.0;
+        let mut a01 = 0.0;
+        let mut a11 = 0.0;
+        let mut b0 = 0.0;
+        let mut b1 = 0.0;
+        for i in 0..n {
+            let eta = beta[0] + beta[1] * x[i];
+            let jet = inverse_link_jet_for_inverse_link(link, eta)
+                .expect("pilot inverse-link jet");
+            let mu = jet.mu.clamp(1e-12, 1.0 - 1e-12);
+            let d1 = jet.d1;
+            let w = (d1 * d1 / (mu * (1.0 - mu))).max(1e-12);
+            let z = eta + (y[i] - mu) / if d1.abs() > 1e-12 { d1 } else { 1e-12 };
+            a00 += w;
+            a01 += w * x[i];
+            a11 += w * x[i] * x[i];
+            b0 += w * z;
+            b1 += w * z * x[i];
+        }
+        let det = a00 * a11 - a01 * a01;
+        let nb0 = (a11 * b0 - a01 * b1) / det;
+        let nb1 = (a00 * b1 - a01 * b0) / det;
+        let delta = (nb0 - beta[0]).abs().max((nb1 - beta[1]).abs());
+        beta[0] = nb0;
+        beta[1] = nb1;
+        if delta < 1e-12 {
+            break;
         }
     }
-    assert_close_matrix(&contracted, &expected, 1e-9, "expected contracted trace");
+    let eta = Array1::from_shape_fn(n, |i| beta[0] + beta[1] * x[i]);
+    (beta, eta)
 }
 
-#[test]
-pub(crate) fn binomial_location_scale_expected_hphi_drift_matches_finite_difference() {
-    let base = binomial_location_scale_base_fixture();
-    let family = BinomialLocationScaleFamily {
-        y: base.y,
-        weights: base.weights,
-        link_kind: InverseLink::Standard(StandardLink::Probit),
-        threshold_design: Some(base.threshold_design.clone()),
-        log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: gam_runtime::resource::ResourcePolicy::default_library(),
-    };
-    let specs = vec![base.threshold_spec, base.log_sigma_spec];
-    let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
-        .design
-        .as_dense_ref()
-        .expect("threshold dense design");
-    let x_ls = specs[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-        .design
-        .as_dense_ref()
-        .expect("log-sigma dense design");
-    let beta_t = Array1::from_iter((0..x_t.ncols()).map(|j| 0.09 - 0.02 * j as f64));
-    let beta_ls = Array1::from_iter((0..x_ls.ncols()).map(|j| -0.06 + 0.04 * j as f64));
-    let states = vec![
-        ParameterBlockState {
-            beta: beta_t.clone(),
-            eta: x_t.dot(&beta_t),
-        },
-        ParameterBlockState {
-            beta: beta_ls.clone(),
-            eta: x_ls.dot(&beta_ls),
-        },
-    ];
-    let total = beta_t.len() + beta_ls.len();
-    // IDENTIFIABLE-SPAN Jeffreys subspace `Z_J`. The binomial location-scale map
-    // `q = −η_t/σ` carries an EXACT threshold↔scale gauge degeneracy: the
-    // direction `(δη_t = η_t, δη_ls = 1)` gives `q̇ = q_t·η_t + q_ls = −η_t/σ +
-    // η_t/σ = 0`, so the per-row q-gradient — hence the whole expected Fisher
-    // information `I(β)` — is rank-deficient by exactly one along this gauge
-    // axis. On the constant-design fixture every row is proportional, so `I` is
-    // rank 1 and its smallest eigenvalue is structurally ZERO. Differencing the
-    // floored-pseudo-inverse `H_Φ` over the FULL span (`Z = I`) therefore
-    // central-differences a quantity whose near-zero-eigenvalue eigenvector is
-    // arbitrary up to numerical noise: the FD is meaningless (it swings by
-    // O(1/floor) with the eps choice) even though the analytic drift is exact.
-    // Production never runs the Jeffreys term on the raw gauge-degenerate span;
-    // it reduces to the identifiable coordinates first. We mirror that here by
-    // taking `Z_J` to be the eigenvectors of the base information with
-    // non-negligible eigenvalue, so the reduced `H_Φ` is well-conditioned and
-    // its central difference converges to the analytic directional derivative at
-    // the 1e-7 bar. (The dropped gauge axis carries no identifiable curvature, so
-    // restricting to it loses nothing the objective ever uses.)
-    let z = {
-        use faer::Side;
-        use gam_linalg::faer_ndarray::FaerEigh;
-        let base_info = family
-            .joint_jeffreys_information_with_specs(&states, &specs)
-            .expect("base expected info")
-            .expect("base expected info present");
-        let mut sym = Array2::<f64>::zeros((total, total));
-        for i in 0..total {
-            for j in 0..total {
-                sym[[i, j]] = 0.5 * (base_info[[i, j]] + base_info[[j, i]]);
-            }
-        }
-        let (evals, evecs) = sym.eigh(Side::Lower).expect("base info eigendecomposition");
-        let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max);
-        // Keep the identifiable directions (curvature ≥ a tiny fraction of the
-        // dominant eigenvalue); drop the structural gauge null space.
-        let keep: Vec<usize> = (0..total)
-            .filter(|&i| evals[i] > lambda_max * 1e-8)
-            .collect();
-        assert!(
-            !keep.is_empty(),
-            "base information must have an identifiable direction"
-        );
-        let mut z = Array2::<f64>::zeros((total, keep.len()));
-        for (col, &i) in keep.iter().enumerate() {
-            z.column_mut(col).assign(&evecs.column(i));
-        }
-        z
-    };
-    let direction = Array1::from_shape_fn(total, |i| 0.03 * ((i + 1) as f64).sin());
-    let perturb = |scale: f64| {
-        let mut next = states.clone();
-        let pt = beta_t.len();
-        next[BinomialLocationScaleFamily::BLOCK_T]
-            .beta
-            .scaled_add(scale, &direction.slice(s![0..pt]));
-        next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA]
-            .beta
-            .scaled_add(scale, &direction.slice(s![pt..total]));
-        next[BinomialLocationScaleFamily::BLOCK_T].eta =
-            x_t.dot(&next[BinomialLocationScaleFamily::BLOCK_T].beta);
-        next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].eta =
-            x_ls.dot(&next[BinomialLocationScaleFamily::BLOCK_LOG_SIGMA].beta);
-        next
-    };
-    let hphi_at = |block_states: &[ParameterBlockState]| {
-        let info = family
-            .joint_jeffreys_information_with_specs(block_states, &specs)
-            .expect("expected info")
-            .expect("expected info present");
-        let (_phi, _grad, hphi) =
-            gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
-                info.view(),
-                z.view(),
-                |axis: &Array1<f64>| {
-                    family.joint_jeffreys_information_directional_derivative_with_specs(
-                        block_states,
-                        &specs,
-                        axis,
-                    )
-                },
-            )
-            .expect("hphi term");
-        hphi
-    };
-    let eps = 1e-5;
-    let h_plus = hphi_at(&perturb(eps));
-    let h_minus = hphi_at(&perturb(-eps));
-    let fd = (&h_plus - &h_minus) / (2.0 * eps);
-    let info = family
-        .joint_jeffreys_information_with_specs(&states, &specs)
-        .expect("expected info")
-        .expect("expected info present");
-    // Mode-response drift `D_β H_Φ[δ]` via the production-level perturbation core
-    // (the `joint_jeffreys_hphi_directional_derivative` oracle is a thin wrapper
-    // over this: `Hdot[δ]` once, then the perturbation derivative). Calling the
-    // core directly keeps the oracle private to its own `#[cfg(test)]` module.
-    let pert_h = family
-        .joint_jeffreys_information_directional_derivative_with_specs(&states, &specs, &direction)
-        .expect("Hdot[delta]")
-        .expect("Hdot[delta] present");
-    let analytic =
-        gam_solve::estimate::reml::jeffreys_subspace::joint_jeffreys_hphi_perturbation_derivative(
-            info.view(),
-            z.view(),
-            |axis: &Array1<f64>| {
-                family.joint_jeffreys_information_directional_derivative_with_specs(
-                    &states, &specs, axis,
-                )
-            },
-            &pert_h,
-            |axis: &Array1<f64>| {
-                family.joint_jeffreys_information_second_directional_derivative_with_specs(
-                    &states, &specs, &direction, axis,
-                )
-            },
-        )
-        .expect("hphi drift");
-    assert_close_matrix(&analytic, &fd, 1e-7, "expected H_phi drift");
+/// One fixed-λ frozen-basis Gauss-Newton solve, mirroring
+/// `fit_binomial_mean_wiggle`'s freeze-refit loop with the wiggle log-λ held
+/// FIXED (no outer REML search): freeze `B(η̂)`, residualize against the mean
+/// columns in observation space, run the joint two-block inner solve through
+/// the public fixed-log-λ entry, re-freeze at the refit η̂, until the frozen
+/// index is a fixed point. Returns
+/// `(penalized_objective, deviance, beta_eta, beta_w, eta_hat, cycles)`.
+struct Zz2155Problem {
+    y: Array1<f64>,
+    x: Array1<f64>,
+    link: InverseLink,
+    knots: Array1<f64>,
+    degree: usize,
+    wiggle_template: ParameterBlockInput,
 }
 
-#[test]
-pub(crate) fn binomial_mean_wiggle_hessian_operators_match_dense_derivatives() {
-    let (family, states, specs, x_eta) = binomial_mean_wiggle_operator_fixture();
-    let p_eta = x_eta.ncols();
-    let pw = states[BinomialMeanWiggleFamily::BLOCK_WIGGLE].beta.len();
-    let total = p_eta + pw;
-    let dir_u = Array1::from_iter((0..total).map(|j| 0.03 * (j as f64 + 1.0).sin()));
-    let dir_v = Array1::from_iter((0..total).map(|j| -0.02 * (j as f64 + 0.5).cos()));
-
-    let dense_h = family
-        .exact_newton_joint_hessian_with_specs(&states, &specs)
-        .expect("dense H")
-        .expect("dense H available");
-    let workspace = family
-        .exact_newton_joint_hessian_workspace(&states, &specs)
-        .expect("workspace")
-        .expect("workspace available");
-    let h_columns = Array2::from_shape_fn((total, total), |(i, j)| if i == j { 1.0 } else { 0.0 });
-    let op_h = gam_problem::HyperOperator::mul_mat(
-        family
-            .bmw_static_hessian_operator(&states, Arc::new(x_eta.clone()))
-            .expect("static op")
-            .as_ref(),
-        &h_columns,
+impl Zz2155Problem {
+    fn solve_fixed_lambda_freeze_refit(
+        &self,
+        rho_w: &Array1<f64>,
+        eta0: &Array1<f64>,
+        beta_eta0: &Array1<f64>,
+        beta_w0: Option<&Array1<f64>>,
+    ) -> Result<(f64, f64, Array1<f64>, Array1<f64>, Array1<f64>, usize), String> {
+    use std::sync::Arc;
+    let (y, x, link, knots, degree, wiggle_template) = (
+        &self.y,
+        &self.x,
+        &self.link,
+        &self.knots,
+        self.degree,
+        &self.wiggle_template,
     );
-    assert_close_matrix(&op_h, &dense_h, 1e-10, "static H operator");
-    let hv = workspace
-        .hessian_matvec(&dir_u)
-        .expect("workspace HVP")
-        .expect("workspace HVP available");
-    let hv_dense = dense_h.dot(&dir_u);
-    let hv_err = (&hv - &hv_dense).mapv(f64::abs).sum();
-    assert!(hv_err < 1e-10, "workspace HVP mismatch {hv_err:.3e}");
-
-    let dense_dh = family
-        .exact_newton_joint_hessian_directional_derivative_with_specs(&states, &specs, &dir_u)
-        .expect("dense dH")
-        .expect("dense dH available");
-    let op_dh = workspace
-        .directional_derivative_operator(&dir_u)
-        .expect("dH operator")
-        .expect("dH operator available")
-        .to_dense();
-    assert_close_matrix(&op_dh, &dense_dh, 1e-10, "directional dH operator");
-
-    let dense_d2h = family
-        .exact_newton_joint_hessian_second_directional_derivative_with_specs(
-            &states, &specs, &dir_u, &dir_v,
-        )
-        .expect("dense d2H")
-        .expect("dense d2H available");
-    let op_d2h = workspace
-        .second_directional_derivative_operator(&dir_u, &dir_v)
-        .expect("d2H operator")
-        .expect("d2H operator available")
-        .to_dense();
-    assert_close_matrix(
-        &op_d2h,
-        &dense_d2h,
-        1e-10,
-        "second directional d2H operator",
-    );
-}
-
-#[test]
-pub(crate) fn binomial_mean_wiggle_planner_keeps_second_order_at_large_n() {
-    let n = 50_001usize;
-    let family = BinomialMeanWiggleFamily {
-        y: Array1::zeros(n),
-        weights: Array1::ones(n),
-        link_kind: InverseLink::Standard(StandardLink::Logit),
-        wiggle_knots: initializewiggle_knots_from_seed(Array1::linspace(-1.0, 1.0, 9).view(), 3, 4)
-            .expect("large-n knots"),
-        wiggle_degree: 3,
+    let n = y.len();
+    let mut x_dense = Array2::<f64>::zeros((n, 2));
+    for i in 0..n {
+        x_dense[[i, 0]] = 1.0;
+        x_dense[[i, 1]] = x[i];
+    }
+    let base_family = BinomialMeanWiggleFamily {
+        y: y.clone(),
+        weights: Array1::from_elem(n, 1.0),
+        link_kind: link.clone(),
+        wiggle_knots: knots.clone(),
+        wiggle_degree: degree,
         policy: gam_runtime::resource::ResourcePolicy::default_library(),
         frozen_warp_design: None,
     };
-    let specs = vec![
-        ParameterBlockSpec {
-            name: "eta".to_string(),
+    let mut frozen_eta = eta0.clone();
+    let mut beta_eta = beta_eta0.clone();
+    let mut beta_w: Option<Array1<f64>> = beta_w0.cloned();
+    for cycle in 0..60 {
+        let b_full = base_family
+            .wiggle_design(frozen_eta.view())
+            .map_err(|e| format!("wiggle design: {e}"))?;
+        // Observation-space de-aliasing B⊥ = B - X (XᵀX)⁻¹ XᵀB (closed-form
+        // 2×2 mean Gram — the pilot design is intercept + slope).
+        let a00: f64 = x_dense.column(0).dot(&x_dense.column(0));
+        let a01: f64 = x_dense.column(0).dot(&x_dense.column(1));
+        let a11: f64 = x_dense.column(1).dot(&x_dense.column(1));
+        let det = a00 * a11 - a01 * a01;
+        let xtb = x_dense.t().dot(&b_full);
+        let mut alias = Array2::<f64>::zeros((2, b_full.ncols()));
+        for j in 0..b_full.ncols() {
+            alias[[0, j]] = (a11 * xtb[[0, j]] - a01 * xtb[[1, j]]) / det;
+            alias[[1, j]] = (a00 * xtb[[1, j]] - a01 * xtb[[0, j]]) / det;
+        }
+        let bda = &b_full - &x_dense.dot(&alias);
+
+        let eta_input = ParameterBlockInput {
             design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-                Array2::zeros((n, 2)),
+                x_dense.clone(),
             )),
             offset: Array1::zeros(n),
             penalties: vec![],
             nullspace_dims: vec![],
-            initial_log_lambdas: Array1::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        },
-        ParameterBlockSpec {
-            name: "wiggle".to_string(),
-            design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(
-                Array2::zeros((n, 34)),
-            )),
-            offset: Array1::zeros(n),
-            penalties: vec![],
-            nullspace_dims: vec![],
-            initial_log_lambdas: Array1::zeros(0),
-            initial_beta: None,
-            gauge_priority: 100,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        },
-    ];
-    assert!(family.inner_coefficient_hessian_hvp_available(&specs));
-    assert_eq!(
-        family.exact_outer_derivative_order(&specs, &BlockwiseFitOptions::default()),
-        crate::custom_family::ExactOuterDerivativeOrder::Second
-    );
-}
-
-/// Regression guard for #684 on the ψ / influence-Jacobian (IFT) joint
-/// Hessian. The Newton/REML dense↔workspace path is pinned by
-/// `gaussian_location_scale_workspace_matvec_matches_dense`, but nothing
-/// pinned the *separate* representation used by the three
-/// `exact_newton_joint_psi*` builders — which is exactly where the observed
-/// `2κm` Fisher-cross drift slipped in uncaught. The Gaussian mean⊥scale
-/// Fisher cross E[H_{μ,ls}] = 2κ·E[m] = 0 (m = r·weight/σ², E[r] = 0) must
-/// be exactly 0 on the ψ joint Hessian and on ALL of its ψ-directional
-/// derivatives (1st, 2nd, and mixed β·ψ), because a function identically 0
-/// has identically-0 derivatives. The fixtures carry NONZERO residuals
-/// (y ≠ η_μ), so the old buggy `2κm` cross is genuinely nonzero — this test
-/// FAILS against the pre-fix code.
-#[test]
-pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero() {
-    use gam_problem::HyperOperator;
-
-    // Materialize an `ExactNewtonJointPsiTerms` joint Hessian regardless of
-    // whether the family returns it dense or operator-backed.
-    fn materialize(
-        dense: &Array2<f64>,
-        operator: Option<&dyn HyperOperator>,
-        total: usize,
-    ) -> Array2<f64> {
-        match operator {
-            Some(op) => op.to_dense(),
-            None => {
-                assert_eq!(dense.dim(), (total, total));
-                dense.clone()
-            }
-        }
-    }
-
-    // Max |entry| over the rectangular block H[r0..r1, c0..c1].
-    fn block_max_abs(h: &Array2<f64>, r0: usize, r1: usize, c0: usize, c1: usize) -> f64 {
-        let mut m = 0.0_f64;
-        for r in r0..r1 {
-            for c in c0..c1 {
-                m = m.max(h[[r, c]].abs());
-            }
-        }
-        m
-    }
-
-    const CROSS_TOL: f64 = 1e-12;
-
-    // ---- Non-wiggle GaussianLocationScaleFamily ----------------------
-    {
-        let (family, states, specs) = gls_workspace_fixture();
-        let p_mu = states[GaussianLocationScaleFamily::BLOCK_MU].beta.len();
-        let p_ls = states[GaussianLocationScaleFamily::BLOCK_LOG_SIGMA]
-            .beta
-            .len();
-        let total = p_mu + p_ls;
-
-        // Nonzero ψ design-Jacobian on the MEAN (μ) block so psi_index 0
-        // resolves a nonzero z_primary_psi: the observed `2κmD` cross would
-        // then leak into H_{μ,ls} on the old code. A second-order payload
-        // (x_psi_psi) feeds the 2nd-order builder too.
-        let x_mu_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
-            0.2 + 0.11 * ((i as f64) * 0.37 + (j as f64) * 0.53).sin()
-        });
-        let x_mu_psi_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
-            0.07 * ((i as f64) * 0.19 + (j as f64) * 0.23).cos()
-        });
-        let derivative_blocks = vec![
-            vec![CustomFamilyBlockPsiDerivative {
-                penalty_index: None,
-                x_psi: x_mu_psi,
-                s_psi: Array2::zeros((p_mu, p_mu)),
-                s_psi_components: None,
-                s_psi_penalty_components: None,
-                x_psi_psi: Some(vec![x_mu_psi_psi]),
-                s_psi_psi: Some(vec![Array2::zeros((p_mu, p_mu))]),
-                s_psi_psi_components: None,
-                s_psi_psi_penalty_components: None,
-                implicit_operator: None,
-                implicit_axis: 0,
-                implicit_group_id: None,
-            }],
-            Vec::new(),
-        ];
-
-        // The dense Fisher joint Hessian itself must have a zero μ↔logσ
-        // cross (cross=0 Fisher; #684) — sanity that the dense path agrees
-        // with the ψ-path's zero, since the ψ-Hessian is the ψ-derivative
-        // of exactly this curvature object.
-        let dense_h = family
-            .exact_newton_joint_hessian(&states)
-            .expect("dense joint Hessian build")
-            .expect("dense joint Hessian present");
-        assert!(
-            block_max_abs(&dense_h, 0, p_mu, p_mu, total) <= CROSS_TOL,
-            "#684: dense Fisher joint Hessian μ↔logσ cross block must be 0, got max |.|={:.3e}",
-            block_max_abs(&dense_h, 0, p_mu, p_mu, total)
-        );
-
-        // 1st-order ψ joint Hessian.
-        let psi = family
-            .exact_newton_joint_psi_terms(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-            )
-            .expect("psi terms call")
-            .expect("gaussian psi terms present");
-        let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
-        let cross = block_max_abs(&h_psi, 0, p_mu, p_mu, total);
-        assert!(
-            cross <= CROSS_TOL,
-            "#684: ψ joint Hessian μ↔logσ cross block must be Fisher-0 (observed 2κm \
-                 drift), got max |.|={cross:.3e}"
-        );
-
-        // 2nd-order ψ joint Hessian.
-        let psi2 = family
-            .exact_newton_joint_psisecond_order_terms(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-                0,
-            )
-            .expect("psi 2nd-order call")
-            .expect("gaussian psi 2nd-order present");
-        let h_psi2 = materialize(
-            &psi2.hessian_psi_psi,
-            psi2.hessian_psi_psi_operator.as_deref(),
-            total,
-        );
-        let cross2 = block_max_abs(&h_psi2, 0, p_mu, p_mu, total);
-        assert!(
-            cross2 <= CROSS_TOL,
-            "#684: 2nd-order ψ joint Hessian μ↔logσ cross block must be Fisher-0, \
-                 got max |.|={cross2:.3e}"
-        );
-
-        // Mixed β·ψ directional derivative of the ψ joint Hessian.
-        let d_beta = Array1::from_shape_fn(total, |i| 0.05 + 0.13 * ((i + 1) as f64).sin());
-        let mixed = family
-            .exact_newton_joint_psihessian_directional_derivative(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-                &d_beta,
-            )
-            .expect("psi mixed-drift call")
-            .expect("gaussian psi mixed-drift present");
-        assert_eq!(mixed.dim(), (total, total));
-        let crossm = block_max_abs(&mixed, 0, p_mu, p_mu, total);
-        assert!(
-            crossm <= CROSS_TOL,
-            "#684: mixed β·ψ ψ-Hessian μ↔logσ cross block must be Fisher-0, \
-                 got max |.|={crossm:.3e}"
-        );
-    }
-
-    // ---- Wiggle GaussianLocationScaleWiggleFamily --------------------
-    {
-        let (family, states, specs, ..) = gls_wiggle_workspace_fixture();
-        let p_mu = states[GaussianLocationScaleWiggleFamily::BLOCK_MU]
-            .beta
-            .len();
-        let p_ls = states[GaussianLocationScaleWiggleFamily::BLOCK_LOG_SIGMA]
-            .beta
-            .len();
-        let p_w = states[GaussianLocationScaleWiggleFamily::BLOCK_WIGGLE]
-            .beta
-            .len();
-        let total = p_mu + p_ls + p_w;
-        // Block column offsets in the flattened joint coefficient space.
-        let mu0 = 0usize;
-        let ls0 = p_mu;
-        let ls1 = p_mu + p_ls;
-        let w0 = p_mu + p_ls;
-        let w1 = total;
-
-        // ψ design-Jacobian on the MEAN (μ) block (psi_index 0). The wiggle
-        // block does not carry an independent ψ axis here; a nonzero mean ψ
-        // is enough to exercise BOTH mean⊥scale crosses (coeff_ml = 2κmD and
-        // l = 2κm) and their derivatives on the old code.
-        let x_mu_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
-            0.18 + 0.09 * ((i as f64) * 0.41 + (j as f64) * 0.29).sin()
-        });
-        let x_mu_psi_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
-            0.06 * ((i as f64) * 0.17 + (j as f64) * 0.31).cos()
-        });
-        let derivative_blocks = vec![
-            vec![CustomFamilyBlockPsiDerivative {
-                penalty_index: None,
-                x_psi: x_mu_psi,
-                s_psi: Array2::zeros((p_mu, p_mu)),
-                s_psi_components: None,
-                s_psi_penalty_components: None,
-                x_psi_psi: Some(vec![x_mu_psi_psi]),
-                s_psi_psi: Some(vec![Array2::zeros((p_mu, p_mu))]),
-                s_psi_psi_components: None,
-                s_psi_psi_penalty_components: None,
-                implicit_operator: None,
-                implicit_axis: 0,
-                implicit_group_id: None,
-            }],
-            Vec::new(),
-            Vec::new(),
-        ];
-
-        // Assert BOTH mean⊥scale cross blocks are Fisher-0 on the ψ joint
-        // Hessian: μ↔logσ AND wiggle↔logσ. Leave the within-mean (μ↔wiggle)
-        // and within-scale (logσ↔logσ) blocks unasserted (genuinely
-        // nonzero).
-        let assert_wiggle_crosses_zero = |h: &Array2<f64>, label: &str| {
-            let c_ml = block_max_abs(h, mu0, ls0, ls0, ls1);
-            let c_wl = block_max_abs(h, w0, w1, ls0, ls1);
-            assert!(
-                c_ml <= CROSS_TOL,
-                "#684 (wiggle {label}): μ↔logσ cross block must be Fisher-0 \
-                     (observed 2κmD drift), got max |.|={c_ml:.3e}"
-            );
-            assert!(
-                c_wl <= CROSS_TOL,
-                "#684 (wiggle {label}): wiggle↔logσ cross block must be Fisher-0 \
-                     (observed 2κm drift; the wiggle is mean-side), got max |.|={c_wl:.3e}"
-            );
+            initial_log_lambdas: Some(Array1::zeros(0)),
+            initial_beta: Some(beta_eta.clone()),
         };
-
-        // Dense Fisher joint Hessian sanity: both mean⊥scale crosses zero.
-        let dense_h = family
-            .exact_newton_joint_hessian(&states)
-            .expect("wiggle dense joint Hessian build")
-            .expect("wiggle dense joint Hessian present");
-        assert_eq!(dense_h.dim(), (total, total));
-        assert_wiggle_crosses_zero(&dense_h, "dense Fisher");
-
-        // 1st-order ψ.
-        let psi = family
-            .exact_newton_joint_psi_terms(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-            )
-            .expect("wiggle psi terms call")
-            .expect("wiggle psi terms present");
-        let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
-        assert_wiggle_crosses_zero(&h_psi, "1st-order ψ");
-
-        // 2nd-order ψ.
-        let psi2 = family
-            .exact_newton_joint_psisecond_order_terms(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-                0,
-            )
-            .expect("wiggle psi 2nd-order call")
-            .expect("wiggle psi 2nd-order present");
-        let h_psi2 = materialize(
-            &psi2.hessian_psi_psi,
-            psi2.hessian_psi_psi_operator.as_deref(),
-            total,
-        );
-        assert_wiggle_crosses_zero(&h_psi2, "2nd-order ψ");
-
-        // Mixed β·ψ.
-        let d_beta = Array1::from_shape_fn(total, |i| 0.04 + 0.1 * ((i + 1) as f64).cos());
-        let mixed = family
-            .exact_newton_joint_psihessian_directional_derivative(
-                &states,
-                &specs,
-                &test_design_hyper_layout(&derivative_blocks),
-                0,
-                &d_beta,
-            )
-            .expect("wiggle psi mixed-drift call")
-            .expect("wiggle psi mixed-drift present");
-        assert_eq!(mixed.dim(), (total, total));
-        assert_wiggle_crosses_zero(&mixed, "mixed β·ψ");
-    }
-}
-
-/// #932 exact-tower oracle for the canonical binomial location-scale WIGGLE
-/// order-two row program.
-///
-/// `BinomialLocationScaleWiggleFamily::wiggle_order2_rows` lowers the shared
-/// row expression into per-row joint-Hessian coefficients for the composed
-/// index
-/// `q = q0(η_t, η_ls) + Σ_j βw_j·B_j(q0)` via the chain factors `m = B'·βw + 1`,
-/// `g2 = B''·βw`. The cross-block coefficients (`coeff_tw_*`, `coeff_lw_*`,
-/// `coeff_ww`: threshold/log-sigma × wiggle and wiggle × wiggle) are exactly the
-/// #736 dropped/sign-flipped cross-term genus, and until now no exact oracle
-/// pinned them to an independent tower — only an operator-vs-dense check and
-/// an FD approximation covered them.
-///
-/// This is the #932 single-source guard. For each row `i` and basis column `j`
-/// we build an INDEPENDENT order-2 jet `Tower2<3>` over `(η_t, η_ls, βw_j)`
-/// (the other `βw_k` held at their fixed values), compose the wiggle basis onto
-/// the non-wiggle index tower
-/// (`q = q0_tower + Σ_k coef_k · q0_tower.compose_unary([B_k, B'_k, B''_k])`),
-/// then compose the binomial neglog objective onto `q`
-/// (`nll = q.compose_unary([·, m1, m2])`). The resulting `3×3` Hessian block IS
-/// every `coeff_*` mechanically:
-///   `h[0][0]=coeff_tt`, `h[0][1]=coeff_tl`, `h[1][1]=coeff_ll`,
-///   `h[0][2]=coeff_tw_b·B_j + coeff_tw_d·B'_j`,
-///   `h[1][2]=coeff_lw_b·B_j + coeff_lw_d·B'_j`,
-///   `h[2][2]=coeff_ww·B_j²`.
-/// A dropped or sign-flipped generated coefficient shifts a block well outside
-/// 1e-9
-/// and fails loudly, for probit / logit / cloglog. The value channel is
-/// irrelevant to the Hessian (`compose_unary`'s `h` reads only `f'`/`f''`), so a
-/// placeholder `0.0` is passed for the objective value.
-#[test]
-pub(crate) fn binomial_location_scale_wiggle_order2_rows_match_jet_tower_932() {
-    use super::binomial_q_derivs::binomial_neglog_q_derivatives_dispatch;
-    use gam_math::jet_tower::Tower2;
-
-    let (probit_family, states, _specs, _xt, _xls, _wd) = bls_wiggle_workspace_fixture();
-    let n = probit_family.y.len();
-
-    for link in [
-        InverseLink::Standard(StandardLink::Probit),
-        InverseLink::Standard(StandardLink::Logit),
-        InverseLink::Standard(StandardLink::CLogLog),
-    ] {
-        // Designs, knots and the block etas are link-independent (`q0` and the
-        // wiggle basis do not depend on the binomial link), so reuse them and
-        // swap only `link_kind` for each arm.
-        let family = BinomialLocationScaleWiggleFamily {
-            y: probit_family.y.clone(),
-            weights: probit_family.weights.clone(),
-            link_kind: link.clone(),
-            threshold_design: probit_family.threshold_design.clone(),
-            log_sigma_design: probit_family.log_sigma_design.clone(),
-            wiggle_knots: probit_family.wiggle_knots.clone(),
-            wiggle_degree: probit_family.wiggle_degree,
-            policy: probit_family.policy.clone(),
-        };
-
-        let pieces = family
-            .wiggle_order2_rows(&states)
-            .expect("canonical wiggle order-two rows");
-
-        let eta_t = &states[BinomialLocationScaleWiggleFamily::BLOCK_T].eta;
-        let eta_ls = &states[BinomialLocationScaleWiggleFamily::BLOCK_LOG_SIGMA].eta;
-        let etaw = &states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].eta;
-        let betaw = &states[BinomialLocationScaleWiggleFamily::BLOCK_WIGGLE].beta;
-
-        let core0 = binomial_location_scale_core(
-            &family.y,
-            &family.weights,
-            eta_t,
-            eta_ls,
-            Some(etaw),
-            &family.link_kind,
+        let mut wiggle_input = wiggle_template.clone();
+        wiggle_input.design =
+            DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(bda.clone()));
+        wiggle_input.offset = Array1::zeros(n);
+        wiggle_input.initial_log_lambdas = Some(rho_w.clone());
+        wiggle_input.initial_beta = Some(match &beta_w {
+            Some(b) => b.clone(),
+            None => Array1::zeros(bda.ncols()),
+        });
+        let specs = vec![
+            eta_input.intospec("eta").map_err(|e| e.to_string())?,
+            wiggle_input.intospec("wiggle").map_err(|e| e.to_string())?,
+        ];
+        let mut fam = base_family.clone();
+        fam.frozen_warp_design = Some(Arc::new(bda));
+        let options = BlockwiseFitOptions::default();
+        let fit = crate::custom_family::fit_custom_family_fixed_log_lambdas(
+            &fam, &specs, &options, None,
         )
-        .expect("binomial location-scale core");
-
-        // Same basis tensors the canonical row program consumes:
-        // pieces.{b0,d0} are exactly B and B' it used; recompute B'' for the
-        // order-2 composition.
-        let b0 = &pieces.b0;
-        let d0 = &pieces.d0;
-        let dd0 = family
-            .wiggle_basiswith_options(core0.q0.view(), BasisOptions::second_derivative())
-            .expect("wiggle second-derivative basis");
-        let pw = b0.ncols();
-
-        for i in 0..n {
-            let qi = core0.q0[i] + etaw[i];
-            let (m1, m2, _m3) = binomial_neglog_q_derivatives_dispatch(
-                family.y[i],
-                family.weights[i],
-                qi,
-                core0.mu[i],
-                core0.dmu_dq[i],
-                core0.d2mu_dq2[i],
-                core0.d3mu_dq3[i],
-                &family.link_kind,
-            );
-
-            // Non-wiggle index q0 = -η_t · exp(-η_ls) over axes (η_t, η_ls);
-            // axis 2 is reserved for the per-column wiggle amplitude.
-            let eta_t_t = Tower2::<3>::variable(eta_t[i], 0);
-            let eta_ls_t = Tower2::<3>::variable(eta_ls[i], 1);
-
-            let q0_tower = (eta_t_t * -1.0) * (eta_ls_t * -1.0).exp();
-
-            for j in 0..pw {
-                let mut q = q0_tower;
-                for k in 0..pw {
-                    let coef = if k == j {
-                        Tower2::<3>::variable(betaw[j], 2)
-                    } else {
-                        Tower2::<3>::constant(betaw[k])
-                    };
-                    let basis_k = q0_tower.compose_unary([b0[[i, k]], d0[[i, k]], dd0[[i, k]]]);
-                    q = q + coef * basis_k;
-                }
-                let nll = q.compose_unary([0.0, m1, m2]);
-                let h = nll.h;
-
-                let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * a.abs().max(b.abs()).max(1.0);
-
-                assert!(
-                    close(h[0][0], pieces.coeff_tt[i]),
-                    "{link:?} coeff_tt[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[0][0],
-                    pieces.coeff_tt[i]
-                );
-                assert!(
-                    close(h[0][1], pieces.coeff_tl[i]),
-                    "{link:?} coeff_tl[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[0][1],
-                    pieces.coeff_tl[i]
-                );
-                assert!(
-                    close(h[1][1], pieces.coeff_ll[i]),
-                    "{link:?} coeff_ll[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[1][1],
-                    pieces.coeff_ll[i]
-                );
-
-                let tw = pieces.coeff_tw_b[i] * b0[[i, j]] + pieces.coeff_tw_d[i] * d0[[i, j]];
-                let lw = pieces.coeff_lw_b[i] * b0[[i, j]] + pieces.coeff_lw_d[i] * d0[[i, j]];
-                let ww = pieces.coeff_ww[i] * b0[[i, j]] * b0[[i, j]];
-                assert!(
-                    close(h[0][2], tw),
-                    "{link:?} (η_t,βw) cross[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[0][2],
-                    tw
-                );
-                assert!(
-                    close(h[1][2], lw),
-                    "{link:?} (η_ls,βw) cross[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[1][2],
-                    lw
-                );
-                assert!(
-                    close(h[2][2], ww),
-                    "{link:?} (βw,βw)[{i},{j}]: tower={:.9e} canonical={:.9e}",
-                    h[2][2],
-                    ww
-                );
-            }
+        .map_err(|e| format!("fixed-λ inner solve (cycle {cycle}): {e:?}"))?;
+        let new_beta_eta = fit.block_states[BinomialMeanWiggleFamily::BLOCK_ETA]
+            .beta
+            .clone();
+        let new_beta_w = fit.block_states[BinomialMeanWiggleFamily::BLOCK_WIGGLE]
+            .beta
+            .clone();
+        let eta_hat = x_dense.dot(&new_beta_eta);
+        let delta = eta_hat
+            .iter()
+            .zip(frozen_eta.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f64, f64::max);
+        beta_eta = new_beta_eta;
+        beta_w = Some(new_beta_w.clone());
+        if delta <= 1.0e-9 {
+            return Ok((
+                fit.penalized_objective,
+                fit.deviance,
+                beta_eta,
+                new_beta_w,
+                eta_hat,
+                cycle + 1,
+            ));
         }
+        frozen_eta = eta_hat;
+    }
+    Err("freeze-refit did not reach a fixed point in 60 cycles".to_string())
     }
 }
 
-// ── #1606: NB location-scale (GAMLSS-style joint mean/dispersion) inner solve ──
-//
-// Regression for gam#1606: a negative-binomial location-scale fit
-// (`family="nb"` + a dispersion smooth) ABORTED at fit time with an
-// `IntegrationError` on well-posed heteroscedastic count data, while every
-// sibling path (plain NB, Gaussian-LS, Gamma-LS) fit the same design. Root
-// cause: the NB dispersion (log-θ) block assembled its IRLS curvature from the
-// per-row OBSERVED Hessian channel `−∂²ℓ/∂θ²`, which carries the row-specific
-// `ψ′(θ+y)` term and goes NEGATIVE for every row whose count sits below its
-// current fitted precision. Replacing each negative row by an arbitrary
-// epsilon then divides the exact score by ~0 in the
-// working response, producing O(1e10) IRLS targets that explode the dispersion
-// step and stall the inner block-cyclic solve, whose non-convergence is then
-// escalated to a hard error. The fix switches the dispersion curvature to the
-// EXPECTED (Fisher) information `ψ′(θ)−ψ′(θ+μ)−1/θ+1/(θ+μ) > 0` (Fisher
-// scoring; the working RESPONSE still carries the exact score, so the penalized
-// optimum is unchanged — only the inner conditioning improves), matching the
-// mean block, which always used its closed-form expected info.
 
-// Direct root-cause regression (the fail-before / pass-after gate): at a
-// heteroscedastic iterate whose fitted precision sits ABOVE the data's true
-// overdispersion (the regime the inner solve traverses), the NB dispersion
-// working set must stay well-conditioned. With the pre-fix OBSERVED curvature
-// the per-row information is negative for these rows, gets epsilon-clamped,
-// and the working response `disp_response` blows up
-// to O(1e9)+ (the exact score divided by ~0). With the EXPECTED (Fisher)
-// curvature the response stays O(1) and the per-row IRLS weight reflects
-// genuine positive curvature. This asserts the bounded, well-conditioned
-// behaviour — it FAILS on the observed-curvature code (huge |disp_response|)
-// and PASSES on the Fisher-curvature fix.
-#[test]
-fn nb_dispersion_working_set_stays_bounded_above_optimum_1606() {
-    use super::dispersion_family::dispersion_row_kernel;
 
-    // Overdispersed rows (true θ small, large counts) evaluated at a high fitted
-    // precision η_d = ln(8): there μ²/θ_true ≫ μ, so y ≫ μ for many rows while
-    // the model currently believes the precision is large — exactly where
-    // `−∂²ℓ/∂θ²` goes negative.
-    let mu = 20.0_f64;
-    let eta_mu = mu.ln();
-    let eta_d = 8.0_f64.ln(); // fitted θ = 8, well above the true overdispersion
-    // A spread of counts straddling μ, including the small/zero counts that
-    // drive the observed information negative.
-    let counts = [0.0_f64, 2.0, 4.0, 6.0, 8.0, 22.0, 27.0, 40.0, 63.0, 95.0];
-    let mut saw_overdispersed_row = false;
-    for &yi in &counts {
-        let row = dispersion_row_kernel(
-            DispersionFamilyKind::NegativeBinomial,
-            yi,
-            eta_mu,
-            eta_d,
-            1.0,
-        );
-        // The working response is `η_d + score/(θ·info)`. With the Fisher
-        // information it is O(1); with the floored observed information it is
-        // O(1e9)+. Pin a generous-but-decisive bound: anything below 1e6 is the
-        // well-conditioned Fisher path, anything above is the broken floored
-        // observed path (the real failures are ~1e10).
-        assert!(
-            row.disp_response.is_finite() && row.disp_response.abs() < 1.0e6,
-            "NB dispersion working response must stay bounded at an above-optimum \
-             iterate (gam#1606): y={yi}, disp_response={:.6e} (an O(1e9)+ value is the \
-             pre-fix floored-observed-curvature blow-up)",
-            row.disp_response,
-        );
-        // The per-row IRLS weight must be a genuine positive curvature, not the
-        // ~0 floor that the negative observed information collapses to.
-        assert!(
-            row.disp_weight.is_finite() && row.disp_weight >= 0.0,
-            "NB dispersion working weight must be a finite non-negative curvature: \
-             y={yi}, disp_weight={:.6e}",
-            row.disp_weight,
-        );
-        if yi < mu {
-            saw_overdispersed_row = true;
-            // These are precisely the rows whose OBSERVED information is negative
-            // (count below fitted precision); the Fisher weight keeps them at a
-            // strictly positive, finite curvature.
-            assert!(
-                row.disp_weight > 0.0,
-                "below-fitted-precision rows must still carry positive Fisher \
-                 curvature: y={yi}, disp_weight={:.6e}",
-                row.disp_weight,
-            );
-        }
-    }
-    assert!(
-        saw_overdispersed_row,
-        "fixture must include rows below the fitted precision (the negative-observed-info regime)"
-    );
-}
 
-// End-to-end contract check: the documented NB location-scale fit drives the
-// two-block custom-family inner solve through the public fixed-log-λ entry
-// point (`fit_custom_family_fixed_log_lambdas`, which runs `inner_blockwise_fit`
-// and returns `Err` when the inner solve fails to converge — the same
-// non-convergence the profile-objective evaluator escalates), and must converge
-// and predict finite, strictly positive per-row means. The Python repro
-// (`bug_hunt_nb_location_scale_inner_solve_abort_test`) cannot run under the
-// build.rs author-guard deadlock, so this Rust-level fit stands in for it.
-#[test]
-fn nb_location_scale_inner_solve_converges_on_heteroscedastic_counts() {
-    use super::dispersion_family::{DispersionFamilyKind, DispersionGlmLocationScaleFamily};
-    use crate::custom_family::fit_custom_family_fixed_log_lambdas;
-
-    // Deterministic LCG so the synthetic data (and thread-independent inner
-    // path) is byte-reproducible — the issue noted order/thread-state-dependent
-    // flips, so the fixture must not depend on any global RNG state.
-    struct Lcg(u64);
-    impl Lcg {
-        fn next_u01(&mut self) -> f64 {
-            // Numerical Recipes LCG constants.
-            self.0 = self
-                .0
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            // top 53 bits → [0,1)
-            ((self.0 >> 11) as f64) / ((1u64 << 53) as f64)
-        }
-        fn next_gamma_shape_ge1(&mut self, shape: f64) -> f64 {
-            // Marsaglia–Tsang for shape ≥ 1 (we only call with shape ≥ 1).
-            let d = shape - 1.0 / 3.0;
-            let c = 1.0 / (9.0 * d).sqrt();
-            loop {
-                // crude standard normal via sum of 12 uniforms − 6
-                let mut z = -6.0;
-                for _ in 0..12 {
-                    z += self.next_u01();
-                }
-                let v = (1.0 + c * z).powi(3);
-                if v <= 0.0 {
-                    continue;
-                }
-                let u = self.next_u01();
-                if u.ln() < 0.5 * z * z + d - d * v + d * (v).ln() {
-                    return d * v;
-                }
-            }
-        }
-        fn next_poisson(&mut self, lambda: f64) -> f64 {
-            // Knuth, fine for the moderate λ here.
-            let l = (-lambda).exp();
-            let mut k = 0.0;
-            let mut p = 1.0;
-            loop {
-                k += 1.0;
-                p *= self.next_u01();
-                if p <= l {
-                    return k - 1.0;
-                }
-            }
-        }
-        fn next_nb(&mut self, mu: f64, theta: f64) -> f64 {
-            // Gamma–Poisson mixture: λ ~ Gamma(theta, mu/theta), Y ~ Pois(λ).
-            let lam = if theta >= 1.0 {
-                self.next_gamma_shape_ge1(theta) * (mu / theta)
-            } else {
-                // boost shape by 1 then scale down (Stuart's method)
-                let g = self.next_gamma_shape_ge1(theta + 1.0);
-                let u = self.next_u01().max(1e-300);
-                g * u.powf(1.0 / theta) * (mu / theta)
-            };
-            self.next_poisson(lam.max(1e-9))
-        }
-    }
-
-    let n = 600usize;
-    let p = 6usize;
-    // The mean and dispersion smooths ride on TWO DISTINCT covariates (x for the
-    // mean, z for the dispersion). Each channel's design is a sum-to-zero,
-    // column-orthonormal polynomial basis in its OWN covariate built from the
-    // monomials t¹..tᵖ (NO constant column): the per-channel level is carried by
-    // a constant `offset`, exactly as a centered production `s(x)` smooth plus a
-    // gauge-fixed intercept. Dropping the constant column is what keeps the flat
-    // pre-fit identifiability audit happy — a single-channel custom family sees
-    // both channels' designs as ordinary columns, and two identical all-ones
-    // intercept columns across blocks would alias (overlap 1.0) and fail the
-    // audit. With no constant column and two different covariates, the
-    // concatenated [mean | log_precision] joint design is full-rank and
-    // alias-free, while the constant offsets still let each η reach its level.
-    let xs: Vec<f64> = (0..n).map(|i| i as f64 / (n as f64 - 1.0)).collect();
-    let zs: Vec<f64> = (0..n)
-        .map(|i| (i as f64 * 0.6180339887) % 1.0) // golden-ratio low-discrepancy spread
-        .collect();
-    // Modified Gram–Schmidt over the monomials t¹, t², … (skip t⁰), each column
-    // first centered to mean-zero so it is orthogonal to the constant direction
-    // too. Every resulting column is a distinct, mutually-orthonormal,
-    // sum-to-zero direction; none is the constant, and across two different
-    // covariates none coincides cross-block.
-    let build_design = |t: &[f64]| -> Array2<f64> {
-        let mut cols: Vec<Array1<f64>> = Vec::with_capacity(p);
-        for j in 0..p {
-            // monomial t^(j+1), centered to mean zero.
-            let mut v = Array1::from_shape_fn(n, |i| t[i].powi((j + 1) as i32));
-            let mean = v.sum() / (n as f64);
-            v.mapv_inplace(|e| e - mean);
-            for c in &cols {
-                let proj = v.dot(c);
-                v.scaled_add(-proj, c);
-            }
-            let nrm = v.dot(&v).sqrt().max(1e-12);
-            v.mapv_inplace(|e| e / nrm);
-            cols.push(v);
-        }
-        let mut d = Array2::<f64>::zeros((n, p));
-        for (j, c) in cols.iter().enumerate() {
-            d.column_mut(j).assign(c);
-        }
-        d
-    };
-    let mean_x = build_design(&xs);
-    let disp_x = build_design(&zs);
-    // Per-channel constant level carried by the offset (centered smooth + level).
-    let mean_offset = Array1::from_elem(n, 1.4_f64);
-    let disp_offset = Array1::from_elem(n, 0.5_f64);
-
-    // True surfaces: mean μ(x) = exp(η_μ) sweeps a moderate count range, and the
-    // dispersion log θ(z) sweeps from high overdispersion (small θ) to near-
-    // Poisson (large θ) — the heteroscedastic regime that drives the dispersion
-    // block's η_d across the negative-observed-info zone.
-    let eta_mu_true: Vec<f64> = xs.iter().map(|&x| 1.4 + 1.1 * (2.2 * x).sin()).collect();
-    let log_theta_true: Vec<f64> = zs.iter().map(|&z| -1.2 + 3.4 * z).collect();
-
-    let mut rng = Lcg(0x1606_2024_dead_beef);
-    let y = Array1::from_shape_fn(n, |i| {
-        let mu = eta_mu_true[i].exp();
-        let theta = log_theta_true[i].exp();
-        rng.next_nb(mu, theta)
-    });
-    // Sanity: the response must be a non-degenerate count vector.
-    assert!(
-        y.iter().any(|&v| v > 0.0) && y.iter().all(|&v| v >= 0.0 && v.fract() == 0.0),
-        "synthetic NB response must be non-negative integer counts with positive mass"
-    );
-
-    let weights = Array1::from_elem(n, 1.0);
-    let family = DispersionGlmLocationScaleFamily {
-        kind: DispersionFamilyKind::NegativeBinomial,
-        y: y.clone(),
-        weights,
-    };
-
-    // Each block: a wiggliness penalty that shrinks the higher-order
-    // (orthonormal) polynomial columns, leaving the two lowest-order columns
-    // (the 2-dim penalty nullspace) free. This gives the smooth genuine
-    // shrinkage at a moderate fixed smoothing parameter, mirroring the `s(x)`
-    // production path.
-    let make_penalty = || {
-        let mut pmat = Array2::<f64>::zeros((p, p));
-        for j in 2..p {
-            // Increasing penalty weight on higher-order columns.
-            pmat[[j, j]] = (j as f64 - 1.0).powi(2);
-        }
-        PenaltyMatrix::Dense(pmat)
-    };
-
-    let mk_spec = |name: &str, design: Array2<f64>, offset: Array1<f64>| ParameterBlockSpec {
-        name: name.to_string(),
-        design: DesignMatrix::Dense(gam_linalg::matrix::DenseDesignMatrix::from(design)),
-        offset,
-        penalties: vec![make_penalty()],
-        // Penalty nullspace = the two lowest-order columns = 2 unpenalized dirs.
-        nullspace_dims: vec![2],
-        initial_log_lambdas: Array1::from_elem(1, (0.5_f64).ln()),
-        initial_beta: None,
-        gauge_priority: 100,
-        jacobian_callback: None,
-        stacked_design: None,
-        stacked_offset: None,
-    };
-    let specs = vec![
-        mk_spec("mean", mean_x, mean_offset),
-        mk_spec("log_precision", disp_x, disp_offset),
-    ];
-
-    let options = BlockwiseFitOptions::default();
-
-    // The fixed-log-λ fit runs `inner_blockwise_fit` and returns `Err` exactly
-    // when the inner solve fails to converge — the non-convergence the profile
-    // objective escalates to the fatal abort. Before the fix this returns
-    // `Err(Optimization{ "...inner solve did not converge..." })`.
-    let result = fit_custom_family_fixed_log_lambdas(&family, &specs, &options, None);
-    let fit = result.unwrap_or_else(|e| {
-        panic!(
-            "NB location-scale inner solve must converge on heteroscedastic count data \
-             (gam#1606); instead the inner blockwise solve aborted: {e:?}"
-        )
-    });
-
-    // Predicted per-row means must be finite and strictly positive (the contract
-    // the issue requires: the NB LS fit predicts finite positive per-row means).
-    // The mean-channel predictor η_μ is block 0's converged `eta`.
-    let eta_mu = &fit.block_states[DispersionGlmLocationScaleFamily::BLOCK_MEAN].eta;
-    assert_eq!(eta_mu.len(), n, "mean predictor must cover every row");
-    assert!(
-        eta_mu.iter().all(|&e| e.is_finite()),
-        "fitted mean predictor must be finite on every row"
-    );
-    assert!(
-        eta_mu.iter().all(|&e| e.exp().is_finite() && e.exp() > 0.0),
-        "fitted per-row means must be finite and strictly positive"
-    );
-}
+// Wiggle / binomial-location-scale / release-cell tests live in a child
+// module file to respect the crate-wide source-file length budget. Child
+// modules see this module's entire scope (helpers AND imports) via
+// `use super::*`, so the split is purely physical.
+#[path = "tests_wiggle_ls.rs"]
+mod wiggle_ls;
+mod zz2155_mode_geography_tests;

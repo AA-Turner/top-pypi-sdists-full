@@ -506,7 +506,7 @@ local maxEvents = getOrSetMaxEvents(metaKey)
 local parentDependenciesKey = args[6]
 local timestamp = args[4]
 if args[2] == "" then
-    jobId = jobCounter
+    jobId = jobCounter .. "" -- convert to string
     jobIdKey = args[1] .. jobId
 else
     jobId = args[2]
@@ -537,4 +537,4 @@ rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "waiting",
 if parentDependenciesKey ~= nil then
     rcall("SADD", parentDependenciesKey, jobIdKey)
 end
-return jobId .. "" -- convert to string
+return jobId

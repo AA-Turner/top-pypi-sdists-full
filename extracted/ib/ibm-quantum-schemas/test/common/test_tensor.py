@@ -16,7 +16,13 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from ibm_quantum_schemas.common.tensor import F64TensorModel, TensorModel
+from ibm_quantum_schemas.common.tensor import (
+    SUPPORTED_DTYPE_EXTENDED_MAP,
+    CompressedTensorModel,
+    F64CompressedTensorModel,
+    F64TensorModel,
+    TensorModel,
+)
 
 
 class TestTensorModel:
@@ -56,3 +62,53 @@ class TestF64TensorModel:
 
         with pytest.raises(ValidationError):
             F64TensorModel.from_numpy(array)
+
+
+class TestCompressedTensorModel:
+    """Tests for ``CompressedTensorModel``."""
+
+    @pytest.mark.parametrize("dtype", SUPPORTED_DTYPE_EXTENDED_MAP.keys())
+    def test_roundtrip(self, dtype):
+        """Test that round trips work correctly."""
+        array = np.array(range(16), dtype=dtype).reshape((4, 1, 2, 2))
+        encoded = CompressedTensorModel.from_numpy(array)
+        array_out = encoded.to_numpy()
+
+        assert np.all(array == array_out)
+        assert array.dtype == array_out.dtype
+
+    def test_raises(self):
+        """Test that it raises."""
+        array = np.array(range(16), dtype=str)
+
+        with pytest.raises(ValueError, match="Unexpected NumPy dtype"):
+            CompressedTensorModel.from_numpy(array)
+
+    def test_bool_array(self):
+        """Test that bool arrays work correctly."""
+        array = np.array([[False], [True], [True]])
+        encoded = CompressedTensorModel.from_numpy(array)
+        array_out = encoded.to_numpy()
+
+        assert np.all(array == array_out)
+        assert array.dtype == array_out.dtype
+
+
+class TestF64CompressedTensorModel:
+    """Tests for ``F64CompressedTensorModel``."""
+
+    def test_roundtrip(self):
+        """Test that round trips work correctly."""
+        array = np.array(range(16), dtype=np.float64).reshape((4, 1, 2, 2))
+        encoded = F64CompressedTensorModel.from_numpy(array)
+        array_out = encoded.to_numpy()
+
+        assert np.all(array == array_out)
+
+    @pytest.mark.parametrize("dtype", [np.uint8, np.bool_])
+    def test_raises(self, dtype):
+        """Test that it raises."""
+        array = np.array(range(16), dtype=dtype)
+
+        with pytest.raises(ValidationError):
+            F64CompressedTensorModel.from_numpy(array)

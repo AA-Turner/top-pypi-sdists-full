@@ -26,7 +26,6 @@ from fastmcp_extensions.auth import (
     build_client_credentials_post_kwargs,
     build_mcp_auth,
     fetch_client_credentials_token,
-    resolve_mcp_auth,
 )
 from fastmcp_extensions.client_credentials_middleware import (
     ClientCredentialsExchangeMiddleware,
@@ -38,10 +37,23 @@ from fastmcp_extensions.decorators import (
     mcp_resource,
     mcp_tool,
 )
+from fastmcp_extensions.key_normalization import (
+    DEFAULT_HASH_ALGORITHM,
+    DEFAULT_KEY_PREFIX,
+    HashKeyNormalizer,
+    KeyNormalizer,
+    NormalizedKeysWrapper,
+)
 from fastmcp_extensions.landing_page import (
     LandingPageContent,
     register_landing_page,
     render_default_landing_html,
+)
+from fastmcp_extensions.logging_redaction import (
+    REDACTION_PLACEHOLDER,
+    AuthorizationRedactionFilter,
+    install_authorization_redaction,
+    redact_authorization,
 )
 from fastmcp_extensions.registration import (
     PromptDef,
@@ -63,13 +75,20 @@ from fastmcp_extensions.tool_filters import (
 )
 
 __all__ = [
+    "DEFAULT_HASH_ALGORITHM",
+    "DEFAULT_KEY_PREFIX",
+    "REDACTION_PLACEHOLDER",
+    "AuthorizationRedactionFilter",
     "ClientCredentials",
     "ClientCredentialsExchangeMiddleware",
+    "HashKeyNormalizer",
     "IntrospectionAuthConfig",
     "JWTAuthConfig",
+    "KeyNormalizer",
     "LandingPageContent",
     "MCPServerConfig",
     "MCPServerConfigArg",
+    "NormalizedKeysWrapper",
     "OIDCAuthConfig",
     "PromptDef",
     "ResourceDef",
@@ -83,17 +102,18 @@ __all__ = [
     "build_mcp_auth",
     "fetch_client_credentials_token",
     "get_mcp_config",
+    "install_authorization_redaction",
     "is_trusted_execution_enabled",
     "mcp_prompt",
     "mcp_provider",
     "mcp_resource",
     "mcp_server",
     "mcp_tool",
+    "redact_authorization",
     "register_landing_page",
     "register_mcp_prompts",
     "register_mcp_resources",
     "register_mcp_tools",
     "render_default_landing_html",
-    "resolve_mcp_auth",
     "wrap_client_credentials",
 ]

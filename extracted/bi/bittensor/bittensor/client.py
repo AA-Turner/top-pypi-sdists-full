@@ -34,6 +34,7 @@ from .multisig import Multisig
 from .namespaces import (
     Balances,
     Chain,
+    Collateral,
     Delegation,
     Epochs,
     Hyperparameters,
@@ -56,6 +57,7 @@ from .settings import (
 )
 from .signing import WalletLike
 from .snapshot import Snapshot
+from .sp_core import ss58_decode
 
 # A generated descriptor is a (container, name) pair (see bittensor/_generated);
 # a plain 2-tuple of strings works for items missing from the generated catalog.
@@ -87,6 +89,20 @@ class BlockInfo:
     explorer_url: Optional[str]
     header: dict = field(repr=False)
     extrinsics: list = field(repr=False)  # decoded values; None for undecodable entries
+
+
+class _AddressView:
+    """Keypair-shaped public view of a bare ss58 address, for fee/weight quotes.
+
+    Fee estimation signs with a zeroed signature, so only the public parts are
+    ever read (``sp_core.ss58_decode`` recovers the public key).
+    """
+
+    crypto_type = 1  # sr25519
+
+    def __init__(self, address: str):
+        self.ss58_address = address
+        self.public_key = bytes(ss58_decode(address))
 
 
 @dataclass
@@ -171,6 +187,7 @@ class Client:
         # and Snapshot; assigned explicitly so type checkers see each attribute.)
         self.balances = Balances(self)
         self.chain = Chain(self)
+        self.collateral = Collateral(self)
         self.delegation = Delegation(self)
         self.epochs = Epochs(self)
         self.hyperparameters = Hyperparameters(self)
@@ -480,6 +497,16 @@ class Client:
         """
         return await self._substrate.compose(call)
 
+    async def estimate_weight(self, call, *, address: str) -> dict:
+        """The declared dispatch weight ``{ref_time, proof_size}`` of a composed call.
+
+        This is what ``pallet_multisig`` compares an executing approval's
+        ``max_weight`` against; needs no key material, only the prospective
+        signer's ``address`` (fee estimation signs with a zeroed signature).
+        """
+        view = _AddressView(address)
+        return await self._substrate.estimate_weight(call, view)
+
     async def multisig(self, signatories: list[str], threshold: int) -> Multisig:
         """A handle to the M-of-N multisig account for a signer set.
 
@@ -557,6 +584,10 @@ class Client:
     async def block(self) -> int:
         """Current chain block number."""
         return await self._substrate.block_number()
+
+    async def spec_version(self) -> int:
+        """The connected runtime's ``spec_version`` (at the chain head)."""
+        return await self._substrate.spec_version()
 
     async def at(self, block: Optional[int] = None) -> Snapshot:
         """A read-only view pinned to ``block`` (defaults to the current head).

@@ -8,12 +8,13 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from asyncio import IncompleteReadError
-from collections.abc import AsyncIterable, Generator
+from collections.abc import AsyncIterable, Generator, Iterable
 from contextlib import contextmanager, suppress
 from enum import Enum
 from pathlib import Path
 from ssl import SSLZeroReturnError, TLSVersion
-from typing import Any, Optional, overload
+from types import TracebackType
+from typing import Any, Optional, cast, overload
 
 from construct import StreamError
 from cryptography import x509
@@ -25,7 +26,7 @@ from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7Options, PKC
 from packaging.version import Version
 from typing_extensions import Self
 
-from pymobiledevice3 import usbmux
+from pymobiledevice3 import irecv_devices, usbmux
 from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_mobdev2
 from pymobiledevice3.ca import generate_pairing_cert_chain
 from pymobiledevice3.common import get_home_folder
@@ -49,11 +50,12 @@ from pymobiledevice3.exceptions import (
     PairingDialogResponsePendingError,
     PairingError,
     PasswordRequiredError,
+    PyMobileDevice3Exception,
     SetProhibitedError,
     StartServiceError,
     UserDeniedPairingError,
 )
-from pymobiledevice3.irecv_devices import IRECV_DEVICES
+from pymobiledevice3.irecv_devices import IRecvDevice
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.pair_records import (
@@ -65,6 +67,9 @@ from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.usbmux import PlistMuxConnection
 
 OSUTIL = get_os_utils()
+# `irecv_devices.IRECV_DEVICES` is a very large tuple literal that pyright infers as `tuple[Unknown, ...]`;
+# route it through an explicit `Any` boundary to recover the element type without touching that module.
+IRECV_DEVICES: tuple[IRecvDevice, ...] = cast(Any, irecv_devices).IRECV_DEVICES
 SYSTEM_BUID = "30142955-444094379208051516"
 RESTORED_SERVICE_TYPE = "com.apple.mobile.restored"
 
@@ -106,7 +111,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         identifier: Optional[str] = None,
         label: str = DEFAULT_LABEL,
         system_buid: str = SYSTEM_BUID,
-        pair_record: Optional[dict] = None,
+        pair_record: Optional[dict[str, Any]] = None,
         pairing_records_cache_folder: Optional[Path] = None,
         port: int = SERVICE_PORT,
     ):
@@ -132,9 +137,9 @@ class LockdownClient(ABC, LockdownServiceProvider):
         self.service = service
         self.identifier = identifier
         self.label = label
-        self.host_id = host_id
-        self.system_buid = system_buid
-        self.pair_record = pair_record
+        self.host_id: str = host_id
+        self.system_buid: str = system_buid
+        self.pair_record: Optional[dict[str, Any]] = pair_record
         self.paired = False
         self.session_id = None
         self.pairing_records_cache_folder = pairing_records_cache_folder
@@ -156,11 +161,11 @@ class LockdownClient(ABC, LockdownServiceProvider):
         autopair: bool = True,
         pair_timeout: Optional[float] = None,
         local_hostname: Optional[str] = None,
-        pair_record: Optional[dict] = None,
+        pair_record: Optional[dict[str, Any]] = None,
         pairing_records_cache_folder: Optional[Path] = None,
         port: int = SERVICE_PORT,
         private_key: Optional[RSAPrivateKey] = None,
-        **cls_specific_args,
+        **cls_specific_args: Any,
     ):
         """Build a client around an existing service connection, initialize it and optionally pair.
 
@@ -243,7 +248,12 @@ class LockdownClient(ABC, LockdownServiceProvider):
         """
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         """Exit the async context manager and close open resources.
 
         :param exc_type: Exc type.
@@ -291,7 +301,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return self.all_values.get("WiFiAddress")
 
     @property
-    def short_info(self) -> dict:
+    def short_info(self) -> dict[str, Any]:
         """A compact subset of the device's values, suitable for listing devices.
 
         :returns: A dict containing ``Identifier`` plus ``DeviceClass``, ``DeviceName``, ``BuildVersion``,
@@ -315,7 +325,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return self.all_values["UniqueChipID"]
 
     @property
-    def preflight_info(self) -> Optional[dict]:
+    def preflight_info(self) -> Optional[dict[str, Any]]:
         """The device's ``PreflightInfo`` value.
 
         :returns: The preflight info dict, or ``None`` when the device did not report one.
@@ -323,7 +333,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         return self.all_values.get("PreflightInfo")
 
     @property
-    def firmware_preflight_info(self) -> Optional[dict]:
+    def firmware_preflight_info(self) -> Optional[dict[str, Any]]:
         """The device's ``FirmwarePreflightInfo`` value.
 
         :returns: The firmware preflight info dict, or ``None`` when the device did not report one.
@@ -338,7 +348,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         :returns: The display name, or ``None`` when the product type is not in the table.
         """
-        for irecv_device in IRECV_DEVICES:
+        for irecv_device in cast(Iterable[IRecvDevice], IRECV_DEVICES):
             if irecv_device.product_type == self.product_type:
                 return irecv_device.display_name
         return None
@@ -351,7 +361,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         :returns: The hardware model, or ``None`` when the product type is not in the table.
         """
-        for irecv_device in IRECV_DEVICES:
+        for irecv_device in cast(Iterable[IRecvDevice], IRECV_DEVICES):
             if irecv_device.product_type == self.product_type:
                 return irecv_device.hardware_model
         return None
@@ -364,7 +374,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         :returns: The board ID, or ``None`` when the product type is not in the table.
         """
-        for irecv_device in IRECV_DEVICES:
+        for irecv_device in cast(Iterable[IRecvDevice], IRECV_DEVICES):
             if irecv_device.product_type == self.product_type:
                 return irecv_device.board_id
         return None
@@ -377,7 +387,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         :returns: The chip ID, or ``None`` when the product type is not in the table.
         """
-        for irecv_device in IRECV_DEVICES:
+        for irecv_device in cast(Iterable[IRecvDevice], IRECV_DEVICES):
             if irecv_device.product_type == self.product_type:
                 return irecv_device.chip_id
         return None
@@ -540,7 +550,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         """
         return await self._request("EnterRecovery")
 
-    async def stop_session(self) -> dict:
+    async def stop_session(self) -> dict[str, Any]:
         """Stop the current lockdownd session.
 
         Sends a ``StopSession`` request for the active session and clears the local session id.
@@ -644,7 +654,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
             # TODO: consider parsing product_version to support iOS < 4
         )
 
-        pair_record = {
+        pair_record: dict[str, Any] = {
             "DeviceCertificate": device_cert_pem,
             "HostCertificate": host_cert_pem,
             "HostID": self.host_id,
@@ -654,7 +664,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
             "SystemBUID": self.system_buid,
         }
 
-        pair_options = {
+        pair_options: dict[str, Any] = {
             "HostName": socket.gethostname(),
             "PairRecord": pair_record,
             "ProtocolVersion": "2",
@@ -706,7 +716,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
             # TODO: consider parsing product_version to support iOS < 4
         )
 
-        pair_record = {
+        pair_record: dict[str, Any] = {
             "DeviceCertificate": device_cert_pem,
             "HostCertificate": host_cert_pem,
             "HostID": self.host_id,
@@ -716,7 +726,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
             "SystemBUID": self.system_buid,
         }
 
-        pair_options = {
+        pair_options: dict[str, Any] = {
             "PairRecord": pair_record,
             "ProtocolVersion": "2",
             "PairingOptions": {"SupervisorCertificate": public_key, "ExtendedPairingErrors": True},
@@ -783,7 +793,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         :param key: Specific key to read, or ``None`` to read the whole domain.
         :returns: The requested value, or ``None`` if nothing was returned.
         """
-        options = {}
+        options: dict[str, Any] = {}
         if domain:
             options["Domain"] = domain
         if key:
@@ -798,23 +808,23 @@ class LockdownClient(ABC, LockdownServiceProvider):
             return r.data
         if domain is None and key is None and isinstance(r, dict):
             self.all_values = r
-        return r
+        return cast(Any, r)
 
-    async def remove_value(self, domain: Optional[str] = None, key: Optional[str] = None) -> dict:
+    async def remove_value(self, domain: Optional[str] = None, key: Optional[str] = None) -> dict[str, Any]:
         """Remove a value on the device via a ``RemoveValue`` request.
 
         :param domain: Domain to remove from, or ``None`` for the default domain.
         :param key: Specific key to remove, or ``None``.
         :returns: The lockdownd response to the request.
         """
-        options = {}
+        options: dict[str, Any] = {}
         if domain:
             options["Domain"] = domain
         if key:
             options["Key"] = key
         return await self._request("RemoveValue", options)
 
-    async def set_value(self, value, domain: Optional[str] = None, key: Optional[str] = None) -> dict:
+    async def set_value(self, value: Any, domain: Optional[str] = None, key: Optional[str] = None) -> dict[str, Any]:
         """Write a value to the device via a ``SetValue`` request.
 
         :param value: The value to write.
@@ -822,7 +832,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         :param key: Specific key to write, or ``None``.
         :returns: The lockdownd response to the request.
         """
-        options = {}
+        options: dict[str, Any] = {}
         if domain:
             options["Domain"] = domain
         if key:
@@ -830,7 +840,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
         options["Value"] = value
         return await self._request("SetValue", options)
 
-    async def get_service_connection_attributes(self, name: str, include_escrow_bag: bool = False) -> dict:
+    async def get_service_connection_attributes(self, name: str, include_escrow_bag: bool = False) -> dict[str, Any]:
         """Ask lockdownd to start a named service and return its connection attributes.
 
         Sends a ``StartService`` request for the given service. The returned dict includes the ``Port`` to
@@ -966,7 +976,9 @@ class LockdownClient(ABC, LockdownServiceProvider):
         """
         return await self.create_service_connection(port)
 
-    async def _request(self, request: str, options: Optional[dict] = None, verify_request: bool = True) -> dict:
+    async def _request(
+        self, request: str, options: Optional[dict[str, Any]] = None, verify_request: bool = True
+    ) -> dict[str, Any]:
         """
         Sends a request to the associated service, processes the response, and verifies
         the result. Reconnects and retries the request if a connection-related error
@@ -1014,7 +1026,9 @@ class LockdownClient(ABC, LockdownServiceProvider):
             await self.service.close()
             raise
 
-    def _verify_request_response(self, request: str, response: dict, *, verify_request: bool = True) -> dict:
+    def _verify_request_response(
+        self, request: str, response: dict[str, Any], *, verify_request: bool = True
+    ) -> dict[str, Any]:
         """Internal helper for verify request response.
 
         :param request: Request.
@@ -1033,7 +1047,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
             # return response if supervisor cert challenge is required, to work with pair_supervisor
             if error == "MCChallengeRequired":
                 return response
-            exception_errors = {
+            exception_errors: dict[str, type[PyMobileDevice3Exception]] = {
                 "PasswordProtected": PasswordRequiredError,
                 "PairingDialogResponsePending": PairingDialogResponsePendingError,
                 "UserDeniedPairing": UserDeniedPairingError,
@@ -1052,7 +1066,7 @@ class LockdownClient(ABC, LockdownServiceProvider):
 
         return response
 
-    async def _request_pair(self, pair_options: dict, timeout: Optional[float] = None) -> dict:
+    async def _request_pair(self, pair_options: dict[str, Any], timeout: Optional[float] = None) -> dict[str, Any]:
         """
         Asynchronously requests pairing using the provided pair options. This method handles
         pairing dialog responses and waits for user input within the given timeout period.
@@ -1140,7 +1154,7 @@ class UsbmuxLockdownClient(LockdownClient):
         identifier: Optional[str] = None,
         label: str = DEFAULT_LABEL,
         system_buid: str = SYSTEM_BUID,
-        pair_record: Optional[dict] = None,
+        pair_record: Optional[dict[str, Any]] = None,
         pairing_records_cache_folder: Optional[Path] = None,
         port: int = SERVICE_PORT,
         usbmux_address: Optional[str] = None,
@@ -1165,7 +1179,7 @@ class UsbmuxLockdownClient(LockdownClient):
         )
 
     @property
-    def short_info(self) -> dict:
+    def short_info(self) -> dict[str, Any]:
         """A compact subset of the device's values, plus the usbmux connection type.
 
         :returns: The base `short_info` dict with an added ``ConnectionType`` key
@@ -1237,7 +1251,7 @@ class TcpLockdownClient(LockdownClient):
         identifier: Optional[str] = None,
         label: str = DEFAULT_LABEL,
         system_buid: str = SYSTEM_BUID,
-        pair_record: Optional[dict] = None,
+        pair_record: Optional[dict[str, Any]] = None,
         pairing_records_cache_folder: Optional[Path] = None,
         port: int = SERVICE_PORT,
         keep_alive: bool = True,
@@ -1288,7 +1302,7 @@ class RemoteLockdownClient(LockdownClient):
             "RemoteXPC service connections should only be created using RemoteServiceDiscoveryService"
         )
 
-    async def _handle_autopair(self, *args, **kwargs):
+    async def _handle_autopair(self, *args: Any, **kwargs: Any):
         # The RemoteXPC version of lockdown doesn't support pairing operations
         """Internal helper for handle autopair.
 
@@ -1299,7 +1313,7 @@ class RemoteLockdownClient(LockdownClient):
         """
         return None
 
-    async def pair(self, *args, **kwargs) -> None:
+    async def pair(self, *args: Any, **kwargs: Any) -> None:
         """Pair.
 
         :param *args: Additional positional arguments.
@@ -1325,7 +1339,7 @@ class RemoteLockdownClient(LockdownClient):
         identifier: Optional[str] = None,
         label: str = DEFAULT_LABEL,
         system_buid: str = SYSTEM_BUID,
-        pair_record: Optional[dict] = None,
+        pair_record: Optional[dict[str, Any]] = None,
         pairing_records_cache_folder: Optional[Path] = None,
         port: int = SERVICE_PORT,
     ):
@@ -1355,7 +1369,7 @@ async def create_using_usbmux(
     connection_type: Optional[str] = None,
     pair_timeout: Optional[float] = None,
     local_hostname: Optional[str] = None,
-    pair_record: Optional[dict] = None,
+    pair_record: Optional[dict[str, Any]] = None,
     pairing_records_cache_folder: Optional[Path] = None,
     port: int = SERVICE_PORT,
     usbmux_address: Optional[str] = None,
@@ -1420,14 +1434,16 @@ async def create_using_usbmux(
 
 
 @overload
-async def retry_create_using_usbmux(retry_timeout: None = ..., **kwargs) -> UsbmuxLockdownClient: ...
+async def retry_create_using_usbmux(retry_timeout: None = ..., **kwargs: Any) -> UsbmuxLockdownClient: ...
 
 
 @overload
-async def retry_create_using_usbmux(retry_timeout: float, **kwargs) -> Optional[UsbmuxLockdownClient]: ...
+async def retry_create_using_usbmux(retry_timeout: float, **kwargs: Any) -> Optional[UsbmuxLockdownClient]: ...
 
 
-async def retry_create_using_usbmux(retry_timeout: Optional[float] = None, **kwargs) -> Optional[UsbmuxLockdownClient]:
+async def retry_create_using_usbmux(
+    retry_timeout: Optional[float] = None, **kwargs: Any
+) -> Optional[UsbmuxLockdownClient]:
     """Repeatedly call `create_using_usbmux` until it succeeds, tolerating transient errors.
 
     Useful while a device is rebooting or reconnecting: connection/device errors are swallowed and the
@@ -1465,7 +1481,7 @@ async def create_using_tcp(
     autopair: bool = True,
     pair_timeout: Optional[float] = None,
     local_hostname: Optional[str] = None,
-    pair_record: Optional[dict] = None,
+    pair_record: Optional[dict[str, Any]] = None,
     pairing_records_cache_folder: Optional[Path] = None,
     port: int = SERVICE_PORT,
     keep_alive: bool = False,
@@ -1515,7 +1531,7 @@ async def create_using_remote(
     autopair: bool = True,
     pair_timeout: Optional[float] = None,
     local_hostname: Optional[str] = None,
-    pair_record: Optional[dict] = None,
+    pair_record: Optional[dict[str, Any]] = None,
     pairing_records_cache_folder: Optional[Path] = None,
     port: int = SERVICE_PORT,
 ) -> RemoteLockdownClient:
@@ -1560,7 +1576,7 @@ async def get_mobdev2_lockdowns(
     only_paired: bool = False,
     timeout: float = DEFAULT_BONJOUR_TIMEOUT,
 ) -> AsyncIterable[tuple[str, TcpLockdownClient]]:
-    records = {}
+    records: dict[str, Any] = {}
     if pair_records is None:
         pair_records = get_home_folder()
     for file in pair_records.glob("*.plist"):

@@ -115,6 +115,17 @@ DESCRIPTIONS: dict[str, str] = {
         "it, so it cannot receive the swapped identity. Check the `StakingHotkeys` storage for "
         "the new coldkey and swap to a fresh, unused coldkey instead."
     ),
+    "ColdkeyCollateralIncomplete": (
+        "A coldkey swap could not fully migrate miner collateral: after migrating every "
+        "indexed collateral hotkey, the old coldkey's ColdkeyMinerCollateral aggregate "
+        "was still non-zero. This is a fail-closed invariant — retry after investigating "
+        "orphaned MinerCollateral rows for that coldkey, or contact runtime maintainers."
+    ),
+    "ColdkeyCollateralPositionsFull": (
+        "This coldkey already has the maximum number of distinct hotkeys with miner "
+        "collateral on the subnet. Drain or consolidate existing bonds before adding "
+        "another collateral position."
+    ),
     "ColdkeySwapAlreadyDisputed": (
         "`dispute_coldkey_swap` was called for a coldkey whose pending swap announcement is "
         "already under dispute. Check the `ColdkeySwapDisputes` storage for the coldkey; no "
@@ -411,6 +422,13 @@ DESCRIPTIONS: dict[str, str] = {
         "blocks old, so the work is stale. Compare the submitted block number with the current "
         "chain height and regenerate the PoW against a fresh block."
     ),
+    "KeepStakeBlockedByCollateral": (
+        "A hotkey swap with keep_stake=true was refused because the old hotkey still has "
+        "standing miner registration collateral. keep_stake leaves stake on the old key "
+        "while the UID moves, which would strand the bond. Retry with keep_stake=false so "
+        "collateral migrates with the UID; on-chain hotkey lineage maps track the rename "
+        "for blacklist continuity. Or drain the bond through earned emission first."
+    ),
     "LeaseCannotEndInThePast": (
         "The `end_block` supplied when registering a leased network is not after the current "
         "block. Check the current chain height and pass an `end_block` in the future, or omit "
@@ -642,9 +660,11 @@ DESCRIPTIONS: dict[str, str] = {
         "`btcli query neurons --netuid 0`)."
     ),
     "StakeUnavailable": (
-        "An unstake would dip into stake that is still locked: the requested alpha exceeds the "
-        "coldkey's unlocked balance on that subnet. Check the `Lock` entry for the coldkey and "
-        "netuid; only total stake minus the decaying locked mass can be unstaked."
+        "An unstake or same-subnet stake transfer would dip into stake that is still reserved: "
+        "the requested alpha exceeds the coldkey's free balance on that subnet after subtracting "
+        "conviction `Lock` and any miner registration collateral locked against hotkeys the "
+        "coldkey owns. Check `Lock` and `MinerCollateral` for the netuid; only total stake minus "
+        "those reservations can move."
     ),
     "StakingRateLimitExceeded": (
         "Staking operations (add_stake, remove_stake, and similar) were submitted faster than "

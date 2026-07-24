@@ -4,7 +4,7 @@ import typing
 from datetime import datetime
 from typing import Any, Optional
 
-from pymobiledevice3.dtx import DTXQueue, DTXService, PInt32, dtx_method, dtx_on_invoke
+from pymobiledevice3.dtx import DTXContext, DTXQueue, DTXService, PInt32, dtx_method, dtx_on_invoke
 from pymobiledevice3.dtx_service import DtxService
 from pymobiledevice3.exceptions import DisableMemoryLimitError
 from pymobiledevice3.osu.os_utils import get_os_utils
@@ -42,7 +42,7 @@ class OutputReceivedEvent:
 class ProcessControlService(DTXService):
     IDENTIFIER = "com.apple.instruments.server.services.processcontrol"
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: DTXContext):
         super().__init__(ctx)
         self.output_events: DTXQueue[list[Any]] = DTXQueue()
 
@@ -64,7 +64,12 @@ class ProcessControlService(DTXService):
 
     @dtx_method("launchSuspendedProcessWithDevicePath:bundleIdentifier:environment:arguments:options:")
     async def launch_suspended_process_with_device_path_bundle_identifier_environment_arguments_options_(
-        self, device_path: str, bundle_id: str, environment: dict, arguments: list, options: dict
+        self,
+        device_path: str,
+        bundle_id: str,
+        environment: dict[str, Any],
+        arguments: list[str],
+        options: dict[str, Any],
     ) -> int: ...
 
     @dtx_on_invoke("outputReceived:fromProcess:atTime:")
@@ -146,11 +151,11 @@ class ProcessControl(DtxService[ProcessControlService]):
     async def launch(
         self,
         bundle_id: str,
-        arguments=None,
+        arguments: Optional[list[str]] = None,
         kill_existing: bool = True,
         start_suspended: bool = False,
-        environment: Optional[dict] = None,
-        extra_options: Optional[dict] = None,
+        environment: Optional[dict[str, Any]] = None,
+        extra_options: Optional[dict[str, Any]] = None,
     ) -> int:
         """
         Launch an installed application by its bundle identifier.

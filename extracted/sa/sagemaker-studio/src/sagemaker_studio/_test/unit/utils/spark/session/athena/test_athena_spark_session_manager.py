@@ -486,3 +486,64 @@ def test_start_session_user_config_overrides_connection(
     call_kwargs = athena_client.start_session.call_args
     spark_props = call_kwargs[1]["EngineConfiguration"]["Classifications"][0]["Properties"]
     assert spark_props["spark.shared.key"] == "from_user"
+
+
+@patch("sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager._SparkSession")
+@patch(
+    "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.CustomChannelBuilder"
+)
+def test_create_includes_compatibility_mode_configs(
+    mock_channel_builder, mock_spark_session, manager, mock_boto3_clients, mock_internal_utils
+):
+    """Ensure create() includes Lake Formation compatibility mode configs in spark_properties."""
+    athena_client, sts_client = mock_boto3_clients
+    manager.athena_client = athena_client
+    manager.sts_client = sts_client
+    manager.workgroup_name = "test-wg"
+    manager.project = MagicMock()
+    manager.project.id = "proj-1"
+    manager.connection_spark_configs = {}
+    manager._user_spark_conf = None
+
+    athena_client.start_session.return_value = {"SessionId": "sess-compat"}
+    athena_client.get_session.return_value = {"Status": {"State": "CREATED"}}
+    athena_client.get_session_endpoint.return_value = {
+        "EndpointUrl": "https://athena.endpoint",
+        "AuthToken": "tok",
+    }
+
+    # Mock builder chain
+    builder = MagicMock()
+    mock_spark_session.builder.channelBuilder.return_value = builder
+    builder.appName.return_value = builder
+    builder.getOrCreate.return_value = "mock_spark_session"
+
+    # Mock _lazy_init to skip boto/connection setup (already set above)
+    manager._lazy_init = MagicMock()
+    manager._get_user_id_account_id = MagicMock(return_value=("user-1", "1234567890"))
+
+    with patch(
+        "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.build_spark_configs",
+        wraps=lambda **kwargs: kwargs.get("service_configs", {}),
+    ) as mock_build:
+        manager.create()
+
+        # Verify build_spark_configs was called with service_configs containing compat keys
+        call_kwargs = mock_build.call_args[1]
+        service_configs = call_kwargs.get("service_configs", {})
+        assert "spark.hadoop.fs.s3.credentialsResolverClass" in service_configs
+        assert (
+            service_configs["spark.hadoop.fs.s3.credentialsResolverClass"]
+            == "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver"
+        )
+        assert service_configs["spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject"] == "true"
+        assert service_configs["spark.hadoop.fs.s3.folderObject.autoAction.disabled"] == "true"
+        assert service_configs["spark.sql.catalog.createDirectoryAfterTable.enabled"] == "true"
+        assert service_configs["spark.sql.catalog.dropDirectoryBeforeTable.enabled"] == "true"
+        assert (
+            service_configs["spark.sql.catalog.spark_catalog.glue.lakeformation-enabled"] == "true"
+        )
+        assert (
+            service_configs["spark.sql.catalog.skipLocationValidationOnCreateTable.enabled"]
+            == "true"
+        )

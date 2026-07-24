@@ -53,6 +53,49 @@ fn constrained_search_delta_owns_trust_step(
         || (has_active_set && ambient_spectrum_has_negative_curvature == Some(false))
 }
 
+/// Damping `α` of the self-concordant damped-Newton phase (gam#979 CTN/
+/// marginal-slope barrier crawl), or `None` once the undamped machinery owns
+/// the step.
+///
+/// For a family whose penalized inner objective is self-concordant
+/// (`CustomFamily::inner_objective_is_self_concordant` — the change-of-
+/// variables `−log h'` barrier with `h'` affine in β), the classical damped
+/// Newton step `α·δ_N` with `α = 1/(1+λ_N)` guarantees an objective decrease
+/// of at least `λ_N − log(1+λ_N)` per step while `λ_N` is large, and plain
+/// Newton is quadratically convergent once `λ_N < (3−√5)/2` (Nesterov,
+/// *Introductory Lectures on Convex Optimization*, Thm 4.1.12). `λ_N` is the
+/// Newton decrement `sqrt(gᵀH⁻¹g)`, recovered from the spectrum's model
+/// decrease `newton_decrement() = ½λ_N²` of the full modified-Newton step.
+///
+/// The trust-region ratio search lacks this guarantee on the barrier's
+/// `1/h'²` curvature: a full Newton step overshoots the barrier's region of
+/// model validity (the Dikin ellipsoid), the ρ-gate/feasibility limiter
+/// rejects it, the radius collapses, and the solve accepts only
+/// `O(1e-3)·δ_N` fragments — the measured ~0.998×/cycle KKT-residual crawl
+/// that exhausts the inner budget (the #979 survival "hang"). `α = 1/(1+λ_N)`
+/// is precisely the largest step with a guaranteed decrease, so substituting
+/// it for the first trial of each cycle replaces the crawl with the textbook
+/// bounded-decrease phase while every rejection still falls back to the
+/// unchanged trust-region machinery.
+///
+/// Returns `None` in the quadratic phase (`λ_N` below the threshold) and on a
+/// non-finite or non-positive decrement, where no self-concordance statement
+/// is available — the caller's step policy is byte-identical there.
+fn self_concordant_damped_step_alpha(newton_decrement: f64) -> Option<f64> {
+    if !(newton_decrement.is_finite() && newton_decrement > 0.0) {
+        return None;
+    }
+    let lambda_n = (2.0 * newton_decrement).sqrt();
+    // (3 − √5)/2: the classical bound on the decrement below which the FULL
+    // Newton step keeps the iterate inside the quadratic-convergence region
+    // of a standard self-concordant function.
+    const SC_QUADRATIC_PHASE_THRESHOLD: f64 = 0.381_966_011_250_105;
+    if !lambda_n.is_finite() || lambda_n < SC_QUADRATIC_PHASE_THRESHOLD {
+        return None;
+    }
+    Some(1.0 / (1.0 + lambda_n))
+}
+
 /// Reduced-space Newton candidate on a certified current inequality face.
 ///
 /// The global constrained step uses a convex model to discover the active
@@ -463,6 +506,34 @@ mod exact_face_newton_tests {
             Some(true),
         ));
     }
+
+    #[test]
+    fn self_concordant_damping_is_inactive_in_the_quadratic_phase() {
+        // λ_N below (3−√5)/2 — plain Newton owns the endgame, so the damped
+        // trial must decline and the step policy stays byte-identical. This is
+        // the STEP-POLICY-ONLY invariant: a converged/converging fit whose
+        // decrement has entered the quadratic phase never sees a damped step.
+        let lambda_n = 0.3_f64;
+        assert!(self_concordant_damped_step_alpha(0.5 * lambda_n * lambda_n).is_none());
+        // Degenerate decrements carry no self-concordance statement.
+        assert!(self_concordant_damped_step_alpha(0.0).is_none());
+        assert!(self_concordant_damped_step_alpha(-1.0).is_none());
+        assert!(self_concordant_damped_step_alpha(f64::NAN).is_none());
+        assert!(self_concordant_damped_step_alpha(f64::INFINITY).is_none());
+    }
+
+    #[test]
+    fn self_concordant_damping_matches_the_damped_newton_alpha() {
+        // decrement = ½λ_N² ⇒ α = 1/(1+λ_N). λ_N = 2 ⇒ α = 1/3.
+        let alpha = self_concordant_damped_step_alpha(2.0).expect("damped phase");
+        assert!((alpha - 1.0 / 3.0).abs() <= 1e-15);
+        // Just above the threshold the damping engages continuously.
+        let lambda_n = 0.4_f64;
+        let alpha = self_concordant_damped_step_alpha(0.5 * lambda_n * lambda_n)
+            .expect("damped phase just above threshold");
+        assert!((alpha - 1.0 / 1.4).abs() <= 1e-15);
+    }
+
 }
 
 pub(crate) fn fused_first_attempt_log_likelihood<
@@ -719,39 +790,11 @@ fn resolve_constrained_converged_mode<F: CustomFamily + Clone + Send + Sync + 's
     // resolves that phantom to a genuine constrained mode, and any REAL saddle
     // keeps a feasible escape (its direction lies in the tight-face tangent, so
     // it has zero rate on every tight row and a meaningful feasible length).
-    let feasibility_tol = gam_solve::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL;
-    let mut tight_active_sets: Vec<Option<Vec<usize>>> =
-        Vec::with_capacity(block_constraints.len());
-    for (block_idx, constraints_opt) in block_constraints.iter().enumerate() {
-        let Some(constraints) = constraints_opt else {
-            tight_active_sets.push(None);
-            continue;
-        };
-        let block_values = constraints.values(states[block_idx].beta.view())?;
-        let mut rows: Vec<usize> = cached_active_sets
-            .get(block_idx)
-            .and_then(|active| active.clone())
-            .unwrap_or_default();
-        for row in 0..constraints.nrows() {
-            if rows.contains(&row) {
-                continue;
-            }
-            let norm = constraints.row_norm(row)?;
-            if !(norm.is_finite() && norm > 0.0) {
-                continue;
-            }
-            let bound = constraints.bound(row)?;
-            if bound == f64::NEG_INFINITY {
-                continue;
-            }
-            if (block_values[row] - bound) / norm < feasibility_tol {
-                rows.push(row);
-            }
-        }
-        rows.sort_unstable();
-        rows.dedup();
-        tight_active_sets.push((!rows.is_empty()).then_some(rows));
-    }
+    let tight_active_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+        block_constraints,
+        states,
+        cached_active_sets,
+    )?;
     let mode_active_block =
         assemble_active_constraint_block(block_constraints, &tight_active_sets, ranges, total_p);
     let certificate = exact_joint_mode_curvature_certificate(
@@ -1569,12 +1612,25 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
         // wall-clock; cf. the explicit no-wall-clock note at the bottom of the
         // cycle loop), how many more cycles reaching `residual_tol` would take.
         const LINEAR_RATE_WINDOW: usize = 16;
-        // If, at the current geometric rate, reaching tol would take more than
-        // this many additional cycles, the ρ-evaluation cannot finish in a
-        // practical budget: exit `converged=false` with the finite β so the
-        // outer optimizer rejects this ρ and moves on (a well-conditioned ρ
-        // converges quadratically in a handful of cycles and never reaches the
-        // window, so this never touches a healthy solve).
+        // Floor on the slow-geometric-rate projection cap. The EFFECTIVE cap is
+        // `max(this floor, remaining budget = inner_max_cycles − cycle)`: if the
+        // geometric projection says tol is reachable within the caller's own
+        // remaining `inner_max_cycles` budget, the solve is allowed to run to it
+        // rather than being killed at a fixed 100 (gam#979 survival marginal-
+        // slope). The derivative-quality outer eval deliberately sets a large
+        // budget (`inner_max_cycles=1200`, psi_hyper.rs) BECAUSE the analytic
+        // LAML trace-gradient is only consistent at a joint-stationary β̂ with a
+        // very tight `residual_tol` (~1e-9): the 3-block survival-MS constrained
+        // solve descends geometrically (~0.94×/cycle) and reaches that tol in
+        // ~200 cycles — well inside 1200 — but a fixed cap of 100 cut it off at
+        // ~cycle 107, handed the outer a non-stationary mode, and the resulting
+        // IFT-inconsistent outer gradient stranded ARC at a spurious strict
+        // saddle it could not escape (the measured n=400/2500 centers=12 hard
+        // failure). Deferring the cap to the caller's budget lets the solve
+        // finish; a genuinely non-converging solve (rate ≥ 1, or projected past
+        // the remaining budget) still exits, and `inner_max_cycles` remains the
+        // hard backstop. Never SMALLER than the historic 100 (the floor), so no
+        // previously-surviving solve is cut off earlier.
         const LINEAR_RATE_PROJECTION_CAP: usize = 100;
         let mut residual_rate_history: std::collections::VecDeque<f64> =
             std::collections::VecDeque::with_capacity(LINEAR_RATE_WINDOW + 1);
@@ -3341,6 +3397,23 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 } else {
                     None
                 };
+            // SELF-CONCORDANT DAMPING (gam#979). For a family that declares
+            // its penalized inner objective self-concordant, compute once per
+            // cycle the damped-Newton `α = 1/(1+λ_N)` from the spectrum's
+            // Newton decrement. Consumed ONLY by the α-crush rescue arm of the
+            // first trust attempt (the measured barrier-overshoot pathology),
+            // where `α·δ_N` replaces the radius-clamped step; every other arm,
+            // every later attempt, and every non-flagged family are
+            // byte-identical. `None` outside the damped phase (λ_N below the
+            // quadratic-phase threshold), where plain Newton owns the endgame.
+            let self_concordant_damping: Option<f64> =
+                if family.inner_objective_is_self_concordant() {
+                    joint_spectrum.as_ref().and_then(|spectrum| {
+                        self_concordant_damped_step_alpha(spectrum.newton_decrement())
+                    })
+                } else {
+                    None
+                };
             let mut model_rejects = 0usize;
             let mut likelihood_rejects = 0usize;
             let mut objective_rejects = 0usize;
@@ -3434,6 +3507,14 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 // untruncated because the global α-crush would otherwise collapse
                 // a feasible, within-trust QP step (see the gated bypass below).
                 let mut qp_feasible_bypass = false;
+                // Self-concordant damped first trial (gam#979): live only on
+                // the cycle's FIRST attempt; a rejection falls through to the
+                // byte-identical trust-region attempts below.
+                let sc_first_trial_alpha = if trust_attempt == 0 {
+                    self_concordant_damping
+                } else {
+                    None
+                };
                 let mut block_step_norms = if let Some(spectrum) = joint_spectrum.as_ref() {
                     // POSITIVE-DEFINITE CONSTRAINED PATH (gam#979 CTN).
                     //
@@ -3536,7 +3617,32 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         }
                     } else if constrained_alpha_would_crush {
                         qp_feasible_bypass = true;
-                        trial_delta = spectrum.trust_region_step(joint_trust_radius).delta;
+                        // SELF-CONCORDANT DAMPED CRUSH REPLACEMENT (gam#979).
+                        // This arm is reached exactly on the barrier-overshoot
+                        // pathology: the fraction-to-boundary α the legacy path
+                        // would apply is below the crush threshold, i.e. the
+                        // Newton proposal steps deep past the −log h' barrier's
+                        // region of model validity and the crush would gut it to
+                        // ~1e-4·δ_N (the measured ~0.998×/cycle residual crawl).
+                        // For a family that declares its inner objective
+                        // self-concordant, the damped Newton step `α·δ_N`,
+                        // α = 1/(1+λ_N), is the classical largest step with a
+                        // guaranteed objective decrease — a principled,
+                        // barrier-aware step length where the D-metric radius
+                        // carries no barrier information. First attempt only;
+                        // a rejection falls back to the byte-identical
+                        // radius-clamped rescue below. The authoritative
+                        // face-chord arm above is deliberately untouched: an
+                        // interior-damped step there pulls every accepted
+                        // iterate off the working band, wipes the cached active
+                        // face, and forces a from-scratch QP each cycle
+                        // (measured: warm_rows=0 on all 244 cycles).
+                        if let Some(sc_alpha) = sc_first_trial_alpha {
+                            trial_delta = spectrum.trust_region_step(f64::INFINITY).delta;
+                            trial_delta.mapv_inplace(|value| value * sc_alpha);
+                        } else {
+                            trial_delta = spectrum.trust_region_step(joint_trust_radius).delta;
+                        }
                         joint_trust_region_block_metric_norms(
                             &trial_delta,
                             &ranges,
@@ -5573,11 +5679,48 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         .max(1.0);
                     let fixed_point_floor = 64.0 * f64::EPSILON * beta_scale;
                     let objective_floor = 64.0 * f64::EPSILON * (1.0 + lastobjective.abs());
-                    let at_numerical_fixed_point = accepted_step_inf.is_finite()
-                        && accepted_step_inf <= fixed_point_floor
-                        && objective_change <= objective_floor
-                        && scalar_model_relerr <= 1e-3;
-                    if any_block_constrained && at_numerical_fixed_point {
+                    // `step_at_eps_floor` records whether the accepted step also reached
+                    // its OWN machine-eps floor, used only to label the log line with
+                    // which stationarity witness fired (strict eps step vs the gam#2358
+                    // objective-eps / gauge-drift-step path below).
+                    let step_at_eps_floor =
+                        accepted_step_inf.is_finite() && accepted_step_inf <= fixed_point_floor;
+                    // gam#2358: the constrained fixed-point certificate must not
+                    // additionally require the accepted STEP to reach its own machine-eps
+                    // floor `64·eps·|β|`. On a FLAT / gauge-drift constrained surface (the
+                    // coupled mean/log-σ/wiggle location-scale seed: `y ~ x`, noise `1`,
+                    // degree-3 monotone link wiggle) the joint Newton reaches a genuine
+                    // constrained KKT point — 4 active I-spline `γ≥0` rows, H_pen full
+                    // rank (nullity 0), the residual (≈10) a real active-constraint
+                    // Lagrange multiplier — with the OBJECTIVE already at its eps floor
+                    // (|Δobj|=1.4e-13 ≤ objective_floor=1.1e-12) and an exact model, but
+                    // the accepted step floors a HAIR above `64·eps·|β|` (7.99e-14 vs
+                    // 4.73e-14, ×1.69) EVERY cycle and `step_at_eps_floor` never latches,
+                    // so the iterate is refused as a phantom multiplier — fatally at the
+                    // seed. The step floors above `64·eps·|β|` precisely because it is
+                    // objective-flat gauge drift through the active-set QP + line search
+                    // (extra rounding beyond a single β update); it is irrelevant to
+                    // convergence once the objective is at its eps floor. Gate on
+                    // `objective_at_numerical_floor` and require the accepted step merely
+                    // small (`≤ step_tol`, the scale-aware stationarity gate the candidate
+                    // conditions above already established), NOT at its eps floor. This is
+                    // the exact treatment the UNCONSTRAINED model-stationary certificate
+                    // below already applies. Safety is unchanged: a still-DESCENDING
+                    // iterate has `|Δobj| > objective_floor` (fails the eps objective
+                    // floor) and never reaches here; an H-null/rank-deficient defect fails
+                    // the `hpen_nullity == 0` gate below (deferred to the range-space
+                    // certificate); and `linearized_rel ≥ 0.5` (candidacy) proves the
+                    // residual is constraint-normal multiplier mass, not resolvable
+                    // descent — so nothing genuinely non-converged is certified.
+                    let constrained_numerical_fixed_point =
+                        crate::joint_newton::constrained_numerical_fixed_point_reached(
+                            objective_change,
+                            objective_floor,
+                            scalar_model_relerr,
+                            accepted_step_inf,
+                            step_tol,
+                        );
+                    if any_block_constrained && constrained_numerical_fixed_point {
                         // Materialize H_pen = H + S(λ) (+ model ridge) and count its
                         // numerical null space at the shared rank tolerance: nullity == 0
                         // ⇒ the stuck residual is NOT an H-null/rank-deficient defect
@@ -5609,12 +5752,23 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         .unwrap_or(None);
                         if hpen_nullity == Some(0) {
                             log::info!(
-                                "[PIRLS/joint-Newton convergence] cycle {:>3} | constrained fixed-point certificate:                                  accepted_step_inf={:.3e} ≤ {:.3e} and |Δobjective|={:.3e} ≤ {:.3e} (numerical fixed point),                                  scalar_relerr={:.3e}, linearized_rel={:.3e}; H_pen has no numerical null space so the                                  residual={:.3e} is an active-constraint Lagrange multiplier (the QP under-identified the                                  binding rows), projected out of the KKT residual by the active-constraint-aware IFT                                  correction before the envelope gradient — the iterate is a constrained KKT point",
+                                "[PIRLS/joint-Newton convergence] cycle {:>3} | constrained fixed-point certificate ({}): \
+                                 |Δobjective|={:.3e} ≤ objective_floor={:.3e} (objective at machine-eps floor), accepted_step_inf={:.3e} (eps_floor={:.3e}, step_tol={:.3e}), \
+                                 scalar_relerr={:.3e}, linearized_rel={:.3e}; H_pen has no numerical null space so the \
+                                 residual={:.3e} is an active-constraint Lagrange multiplier (the QP under-identified the \
+                                 binding rows), projected out of the KKT residual by the active-constraint-aware IFT \
+                                 correction before the envelope gradient — the iterate is a constrained KKT point",
                                 cycle,
-                                accepted_step_inf,
-                                fixed_point_floor,
+                                if step_at_eps_floor {
+                                    "machine-eps step + objective fixed point"
+                                } else {
+                                    "objective-eps fixed point, gauge-drift step (gam#2358)"
+                                },
                                 objective_change,
                                 objective_floor,
+                                accepted_step_inf,
+                                fixed_point_floor,
+                                step_tol,
                                 scalar_model_relerr,
                                 linearized_rel,
                                 residual,
@@ -5952,6 +6106,10 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // #979 hang (~0.99×/cycle orders above tol) projects far past the
             // cap. Deterministic: cycle indices and residual ratios only; the
             // `inner_max_cycles` ceiling remains the hard backstop.
+            // Effective cap defers to the caller's remaining `inner_max_cycles`
+            // budget (floored at the historic 100) — see the const doc.
+            let effective_projection_cap =
+                inner_max_cycles.saturating_sub(cycle).max(LINEAR_RATE_PROJECTION_CAP);
             let residual_tol_reachable_within_cap = residual_rate_history.len()
                 > LINEAR_RATE_WINDOW
                 && !gam_solve::loop_guard::slow_geometric_rate_exceeds_projection_cap(
@@ -5959,7 +6117,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                     *residual_rate_history.front().unwrap(),
                     LINEAR_RATE_WINDOW,
                     residual_tol,
-                    LINEAR_RATE_PROJECTION_CAP,
+                    effective_projection_cap,
                 );
             if cycle + 1 >= RESIDUAL_STALL_MIN_CYCLES
                 && cycles_since_residual_improved >= RESIDUAL_STALL_NO_IMPROVE_CYCLES
@@ -6155,12 +6313,17 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let oldest = *residual_rate_history.front().unwrap();
                 // Single source of truth for the slow-geometric-rate projection
                 // (gam#979): deterministic cycle-count projection, no wall-clock.
+                // The cap defers to the caller's remaining budget (floored at the
+                // historic 100) so a solve that can reach tol within its own
+                // `inner_max_cycles` is not cut off — see the const doc.
+                let effective_projection_cap =
+                    inner_max_cycles.saturating_sub(cycle).max(LINEAR_RATE_PROJECTION_CAP);
                 let too_slow = gam_solve::loop_guard::slow_geometric_rate_exceeds_projection_cap(
                     residual,
                     oldest,
                     LINEAR_RATE_WINDOW,
                     residual_tol,
-                    LINEAR_RATE_PROJECTION_CAP,
+                    effective_projection_cap,
                 );
                 if too_slow {
                     log::warn!(
@@ -6170,7 +6333,7 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                         residual_tol,
                         (residual / oldest).powf(1.0 / (LINEAR_RATE_WINDOW as f64)),
                         LINEAR_RATE_WINDOW,
-                        LINEAR_RATE_PROJECTION_CAP,
+                        effective_projection_cap,
                         inner_max_cycles,
                     );
                     cycles_done = cycle + 1;
@@ -6209,9 +6372,16 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             // contract here.
             if !returned_mode_curvature_certified && joint_jeffreys_subspace.is_none() {
                 let mode_active_block = if joint_constraints.is_some() {
+                    // Certify on the full numerically-tight face, not only the
+                    // QP-recorded rows — see widen_active_sets_to_tight_face.
+                    let tight_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+                        &block_constraints,
+                        &states,
+                        &cached_active_sets,
+                    )?;
                     crate::blockwise_solve::assemble_active_constraint_block(
                         &block_constraints,
-                        &cached_active_sets,
+                        &tight_sets,
                         &ranges,
                         total_p,
                     )
@@ -6366,9 +6536,21 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
             );
             let active_constraints = {
                 let block_constraints = collect_block_linear_constraints(family, &states, specs)?;
+                // The LAML logdet must project onto the tangent of the FULL
+                // numerically-tight face at the returned mode — the same face
+                // the curvature certificate used. Projecting only past the
+                // QP-recorded rows leaves near-tight rows' normals inside the
+                // tangent, and the genuine curvature normal to them reads as a
+                // phantom indefiniteness that aborts the ρ-evaluation (the
+                // measured survival marginal-slope "no Laplace mode" terminal).
+                let tight_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+                    &block_constraints,
+                    &states,
+                    &cached_active_sets,
+                )?;
                 assemble_active_constraint_block(
                     &block_constraints,
-                    &cached_active_sets,
+                    &tight_sets,
                     &ranges,
                     total_p,
                 )
@@ -6625,9 +6807,16 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let local_ranges = block_param_ranges(specs);
                 let local_total_p = local_ranges.last().map(|(_, end)| *end).unwrap_or(0);
                 let block_constraints = collect_block_linear_constraints(family, &states, specs)?;
+                // Full numerically-tight face, not only the QP-recorded rows —
+                // see widen_active_sets_to_tight_face (gam#979).
+                let tight_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+                    &block_constraints,
+                    &states,
+                    &cached_active_sets,
+                )?;
                 assemble_active_constraint_block(
                     &block_constraints,
-                    &cached_active_sets,
+                    &tight_sets,
                     &local_ranges,
                     local_total_p,
                 )
@@ -6699,9 +6888,16 @@ pub(crate) fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'stati
                 let local_ranges = block_param_ranges(specs);
                 let local_total_p = local_ranges.last().map(|(_, end)| *end).unwrap_or(0);
                 let block_constraints = collect_block_linear_constraints(family, &states, specs)?;
+                // Full numerically-tight face, not only the QP-recorded rows —
+                // see widen_active_sets_to_tight_face (gam#979).
+                let tight_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+                    &block_constraints,
+                    &states,
+                    &cached_active_sets,
+                )?;
                 assemble_active_constraint_block(
                     &block_constraints,
-                    &cached_active_sets,
+                    &tight_sets,
                     &local_ranges,
                     local_total_p,
                 )
@@ -7704,9 +7900,16 @@ pub(crate) fn assemble_inner_blockwise_result<F: CustomFamily + Clone + Send + S
     );
 
     let active_constraints = {
+        // Full numerically-tight face, not only the QP-recorded rows — see
+        // widen_active_sets_to_tight_face (gam#979).
+        let tight_sets = crate::blockwise_solve::widen_active_sets_to_tight_face(
+            &block_constraints,
+            &states,
+            &cached_active_sets,
+        )?;
         assemble_active_constraint_block(
             &block_constraints,
-            &cached_active_sets,
+            &tight_sets,
             &local_ranges,
             local_total_p,
         )

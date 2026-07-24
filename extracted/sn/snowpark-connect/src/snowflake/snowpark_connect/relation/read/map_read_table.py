@@ -53,19 +53,217 @@ from snowflake.snowpark_connect.utils.telemetry import (
 from snowflake.snowpark_connect.utils.temporary_view_helper import get_temp_view
 
 ICEBERG_METADATA_TABLE_QUERIES = {
-    "files": "SELECT * FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_FILES(TABLE_NAME => ?))",
-    "snapshots": """
+    # SNOW-3471789: `.files` returns Spark's Iceberg `.files` schema (not the
+    # Snowflake-native ICEBERG_TABLE_FILES columns). REDUCE folds Iceberg's
+    # array-of-{key,value} metric fields into the object that MAP casts cleanly.
+    "files": """
+        WITH manifest_entries AS (
+            SELECT
+                REGEXP_SUBSTR(MANIFEST_FILE_NAME, '[^/]+$')            AS manifest_basename,
+                MANIFEST_ENTRIES:data_file:content::NUMBER             AS content,
+                MANIFEST_ENTRIES:data_file:file_path::STRING           AS file_path,
+                MANIFEST_ENTRIES:data_file:file_format::STRING         AS file_format,
+                MANIFEST_ENTRIES:data_file:partition                  AS partition,
+                MANIFEST_ENTRIES:data_file:record_count::NUMBER        AS record_count,
+                MANIFEST_ENTRIES:data_file:file_size_in_bytes::NUMBER  AS file_size_in_bytes,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:column_sizes, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)) AS MAP(INT, BIGINT))       AS column_sizes,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)) AS MAP(INT, BIGINT))       AS value_counts,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:null_value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)) AS MAP(INT, BIGINT))       AS null_value_counts,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:nan_value_counts, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, x:value)) AS MAP(INT, BIGINT))       AS nan_value_counts,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:lower_bounds, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, TO_BINARY(x:value::STRING, 'HEX'))) AS MAP(INT, BINARY)) AS lower_bounds,
+                CAST(REDUCE(MANIFEST_ENTRIES:data_file:upper_bounds, OBJECT_CONSTRUCT(),
+                    (acc, x) -> OBJECT_INSERT(acc, x:key::STRING, TO_BINARY(x:value::STRING, 'HEX'))) AS MAP(INT, BINARY)) AS upper_bounds,
+                TRY_CAST(MANIFEST_ENTRIES:data_file:key_metadata::STRING AS BINARY)    AS key_metadata,
+                CAST(MANIFEST_ENTRIES:data_file:split_offsets AS ARRAY(BIGINT))        AS split_offsets,
+                CAST(MANIFEST_ENTRIES:data_file:equality_ids  AS ARRAY(INT))          AS equality_ids,
+                MANIFEST_ENTRIES:data_file:sort_order_id::NUMBER       AS sort_order_id
+            FROM TABLE(ICEBERG_TABLE_MANIFEST_ENTRIES(?, NULL, 1, TRUE))
+            WHERE MANIFEST_ENTRIES:status::NUMBER != 2
+        ),
+        entry_manifests AS (
+            SELECT DISTINCT
+                REGEXP_SUBSTR(manifest_file:manifest_path::STRING, '[^/]+$') AS manifest_basename,
+                manifest_file:partition_spec_id::NUMBER                      AS spec_id
+            FROM TABLE(ICEBERG_TABLE_MANIFESTS(?))
+        )
         SELECT
-            TO_TIMESTAMP_NTZ(snapshot.value:"timestamp-ms"::NUMBER / 1000) AS committed_at,
-            snapshot.value:"snapshot-id"::NUMBER AS snapshot_id,
-            snapshot.value:"parent-snapshot-id"::NUMBER AS parent_id,
-            snapshot.value:"summary":"operation"::STRING AS operation,
-            snapshot.value:"manifest-list"::STRING AS manifest_list,
-            snapshot.value:"summary" AS summary
+            e.content,
+            e.file_path,
+            e.file_format,
+            m.spec_id,
+            e.partition,
+            e.record_count,
+            e.file_size_in_bytes,
+            e.column_sizes,
+            e.value_counts,
+            e.null_value_counts,
+            e.nan_value_counts,
+            e.lower_bounds,
+            e.upper_bounds,
+            e.key_metadata,
+            e.split_offsets,
+            e.equality_ids,
+            e.sort_order_id
+        FROM manifest_entries e
+        LEFT JOIN entry_manifests m USING (manifest_basename)
+    """,
+    # SNOW-3471788: ICEBERG_TABLE_SNAPSHOTS replaces the earlier
+    # ICEBERG_TABLE_METADATA + LATERAL FLATTEN approach; the dedicated
+    # function returns Spark-compatible column names directly.
+    "snapshots": (
+        "SELECT"
+        "  committed_at,"
+        "  snapshot_id,"
+        "  parent_id,"
+        "  operation,"
+        "  manifest_list,"
+        "  CAST(summary AS MAP(VARCHAR, VARCHAR)) AS summary"
+        " FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS(?))"
+    ),
+    "manifests": """
+        SELECT
+            manifest_file:manifest_path::STRING                           AS path,
+            manifest_file:manifest_length::NUMBER                         AS length,
+            manifest_file:partition_spec_id::INT                          AS partition_spec_id,
+            manifest_file:added_snapshot_id::NUMBER                       AS added_snapshot_id,
+            manifest_file:added_files_count::INT                          AS added_data_files_count,
+            manifest_file:existing_files_count::INT                       AS existing_data_files_count,
+            manifest_file:deleted_files_count::INT                        AS deleted_data_files_count,
+            COALESCE(manifest_file:added_delete_files_count::INT, 0)      AS added_delete_files_count,
+            COALESCE(manifest_file:existing_delete_files_count::INT, 0)   AS existing_delete_files_count,
+            COALESCE(manifest_file:deleted_delete_files_count::INT, 0)    AS deleted_delete_files_count,
+            CAST(manifest_file:partitions AS ARRAY(OBJECT(
+                contains_null BOOLEAN,
+                contains_nan  BOOLEAN,
+                lower_bound   VARCHAR,
+                upper_bound   VARCHAR
+            )))                                                           AS partition_summaries
+        FROM TABLE(ICEBERG_TABLE_MANIFESTS(?))
+    """,
+    "refs": """
+        SELECT
+            ref.key AS name,
+            UPPER(ref.value:"type"::STRING) AS type,
+            ref.value:"snapshot-id"::NUMBER AS snapshot_id,
+            ref.value:"max-ref-age-ms"::NUMBER AS max_reference_age_in_ms,
+            ref.value:"min-snapshots-to-keep"::INT AS min_snapshots_to_keep,
+            ref.value:"max-snapshot-age-ms"::NUMBER AS max_snapshot_age_in_ms
         FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?)) metadata,
-             LATERAL FLATTEN(INPUT => metadata.METADATA:snapshots) snapshot
+             LATERAL FLATTEN(INPUT => metadata.METADATA:refs) ref
+    """,
+    "history": """
+        WITH RECURSIVE
+        metadata_raw AS (
+            SELECT
+                METADATA:"current-snapshot-id"::NUMBER AS current_snapshot_id,
+                METADATA:snapshots                      AS snapshots_json,
+                METADATA:"snapshot-log"                 AS snapshot_log_json
+            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))
+        ),
+        snapshots_flat AS (
+            SELECT
+                snap.value:"snapshot-id"::NUMBER        AS snapshot_id,
+                snap.value:"parent-snapshot-id"::NUMBER AS parent_id
+            FROM metadata_raw,
+                 LATERAL FLATTEN(INPUT => metadata_raw.snapshots_json) snap
+        ),
+        ancestors(snapshot_id) AS (
+            SELECT current_snapshot_id FROM metadata_raw
+            UNION ALL
+            SELECT s.parent_id
+            FROM snapshots_flat s
+            INNER JOIN ancestors a ON s.snapshot_id = a.snapshot_id
+            WHERE s.parent_id IS NOT NULL
+        ),
+        history_entries AS (
+            SELECT
+                TO_TIMESTAMP_NTZ(entry.value:"timestamp-ms"::NUMBER / 1000) AS made_current_at,
+                entry.value:"snapshot-id"::NUMBER                            AS snapshot_id
+            FROM metadata_raw,
+                 LATERAL FLATTEN(INPUT => metadata_raw.snapshot_log_json) entry
+        )
+        SELECT
+            h.made_current_at,
+            h.snapshot_id,
+            s.parent_id,
+            (a.snapshot_id IS NOT NULL)::BOOLEAN AS is_current_ancestor
+        FROM history_entries h
+        LEFT JOIN snapshots_flat s ON h.snapshot_id = s.snapshot_id
+        LEFT JOIN ancestors a ON h.snapshot_id = a.snapshot_id
+    """,
+    "metadata_log_entries": """
+        WITH
+        metadata_raw AS (
+            SELECT
+                METADATA_FILE_NAME                                       AS current_file,
+                METADATA:"last-updated-ms"::NUMBER                       AS current_ts_ms,
+                METADATA:"current-snapshot-id"::NUMBER                   AS current_snapshot_id,
+                METADATA:snapshots                                       AS snapshots_json,
+                METADATA:"snapshot-log"                                  AS snapshot_log_json,
+                METADATA:"metadata-log"                                  AS metadata_log_json
+            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))
+        ),
+        snapshots_flat AS (
+            SELECT
+                snap.value:"snapshot-id"::NUMBER                         AS snapshot_id,
+                snap.value:"schema-id"::INT                              AS schema_id,
+                snap.value:"sequence-number"::NUMBER                     AS sequence_number
+            FROM metadata_raw,
+                 LATERAL FLATTEN(INPUT => metadata_raw.snapshots_json) snap
+        ),
+        snapshot_log_flat AS (
+            SELECT
+                sl.value:"snapshot-id"::NUMBER                           AS snapshot_id,
+                sl.value:"timestamp-ms"::NUMBER                          AS timestamp_ms
+            FROM metadata_raw,
+                 LATERAL FLATTEN(INPUT => metadata_raw.snapshot_log_json) sl
+        ),
+        historical_entries AS (
+            SELECT
+                TO_TIMESTAMP_NTZ(ml.ts_ms / 1000)       AS timestamp,
+                ml.metadata_file                          AS file,
+                MAX_BY(sl.snapshot_id, sl.timestamp_ms)  AS latest_snapshot_id
+            FROM (
+                SELECT
+                    ml.value:"metadata-file"::STRING AS metadata_file,
+                    ml.value:"timestamp-ms"::NUMBER  AS ts_ms
+                FROM metadata_raw,
+                     LATERAL FLATTEN(INPUT => metadata_raw.metadata_log_json) ml
+            ) ml
+            LEFT JOIN snapshot_log_flat sl
+                   ON sl.timestamp_ms <= ml.ts_ms
+            GROUP BY ml.metadata_file, ml.ts_ms
+        ),
+        all_entries AS (
+            SELECT
+                TO_TIMESTAMP_NTZ(current_ts_ms / 1000) AS timestamp,
+                current_file                            AS file,
+                current_snapshot_id                     AS latest_snapshot_id
+            FROM metadata_raw
+            UNION ALL
+            SELECT timestamp, file, latest_snapshot_id FROM historical_entries
+        )
+        SELECT
+            a.timestamp,
+            a.file,
+            a.latest_snapshot_id,
+            s.schema_id                                                  AS latest_schema_id,
+            s.sequence_number                                            AS latest_sequence_number
+        FROM all_entries a
+        LEFT JOIN snapshots_flat s ON a.latest_snapshot_id = s.snapshot_id
+        ORDER BY a.timestamp
     """,
 }
+
+# Times the base table name is bound (one per `?`). `files` calls two table
+# functions; the rest bind once. Explicit so a literal `?` in a regex/comment
+# can't miscount the binding. Kept in sync by a unit test.
+ICEBERG_METADATA_TABLE_BIND_COUNTS = {"files": 2}
 
 WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
 
@@ -76,19 +274,23 @@ UNSUPPORTED_ICEBERG_METADATA_TABLES = {
     "all_manifests",
     "delete_files",
     "entries",
-    "history",
-    "manifests",
-    "metadata_log_entries",
     "partitions",
     "position_deletes",
-    "refs",
 }
 
 
 def _split_iceberg_metadata_table_name(
     name_parts: list[str],
 ) -> tuple[list[str], str | None]:
-    if len(name_parts) < 4:
+    # Metadata-table routing requires Iceberg SQL extensions (per the WAP
+    # identifier-resolution spec). Without them any dotted suffix
+    # (e.g. `.snapshots`, `.files`) is treated as a plain Snowflake table name to
+    # avoid misrouting non-Iceberg workloads. This gate applies uniformly to
+    # 2-, 3- and 4-part names.
+    if not is_iceberg_sql_extensions_enabled():
+        return name_parts, None
+
+    if len(name_parts) < 2:
         return name_parts, None
 
     suffix = name_parts[-1].lower()
@@ -97,6 +299,35 @@ def _split_iceberg_metadata_table_name(
     if suffix in UNSUPPORTED_ICEBERG_METADATA_TABLES:
         return name_parts[:-1], suffix
     return name_parts, None
+
+
+def _refresh_iceberg_table_metadata(
+    session: snowpark.Session, base_table_name: str
+) -> None:
+    """Force synchronous Iceberg metadata generation before reading snapshots.
+
+    On Managed Iceberg the ``INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS`` table
+    function is populated asynchronously (observed ~7-15s) after a write, so a
+    read issued immediately after a write can miss the latest snapshot (or see
+    zero rows). ``SYSTEM$GET_ICEBERG_TABLE_INFORMATION`` generates that metadata
+    synchronously, so the subsequent snapshots query sees an up-to-date result
+    without any polling/retry.
+
+    Best-effort: on catalog-linked (Glue / Unity) or missing tables this call
+    fails, but the snapshots query that follows raises the proper actionable
+    error, so failures here are swallowed.
+    """
+    try:
+        session.sql(
+            "SELECT SYSTEM$GET_ICEBERG_TABLE_INFORMATION(?)",
+            params=[base_table_name],
+        ).collect()
+    except Exception as e:  # noqa: BLE001 - best-effort refresh
+        logger.debug(
+            "SYSTEM$GET_ICEBERG_TABLE_INFORMATION refresh skipped for %s: %s",
+            base_table_name,
+            e,
+        )
 
 
 def _read_iceberg_metadata_table(
@@ -118,8 +349,16 @@ def _read_iceberg_metadata_table(
         transform_identifier_for_snowflake(part, is_backtick_quoted=flag)
         for part, flag in zip(base_table_parts, backtick_flags)
     )
+
+    # Every metadata table (incl. `.files`, now backed by the async
+    # ICEBERG_TABLE_MANIFEST_ENTRIES) reads metadata Managed Iceberg generates
+    # asynchronously, so force a synchronous refresh before reading.
+    _refresh_iceberg_table_metadata(session, base_table_name)
+
     query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
-    df = session.sql(query, params=[base_table_name])
+    # Bind the base table name once per `?` placeholder (see BIND_COUNTS).
+    n_binds = ICEBERG_METADATA_TABLE_BIND_COUNTS.get(metadata_table_name, 1)
+    df = session.sql(query, params=[base_table_name] * n_binds)
     try:
         # Force evaluation here. ``post_process_df`` rewrites Snowflake 2003 into a
         # generic TABLE_OR_VIEW_NOT_FOUND ``AnalysisException``, which would
@@ -1061,54 +1300,11 @@ def get_table_from_name(
 
     base_table_parts, metadata_table_name = _split_iceberg_metadata_table_name(parts)
     if metadata_table_name is not None:
-        if iceberg_snapshot_id is not None:
-            exception = AnalysisException(
-                "Iceberg snapshot-id time travel is not supported on Iceberg "
-                f"metadata tables (got '{table_name}'). Read the base table at "
-                'the snapshot via \'spark.read.format("iceberg").option('
-                '"snapshot-id", N).load("<base_table>")'
-                " instead."
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        if iceberg_as_of_timestamp is not None:
-            exception = AnalysisException(
-                "Iceberg as-of-timestamp time travel is not supported on "
-                f"Iceberg metadata tables (got '{table_name}'). Read the "
-                'base table at the timestamp via \'spark.read.format("iceberg")'
-                '.option("as-of-timestamp", millis).load("<base_table>")\' '
-                "instead."
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        if iceberg_version_tag is not None:
-            exception = AnalysisException(
-                "Iceberg tag time travel is not supported on Iceberg "
-                f"metadata tables (got '{table_name}'). Read the base "
-                'table at the tag via \'spark.read.format("iceberg")'
-                '.option("tag", "<name>").load("<base_table>")\' instead.'
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        if iceberg_branch is not None:
-            exception = AnalysisException(
-                "Iceberg branch time travel is not supported on Iceberg "
-                f"metadata tables (got '{table_name}'). Read the base "
-                'table at the branch via \'spark.read.format("iceberg")'
-                '.option("branch", "<name>").load("<base_table>")\' instead.'
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-        if iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None:
-            exception = AnalysisException(
-                "Iceberg incremental read is not supported on Iceberg "
-                f"metadata tables (got '{table_name}'). Read the base "
-                'table via \'spark.read.format("iceberg").option('
-                '"start-snapshot-id", S1).option("end-snapshot-id", S2)'
-                '.load("<base_table>")\' instead.'
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
+        # SNOW-3471788: time travel options (snapshot-id, as-of-timestamp, tag,
+        # branch, start/end-snapshot-id) are silently ignored on metadata tables
+        # — matching OSS Spark+Iceberg behaviour. Metadata tables always reflect
+        # current state. Previous behaviour raised AnalysisException; callers
+        # relying on that error will no longer receive it.
         return _read_iceberg_metadata_table(
             table_name,
             base_table_parts,
@@ -1181,6 +1377,19 @@ def get_table_from_name(
     elif iceberg_branch is not None:
         df = session.read.option("branch", iceberg_branch).table(snowpark_name)
     elif iceberg_start_snapshot_id is not None:
+        from snowflake.snowpark_connect.utils.cld_context import is_in_cld_context
+
+        if is_in_cld_context():
+            # CHANGES (incremental/changelog) is managed-only; CLD rejects it
+            # (091947). A MINUS version-diff isn't faithful to append-only
+            # semantics, so raise rather than approximate.
+            exception = AnalysisException(
+                "Iceberg incremental and changelog reads "
+                "('start-snapshot-id' / 'end-snapshot-id') are not supported "
+                "on catalog-linked databases."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
         reader = session.read.option("start-snapshot-id", iceberg_start_snapshot_id)
         if iceberg_end_snapshot_id is not None:
             reader = reader.option("end-snapshot-id", iceberg_end_snapshot_id)

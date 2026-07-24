@@ -1,6 +1,8 @@
+import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal_proto.api_pb2
 import typing
 import typing_extensions
 
@@ -13,6 +15,16 @@ class _SandboxSnapshot(modal._object._Object):
     `._experimental_snapshot()` on a Sandbox instance. This includes both the filesystem and memory state of
     the original Sandbox at the time the snapshot was taken.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.SandboxSnapshotHandleMetadata]
+
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> typing.Optional[modal_proto.api_pb2.SandboxSnapshotHandleMetadata]: ...
+    @property
+    def _is_v2(self) -> typing.Optional[bool]:
+        """Whether the snapshot came from a V2 sandbox."""
+        ...
+
     class __from_id_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None
@@ -39,8 +51,18 @@ class SandboxSnapshot(modal.object.Object):
     `._experimental_snapshot()` on a Sandbox instance. This includes both the filesystem and memory state of
     the original Sandbox at the time the snapshot was taken.
     """
+
+    _metadata: typing.Optional[modal_proto.api_pb2.SandboxSnapshotHandleMetadata]
+
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
+        ...
+
+    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _get_metadata(self) -> typing.Optional[modal_proto.api_pb2.SandboxSnapshotHandleMetadata]: ...
+    @property
+    def _is_v2(self) -> typing.Optional[bool]:
+        """Whether the snapshot came from a V2 sandbox."""
         ...
 
     class __from_id_spec(typing_extensions.Protocol[SUPERSELF]):

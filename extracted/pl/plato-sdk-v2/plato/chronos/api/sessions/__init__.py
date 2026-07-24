@@ -38,6 +38,7 @@ from . import (
     update_session_span_note,
     update_session_status,
     update_session_tags,
+    upsert_session_preview_url,
 )
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     "update_session_notes",
     "clear_agent_notes",
     "update_session_span_note",
+    "upsert_session_preview_url",
     "complete_session",
     "link_plato_session",
     "get_session_logs",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nicegui
-Version: 3.14.0
+Version: 3.15.0
 Summary: Create web-based user interfaces with Python. The nice way.
 License-Expression: MIT
 License-File: LICENSE
@@ -51,9 +51,9 @@ Requires-Dist: lxml (>=6.1.0)
 Requires-Dist: lxml-html-clean (>=0.4.4)
 Requires-Dist: markdown2 (>=2.4.7,!=2.4.11)
 Requires-Dist: matplotlib (>=3.5.0,<4) ; extra == "matplotlib"
-Requires-Dist: nicegui-highcharts (>=3.2.1,<4) ; extra == "highcharts"
+Requires-Dist: nicegui-highcharts (>=3.3.0,<4) ; extra == "highcharts"
 Requires-Dist: orjson (>=3.11.5) ; platform_machine != "i386" and platform_machine != "i686" and platform_python_implementation != "PyPy"
-Requires-Dist: pillow (>=12.2.0) ; extra == "matplotlib"
+Requires-Dist: pillow (>=12.3.0) ; extra == "matplotlib"
 Requires-Dist: plotly (>=5.13,<7.0) ; extra == "plotly"
 Requires-Dist: pydantic-core (>=2.35.0)
 Requires-Dist: python-dotenv (>=1.2.2)
@@ -100,7 +100,7 @@ NiceGUI is available as [PyPI package](https://pypi.org/project/nicegui/), [Dock
 [![GitHub issues](https://img.shields.io/github/issues/zauberzeug/nicegui?color=blue)](https://github.com/zauberzeug/nicegui/issues)
 [![GitHub forks](https://img.shields.io/github/forks/zauberzeug/nicegui)](https://github.com/zauberzeug/nicegui/network)
 [![GitHub stars](https://img.shields.io/github/stars/zauberzeug/nicegui)](https://github.com/zauberzeug/nicegui/stargazers)
-[![DOI](https://zenodo.org/badge/365250183.svg)](https://doi.org/10.5281/zenodo.7785516)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7785516.svg)](https://doi.org/10.5281/zenodo.7785516)
 
 ## Features
 
@@ -197,7 +197,7 @@ If you would like to support this project and have your avatar or company logo a
   <a href="https://github.com/digiquip"><img src="https://github.com/digiquip.png" width="50px" alt="DigiQuip AS" /></a>
   <a href="https://github.com/aitech95"><img src="https://github.com/aitech95.png" width="50px" alt="JACOB SHI " /></a>
   <a href="https://github.com/Zaga-Solutions"><img src="https://github.com/Zaga-Solutions.png" width="50px" alt="Zaga Solutions" /></a>
-  <a href="https://github.com/Discolike"><img src="https://github.com/Discolike.png" width="50px" alt="DiscoLike Inc." /></a>
+  <a href="https://github.com/discolike"><img src="https://github.com/discolike.png" width="50px" alt="DiscoLike Inc." /></a>
 </p>
 <!-- SPONSORS -->
 

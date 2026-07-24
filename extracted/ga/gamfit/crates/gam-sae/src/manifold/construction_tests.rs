@@ -20,7 +20,63 @@ mod exact_hessian_fixture_tests {
     ) {
         use crate::manifold::tests::gamma_fd_tiny_fixture;
 
-        let (mut term, mut target, mut rho) = gamma_fd_tiny_fixture();
+        // #2253/#2330 re-anchor: after #2330 Phase-2a ranks the EXACT +/-log|A|
+        // and refuses an indefinite A, the historical (sparse -0.5, smooth -1,
+        // ard -0.5) basin plus the sin excitation lands on an exact-A SADDLE and
+        // the criterion refuses at construction. Rank this softmax fixture in a
+        // MODERATE-penalty basin (all log-lambda = -1) where the majorizer-
+        // converged mode is exact-A positive definite with a real margin
+        // (min_eig ~ 1.7e-1, >> the 1e-9 relative PD floor), the residual /
+        // curvature-delta channels stay LIVE (‖ΔC‖ ~ 2.0, Daleckii–Krein cross
+        // ~ 1.9e-1, both far above FD noise), and the +/-1e-5 FD perturbation of
+        // every rho coordinate stays PD (so the fixed-theta FD gates below never
+        // trip the refusal at a probe point). The softmax gate is retained (NOT
+        // the ordered-Beta--Bernoulli PD specimen) because the logdet
+        // Daleckii–Krein and full outer-Hessian channels model the SOFTMAX sparse
+        // log-strength row but refuse an OBB sparse coordinate. The exact-A saddle
+        // refusal branch is preserved reachably by
+        // `converged_state_with_residual_a_saddle_2336`.
+        let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+        rho.log_lambda_sparse = 0.0;
+        for value in rho.log_lambda_smooth.iter_mut() {
+            *value = -1.0;
+        }
+        for axis in rho.log_ard.iter_mut() {
+            for value in axis.iter_mut() {
+                *value = -1.0;
+            }
+        }
+        let (_value, _loss, cache) = term
+            .penalized_quasi_laplace_criterion_with_cache(
+                target.view(),
+                &rho,
+                None,
+                40,
+                0.4,
+                1.0e-6,
+                1.0e-6,
+            )
+            .expect("softmax PD-basin re-anchor fixture must converge with both atoms alive");
+        (term, target, rho, cache)
+    }
+
+    /// #2330/#2336 PRICING-branch companion to `converged_state_with_residual`.
+    /// The historical softmax `gamma_fd_tiny_fixture` target is NOT ordered-Beta--
+    /// Bernoulli reachable, so its majorizer-converged mode is an exact-A saddle
+    /// (a joint-block eigenvalue below the shared PD floor). MEASURED (#2336): that
+    /// negative curvature is FULLY attributable to the bounded ARD periodic
+    /// concave-clamp wrinkle E (`λ+e_v(ARD)=+0.026`, `e_v=0.041 ≥ |λ|=0.015`), so
+    /// under the value-side E-attributability semantics the criterion PRICES it
+    /// finite at its basin curvature rather than refusing. This is therefore the
+    /// canonical E-attributable wrinkle-saddle PRICING specimen
+    /// (`exact_observed_information_prices_e_attributable_a_saddle_2336`); the
+    /// genuine (non-attributable) refusal specimen is `obb_patchd_fixture` at a
+    /// window-scan saddle scale.
+    pub(super) fn converged_state_with_residual_a_saddle_2336()
+    -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+        use crate::manifold::tests::gamma_fd_tiny_fixture;
+
+        let (term, mut target, mut rho) = gamma_fd_tiny_fixture();
         let (n, p) = (target.nrows(), target.ncols());
         for row in 0..n {
             for col in 0..p {
@@ -39,19 +95,9 @@ mod exact_hessian_fixture_tests {
                 *value = -0.5;
             }
         }
-        let (_value, _loss, cache) = term
-            .penalized_quasi_laplace_criterion_with_cache(
-                target.view(),
-                &rho,
-                None,
-                40,
-                0.4,
-                1.0e-6,
-                1.0e-6,
-            )
-            .expect("off-manifold fixture must converge with both atoms alive");
-        (term, target, rho, cache)
+        (term, target, rho)
     }
+
 }
 
 #[cfg(test)]
@@ -198,7 +244,19 @@ mod amortized_encoder_tests {
         // converging fixture the sibling criterion tests use. rank-charge is
         // smooth-index-only and assignment-mode-agnostic, so its second derivative
         // is exercised identically.
-        let (mut term, target, rho) = gamma_fd_tiny_fixture();
+        let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+        // #2253 re-anchor: rank into the moderate-penalty PD basin (all
+        // log-lambda = -1, see `converged_state_with_residual`) so the exact-A
+        // criterion is positive definite and returns a cache here too.
+        rho.log_lambda_sparse = -1.0;
+        for v in rho.log_lambda_smooth.iter_mut() {
+            *v = -1.0;
+        }
+        for axis in rho.log_ard.iter_mut() {
+            for v in axis.iter_mut() {
+                *v = -1.0;
+            }
+        }
         let (_cost, loss, cache) = term
             .penalized_quasi_laplace_criterion_with_cache(
                 target.view(),
@@ -266,20 +324,22 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
 
-        // Evaluation ρ: lift ρ_smooth / ρ_ard off the −6 floor so the Daleckii–Krein
-        // CROSS terms — which scale as O(λ²) and O(α²) — sit well above FD noise. At
-        // the floor (λ = α ≈ 2.5e-3) the cross term is ~6e-6, under the FD tolerance,
-        // and the gate would pass on the δ self-term alone while the D-K machinery
-        // went entirely unchecked. The fixed-stratum Hessian is exact at ANY frozen
-        // θ̂ — it does not require θ̂ to be stationary for this ρ — and a ZERO inner
-        // budget assembles H(ρ) = H_data(θ̂) + penalty(ρ) without re-running the fit,
-        // so no co-collapse guard is tripped. Extra penalty only makes H more PD.
-        // A ρ perturbation scales only α, never the frozen circle coordinate t, so
-        // the max(·,0) majorizer active set is invariant — no subgradient ambiguity.
+        // Evaluation ρ: a DIFFERENT off-stationary point from the fit basin, chosen
+        // so the Daleckii–Krein CROSS terms — which scale as O(λ²) and O(α²) — sit
+        // well above FD noise (here λ_smooth = e^-1.5, α = e^-1.2/e^-1, cross ~1e-1,
+        // far above the ~1e-4 gate). At the deep floor the cross term is ~6e-6, under
+        // the FD tolerance, and the gate would pass on the δ self-term alone while
+        // the D-K machinery went entirely unchecked. The fixed-stratum Hessian is
+        // exact at ANY frozen θ̂ — it does not require θ̂ to be stationary for this ρ
+        // — and a ZERO inner budget assembles H(ρ) = H_data(θ̂) + penalty(ρ) without
+        // re-running the fit, so no co-collapse guard is tripped. #2253 re-anchor:
+        // this eval also keeps the exact A positive definite with a real margin
+        // (min_eig ~6e-2) so the #2330 Phase-2a exact-½log|A| criterion returns a
+        // cache here rather than refusing an indefinite mode.
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -463,9 +523,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -634,9 +694,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -746,6 +806,114 @@ mod amortized_encoder_tests {
         );
     }
 
+    /// PATH C (#2253) / #2339 DIAGNOSTIC — NAME the FD-kink site the softplus did
+    /// not heal. fix-2253 attributed the smooth×ARD FD instability to the periodic
+    /// `max(V'',0)` cos-basis majorizer clamp; #2339 smoothed that clamp and the
+    /// two FD gates stayed red. This dumps, at the failing tests' frozen-θ̂ eval ρ,
+    /// the per-row SPECTRAL-DEFLATION set (`cache.deflated_row_directions`) and the
+    /// criterion value at ρ−h and ρ+h for every ρ coordinate, so the branch that
+    /// flips across the ±h stencil is named directly. Pure diagnostic — asserts
+    /// only that the caches build and the coord set is non-empty.
+    #[test]
+    fn kink_site_deflation_flip_diagnostic_2339() {
+        use ndarray::{Array1, array};
+        let (term, target, rho, _sc) =
+            super::exact_hessian_fixture_tests::converged_state_with_residual();
+        let mut rho_eval = rho.clone();
+        rho_eval.log_lambda_sparse = -0.5;
+        for v in rho_eval.log_lambda_smooth.iter_mut() {
+            *v = -1.5;
+        }
+        rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
+        let rho = rho_eval;
+        let base = rho.to_flat();
+        let h = 1.0e-5;
+
+        let mut coords: Vec<usize> = Vec::new();
+        for a in 0..rho.log_lambda_smooth.len() {
+            coords.push(rho.smooth_flat_index(a));
+        }
+        for kk in 0..rho.log_ard.len() {
+            for axis in 0..rho.log_ard[kk].len() {
+                let idx = rho.ard_flat_index(kk, axis);
+                if !coords.contains(&idx) {
+                    coords.push(idx);
+                }
+            }
+        }
+        if let Some(sparse) = rho.sparse_flat_index() {
+            coords.push(sparse);
+        }
+        let label = |idx: usize| -> String {
+            if rho.sparse_flat_index() == Some(idx) {
+                "sparse".to_string()
+            } else if (rho.smooth_flat_start()
+                ..rho.smooth_flat_start() + rho.log_lambda_smooth.len())
+                .contains(&idx)
+            {
+                format!("smooth{}", idx - rho.smooth_flat_start())
+            } else {
+                format!("ard@{idx}")
+            }
+        };
+
+        // (value, per-row deflated-direction counts, total deflated, spectrally
+        // deflated rows with their min raw eigenvalue).
+        let dump = |flat: &Array1<f64>| -> (f64, Vec<usize>, usize, Vec<(usize, f64)>) {
+            let r = rho.from_flat(flat.view()).unwrap();
+            let mut t = term.clone();
+            let (value, _loss, cache) = t
+                .penalized_quasi_laplace_criterion_with_cache(
+                    target.view(),
+                    &r,
+                    None,
+                    0,
+                    0.4,
+                    1.0e-6,
+                    1.0e-6,
+                )
+                .expect("diagnostic cache");
+            let per_row: Vec<usize> =
+                cache.deflated_row_directions.iter().map(Vec::len).collect();
+            let total: usize = per_row.iter().sum();
+            let spectra: Vec<(usize, f64)> = cache
+                .deflation_row_spectra
+                .iter()
+                .enumerate()
+                .filter_map(|(i, s)| {
+                    s.as_ref().map(|sp| {
+                        (
+                            i,
+                            sp.raw_evals.iter().copied().fold(f64::INFINITY, f64::min),
+                        )
+                    })
+                })
+                .collect();
+            (value, per_row, total, spectra)
+        };
+
+        for &j in &coords {
+            let mut fm = base.clone();
+            fm[j] -= h;
+            let mut fp = base.clone();
+            fp[j] += h;
+            let (vm, prm, tm, spm) = dump(&fm);
+            let (vp, prp, tp, spp) = dump(&fp);
+            let flipped: Vec<usize> = (0..prm.len().min(prp.len()))
+                .filter(|&i| prm[i] != prp[i])
+                .collect();
+            eprintln!(
+                "KINKDIAG coord {}: value(-h)={vm:.9e} value(+h)={vp:.9e} d(value)={:.3e} | deflated_total {tm}->{tp} | rows_flipped={flipped:?}",
+                label(j),
+                vp - vm
+            );
+            if !spm.is_empty() || !spp.is_empty() {
+                eprintln!("    spectrally-deflated rows (row,min_raw_eval): -h={spm:?} +h={spp:?}");
+            }
+        }
+        assert!(!coords.is_empty(), "coord set must be non-empty");
+    }
+
     /// PATH C (#2253) DIAGNOSTIC — localize the smooth↔ARD non-conservation of the
     /// production third-order gradient `g3[j] = −½⟨A⁺Γ_eff, g_ρ,j⟩`. `g3` is
     /// `∂Φ/∂ρ − ∂L/∂ρ` for a scalar `Φ`, so it MUST be conservative
@@ -760,9 +928,9 @@ mod amortized_encoder_tests {
         let (term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -853,9 +1021,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -939,9 +1107,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -1093,9 +1261,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -1158,9 +1326,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -1205,9 +1373,9 @@ mod amortized_encoder_tests {
         let (mut term, target, rho, _stationary_cache) =
             super::exact_hessian_fixture_tests::converged_state_with_residual();
         let mut rho_eval = rho.clone();
-        rho_eval.log_lambda_sparse = 0.5;
+        rho_eval.log_lambda_sparse = -0.5;
         for v in rho_eval.log_lambda_smooth.iter_mut() {
-            *v = -2.0;
+            *v = -1.5;
         }
         rho_eval.log_ard = vec![array![-1.2_f64], array![-1.0_f64]];
         let rho = rho_eval;
@@ -1293,9 +1461,15 @@ mod amortized_encoder_tests {
                 "log|A_tt| kept-eigenvalue sum {log_a_tt} != oracle {kept_tt}"
             );
         } else {
-            // A is non-PD: the typed refusal must fire on the joint block, and the
-            // eigen oracle independently confirms the non-positive spectrum. This
-            // is a complete parity test (refusal ⟺ indefinite), not a skipped one.
+            // A is non-PD. Under #2336 value-side E-attributability the classification
+            // is three-way: an indefinite direction attributable to the bounded ARD
+            // concave-clamp (λ+e_v ≥ −floor) is PRICED finite, only a genuinely
+            // indefinite one (λ+e_v < −floor) REFUSES. This fixture is PD on the gauge
+            // quotient at the current head so this branch is unreached; if a future
+            // fixture lands here the assertion must split by attributability (see
+            // e_attributable_ard_saddle_prices_finite_2336 /
+            // genuine_saddle_is_infeasible_probe_not_fatal_2336). Kept as the refusal
+            // guard for a genuinely-indefinite specimen.
             match result {
                 Err(SaeCriterionError::IndefiniteObservedInformation { block }) => {
                     assert_eq!(block, "joint", "refusal fired on the wrong block: {block}");
@@ -1306,6 +1480,36 @@ mod amortized_encoder_tests {
                 ),
             }
         }
+    }
+
+    /// #2330/#2336 PRICING arbiter (reachable companion to the PD parity test
+    /// above). MEASURED correction to the earlier premise: the a_saddle specimen's
+    /// two exact-A negatives are FULLY attributable to the bounded ARD periodic
+    /// concave-clamp wrinkle (`λ+e_v(ARD)=+0.026`, verified in
+    /// `zz_measure_e_attributability_2336`) — NOT a residual-rooted genuine saddle.
+    /// So under the value-side E-attributability semantics (#2336) the criterion
+    /// PRICES it at the basin curvature and returns a FINITE value. This is the
+    /// price half of the (price ⟺ E-attributable, refuse ⟺ genuine) contract; the
+    /// refuse half is `genuine_saddle_is_infeasible_probe_not_fatal_2336` on the
+    /// obb window-scan specimen.
+    #[test]
+    fn exact_observed_information_prices_e_attributable_a_saddle_2336() {
+        let (mut term, target, rho) =
+            super::exact_hessian_fixture_tests::converged_state_with_residual_a_saddle_2336();
+        let result = term.penalized_quasi_laplace_criterion_with_cache(
+            target.view(),
+            &rho,
+            None,
+            40,
+            0.4,
+            1.0e-6,
+            1.0e-6,
+        );
+        assert!(
+            matches!(&result, Ok((value, _, _)) if value.is_finite()),
+            "the E-attributable a_saddle specimen must PRICE FINITE under #2336, not refuse; got: {:?}",
+            result.as_ref().map(|(value, _, _)| *value).map_err(|e| format!("{e:?}"))
+        );
     }
 
     /// The fitted amplitudes the encoder derives are exactly the posterior gate
@@ -1846,7 +2050,6 @@ mod exact_stationarity_solve_1418_tests {
 #[cfg(test)]
 mod smoothness_dof_hutchinson_tests {
     use super::*;
-    use crate::manifold::tests::small_two_atom_periodic_term;
 
     /// Rebuild the exact function's `(offsets, out_dim)` β-layout so the estimator
     /// is fed the identical geometry.
@@ -1865,7 +2068,24 @@ mod smoothness_dof_hutchinson_tests {
 
     #[test]
     fn hutchinson_smoothness_dof_matches_exact_and_is_deterministic() {
-        let (mut term, target, rho) = small_two_atom_periodic_term();
+        // #2253: small_two_atom_periodic_term is p=1 output, where two decoders
+        // are trivially collinear (the scalar output-Gram makes the barrier
+        // coherence O identically 1) and K=2 is non-identifiable, so the fit
+        // co-collapses. Rank the p=3 REACHABLE gamma_fd_tiny two-atom fixture into
+        // its converging PD basin instead; the per-atom smoothness-DOF split this
+        // test pins (Hutchinson vs exact column-solve, cross-atom coupling) is
+        // exercised identically on two identifiable atoms.
+        let (mut term, target, mut rho) =
+            crate::manifold::tests_recovery_split_780::gamma_fd_tiny_fixture();
+        rho.log_lambda_sparse = 0.0;
+        for v in rho.log_lambda_smooth.iter_mut() {
+            *v = -1.0;
+        }
+        for axis in rho.log_ard.iter_mut() {
+            for v in axis.iter_mut() {
+                *v = -1.0;
+            }
+        }
         let (_value, _loss, cache) = term
             .penalized_quasi_laplace_criterion_with_cache(
                 target.view(),
@@ -1956,8 +2176,6 @@ mod smoothness_dof_hutchinson_tests {
 
 #[cfg(test)]
 mod shape_uncertainty_joint_recompute_tests {
-    use super::*;
-    use crate::manifold::tests::gamma_fd_tiny_fixture;
 
     /// After a structure-search / finalization change, the shape bands are
     /// rebuilt at the FINAL state by `recompute_joint_shape_uncertainty`, which
@@ -1970,9 +2188,27 @@ mod shape_uncertainty_joint_recompute_tests {
         // genuine reconstruction residual — a real dispersion and nonzero bands —
         // while the state stays near its inner optimum so the undamped joint
         // factor converges in a few steps.
-        let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
-        term.assignment.mode = AssignmentMode::ordered_beta_bernoulli(0.7, 0.9, true);
-        rho.log_lambda_sparse = 0.5;
+        // #2253: the historical OBB-gate-on-a-softmax-built-target left a
+        // residual but is model-UNREACHABLE, so after #2330 Phase-2a the joint
+        // fit co-collapses (reconstruction EV=-4.06, decoders cannot anchor K=2).
+        // Keep the REACHABLE softmax gamma_fd_tiny (p=3) but rank it into a
+        // moderate-penalty basin (all log-lambda = -1 except a mild sparse), where
+        // the regularized fit carries a genuine residual (positive dispersion,
+        // non-degenerate per-output-channel bands) and converges. Both the direct
+        // and the recompute paths fit this COLD state identically, so the
+        // band-reproduction invariance this test pins holds exactly; the mode
+        // switch was only a residual-creation trick, not an OBB-recompute assertion.
+        let (mut term, target, mut rho) =
+            crate::manifold::tests_recovery_split_780::gamma_fd_tiny_fixture();
+        rho.log_lambda_sparse = 0.0;
+        for v in rho.log_lambda_smooth.iter_mut() {
+            *v = -1.0;
+        }
+        for axis in rho.log_ard.iter_mut() {
+            for v in axis.iter_mut() {
+                *v = -1.0;
+            }
+        }
 
         // Reference joint bands via the direct Schur path.
         let (_c, loss, cache) = term
@@ -1980,14 +2216,22 @@ mod shape_uncertainty_joint_recompute_tests {
                 target.view(),
                 &rho,
                 None,
-                5,
+                40,
                 0.4,
                 1.0e-6,
                 1.0e-6,
             )
             .expect("converged joint cache");
+        // #2253: price the reference band from the SAME dispersion source the
+        // production recompute_joint_shape_uncertainty uses -- the explicit
+        // whitened reconstruction residual. Passing None reads 2*data_fit (the
+        // deviance RSS), which diverges from the whitened residual RSS under a
+        // whitening row-metric, so the reference (not recompute) was stale.
+        let residual = term
+            .reconstruction_residual(target.view(), &rho)
+            .expect("reconstruction residual");
         let dispersion = term
-            .reconstruction_dispersion(&loss, &cache, &rho, None)
+            .reconstruction_dispersion(&loss, &cache, &rho, Some(residual.view()))
             .expect("dispersion");
         assert!(dispersion > 0.0, "a real residual ⇒ positive dispersion");
         let joint = term
@@ -1997,7 +2241,7 @@ mod shape_uncertainty_joint_recompute_tests {
         // Property 1: the final-state recompute reproduces the joint path (it IS
         // the joint path, rebuilt from the term + ρ rather than a cached factor).
         let recomputed = term
-            .recompute_joint_shape_uncertainty(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+            .recompute_joint_shape_uncertainty(target.view(), &rho, None, 40, 0.4, 1.0e-6, 1.0e-6)
             .expect("joint recompute");
         assert_eq!(recomputed.atoms.len(), joint.atoms.len());
         for (k, (a, b)) in recomputed.atoms.iter().zip(joint.atoms.iter()).enumerate() {

@@ -1,3 +1,5 @@
+import modal._logs_manager
+import modal._supports_logs
 import modal.app
 import modal.client
 import modal.functions
@@ -11,7 +13,7 @@ class Server:
     See the [guide](https://modal.com/docs/guide/servers) for more information.
 
     Generally, you will not construct a Server directly.
-    Instead, use the [`@app.server()`](https://modal.com/docs/sdk/py/latest/modal.App#server) decorator.
+    Instead, use the [`@app.server()`](https://modal.com/docs/sdk/py/latest/App#server) decorator.
 
     ```python notest
     @app.server(port=8080, routing_region="us-east")
@@ -36,6 +38,27 @@ class Server:
     @property
     def object_id(self) -> str:
         """Modal's internal ID for this Server instance."""
+        ...
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._LogQueryData: ...
+        async def aio(self, /) -> modal._supports_logs._LogQueryData: ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.ServerLogsManager:
+        """Access logs for a `Server`.
+
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs, and [`stream()`](#logsstream)
+        to follow new logs as they arrive.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+            CLI access to logs for an App.
+        """
         ...
 
     @staticmethod

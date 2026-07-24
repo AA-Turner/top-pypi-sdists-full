@@ -7,8 +7,9 @@ Verifies four tiers of correctness after a full wheel-install + OpenClaw boot:
   2. /api/sessions returns >= 1 session -- the synthetic JSONL was ingested
      into DuckDB by the dashboard sync thread (proves the "send a message"
      path works end-to-end from an installed wheel).
-  3. All 9 C1 canonical tabs navigate without any auth-blocking overlay --
-     sessions, brain, tokens, crons, flow, memory, security, health.
+  3. All C1 canonical tabs navigate without any auth-blocking overlay --
+     sessions, brain, tokens, crons, channels, flow, memory, security, health,
+     subagents.
   4. Sessions tab DOM contains the seeded session title "Golden Path E2E" --
      proves the full render pipeline from JSONL seed to DOM is intact.
 
@@ -49,7 +50,7 @@ TOKEN = os.environ.get("CLAWMETRY_TOKEN", "ci-test-token")
 #   Brain     -> brain
 #   Tokens    -> usage
 #   Crons     -> crons
-#   Channels  -> channels  (skipped if not present in dashboard version)
+#   Channels  -> channels
 #   Flow      -> flow
 #   Memory    -> memory
 #   Security  -> security
@@ -59,6 +60,7 @@ C1_TABS = [
     "brain",        # Brain
     "usage",        # Tokens
     "crons",        # Crons
+    "channels",     # Channels
     "flow",         # Flow
     "memory",       # Memory
     "security",     # Security
@@ -88,13 +90,37 @@ def _api(path: str) -> dict:
         return json.loads(resp.read())
 
 
+def _switch_tab(page, tab: str) -> None:
+    """Switch the dashboard to *tab* via window.switchTab(), asserting it exists.
+
+    Replaces the old short-circuit guard
+      page.evaluate("typeof window.switchTab === 'function' && switchTab(tab)")
+    which silently no-oped when switchTab was absent, causing every subsequent
+    overlay check to inspect the overview tab instead of the intended tab.
+    """
+    result = page.evaluate(
+        "(tab) => {"
+        "  if (typeof window.switchTab !== 'function') return 'no-switchtab';"
+        "  window.switchTab(tab);"
+        "  return 'ok';"
+        "}",
+        tab,
+    )
+    assert result == "ok", (
+        f"window.switchTab() not available when switching to tab '{tab}'. "
+        f"Root causes: app.js parse/load error, auth overlay still blocking, "
+        f"or page not yet initialised. "
+        f"Ensure {BASE_URL!r} started with OPENCLAW_GATEWAY_TOKEN={TOKEN!r}."
+    )
+
+
 class TestOSSGoldenPath:
-    """Full OSS golden path: wheel-installed dashboard + synced OpenClaw data + 9 tabs.
+    """Full OSS golden path: wheel-installed dashboard + synced OpenClaw data + C1 tabs.
 
     All four test groups must pass together for criterion C1 to be green:
-      * auth group  -- token plumbing
-      * data group  -- JSONL ingestion via sync thread
-      * tab group   -- Playwright overlay sweep
+      * auth group   -- token plumbing
+      * data group   -- JSONL ingestion via sync thread
+      * tab group    -- Playwright overlay sweep
       * render group -- DOM content verification (seeded session title present)
     """
 
@@ -171,10 +197,7 @@ class TestOSSGoldenPath:
 
         # Switch to the transcripts (Sessions) tab; this triggers loadTranscripts()
         # which fetches /api/sessions and renders the list into #transcript-list.
-        page.evaluate(
-            "typeof window.switchTab === 'function' && "
-            "window.switchTab('transcripts')"
-        )
+        _switch_tab(page, "transcripts")
 
         # Wait up to 8s for the seeded session title to appear in the live DOM.
         # Playwright polls after each mutation so this catches the render as
@@ -217,10 +240,7 @@ class TestOSSGoldenPath:
         page.goto(BASE_URL + "/", wait_until="domcontentloaded", timeout=15000)
 
         if tab != "overview":
-            page.evaluate(
-                "typeof window.switchTab === 'function' && "
-                f"window.switchTab({json.dumps(tab)})"
-            )
+            _switch_tab(page, tab)
 
         page.wait_for_timeout(1000)
 

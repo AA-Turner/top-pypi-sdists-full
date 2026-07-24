@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: agent-framework-github-copilot
-Version: 1.0.0rc4
+Version: 1.0.0
 Summary: GitHub Copilot integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -28,7 +28,7 @@ Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/pyth
 Please install this package via pip:
 
 ```bash
-pip install agent-framework-github-copilot --pre
+pip install agent-framework-github-copilot
 ```
 
 ## GitHub Copilot Agent

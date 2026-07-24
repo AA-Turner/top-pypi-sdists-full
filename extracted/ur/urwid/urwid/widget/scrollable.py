@@ -27,6 +27,7 @@ import enum
 import typing
 
 from .constants import BOX_SYMBOLS, SHADE_SYMBOLS, Sizing
+from .widget import AbstractBoxWidget, AbstractWidget
 from .widget_decoration import WidgetDecoration, WidgetError
 
 if typing.TYPE_CHECKING:
@@ -36,7 +37,7 @@ if typing.TYPE_CHECKING:
 
     from urwid import Canvas, CompositeCanvas
 
-    from .widget import Widget
+    from .widget import AbstractFixedWidget, AbstractFlowWidget
 
 
 __all__ = (
@@ -49,7 +50,8 @@ __all__ = (
 )
 
 
-WrappedWidget = typing.TypeVar("WrappedWidget", bound="SupportsScroll")
+WrappedScrollableWidget = typing.TypeVar("WrappedScrollableWidget", bound="SupportsScroll")
+WrappedScrollWidget = typing.TypeVar("WrappedScrollWidget", bound="AbstractFlowWidget | AbstractFixedWidget")
 
 
 class ScrollableError(WidgetError):
@@ -91,40 +93,7 @@ class ScrollbarSymbols(str, enum.Enum):
 
 
 @typing.runtime_checkable
-class WidgetProto(typing.Protocol):
-    """Protocol for widget.
-
-    Due to protocol cannot inherit non-protocol bases, define several obligatory Widget methods.
-    """
-
-    # Base widget methods (from Widget)
-    def sizing(self) -> frozenset[Sizing]: ...
-
-    def selectable(self) -> bool: ...
-
-    def pack(self, size: tuple[int, int], focus: bool = False) -> tuple[int, int]: ...
-
-    @property
-    def base_widget(self) -> Widget:
-        raise NotImplementedError
-
-    def keypress(self, size: tuple[int, int], key: str) -> str | None: ...
-
-    def mouse_event(
-        self,
-        size: tuple[int, int],
-        event: str,
-        button: int,
-        col: int,
-        row: int,
-        focus: bool,
-    ) -> bool | None: ...
-
-    def render(self, size: tuple[int, int], focus: bool = False) -> Canvas: ...
-
-
-@typing.runtime_checkable
-class SupportsScroll(WidgetProto, typing.Protocol):
+class SupportsScroll(AbstractBoxWidget, typing.Protocol):
     """Scroll specific methods."""
 
     def get_scrollpos(self, size: tuple[int, int], focus: bool = False) -> int: ...
@@ -133,7 +102,7 @@ class SupportsScroll(WidgetProto, typing.Protocol):
 
 
 @typing.runtime_checkable
-class SupportsRelativeScroll(WidgetProto, typing.Protocol):
+class SupportsRelativeScroll(AbstractBoxWidget, typing.Protocol):
     """Relative scroll-specific methods."""
 
     def require_relative_scroll(self, size: tuple[int, int], focus: bool = False) -> bool: ...
@@ -143,7 +112,7 @@ class SupportsRelativeScroll(WidgetProto, typing.Protocol):
     def get_visible_amount(self, size: tuple[int, int], focus: bool = False) -> int: ...
 
 
-def orig_iter(w: Widget) -> Iterator[Widget]:
+def orig_iter(w: AbstractWidget) -> Iterator[AbstractWidget]:
     visited = {w}
     yield w
     while (w := getattr(w, "original_widget", w)) not in visited:
@@ -151,14 +120,14 @@ def orig_iter(w: Widget) -> Iterator[Widget]:
         yield w
 
 
-class Scrollable(WidgetDecoration[WrappedWidget]):
+class Scrollable(WidgetDecoration[WrappedScrollWidget]):
     def sizing(self) -> frozenset[Sizing]:
         return frozenset((Sizing.BOX,))
 
     def selectable(self) -> bool:
         return True
 
-    def __init__(self, widget: WrappedWidget, force_forward_keypress: bool = False) -> None:
+    def __init__(self, widget: WrappedScrollWidget, force_forward_keypress: bool = False) -> None:
         """Box widget that makes a fixed or flow widget vertically scrollable
 
         .. note::
@@ -175,9 +144,9 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
             raise ValueError(f"Not a fixed or flow widget: {widget!r}")
 
         self._trim_top = 0
-        self._scroll_action = None
-        self._forward_keypress = None
-        self._old_cursor_coords = None
+        self._scroll_action: str | None = None
+        self._forward_keypress: bool | None = None
+        self._old_cursor_coords: tuple[int, int] | None = None
         self._rows_max_cached = 0
         self.force_forward_keypress = force_forward_keypress
         super().__init__(widget)
@@ -211,10 +180,10 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
                     if not w.selectable():
                         continue
 
-                    ow.focus_item = pwi
+                    ow.focus_position = pwi
 
                     st = None
-                    nf = ow.get_focus()
+                    nf = ow.focus
                     if hasattr(nf, "key_timeout"):
                         st = nf
                     elif hasattr(nf, "original_widget"):
@@ -232,7 +201,7 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
         # Render complete original widget
         ow = self._original_widget
         ow_size = self._get_original_widget_size(size)
-        canv_full = ow.render(ow_size, focus)
+        canv_full = ow.render(ow_size, focus)  # type: ignore[arg-type]
 
         # Make full canvas editable
         canv = canvas.CompositeCanvas(canv_full)
@@ -315,8 +284,9 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
             if hasattr(ow, "get_cursor_coords"):
                 self._old_cursor_coords = ow.get_cursor_coords(ow_size)
 
-            key = ow.keypress(ow_size, key)
-            if key is None:
+            if (handled := ow.keypress(ow_size, key)) is not None:  # type: ignore[arg-type]
+                key = handled
+            else:
                 return None
 
         # Handle up/down, page up/down, etc.
@@ -355,7 +325,14 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
         if hasattr(ow, "mouse_event"):
             ow_size = self._get_original_widget_size(size)
             row += self._trim_top
-            return ow.mouse_event(ow_size, event, button, col, row, focus)
+            return ow.mouse_event(
+                ow_size,  # type: ignore[arg-type]
+                event,
+                button,
+                col,
+                row,
+                focus,
+            )
 
         return False
 
@@ -410,7 +387,7 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
 
     def _get_original_widget_size(
         self,
-        size: tuple[int, int],  # type: ignore[override]
+        size: tuple[int, int],
     ) -> tuple[int] | tuple[()]:
         ow = self._original_widget
         sizing = ow.sizing()
@@ -452,11 +429,14 @@ class Scrollable(WidgetDecoration[WrappedWidget]):
             ow_size = self._get_original_widget_size(size)
             sizing = ow.sizing()
             if Sizing.FIXED in sizing:
-                self._rows_max_cached = ow.pack(ow_size, focus)[1]
+                self._rows_max_cached = ow.pack(ow_size, focus)[1]  # type: ignore[arg-type]
             elif Sizing.FLOW in sizing:
-                self._rows_max_cached = ow.rows(ow_size, focus)
+                self._rows_max_cached = typing.cast("AbstractFlowWidget", ow).rows(
+                    typing.cast("tuple[int]", ow_size),
+                    focus,
+                )
             else:
-                raise ScrollableError(f"Not a flow/box widget: {self._original_widget!r}")
+                raise ScrollableError(f"Not a flow/fixed widget: {self._original_widget!r}")
         return self._rows_max_cached
 
 
@@ -477,7 +457,7 @@ class _ScrollbarLayout:
     bottom_height: int
 
 
-class ScrollBar(WidgetDecoration[WrappedWidget]):
+class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
     Symbols = ScrollbarSymbols
 
     def sizing(self) -> frozenset[Sizing]:
@@ -488,10 +468,10 @@ class ScrollBar(WidgetDecoration[WrappedWidget]):
 
     def __init__(
         self,
-        widget: WrappedWidget,
+        widget: WrappedScrollableWidget,
         thumb_char: str = ScrollbarSymbols.FULL_BLOCK,
         trough_char: str = " ",
-        side: Literal["left", "right"] = SCROLLBAR_RIGHT,
+        side: Literal["left", "right"] = SCROLLBAR_RIGHT,  # type: ignore[assignment]  # constant
         width: int = 1,
     ) -> None:
         """Box widget that adds a scrollbar to `widget`
@@ -677,7 +657,7 @@ class ScrollBar(WidgetDecoration[WrappedWidget]):
 
         w = self
 
-        for w in orig_iter(self):
+        for w in orig_iter(self):  # type: ignore[assignment]
             if isinstance(w, SupportsScroll):
                 return w
 

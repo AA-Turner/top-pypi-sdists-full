@@ -38,6 +38,8 @@ from .literals import (
     HarvestJobStatusType,
     InputTypeType,
     MssManifestLayoutType,
+    OutputLockingModeType,
+    OutputTimestampModeType,
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
     ScteFilterType,
@@ -218,6 +220,7 @@ class ChannelListConfigurationTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: NotRequired[str]
     InputType: NotRequired[InputTypeType]
+    OutputLockingMode: NotRequired[OutputLockingModeType]
 
 
 class CreateChannelGroupRequestTypeDef(TypedDict):
@@ -627,6 +630,7 @@ class CreateChannelRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     InputSwitchConfiguration: NotRequired[InputSwitchConfigurationTypeDef]
     OutputHeaderConfiguration: NotRequired[OutputHeaderConfigurationTypeDef]
+    OutputLockingMode: NotRequired[OutputLockingModeType]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -652,6 +656,7 @@ class CreateChannelResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
+    OutputLockingMode: OutputLockingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -669,6 +674,7 @@ class GetChannelResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
+    OutputLockingMode: OutputLockingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -685,6 +691,7 @@ class UpdateChannelResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
+    OutputLockingMode: OutputLockingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1032,6 +1039,7 @@ class SegmentOutputTypeDef(TypedDict):
     TsIncludeDvbSubtitles: NotRequired[bool]
     Scte: NotRequired[ScteOutputTypeDef]
     Encryption: NotRequired[EncryptionOutputTypeDef]
+    OutputTimestampMode: NotRequired[OutputTimestampModeType]
 
 
 class SegmentTypeDef(TypedDict):
@@ -1042,6 +1050,7 @@ class SegmentTypeDef(TypedDict):
     TsIncludeDvbSubtitles: NotRequired[bool]
     Scte: NotRequired[ScteTypeDef]
     Encryption: NotRequired[EncryptionTypeDef]
+    OutputTimestampMode: NotRequired[OutputTimestampModeType]
 
 
 class ListHarvestJobsResponseTypeDef(TypedDict):

@@ -11,17 +11,21 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from types import SimpleNamespace
 from typing import Awaitable, Callable, Optional, TypeVar
 
 import typer
 
 from .. import config as cfg
 from .. import wallets
+from .._generated import runtime_apis, storage
 from ..client import Client
 from ..extension.client import BridgeError
 from ..ledger import LedgerError, LedgerSigner
-from ..result import BittensorError, ExtrinsicResult
+from ..result import BittensorError, ChainError, ErrorCode, ExtrinsicResult, PolicyError
+from ..settings import error_docs_url
+from ..vault import VaultSigner
 from ..wallets import is_bittensor_address
 from . import multisig_helpers as ms_helpers
 from .output import Output
@@ -91,6 +95,7 @@ class AppContext:
     _extension_selection: Optional[object] = None
     _extension_bridge_ws_url: Optional[str] = None
     _ledger_signer: Optional[object] = None
+    _vault_signer: Optional[VaultSigner] = None
 
     def reset_extension_session(self) -> None:
         self._extension_selection = None
@@ -106,11 +111,14 @@ class AppContext:
     def uses_ledger_signer(self) -> bool:
         return (self.signer_backend or "").strip().lower() == "ledger"
 
+    def uses_vault_signer(self) -> bool:
+        return (self.signer_backend or "").strip().lower() == "vault"
+
     def uses_external_signer(self) -> bool:
-        """The signing key lives outside the local wallet files (extension or
-        Ledger), so wallet confirmation and wallet-derived addressing don't
-        apply."""
-        return self.uses_extension_signer() or self.uses_ledger_signer()
+        """The signing key lives outside the local wallet files (extension,
+        Ledger, or Polkadot Vault), so wallet confirmation and wallet-derived
+        addressing don't apply."""
+        return self.uses_extension_signer() or self.uses_ledger_signer() or self.uses_vault_signer()
 
     def ledger_signer(self):
         """Connect to the Ledger (once per invocation) and return the signer.
@@ -127,6 +135,45 @@ class AppContext:
                 )
             self._ledger_signer = signer
         return self._ledger_signer
+
+    def vault_signer(self) -> VaultSigner:
+        """The Polkadot Vault (QR) signer for this invocation (built once).
+
+        The signing address is ``--signer-address`` (raw ss58 or an
+        address-book name), else the persisted ``signer_address`` config
+        value, falling back to the configured wallet's coldkeypub — a
+        pubkey-only wallet is the natural companion to a Vault-held key.
+        Nothing opens until the transport actually asks for a signature.
+        """
+        if self._vault_signer is None:
+            address = self.signer_address or cfg.get("signer_address")
+            if address and not is_bittensor_address(address):
+                address = cfg.get_address(address) or address
+            if not address:
+                try:
+                    address = self.wallet().coldkeypub.ss58_address
+                except Exception:
+                    self.output.error(
+                        "the vault signer needs an account address",
+                        help="pass --signer-address <ss58>, or configure a wallet whose "
+                        "coldkeypub matches the key held in Polkadot Vault",
+                    )
+                    raise typer.Exit(2)
+            if not is_bittensor_address(address):
+                self.output.error(f"--signer-address {address!r} is not a valid ss58 address")
+                raise typer.Exit(2)
+            signer = VaultSigner(
+                address,
+                browser=self._extension_browser_choice(),
+                # Same heuristic as the extension bridge: only pop a browser
+                # tab for a human at a terminal.
+                open_browser=not self.output.quiet and sys.stderr.isatty(),
+                on_status=self.output.message,
+            )
+            if not self.output.quiet and not self.output.json_mode:
+                self.output.message(f"using Polkadot Vault account {address}")
+            self._vault_signer = signer
+        return self._vault_signer
 
     async def extension_signer(self, *, pick_account: bool = False):
         """Connect to the bridge and return an extension-backed signer."""
@@ -170,8 +217,14 @@ class AppContext:
             )
             if not self.output.quiet and not self.output.json_mode:
                 picked = self._extension_selection.account
+                reused = pinned_address is None and picked.address == saved_address
                 self.output.message(
                     f"using extension account {picked.name} ({picked.address}, {picked.source})"
+                    + (
+                        " [dim]— saved default; pass --signer-address to switch[/dim]"
+                        if reused
+                        else ""
+                    )
                 )
         elif self._extension_bridge_ws_url is None:
             self._extension_bridge_ws_url = await ensure_bridge(
@@ -191,15 +244,24 @@ class AppContext:
 
     async def resolve_signing_wallet(self, role: str = "coldkey", *, pick_account: bool = False):
         """Return the configured signer for ``role`` (local wallet, extension,
-        or Ledger).
+        Ledger, or Polkadot Vault).
 
         With an external backend the selected account *is* the signing key for
         either role — for hotkey intents, pick the account holding the hotkey.
         """
+        backend = (self.signer_backend or "wallet").strip().lower()
+        if backend not in ("wallet", "extension", "ledger", "vault"):
+            self.output.error(
+                f"unknown signing backend {self.signer_backend!r}",
+                help="--signer takes wallet, extension, ledger, or vault",
+            )
+            raise typer.Exit(2)
         if self.uses_extension_signer():
             return await self.extension_signer(pick_account=pick_account)
         if self.uses_ledger_signer():
             return self.ledger_signer()
+        if self.uses_vault_signer():
+            return self.vault_signer()
         return self.signer(role)
 
     def signer(self, role: str = "coldkey"):
@@ -369,20 +431,41 @@ class AppContext:
         # default. `forced` distinguishes "the user asked for shielding" (hard
         # failure when it can't be honored) from "the built-in stake default"
         # (downgraded with a notice when the chain or flow can't shield).
+        # `mev_shield_required` intents (collateral AMM buys) refuse the
+        # unshielded opt-out entirely.
         configured_shield = cfg.get("mev_shield")
-        if self.mev_shield is not None:
+        if intent.mev_shield_required:
+            if self.mev_shield is False or configured_shield is False:
+                self.output.error(
+                    f"{intent.op} must be submitted MEV-shielded",
+                    help=(
+                        "collateral / burned-registration AMM fills cannot run "
+                        "unshielded; omit --no-mev-shield"
+                    ),
+                )
+                raise typer.Exit(2)
+            shield = True
+            shield_forced = True
+        elif self.mev_shield is not None:
             shield = self.mev_shield
+            shield_forced = shield
         elif configured_shield is not None:
             shield = bool(configured_shield)
+            shield_forced = shield
         else:
             shield = intent.mev_shield_default
-        shield_forced = shield and (self.mev_shield is not None or configured_shield is not None)
+            shield_forced = False
         if shield and (proxy_for is not None or self.uses_extension_signer()):
             blocker = "a proxied call" if proxy_for is not None else "the extension signer"
-            if shield_forced:
+            if shield_forced or intent.mev_shield_required:
                 self.output.error(
                     f"MEV shielding cannot wrap {blocker}",
-                    help="pass --no-mev-shield to submit unshielded",
+                    help=(
+                        "collateral intents cannot fall back to unshielded; "
+                        "sign directly without a proxy/extension"
+                        if intent.mev_shield_required
+                        else "pass --no-mev-shield to submit unshielded"
+                    ),
                 )
                 raise typer.Exit(2)
             self.output.message(
@@ -404,7 +487,50 @@ class AppContext:
         wallet = self.wallet()
         self._register_local_names(wallet)
         options = {"proxy_for": proxy_for, "proxy_type": force_proxy_type}
-        summary = intent.summary() + (f" [as {proxy_for} via proxy]" if proxy_for else "")
+        registration_quote = None
+        registration_flow = None
+        summary = intent.summary()
+        if intent.op == "register_subnet":
+
+            async def _registration_preview(client):
+                block = await client.block()
+                quote_rao = await client.runtime(
+                    runtime_apis.SubnetRegistrationRuntimeApi.get_network_registration_cost,
+                    [],
+                    block=block,
+                )
+                quote = client.balance(int(quote_rao))
+                if self.assume_yes:
+                    return quote, None
+                networks, subnet_limit, cleanup_queue, registration_queue = await asyncio.gather(
+                    client.query_map(storage.SubtensorModule.NetworksAdded, block=block),
+                    client.query(storage.SubtensorModule.SubnetLimit, block=block),
+                    client.query(storage.SubtensorModule.DissolveCleanupQueue, block=block),
+                    client.query(storage.SubtensorModule.NetworkRegistrationQueue, block=block),
+                )
+                active = sum(1 for netuid, added in networks if int(netuid) != 0 and bool(added))
+                cleanup_queue = list(cleanup_queue or [])
+                registration_queue = list(registration_queue or [])
+                if active + len(cleanup_queue) < int(subnet_limit):
+                    return quote, "immediate · no deregistration needed"
+                if len(cleanup_queue) > len(registration_queue):
+                    target = int(cleanup_queue[0]) if cleanup_queue else None
+                    flow = "queued · waits for deregistration cleanup"
+                    if target is not None:
+                        flow += f" of subnet {target}"
+                    return quote, flow
+                prune = await client.runtime(
+                    runtime_apis.SubnetInfoRuntimeApi.get_subnet_to_prune,
+                    [],
+                    block=block,
+                )
+                if prune is None:
+                    return quote, "blocked · no subnet is eligible for deregistration"
+                return quote, f"queued · deregisters subnet {int(prune)} before registration"
+
+            registration_quote, registration_flow = self.run(_registration_preview)
+            summary += f" for {registration_quote.decimal:,.9f} TAO"
+        summary += f" [as {proxy_for} via proxy]" if proxy_for else ""
         if shield:
             summary += " [MEV-shielded]"
 
@@ -418,6 +544,9 @@ class AppContext:
 
         if self.uses_extension_signer():
             self.reset_extension_session()
+        if self.uses_vault_signer():
+            # Display-only context for the vault page ("what am I signing?").
+            self.vault_signer().summary = summary
 
         async def _plan(client):
             signer = await self.resolve_signing_wallet(intent.signer, pick_account=True)
@@ -447,45 +576,136 @@ class AppContext:
                 await signer.close()
 
             self.run(_prepare)
+            if registration_flow is not None and not self.assume_yes:
+                self.output.message(f"[dim]{registration_flow}[/dim]")
+            # The extension popup is the approval surface: it shows this same
+            # transaction and requires an explicit approve/reject there, so a
+            # terminal prompt would only bounce the user between windows.
+            self.output.message(summary)
+            self.output.message(
+                "[dim]approve or reject the request in the wallet extension popup[/dim]"
+            )
+        else:
+            if registration_flow is not None and not self.assume_yes:
+                self.output.message(f"[dim]{registration_flow}[/dim]")
+            self.confirm(f"{summary}?")
 
-        self.confirm(f"{summary}?")
+        # Native keyfiles unlock synchronously on their first signature.  Do it
+        # before starting the registration status display so an encrypted
+        # coldkey's password prompt remains visible and usable.  Reuse the
+        # unlocked keypair for planning/signing; otherwise the lazy SDK signer
+        # would prompt underneath the live spinner and appear to hang forever.
+        local_signer = None
+        if intent.op == "register_subnet" and not self.uses_external_signer():
+            signing_key = wallets.signing_keypair(
+                wallet,
+                intent.signer,
+                password_file=self.wallet_password_file,
+                macos_prompt=self.macos_password,
+                keychain=self.keychain_password,
+            )
+            try:
+                hotkey = wallet.hotkeypub
+            except FileNotFoundError:
+                hotkey = wallet.hotkey
+            # Keep the wallet shape because register_subnet defaults its hotkey
+            # from it, while replacing the signing side with the keypair that
+            # was already unlocked above.
+            local_signer = SimpleNamespace(
+                coldkey=signing_key,
+                coldkeypub=wallet.coldkeypub,
+                hotkey=hotkey,
+            )
+
+        def activity_update(_text: str, _announce: bool = False) -> None:
+            pass
+
+        def _registration_progress(progress: dict) -> None:
+            stage = progress.get("stage")
+            cleanup = progress.get("deregistered_netuid") or progress.get("cleanup_netuid")
+            if stage == "queued":
+                if progress.get("deregistered_netuid") is not None:
+                    text = f"capacity is full · deregistering subnet {cleanup} before registration"
+                elif cleanup is not None:
+                    text = f"registration queued · waiting for subnet {cleanup} cleanup"
+                else:
+                    text = "registration queued · waiting for deregistration cleanup"
+                activity_update(text, True)
+            elif stage == "waiting":
+                subject = f"subnet {cleanup} cleanup" if cleanup is not None else "cleanup"
+                elapsed = int(progress.get("blocks_since_call", 0))
+                unit = "block" if elapsed == 1 else "blocks"
+                activity_update(
+                    f"{subject} · {elapsed} {unit} since call · waiting for NetworkAdded",
+                    False,
+                )
+            elif stage == "registered":
+                activity_update(
+                    f"NetworkAdded · subnet {progress.get('netuid')} · "
+                    f"block {progress.get('block')}",
+                    False,
+                )
 
         async def _execute(client):
             use_shield = shield
             if use_shield and await client.read("mev_shield_next_key") is None:
                 # The MevShield pallet isn't active here (e.g. localnet). A
-                # forced shield must fail loudly; the built-in default degrades
-                # visibly so the command still works.
-                if shield_forced:
+                # forced / required shield must fail loudly; the built-in
+                # default degrades visibly so the command still works.
+                if shield_forced or intent.mev_shield_required:
                     raise BittensorError(
                         "MEV shield is not active on this network "
-                        "(MevShield.NextKey is unset); pass --no-mev-shield "
-                        "to submit unshielded"
+                        "(MevShield.NextKey is unset); "
+                        + (
+                            f"{intent.op} cannot submit unshielded"
+                            if intent.mev_shield_required
+                            else "pass --no-mev-shield to submit unshielded"
+                        )
                     )
                 self.output.message(
                     "[dim]MEV shield is not active on this network — submitting unshielded[/dim]"
                 )
                 use_shield = False
-            signer = await self.resolve_signing_wallet(intent.signer)
+            signer = local_signer or await self.resolve_signing_wallet(intent.signer)
+            if use_shield and self.uses_vault_signer():
+                # Shielded signing runs against an 8-block (~96 s) era, and
+                # a shielded submission means two QR scans (the shielded
+                # transaction, then its encrypted carrier). Warm the page and
+                # the user up first so the countdown starts when they're
+                # ready, not while they're finding their phone.
+                signer.two_stage = True
+                self.output.message(
+                    "MEV-shielded vault signing: two scans, ~90 seconds total — "
+                    "have the phone unlocked with Vault's scanner open"
+                )
+                await signer.warm_up()
             result = None
             try:
                 if use_shield:
+                    shield_options = {"wait_for_finalization": False}
+                    if intent.op == "register_subnet":
+                        shield_options["on_progress"] = _registration_progress
                     result = await client.submit_shielded(
                         intent,
                         signer,
-                        wait_for_finalization=False,
+                        **shield_options,
                     )
                 else:
+                    execute_options = {
+                        "wait_for_finalization": False,
+                        **options,
+                    }
+                    if intent.op == "register_subnet":
+                        execute_options["on_progress"] = _registration_progress
                     result = await client.execute(
                         intent,
                         signer,
-                        wait_for_finalization=False,
-                        **options,
+                        **execute_options,
                     )
                     await self._attach_multisig_followup(client, intent, result)
                 return result
             finally:
-                if self.uses_extension_signer() and hasattr(signer, "report_transaction_result"):
+                if hasattr(signer, "report_transaction_result"):
                     with contextlib.suppress(Exception):
                         await signer.report_transaction_result(
                             bool(result is not None and result.success)
@@ -493,8 +713,30 @@ class AppContext:
                 if hasattr(signer, "close"):
                     await signer.close()
 
-        result = self.run(_execute)
-        if not self.output.result(result, summary):
+        if intent.op == "register_subnet":
+            with self.output.activity("submitting subnet registration") as update:
+                activity_update = update
+                result = self.run(_execute)
+            if (
+                result.success
+                and registration_quote is not None
+                and "registration_price_rao" not in result.data
+            ):
+                result = replace(
+                    result,
+                    data={
+                        **result.data,
+                        "registration_price_rao": registration_quote.rao,
+                    },
+                )
+        else:
+            result = self.run(_execute)
+        rendered = (
+            self.output.registration_result(result)
+            if intent.op == "register_subnet"
+            else self.output.result(result, summary)
+        )
+        if not rendered:
             if shield and result.data.get("shielded") is not True:
                 # The failure happened at (or before) the encrypted pool
                 # submission, so the shield itself may be the blocker.
@@ -574,7 +816,23 @@ class AppContext:
         try:
             return asyncio.run(_main())
         except (BittensorError, ValueError) as error:
-            self.output.error(str(error))
+            # A raised ChainError carries the same diagnostics a failed
+            # ExtrinsicResult would (remediation, docs page with source links)
+            # — print them instead of the bare message.
+            if isinstance(error, ChainError):
+                self.output.error(
+                    str(error),
+                    note=f"the chain rejected the call with `{error.name}`" if error.name else None,
+                    help=error.remediation,
+                    see=error.docs_url,
+                )
+            elif isinstance(error, PolicyError):
+                self.output.error(
+                    str(error),
+                    see=error_docs_url(ErrorCode.POLICY_VIOLATION.value),
+                )
+            else:
+                self.output.error(str(error))
             raise typer.Exit(1)
         except BridgeError as error:
             self.output.error(str(error))

@@ -44,6 +44,7 @@ from ctypes import (
     c_void_p,
     cast,
 )
+from typing import Any, Callable, Optional
 
 # Pure-Python type/constant declarations live at module top so importers
 # on non-Darwin platforms (Linux/Windows) can `import vt_jpeg` without
@@ -270,7 +271,7 @@ class HEVCDecoder:
         if st != 0:
             raise RuntimeError(f"CMVideoFormatDescriptionCreateFromHEVCParameterSets: OSStatus={st}")
 
-        self._outputs: queue.Queue = queue.Queue()
+        self._outputs: queue.Queue[tuple[int, Any]] = queue.Queue()
         self._cb = VTDecompressionOutputCallback(self._on_output)
         cb_rec = _VTDecompressionOutputCallbackRecord(self._cb, None)
         self._session = c_void_p(0)
@@ -285,7 +286,9 @@ class HEVCDecoder:
         self.width = int(dims.width)
         self.height = int(dims.height)
 
-    def _on_output(self, refcon, src_ref, status, info_flags, image_buf, pts, dur):
+    def _on_output(
+        self, refcon: Any, src_ref: Any, status: int, info_flags: int, image_buf: Any, pts: Any, dur: Any
+    ) -> None:
         # kVTDecodeInfo_FrameDropped is set when VT concealed a frame --
         # the status may be 0 (no API-level error) yet output is corrupt.
         # Treat as an error so callers can drive a sticky keyframe-required
@@ -366,8 +369,8 @@ class HevcToBgraTranscoder:
         sps: bytes,
         pps: bytes,
         *,
-        on_frame,
-        on_decode_error=None,
+        on_frame: Callable[[bytes], None],
+        on_decode_error: Optional[Callable[[], None]] = None,
     ) -> None:
         self._dec = HEVCDecoder(vps, sps, pps, bgra_output=True)
         self._on_frame = on_frame
@@ -377,7 +380,7 @@ class HevcToBgraTranscoder:
         self._on_decode_error = on_decode_error
         self.width = self._dec.width
         self.height = self._dec.height
-        self._inq: queue.Queue = queue.Queue()
+        self._inq: queue.Queue[Optional[bytes]] = queue.Queue()
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="vt-hevc-bgra", daemon=True)
         self._thread.start()

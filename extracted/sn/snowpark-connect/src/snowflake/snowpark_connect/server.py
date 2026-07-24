@@ -25,6 +25,7 @@
 import inspect
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -1128,6 +1129,10 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
     #     return super().FetchErrorDetails(request, context)
 
 
+_DEFAULT_THREAD_STACK_SIZE = 0  # sentinel: let the platform choose
+_MIN_THREAD_STACK_SIZE = 16 * 1024 * 1024  # 16 MiB
+
+
 def _serve(
     stop_event: Optional[threading.Event] = None,
     session: Optional[snowpark.Session] = None,
@@ -1182,6 +1187,16 @@ def _serve(
         server_running.set()
         logger.info("Snowpark Connect server started!")
         telemetry.send_server_started_telemetry()
+
+        current_stack_size = threading.stack_size()
+        if _DEFAULT_THREAD_STACK_SIZE < current_stack_size < _MIN_THREAD_STACK_SIZE:
+            telemetry.send_warning_msg(
+                f"threading.stack_size() is {current_stack_size} bytes "
+                f"({current_stack_size // (1024 * 1024)} MiB), below the recommended "
+                f"minimum of {_MIN_THREAD_STACK_SIZE // (1024 * 1024)} MiB. "
+                "Complex DataFrame operations with deeply nested plans may cause "
+                "worker-thread stack overflows."
+            )
 
         if stop_event is not None:
             # start a background thread to listen for stop event and terminate the server
@@ -1529,6 +1544,53 @@ _SCALA_213_INCLUDES_JARS = [
     "scala-reflect-2.13.16.jar",
 ]
 
+# JDK 21-compatible replacement for Arrow's shaded
+# ``org.sparkproject.org.apache.arrow.memory.util.MemoryUtil``. The Arrow bundled
+# in spark-connect-client-jvm 3.5.x looks up ``java.nio.DirectByteBuffer(long,
+# int)``, removed in JDK 21, and throws ``UnsupportedOperationException`` on the
+# Arrow IPC read path (any collect()/count() from the JVM client). The shim
+# resolves the JDK 21 ``(long, long)`` constructor instead and must precede
+# spark-connect-client-jvm on the classpath to win class resolution. Pure Java,
+# so one jar serves both Scala 2.12 and 2.13. Built by
+# ``jvm_shims/arrow_memoryutil_jdk21/build.sh``.
+_ARROW_MEMORYUTIL_SHIM_JAR = "arrow-memoryutil-jdk21-shim.jar"
+
+
+def _detect_jdk_major_version() -> int | None:
+    """Best-effort JDK major version of the JVM jpype is about to start.
+
+    Determined *before* ``jpype.startJVM`` (so we cannot ask the JVM itself) by
+    reading the ``release`` file every JDK ships at ``$JAVA_HOME/release`` (e.g.
+    ``JAVA_VERSION="21.0.8"``). Reads a file rather than spawning ``java
+    -version`` so it is safe inside the restricted stored-procedure sandbox.
+    ``JAVA_HOME`` is set by ``_setup_spark_environment`` before ``start_jvm``;
+    falls back to jdk4py's bundled runtime. Returns e.g. ``17``/``21``, or
+    ``None`` if it cannot be determined.
+    """
+    java_home = os.environ.get("JAVA_HOME")
+    if not java_home:
+        try:
+            from jdk4py import JAVA_HOME as _JDK4PY_HOME
+
+            java_home = str(_JDK4PY_HOME)
+        except Exception:
+            return None
+
+    try:
+        release_text = (Path(java_home) / "release").read_text()
+    except OSError:
+        return None
+
+    match = re.search(r'JAVA_VERSION="?(\d+(?:\.\d+)*)', release_text)
+    if not match:
+        return None
+    parts = match.group(1).split(".")
+    major = int(parts[0])
+    # Legacy "1.8.0" scheme -> major version is the second component.
+    if major == 1 and len(parts) > 1:
+        major = int(parts[1])
+    return major
+
 
 def start_jvm(scala_version: str | None = None):
     # The JVM is used to run the Spark parser and JDBC drivers,
@@ -1609,6 +1671,32 @@ def start_jvm(scala_version: str | None = None):
         # ordering is unchanged.
         kept_jars = order_connect_client_first(kept_jars)
 
+        # Prepend the JDK 21 Arrow MemoryUtil shim so it shadows the broken
+        # shaded MemoryUtil in spark-connect-client-jvm. Must come before that
+        # jar on the classpath to win class resolution. Only needed on JDK > 17,
+        # where java.nio.DirectByteBuffer(long, int) was removed; on JDK <= 17
+        # the stock shaded MemoryUtil works, so we leave the classpath untouched.
+        # When the version can't be determined we prepend it anyway -- the shim
+        # is safe on older JDKs (it falls back to the legacy (long, int) ctor).
+        jdk_major = _detect_jdk_major_version()
+        if jdk_major is not None and jdk_major <= 17:
+            logger.debug(
+                f"JDK {jdk_major} <= 17; not prepending Arrow MemoryUtil shim "
+                "(stock shaded MemoryUtil works)."
+            )
+        else:
+            shim_jar = (
+                Path(__file__).parent / "includes" / "jars" / _ARROW_MEMORYUTIL_SHIM_JAR
+            )
+            if shim_jar.exists():
+                kept_jars = [shim_jar, *kept_jars]
+                logger.debug(
+                    f"JDK {jdk_major}; prepended Arrow MemoryUtil shim: "
+                    f"{shim_jar.name}"
+                )
+            else:
+                logger.warning(f"Arrow MemoryUtil JDK21 shim not found: {shim_jar}")
+
     for jar_path in kept_jars:
         jpype.addClassPath(jar_path)
 
@@ -1672,9 +1760,19 @@ def start_session(
                        explicit ``"2.12"`` / ``"2.13"`` opts into Scala-version
                        filtering. Used by ``execute_jar``.
     """
-    # Increase recursion limit to 1100 (1000 by default)
-    # introduced due to Scala OSS Test: org.apache.spark.sql.ClientE2ETestSuite.spark deep recursion
-    sys.setrecursionlimit(1100)
+    sys.setrecursionlimit(3000)
+    _current_stack_size = threading.stack_size()
+    if _current_stack_size == _DEFAULT_THREAD_STACK_SIZE:
+        threading.stack_size(_MIN_THREAD_STACK_SIZE)
+    elif _current_stack_size < _MIN_THREAD_STACK_SIZE:
+        logger.warning(
+            "threading.stack_size() is %d bytes (%d MiB), below the recommended "
+            "minimum of %d MiB. Complex DataFrame operations with deeply nested "
+            "plans may cause worker-thread stack overflows.",
+            _current_stack_size,
+            _current_stack_size // (1024 * 1024),
+            _MIN_THREAD_STACK_SIZE // (1024 * 1024),
+        )
 
     # Apply PySpark Connect client monkeypatches
     from snowflake.snowpark_connect.utils.patch_spark_line_number import (

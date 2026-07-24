@@ -24,6 +24,7 @@ Environment variables:
 """
 
 import os
+import json
 import sys
 from pathlib import Path
 
@@ -39,6 +40,13 @@ from abx_plugins.plugins.claudecode.claudecode_utils import (
     build_system_prompt,
     run_claude_code,
 )
+from abx_plugins.plugins.claudecodecleanup.cleanup_utils import (
+    apply_cleanup_deletions,
+    build_cleanup_inventory_with_capabilities,
+    ensure_owned_output_dir,
+    validate_snapshot_ledger,
+    write_owned_output_file,
+)
 
 
 # Extractor metadata
@@ -52,24 +60,31 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 # get_snapshot_metadata() doesn't list our own empty dir as an extractor output
 
 DEFAULT_PROMPT = (
-    "Complete one cleanup pass in at most three Bash calls. First, use one Bash call "
-    "to inspect every listed extractor output as a single batch: recursively collect "
-    "each file's path, size, and type; hash same-size duplicate candidates; and collect "
-    "at most 200 bytes per text-like file with at most 64 KiB of inspection output total. "
-    "Do not run a separate command per file. If that batch leaves a "
-    "genuine ambiguity, use at most one additional batched Bash call covering all "
-    "ambiguous files together; otherwise skip it. From that evidence, keep the best "
-    "output in each redundant group and, in one Bash call, delete only clearly inferior "
-    "duplicates, incomplete or failed outputs, and empty directories; when uncertain, "
-    "keep the output. Never delete hashes/ or any JSON metadata. Never read, modify, "
-    "rename, or delete ArchiveBox process-control files ending in .stdout.log, "
-    ".stderr.log, .pid, or .sh; they may belong to processes still running. Never inspect, "
-    "modify, rename, or delete the claudecodecleanup/ output directory. Then stop "
-    "using tools and return a concise final report. Name every extractor directory "
-    "inspected, list every deletion, summarize every retained duplicate group, and keep "
-    "the report under 500 words. Do not re-list, re-read, verify, narrate further, or "
-    "revisit any decision."
+    "Use the deterministic inventory supplied below; do not inventory the "
+    "snapshot again. From that evidence, keep the best output in each redundant group and "
+    "select deletion ids only for clearly inferior duplicates, incomplete or failed outputs, "
+    "and empty directories; when uncertain, keep the output. Never request deletion of "
+    "hashes/, claudecodecleanup/, JSON metadata, or ArchiveBox process-control files. "
+    "Return a concise report naming every extractor directory considered, every requested "
+    "deletion, and every retained duplicate group."
 )
+
+DELETION_PLAN_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "delete_ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Opaque deletion ids present in the supplied inventory.",
+        },
+        "report": {
+            "type": "string",
+            "description": "Concise cleanup decision report under 500 words.",
+        },
+    },
+    "required": ["delete_ids", "report"],
+    "additionalProperties": False,
+}
 
 
 @click.command(
@@ -113,6 +128,12 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("failed", "Claude Code auth not set")
             sys.exit(1)
 
+        _snap_dir, allowed_directories = validate_snapshot_ledger(
+            SNAP_DIR,
+            snapshot_id,
+            url,
+        )
+
         # Get configuration
         user_prompt = str(CONFIG.CLAUDECODECLEANUP_PROMPT or DEFAULT_PROMPT)
         timeout = int(CONFIG.CLAUDECODECLEANUP_TIMEOUT)
@@ -129,61 +150,48 @@ def main(url: str, snapshot_id: str):
                 f"Snapshot directory (your working directory): {SNAP_DIR}\n"
                 f"Your output directory: {OUTPUT_DIR}\n\n"
                 "## Scope & Permissions\n"
-                f"You have FULL permissions (read, write, rename, move, delete) within "
-                f"the snapshot directory: {SNAP_DIR}\n"
-                "You may run any bash commands you need (rm, mv, cp, find, etc.) as long as "
-                "ALL paths are within the snapshot directory above.\n\n"
-                "You may modify or delete redundant extractor outputs inside the snapshot "
-                "directory.\n"
-                "CRITICAL RESTRICTION: You MUST NOT read, write, modify, or delete anything "
-                f"outside of {SNAP_DIR}. Do not use absolute paths to other directories. "
-                "Do not use .. to escape the snapshot directory. Every file operation must "
-                "target a path within the snapshot directory.\n\n"
+                "You have no filesystem or shell tools. Decide only from the supplied "
+                "inventory and return the required structured deletion plan. ArchiveBox "
+                "will validate and apply safe relative paths.\n\n"
                 "## Invariants\n"
-                "- Never delete hashes/ or any .json metadata file.\n"
-                "- Never read, write, modify, rename, or delete ArchiveBox process-control "
-                "files ending in .stdout.log, .stderr.log, .pid, or .sh; they may belong "
-                "to processes that are still running.\n"
-                f"- Never inspect, modify, rename, or delete the hook-owned output directory: {OUTPUT_DIR}\n"
-                "- Inspect a file or directory at most once and do not revisit completed decisions.\n"
-                "- Make one cleanup pass; do not repeatedly inventory or verify the snapshot.\n"
-                "- Finish with a concise, non-empty final response that reports the cleanup, "
-                "even when nothing was removed. The hook will save that response."
+                "- Never request hashes/, claudecodecleanup/, JSON metadata, or process-control files.\n"
+                "- Every delete_ids item must be an opaque id from FILE_METADATA or EMPTY_DIRECTORIES.\n"
+                "- Finish with a concise, non-empty report even when nothing should be removed."
             ),
         )
 
         # Create output dir after system prompt is built (so it's not listed as an extractor)
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        ensure_owned_output_dir(SNAP_DIR, OUTPUT_DIR)
+
+        inventory, capabilities = build_cleanup_inventory_with_capabilities(
+            SNAP_DIR,
+            OUTPUT_DIR,
+            allowed_directories=allowed_directories,
+        )
 
         # Compose the full prompt
         full_prompt = (
             f"URL being archived: {url}\n\n"
             f"Task:\n{user_prompt}\n\n"
-            "Return the cleanup report as your final response and then stop."
+            f"Deterministic snapshot inventory:\n{inventory}\n\n"
+            "Return the structured deletion plan and report."
         )
 
-        # Run Claude Code with full permissions within SNAP_DIR.
-        # Path scoping is enforced via system prompt (Claude Code's --allowedTools
-        # cannot restrict by path, only by command name).
         stdout, stderr, returncode = run_claude_code(
             prompt=full_prompt,
-            work_dir=SNAP_DIR,
+            work_dir=OUTPUT_DIR,
             system_prompt=system_prompt,
             timeout=timeout,
             max_turns=max_turns,
             model=model,
-            allowed_tools=["Bash"],
+            allowed_tools=[],
+            json_schema=DELETION_PLAN_SCHEMA,
+            isolated=True,
             session_log_path=OUTPUT_DIR / "session.json",
         )
 
         if stderr:
             print(stderr, file=sys.stderr)
-
-        # Claude performs inspection and cleanup; the hook persists its final report.
-        if stdout:
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            response_path = OUTPUT_DIR / "response.txt"
-            response_path.write_text(stdout, encoding="utf-8")
 
         if returncode != 0:
             error_detail = (
@@ -192,8 +200,28 @@ def main(url: str, snapshot_id: str):
             emit_archive_result_record("failed", f"Claude Code failed: {error_detail}")
             sys.exit(1)
 
-        if stdout.strip():
-            (OUTPUT_DIR / "cleanup_report.txt").write_text(stdout, encoding="utf-8")
+        plan = json.loads(stdout)
+        requested_ids = plan["delete_ids"]
+        report = str(plan["report"]).strip()
+        if not report:
+            raise ValueError("Claude Code returned an empty cleanup report")
+        deleted_paths = apply_cleanup_deletions(
+            SNAP_DIR,
+            OUTPUT_DIR,
+            snapshot_id,
+            url,
+            capabilities,
+            requested_ids,
+        )
+        applied = "\n".join(f"- {path}" for path in deleted_paths) or "- None"
+        final_report = f"{report}\n\nApplied deletions:\n{applied}\n"
+        write_owned_output_file(SNAP_DIR, OUTPUT_DIR, "response.txt", final_report)
+        write_owned_output_file(
+            SNAP_DIR,
+            OUTPUT_DIR,
+            "cleanup_report.txt",
+            final_report,
+        )
 
         # Check for cleanup report
         report_path = OUTPUT_DIR / "cleanup_report.txt"
